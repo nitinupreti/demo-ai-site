@@ -1,0 +1,218 @@
+/*
+ * Hero component styles
+ * BEM: cmp-hero
+ * Design: mint-green banner, headline + description + pill CTA on the left,
+ *         illustration (from author-selected DAM asset) on the right.
+ * Source of truth: Figma "AdobeCOE" — Home / Hero section (node 1:459).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap');
+
+.cmp-hero {
+    --cmp-hero-bg: #a0f1bd;
+    --cmp-hero-fg: #2e4f21;
+    --cmp-hero-cta-bg: #2e4f21;
+    --cmp-hero-cta-fg: #ffffff;
+
+    background-color: var(--cmp-hero-bg);
+    color: var(--cmp-hero-fg);
+    padding: 6.25rem 2.5rem; /* 100px vertical, 40px horizontal per Figma */
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 0 0 1rem 1rem; /* Rounded bottom corners per Figma */
+    font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cmp-hero__inner {
+    max-width: 1500px; /* Figma content max width */
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); /* Figma text ~691 : image ~429 */
+    gap: 5rem; /* 80px per Figma */
+    align-items: center;
+}
+
+.cmp-hero__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cmp-hero__title {
+    margin: 0;
+    color: var(--cmp-hero-fg);
+    font-family: inherit;
+    font-size: clamp(3rem, 6vw, 5rem); /* Up to 80px on desktop */
+    line-height: 1;
+    letter-spacing: -0.08em;
+    font-weight: 400; /* Work Sans Regular per Figma */
+}
+
+.cmp-hero__description {
+    margin: 1.5rem 0 0 0; /* 24px gap after title per Figma */
+    color: var(--cmp-hero-fg);
+    font-family: inherit;
+    font-size: 1rem; /* 16px per Figma */
+    line-height: 1.1;
+    letter-spacing: -0.045em;
+    font-weight: 400;
+    max-width: 42ch;
+}
+
+.cmp-hero__cta {
+    align-self: flex-start;
+    display: inline-block;
+    margin-top: 3.125rem; /* 50px gap between text stack and CTA per Figma */
+    padding: 0.75rem; /* 12px uniform per Figma */
+    background-color: var(--cmp-hero-cta-bg);
+    color: var(--cmp-hero-cta-fg);
+    text-decoration: none;
+    font-family: inherit;
+    font-weight: 500; /* Work Sans Medium per Figma */
+    font-size: 0.75rem; /* 12px per Figma */
+    line-height: 1.1;
+    letter-spacing: -0.045em;
+    border-radius: 999px; /* Pill */
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.cmp-hero__cta:hover,
+.cmp-hero__cta:focus {
+    background-color: #1c5a1e;
+    transform: translateY(-1px);
+}
+
+.cmp-hero__cta:focus-visible {
+    outline: 2px solid var(--cmp-hero-fg);
+    outline-offset: 3px;
+}
+
+.cmp-hero__media {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+}
+
+.cmp-hero__image {
+    max-width: 100%;
+    height: auto;
+    max-height: 480px;
+    object-fit: contain;
+    display: block;
+}
+
+/* ---------- Background color variants ---------- */
+
+/* Light (default look — mint green from the Figma) */
+.cmp-hero--light {
+    --cmp-hero-bg: #a0f1bd;
+    --cmp-hero-fg: #2e4f21;
+    --cmp-hero-cta-bg: #2e4f21;
+    --cmp-hero-cta-fg: #ffffff;
+}
+
+/* Dark */
+.cmp-hero--dark {
+    --cmp-hero-bg: #2e4f21;
+    --cmp-hero-fg: #ffffff;
+    --cmp-hero-cta-bg: #a0f1bd;
+    --cmp-hero-cta-fg: #2e4f21;
+}
+
+/* Primary (deep blue) */
+.cmp-hero--primary {
+    --cmp-hero-bg: #143f8f;
+    --cmp-hero-fg: #ffffff;
+    --cmp-hero-cta-bg: #ffffff;
+    --cmp-hero-cta-fg: #143f8f;
+}
+
+/* Accent (warm) */
+.cmp-hero--accent {
+    --cmp-hero-bg: #ffe6cf;
+    --cmp-hero-fg: #4a2a10;
+    --cmp-hero-cta-bg: #4a2a10;
+    --cmp-hero-cta-fg: #ffffff;
+}
+
+/* ---------- Empty state (edit mode) ---------- */
+.cmp-hero--empty {
+    min-height: 160px;
+    background: repeating-linear-gradient(
+        45deg,
+        #f2f2f2,
+        #f2f2f2 10px,
+        #e8e8e8 10px,
+        #e8e8e8 20px
+    );
+    color: #6b6b6b;
+    text-align: center;
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- Responsive ---------- */
+
+/* Tablet — Figma tablet frame is 800px wide (still side-by-side) */
+@media (max-width: 1023px) {
+    .cmp-hero {
+        padding: 6.25rem 1.5rem 3rem; /* 100px top, 24px horizontal per Figma */
+    }
+
+    .cmp-hero__inner {
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 2rem;
+    }
+
+    .cmp-hero__title {
+        font-size: clamp(2.5rem, 7vw, 3.625rem); /* ~58px cap on tablet */
+    }
+
+    .cmp-hero__description {
+        margin-top: 0.5rem; /* ~8px on tablet per Figma text-140 vs 176 = 36 gap-ish, but close */
+    }
+
+    .cmp-hero__cta {
+        margin-top: 3.125rem; /* 50px preserved */
+    }
+
+    .cmp-hero__image {
+        max-height: 320px;
+    }
+}
+
+/* Mobile — Figma mobile frame is 375px wide (stacked: text → image) */
+@media (max-width: 640px) {
+    .cmp-hero {
+        padding: 2.5rem 1rem; /* 40px top, 16px horizontal per Figma */
+        border-radius: 0; /* Full-bleed on mobile */
+    }
+
+    .cmp-hero__inner {
+        grid-template-columns: 1fr;
+        gap: 2.5rem; /* ~40px between text block and image per Figma (block 209 → image 329, gap 40) */
+    }
+
+    .cmp-hero__text {
+        order: 1;
+    }
+
+    .cmp-hero__title {
+        font-size: clamp(2rem, 10vw, 2.5rem); /* ~40px on mobile per Figma title height 80 for 2 lines */
+    }
+
+    .cmp-hero__cta {
+        margin-top: 2.5rem; /* Slightly tighter on mobile */
+    }
+
+    .cmp-hero__media {
+        order: 2;
+    }
+
+    .cmp-hero__image {
+        max-height: 329px; /* Match Figma mobile image height */
+    }
+}

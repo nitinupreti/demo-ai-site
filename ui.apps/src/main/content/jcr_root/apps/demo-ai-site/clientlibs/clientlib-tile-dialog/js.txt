@@ -1,0 +1,2 @@
+#base=js
+tile-dialog.js

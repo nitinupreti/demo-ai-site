@@ -1,0 +1,164 @@
+/*
+ * Tile component styles.
+ * Design reference: Figma node 1:475 (AdobeCOE) — mint-green card, image on the left,
+ * heading + description + pill CTA labels on the right.
+ */
+
+.cmp-tile {
+    display: flex;
+    box-sizing: border-box;
+    padding: 20px 0;
+    width: 100%;
+}
+
+.cmp-tile--margin-right {
+    justify-content: flex-start;
+    padding-right: 20px;
+}
+
+.cmp-tile--margin-left {
+    justify-content: flex-end;
+    padding-left: 20px;
+}
+
+.cmp-tile__card {
+    display: flex;
+    align-items: center;
+    gap: 70px;
+    padding: 80px 100px 80px 80px;
+    border-radius: 20px;
+    max-width: 1036px;
+    width: 100%;
+    background-color: #d2f8dc; /* fallback for mint-green */
+    color: #2e4f21;
+    box-sizing: border-box;
+}
+
+/* ---- background color modifiers ---- */
+.cmp-tile--bg-mint-green .cmp-tile__card { background-color: #d2f8dc; color: #2e4f21; }
+.cmp-tile--bg-light-blue .cmp-tile__card { background-color: #d6e6ff; color: #1c3d6b; }
+.cmp-tile--bg-light-yellow .cmp-tile__card { background-color: #fff4d6; color: #6b5300; }
+.cmp-tile--bg-light-pink .cmp-tile__card { background-color: #ffd6e5; color: #6b1c3d; }
+.cmp-tile--bg-white .cmp-tile__card { background-color: #ffffff; color: #222222; border: 1px solid #eaeaea; }
+.cmp-tile--bg-light-gray .cmp-tile__card { background-color: #f2f2f2; color: #222222; }
+
+/* When "Other" is selected the background-color is applied via inline style on .cmp-tile */
+.cmp-tile--bg-other .cmp-tile__card { background-color: inherit; }
+
+/* ---- media ---- */
+.cmp-tile__media {
+    flex: 1 0 0;
+    min-width: 0;
+    aspect-ratio: 460 / 334;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.cmp-tile__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ---- content ---- */
+.cmp-tile__content {
+    display: flex;
+    flex: 1 0 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 70px;
+    min-width: 0;
+}
+
+.cmp-tile__text {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    width: 100%;
+    font-family: "Work Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    word-break: break-word;
+}
+
+.cmp-tile__title {
+    margin: 0;
+    font-size: 40px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -1.8px;
+}
+
+.cmp-tile__description {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.72px;
+}
+
+/* ---- CTA buttons (pill style, matches Figma labels) ---- */
+.cmp-tile__ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    width: 100%;
+}
+
+.cmp-tile__cta-item {
+    display: inline-flex;
+}
+
+.cmp-tile__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #506349;
+    font-family: "Work Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.54px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cmp-tile__cta:hover,
+.cmp-tile__cta:focus {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+/* ---- placeholder ---- */
+.cmp-tile--empty {
+    padding: 40px;
+    border: 1px dashed #b8b8b8;
+    border-radius: 8px;
+    color: #6b6b6b;
+    text-align: center;
+}
+
+/* ---- responsive ---- */
+@media (max-width: 900px) {
+    .cmp-tile__card {
+        flex-direction: column;
+        gap: 40px;
+        padding: 40px;
+    }
+
+    .cmp-tile__content {
+        gap: 40px;
+    }
+
+    .cmp-tile__title {
+        font-size: 28px;
+        letter-spacing: -1px;
+    }
+}

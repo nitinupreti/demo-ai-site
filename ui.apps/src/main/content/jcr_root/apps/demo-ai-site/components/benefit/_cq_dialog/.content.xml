@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    xmlns:granite="http://www.adobe.com/jcr/granite/1.0"
+    xmlns:cq="http://www.day.com/jcr/cq/1.0"
+    xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Benefit"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+        <items jcr:primaryType="nt:unstructured">
+            <column
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="Title"
+                        fieldDescription="Section heading, e.g. Smart Finance for everyone"
+                        emptyText="Enter title"
+                        name="./title"
+                        required="{Boolean}true"/>
+                    <description
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="Description"
+                        fieldDescription="Short paragraph shown next to the title"
+                        emptyText="Enter description"
+                        name="./description"
+                        required="{Boolean}true"/>
+                    <benefitContent
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                        composite="{Boolean}true"
+                        fieldLabel="Benefit Content"
+                        fieldDescription="Add one or more benefit call-outs"
+                        required="{Boolean}true">
+                        <field
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="granite/ui/components/coral/foundation/container"
+                            name="./benefitContent">
+                            <items jcr:primaryType="nt:unstructured">
+                                <icon
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="Icon"
+                                    fieldDescription="Icon asset selected from the DAM"
+                                    name="./icon"
+                                    rootPath="/content/dam"
+                                    required="{Boolean}true"/>
+                                <title
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Title"
+                                    fieldDescription="Benefit heading, e.g. For Freelancers"
+                                    emptyText="Enter title"
+                                    name="./title"
+                                    required="{Boolean}true"/>
+                                <description
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="cq/gui/components/authoring/dialog/richtext"
+                                    fieldLabel="Description"
+                                    fieldDescription="Rich-text description of the benefit"
+                                    name="./description"
+                                    useFixedInlineToolbar="{Boolean}true"
+                                    required="{Boolean}true">
+                                    <rtePlugins jcr:primaryType="nt:unstructured">
+                                        <format
+                                            jcr:primaryType="nt:unstructured"
+                                            features="bold,italic,underline"/>
+                                        <justify
+                                            jcr:primaryType="nt:unstructured"
+                                            features="-"/>
+                                        <links
+                                            jcr:primaryType="nt:unstructured"
+                                            features="modifylink,unlink"/>
+                                        <lists
+                                            jcr:primaryType="nt:unstructured"
+                                            features="*"/>
+                                        <paraformat
+                                            jcr:primaryType="nt:unstructured"
+                                            features="*"/>
+                                    </rtePlugins>
+                                    <uiSettings jcr:primaryType="nt:unstructured">
+                                        <cui jcr:primaryType="nt:unstructured">
+                                            <inline
+                                                jcr:primaryType="nt:unstructured"
+                                                toolbar="[format#bold,format#italic,format#underline,#lists,links#modifylink,links#unlink]">
+                                                <popovers jcr:primaryType="nt:unstructured">
+                                                    <lists
+                                                        jcr:primaryType="nt:unstructured"
+                                                        items="[lists#unordered,lists#ordered]"
+                                                        ref="lists"/>
+                                                </popovers>
+                                            </inline>
+                                        </cui>
+                                    </uiSettings>
+                                </description>
+                            </items>
+                        </field>
+                    </benefitContent>
+                </items>
+            </column>
+        </items>
+    </content>
+</jcr:root>

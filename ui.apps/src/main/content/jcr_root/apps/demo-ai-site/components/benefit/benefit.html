@@ -1,0 +1,40 @@
+<!--/*
+    Benefit component. Renders a section header (title + description) and a list of benefit
+    call-outs. Each call-out is authored via a multifield and includes an icon (DAM asset),
+    a title and a rich-text description.
+    Design reference: Figma node 1:511 (AdobeCOE).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.BenefitModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"
+     data-sly-use.templates="core/wcm/components/commons/v1/templates.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.benefit'}"/>
+
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-benefit" data-cmp-is="benefit">
+        <div class="cmp-benefit__header">
+            <h2 class="cmp-benefit__title">${model.title}</h2>
+            <p class="cmp-benefit__description">${model.description}</p>
+        </div>
+        <ul class="cmp-benefit__list" data-sly-list.item="${model.benefits}">
+            <li class="cmp-benefit__item">
+                <div class="cmp-benefit__icon">
+                    <img class="cmp-benefit__icon-image"
+                         src="${item.icon @ context='uri'}"
+                         alt="${item.title @ context='attribute'}"
+                         loading="lazy"/>
+                </div>
+                <h3 class="cmp-benefit__item-title">${item.title}</h3>
+                <div class="cmp-benefit__item-description">${item.description @ context='html'}</div>
+            </li>
+        </ul>
+    </section>
+</sly>
+
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-benefit cmp-benefit--empty">
+        <sly data-sly-call="${templates.placeholder @ isEmpty=true,
+                                                     classAppend='cq-placeholder',
+                                                     emptyTextAppend='Benefit: please configure'}"/>
+    </div>
+</sly>

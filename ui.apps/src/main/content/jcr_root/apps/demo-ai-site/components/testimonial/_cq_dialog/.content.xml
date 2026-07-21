@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    xmlns:granite="http://www.adobe.com/jcr/granite/1.0"
+    xmlns:cq="http://www.day.com/jcr/cq/1.0"
+    xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Testimonial"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+        <items jcr:primaryType="nt:unstructured">
+            <column
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="Title"
+                        fieldDescription="Section heading, e.g. Hear From Our Happy Clients"
+                        emptyText="Enter title"
+                        name="./title"
+                        required="{Boolean}true"/>
+                    <testimonials
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                        composite="{Boolean}true"
+                        fieldLabel="Testimonials"
+                        fieldDescription="Add one or more client testimonials"
+                        required="{Boolean}true">
+                        <field
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="granite/ui/components/coral/foundation/container"
+                            name="./testimonials">
+                            <items jcr:primaryType="nt:unstructured">
+                                <jobRole
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Job / Role"
+                                    emptyText="e.g. Graphic Designer"
+                                    name="./jobRole"
+                                    required="{Boolean}true"/>
+                                <location
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Location"
+                                    emptyText="e.g. Ontario, Canada"
+                                    name="./location"
+                                    required="{Boolean}true"/>
+                                <citation
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Citation Text"
+                                    fieldDescription="The testimonial quote"
+                                    emptyText="Enter citation"
+                                    name="./citation"
+                                    required="{Boolean}true"/>
+                                <image
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="Image"
+                                    fieldDescription="Portrait of the person, selected from the DAM"
+                                    name="./image"
+                                    rootPath="/content/dam"
+                                    required="{Boolean}true"/>
+                                <name
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Name"
+                                    emptyText="e.g. Taylor M."
+                                    name="./name"
+                                    required="{Boolean}true"/>
+                                <age
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/numberfield"
+                                    fieldLabel="Age"
+                                    fieldDescription="Age in years (between 10 and 100)"
+                                    name="./age"
+                                    min="{Long}10"
+                                    max="{Long}100"
+                                    step="{Long}1"/>
+                            </items>
+                        </field>
+                    </testimonials>
+                </items>
+            </column>
+        </items>
+    </content>
+</jcr:root>

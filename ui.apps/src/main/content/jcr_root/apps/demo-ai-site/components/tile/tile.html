@@ -1,0 +1,48 @@
+<!--/*
+    Tile component. Renders a card with an image, title, description and one or more CTA buttons.
+    Background color and margin side are configurable via the dialog.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.TileModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"
+     data-sly-use.templates="core/wcm/components/commons/v1/templates.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.tile'}"/>
+
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-tile cmp-tile--bg-${model.backgroundColor} cmp-tile--margin-${model.margin}"
+             style="${model.inlineStyle @ context='styleString'}"
+             data-cmp-is="tile">
+        <div class="cmp-tile__card">
+            <div class="cmp-tile__media" data-sly-test="${model.image}">
+                <img class="cmp-tile__image"
+                     src="${model.image @ context='uri'}"
+                     alt="${model.title @ context='attribute'}"
+                     loading="lazy"/>
+            </div>
+            <div class="cmp-tile__content">
+                <div class="cmp-tile__text">
+                    <h3 class="cmp-tile__title">${model.title}</h3>
+                    <p class="cmp-tile__description" data-sly-test="${model.description}">
+                        ${model.description}
+                    </p>
+                </div>
+                <ul class="cmp-tile__ctas" data-sly-list.cta="${model.ctaButtons}" data-sly-test="${model.ctaButtons}">
+                    <li class="cmp-tile__cta-item">
+                        <a class="cmp-tile__cta"
+                           href="${cta.ctaLink @ extension='html'}">
+                            ${cta.ctaTitle}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-tile cmp-tile--empty">
+        <sly data-sly-call="${templates.placeholder @ isEmpty=true,
+                                                     classAppend='cq-placeholder',
+                                                     emptyTextAppend='Tile: please configure'}"/>
+    </div>
+</sly>

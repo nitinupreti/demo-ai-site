@@ -1,0 +1,67 @@
+<!--/*
+    Testimonial component. Renders a section title and a switchable list of client testimonials.
+    Each testimonial is authored via a multifield and includes a job/role, location, citation,
+    portrait image, name and (optional) age.
+    Design reference: Figma node 1:509 (AdobeCOE).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.TestimonialModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"
+     data-sly-use.templates="core/wcm/components/commons/v1/templates.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.testimonial'}"/>
+<sly data-sly-call="${clientlib.js @ categories='demo-ai-site.components.testimonial'}"/>
+
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-testimonial" data-cmp-is="testimonial">
+        <h2 class="cmp-testimonial__title">${model.title}</h2>
+        <div class="cmp-testimonial__quotes">
+            <ul class="cmp-testimonial__titles"
+                role="tablist"
+                data-sly-list.item="${model.testimonials}">
+                <li class="cmp-testimonial__title-item">
+                    <button type="button"
+                            class="cmp-testimonial__tab ${itemList.first ? 'cmp-testimonial__tab--active' : ''}"
+                            role="tab"
+                            aria-selected="${itemList.first ? 'true' : 'false'}"
+                            aria-controls="cmp-testimonial-panel-${itemList.index}"
+                            id="cmp-testimonial-tab-${itemList.index}"
+                            data-cmp-testimonial-index="${itemList.index}">
+                        <span class="cmp-testimonial__tab-inner">
+                            <span class="cmp-testimonial__tab-role">${item.jobRole}</span>
+                            <span class="cmp-testimonial__tab-location">${item.location}</span>
+                        </span>
+                    </button>
+                </li>
+            </ul>
+            <div class="cmp-testimonial__panels" data-sly-list.item="${model.testimonials}">
+                <div class="cmp-testimonial__panel ${itemList.first ? 'cmp-testimonial__panel--active' : ''}"
+                     role="tabpanel"
+                     id="cmp-testimonial-panel-${itemList.index}"
+                     aria-labelledby="cmp-testimonial-tab-${itemList.index}"
+                     data-cmp-testimonial-index="${itemList.index}"
+                     hidden="${!itemList.first}">
+                    <p class="cmp-testimonial__citation">${item.citation}</p>
+                    <div class="cmp-testimonial__byline">
+                        <div class="cmp-testimonial__portrait">
+                            <img class="cmp-testimonial__portrait-image"
+                                 src="${item.image @ context='uri'}"
+                                 alt="${item.name @ context='attribute'}"
+                                 loading="lazy"/>
+                        </div>
+                        <p class="cmp-testimonial__name">
+                            ${item.name}<sly data-sly-test="${item.age}">, ${item.age} years old</sly>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-testimonial cmp-testimonial--empty">
+        <sly data-sly-call="${templates.placeholder @ isEmpty=true,
+                                                     classAppend='cq-placeholder',
+                                                     emptyTextAppend='Testimonial: please configure'}"/>
+    </div>
+</sly>

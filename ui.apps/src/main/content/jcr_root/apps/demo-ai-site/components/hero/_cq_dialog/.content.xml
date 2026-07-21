@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
+    xmlns:granite="http://www.adobe.com/jcr/granite/1.0"
+    xmlns:cq="http://www.day.com/jcr/cq/1.0"
+    xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Hero"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+        <items jcr:primaryType="nt:unstructured">
+            <column
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <asset
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                        fieldLabel="Asset"
+                        fieldDescription="Select the hero background image from the DAM"
+                        name="./asset"
+                        rootPath="/content/dam"
+                        required="{Boolean}true"/>
+                    <backgroundColor
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                        fieldLabel="Background Color"
+                        fieldDescription="Choose the hero background color theme"
+                        name="./backgroundColor"
+                        required="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <light
+                                jcr:primaryType="nt:unstructured"
+                                text="Light"
+                                value="light"/>
+                            <dark
+                                jcr:primaryType="nt:unstructured"
+                                text="Dark"
+                                value="dark"/>
+                            <primary
+                                jcr:primaryType="nt:unstructured"
+                                text="Primary"
+                                value="primary"/>
+                            <accent
+                                jcr:primaryType="nt:unstructured"
+                                text="Accent"
+                                value="accent"/>
+                        </items>
+                    </backgroundColor>
+                    <title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="Title"
+                        fieldDescription="Hero headline"
+                        emptyText="Enter title"
+                        name="./title"
+                        required="{Boolean}true"/>
+                    <description
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="Description"
+                        fieldDescription="Optional supporting text shown below the title"
+                        emptyText="Enter description"
+                        name="./description"/>
+                    <ctaText
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                        fieldLabel="CTA Text"
+                        fieldDescription="Label for the call-to-action button"
+                        emptyText="Learn more"
+                        name="./ctaText"
+                        required="{Boolean}true"/>
+                    <ctaLink
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                        fieldLabel="CTA Link"
+                        fieldDescription="Destination path for the call-to-action button"
+                        name="./ctaLink"
+                        rootPath="/content"
+                        required="{Boolean}true"/>
+                </items>
+            </column>
+        </items>
+    </content>
+</jcr:root>

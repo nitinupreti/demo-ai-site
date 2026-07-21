@@ -1,0 +1,137 @@
+/*
+ * Benefit component styles.
+ * Design reference: Figma node 1:511 (AdobeCOE) — Smart Finance for everyone section.
+ */
+
+.cmp-benefit {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 160px;
+    width: 100%;
+    padding: 80px 40px 120px;
+    box-sizing: border-box;
+    background: #ffffff;
+    font-family: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #2e4f21;
+}
+
+.cmp-benefit__header {
+    display: flex;
+    flex-direction: row;
+    gap: 50px;
+    width: 100%;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.cmp-benefit__title {
+    flex: 1 0 0;
+    margin: 0;
+    font-size: 60px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -4.2px;
+    color: #2e4f21;
+}
+
+.cmp-benefit__description {
+    flex: 1 0 0;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.72px;
+    color: #2e4f21;
+}
+
+.cmp-benefit__list {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    align-items: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cmp-benefit__item {
+    flex: 1 0 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    align-items: flex-start;
+    padding: 20px 50px;
+    border-left: 1px solid #2e4f21;
+    box-sizing: border-box;
+}
+
+.cmp-benefit__icon {
+    width: 30px;
+    height: 30px;
+    display: block;
+}
+
+.cmp-benefit__icon-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.cmp-benefit__item-title {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -1.35px;
+    color: #2e4f21;
+}
+
+.cmp-benefit__item-description {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.72px;
+    color: #2e4f21;
+}
+
+.cmp-benefit__item-description p {
+    margin: 0 0 0.6em;
+}
+
+.cmp-benefit__item-description p:last-child {
+    margin-bottom: 0;
+}
+
+.cmp-benefit--empty {
+    padding: 20px;
+}
+
+@media (max-width: 900px) {
+    .cmp-benefit {
+        gap: 80px;
+        padding: 60px 20px;
+    }
+
+    .cmp-benefit__header {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .cmp-benefit__title {
+        font-size: 42px;
+        letter-spacing: -2.4px;
+    }
+
+    .cmp-benefit__list {
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .cmp-benefit__item {
+        padding: 10px 20px;
+    }
+}
