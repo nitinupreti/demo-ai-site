@@ -1,0 +1,5 @@
+# AEM Skills configuration
+project: demo-ai-site
+package: com.demo.core
+group: Demo AI Site - Content
+configured: true
