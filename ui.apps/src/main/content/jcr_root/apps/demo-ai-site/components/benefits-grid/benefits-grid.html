@@ -1,0 +1,28 @@
+<!--/* Component: benefits-grid */-->
+<sly data-sly-use.model="com.demo.core.models.BenefitsGridModel"/>
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.benefits-grid'}"/>
+</sly>
+<section class="cmp-benefits-grid" data-cmp-is="benefits-grid">
+    <div class="cmp-benefits-grid__container">
+        <header class="cmp-benefits-grid__header">
+            <h2 data-sly-test="${model.title}" class="cmp-benefits-grid__title">${model.title}</h2>
+            <p data-sly-test="${model.intro}" class="cmp-benefits-grid__intro">${model.intro}</p>
+        </header>
+        <ul data-sly-test="${model.hasCallouts}"
+            data-sly-list.callout="${model.callouts}"
+            class="cmp-benefits-grid__list">
+            <li class="cmp-benefits-grid__item">
+                <span data-sly-test="${callout.hasIcon}" class="cmp-benefits-grid__icon">
+                    <img src="${callout.icon @ context='uri'}" alt="${callout.calloutTitle @ context='attribute'}"/>
+                </span>
+                <p data-sly-test="${callout.eyebrow}" class="cmp-benefits-grid__eyebrow">${callout.eyebrow}</p>
+                <h3 data-sly-test="${callout.calloutTitle}" class="cmp-benefits-grid__item-title">${callout.calloutTitle}</h3>
+                <p data-sly-test="${callout.description}" class="cmp-benefits-grid__item-desc">${callout.description}</p>
+            </li>
+        </ul>
+    </div>
+    <div data-sly-test="${!model.hasContent && wcmmode.edit}" class="cmp-empty-state">
+        ${'Configure Benefits Grid…' @ i18n}
+    </div>
+</section>

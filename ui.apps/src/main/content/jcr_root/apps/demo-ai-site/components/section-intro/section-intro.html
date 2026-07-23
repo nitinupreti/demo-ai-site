@@ -1,0 +1,21 @@
+<!--/* Component: section-intro */-->
+<sly data-sly-use.model="com.demo.core.models.SectionIntroModel"/>
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.section-intro'}"/>
+</sly>
+<section class="cmp-section-intro cmp-section-intro--align-${model.align @ context='attribute'} cmp-section-intro--theme-${model.theme @ context='attribute'}"
+         data-cmp-is="section-intro">
+    <div class="cmp-section-intro__container">
+        <sly data-sly-test="${model.hasText}">
+            <p data-sly-test="${model.eyebrow}" class="cmp-section-intro__eyebrow">${model.eyebrow}</p>
+            <h2 data-sly-test="${model.title}" class="cmp-section-intro__title">${model.title}</h2>
+            <p data-sly-test="${model.subtitle}" class="cmp-section-intro__subtitle">${model.subtitle}</p>
+            <a data-sly-test="${model.ctaLabel}"
+               class="cmp-section-intro__cta"
+               href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+        </sly>
+    </div>
+    <div data-sly-test="${!model.hasContent && wcmmode.edit}" class="cmp-empty-state">
+        ${'Configure Section Intro…' @ i18n}
+    </div>
+</section>

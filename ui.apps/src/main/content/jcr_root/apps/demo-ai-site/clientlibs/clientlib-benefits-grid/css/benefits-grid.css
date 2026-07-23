@@ -1,0 +1,144 @@
+/**
+ * Component: benefits-grid
+ */
+
+.cmp-benefits-grid {
+    display: block;
+    padding: var(--das-space-12) var(--das-space-9);
+    background: transparent;
+    color: var(--das-color-primary);
+}
+
+.cmp-benefits-grid__container {
+    max-width: var(--das-container-max);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-14);
+}
+
+.cmp-benefits-grid__header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--das-space-10);
+    align-items: start;
+}
+
+.cmp-benefits-grid__title {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-h2);
+    line-height: var(--das-lh-heading);
+    letter-spacing: -0.07em;
+    color: inherit;
+    word-break: break-word;
+}
+
+.cmp-benefits-grid__intro {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-body);
+    line-height: var(--das-lh-body);
+    color: inherit;
+}
+
+.cmp-benefits-grid__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--das-space-5);
+}
+
+.cmp-benefits-grid__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-4);
+    padding: var(--das-space-5) var(--das-space-10);
+}
+
+.cmp-benefits-grid__icon {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    margin-bottom: var(--das-space-4);
+}
+
+.cmp-benefits-grid__icon img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.cmp-benefits-grid__eyebrow {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: 24px;
+    line-height: var(--das-lh-heading);
+    letter-spacing: -0.03em;
+}
+
+.cmp-benefits-grid__item-title {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-h5);
+    line-height: var(--das-lh-body);
+    color: inherit;
+}
+
+.cmp-benefits-grid__item-desc {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-body);
+    line-height: var(--das-lh-body);
+    color: inherit;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .cmp-benefits-grid {
+        padding: var(--das-space-11) var(--das-space-8);
+    }
+    .cmp-benefits-grid__header {
+        grid-template-columns: 1fr;
+        gap: var(--das-space-5);
+    }
+    .cmp-benefits-grid__list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .cmp-benefits-grid__item {
+        padding: var(--das-space-4) var(--das-space-5);
+    }
+    .cmp-benefits-grid__title {
+        font-size: 44px;
+        letter-spacing: -0.05em;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .cmp-benefits-grid {
+        padding: var(--das-space-10) var(--das-space-6);
+    }
+    .cmp-benefits-grid__container {
+        gap: var(--das-space-11);
+    }
+    .cmp-benefits-grid__list {
+        grid-template-columns: 1fr;
+        gap: var(--das-space-6);
+    }
+    .cmp-benefits-grid__item {
+        padding: var(--das-space-4) 0;
+    }
+    .cmp-benefits-grid__title {
+        font-size: 32px;
+        letter-spacing: -0.03em;
+    }
+}

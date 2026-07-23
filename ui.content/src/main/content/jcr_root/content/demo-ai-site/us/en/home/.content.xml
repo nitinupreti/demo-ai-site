@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Home"
+        pageTitle="Demo AI Site - Home"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <hero
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/hero-teaser"
+                title="Financial Clarity You Can Trust"
+                subtitle="Trusted financial guidance for every stage of life and business since 1987"
+                ctaLabel="Connect with our experts"
+                ctaLink="/content/demo-ai-site/us/en/home"
+                bgStyle="mint">
+                <image
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="core/wcm/components/image/v3/image"
+                    fileReference="/content/dam/demo-ai-site/asset.jpg"
+                    alt="Hero image"/>
+            </hero>
+            <servicesIntro
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/section-intro"
+                eyebrow="Services"
+                title="Let us handle the numbers, so you can handle your success."
+                subtitle="Serving individuals and small businesses since 1987"
+                ctaLabel="Learn more"
+                ctaLink="/content/demo-ai-site/us/en/home"
+                align="center"
+                theme="light"/>
+            <cardTax
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/service-card"
+                title="Tax Preparation &amp; Filing"
+                description="Accurately prepare and file personal and business tax returns to maximize deductions and ensure compliance."
+                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                backgroundColor="mint"
+                margin="right">
+                <ctas jcr:primaryType="nt:unstructured">
+                    <item0 jcr:primaryType="nt:unstructured" ctaTitle="1099 taxes" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item1 jcr:primaryType="nt:unstructured" ctaTitle="Dependents" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item2 jcr:primaryType="nt:unstructured" ctaTitle="Trust Taxes" ctaLink="/content/demo-ai-site/us/en"/>
+                </ctas>
+            </cardTax>
+            <cardAudit
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/service-card"
+                title="IRS Audit Assistance"
+                description="Offer expert guidance and representation to resolve tax audits and disputes with confidence."
+                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                backgroundColor="mint"
+                margin="left">
+                <ctas jcr:primaryType="nt:unstructured">
+                    <item0 jcr:primaryType="nt:unstructured" ctaTitle="1099 taxes" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item1 jcr:primaryType="nt:unstructured" ctaTitle="Dependents" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item2 jcr:primaryType="nt:unstructured" ctaTitle="Trust Taxes" ctaLink="/content/demo-ai-site/us/en"/>
+                </ctas>
+            </cardAudit>
+            <cardBooks
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/service-card"
+                title="Bookkeeping &amp; Accounting"
+                description="Maintain organized financial records and provide clear reports to support business growth and financial health."
+                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                backgroundColor="mint"
+                margin="right">
+                <ctas jcr:primaryType="nt:unstructured">
+                    <item0 jcr:primaryType="nt:unstructured" ctaTitle="Payroll" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item1 jcr:primaryType="nt:unstructured" ctaTitle="Reporting" ctaLink="/content/demo-ai-site/us/en"/>
+                    <item2 jcr:primaryType="nt:unstructured" ctaTitle="Reconciliation" ctaLink="/content/demo-ai-site/us/en"/>
+                </ctas>
+            </cardBooks>
+            <testimonials
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/testimonial-carousel"
+                title="Hear From Our Happy Clients">
+                <items jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        profession="Graphic Designer"
+                        location="Ontario, Canada"
+                        quote="Managing my taxes as a freelancer used to be overwhelming, but Noble Finance made it effortless."
+                        authorName="Taylor M., 28 years old"
+                        authorImage="/content/dam/demo-ai-site/asset.jpg"/>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        profession="Commercial Photographer"
+                        location="Ontario, Canada"
+                        quote="Their team caught deductions I never would have noticed."
+                        authorName="Jane D."
+                        authorImage="/content/dam/demo-ai-site/asset.jpg"/>
+                    <item2
+                        jcr:primaryType="nt:unstructured"
+                        profession="Stylist"
+                        location="Austin, Texas"
+                        quote="Straightforward pricing and quick responses — exactly what I needed."
+                        authorName="Alex R."
+                        authorImage="/content/dam/demo-ai-site/asset.jpg"/>
+                </items>
+            </testimonials>
+            <imageBreak
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/image-break"
+                height="md">
+                <image
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="core/wcm/components/image/v3/image"
+                    fileReference="/content/dam/demo-ai-site/asset.jpg"
+                    alt="Full-width brand image"/>
+            </imageBreak>
+            <benefits
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/benefits-grid"
+                title="Smart Finance for everyone"
+                intro="At Noble Finance, we believe that financial confidence should be accessible to everyone—whether you're a solo entrepreneur, managing a growing family, or running a small business.">
+                <callouts jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        icon="/content/dam/demo-ai-site/asset.jpg"
+                        eyebrow="For Freelancers"
+                        calloutTitle="Simplicity &amp; Control"
+                        description="Stay in charge of your income with seamless expense tracking, automated deductions, and smart tax strategies—so you can focus on doing what you love."/>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        icon="/content/dam/demo-ai-site/asset.jpg"
+                        eyebrow="For Families"
+                        calloutTitle="Stability &amp; Security"
+                        description="From budgeting tools to tax-saving insights, we help you plan for the future, maximize refunds, and keep your household finances running smoothly."/>
+                    <item2
+                        jcr:primaryType="nt:unstructured"
+                        icon="/content/dam/demo-ai-site/asset.jpg"
+                        eyebrow="For Small Businesses"
+                        calloutTitle="Stability &amp; Security"
+                        description="Effortless bookkeeping, payroll solutions, and expert-backed tax support—so you can spend less time on finances and more time scaling your business."/>
+                </callouts>
+            </benefits>
+        </root>
+    </jcr:content>
+</jcr:root>

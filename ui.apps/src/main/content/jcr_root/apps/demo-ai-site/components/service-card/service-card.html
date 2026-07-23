@@ -1,0 +1,35 @@
+<!--/* Component: service-card */-->
+<sly data-sly-use.model="com.demo.core.models.ServiceCardModel"/>
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.service-card'}"/>
+</sly>
+<section class="cmp-service-card cmp-service-card--margin-${model.margin @ context='attribute'} cmp-service-card--bg-${model.backgroundColor @ context='attribute'}"
+         style="${model.backgroundStyle @ context='styleString'}"
+         data-cmp-is="service-card">
+    <article class="cmp-service-card__card">
+        <div data-sly-test="${model.imagePath}" class="cmp-service-card__image">
+            <img src="${model.imagePath @ context='uri'}"
+                 alt="${model.title @ context='attribute'}"
+                 loading="lazy"/>
+        </div>
+        <div class="cmp-service-card__content">
+            <sly data-sly-test="${model.title || model.description}">
+                <div class="cmp-service-card__text">
+                    <h3 data-sly-test="${model.title}" class="cmp-service-card__title">${model.title}</h3>
+                    <p data-sly-test="${model.description}" class="cmp-service-card__description">${model.description}</p>
+                </div>
+            </sly>
+            <ul data-sly-test="${model.hasCtas}"
+                data-sly-list.cta="${model.ctas}"
+                class="cmp-service-card__ctas">
+                <li class="cmp-service-card__cta-item">
+                    <a class="cmp-service-card__cta"
+                       href="${cta.ctaLink @ context='uri'}">${cta.ctaTitle}</a>
+                </li>
+            </ul>
+        </div>
+    </article>
+    <div data-sly-test="${!model.hasContent && wcmmode.edit}" class="cmp-empty-state">
+        ${'Configure Service Card…' @ i18n}
+    </div>
+</section>

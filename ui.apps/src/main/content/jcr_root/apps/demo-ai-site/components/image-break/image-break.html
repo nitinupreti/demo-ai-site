@@ -1,0 +1,13 @@
+<!--/* Component: image-break */-->
+<sly data-sly-use.model="com.demo.core.models.ImageBreakModel"/>
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.image-break'}"/>
+</sly>
+<section class="cmp-image-break cmp-image-break--h-${model.height @ context='attribute'}" data-cmp-is="image-break">
+    <div class="cmp-image-break__image">
+        <div data-sly-resource="${'image' @ resourceType='core/wcm/components/image/v3/image'}"></div>
+    </div>
+    <div data-sly-test="${!model.hasContent && wcmmode.edit}" class="cmp-empty-state">
+        ${'Configure Image Break…' @ i18n}
+    </div>
+</section>

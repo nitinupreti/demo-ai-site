@@ -1,0 +1,90 @@
+/**
+ * Demo AI Site — Shared design tokens
+ * Extracted from Figma file t6NVsQePta5cSdNp2Ud8Lx, node 1:697 ("Main").
+ * These custom properties are referenced by every component clientlib and
+ * MUST be the only place raw color/font/spacing values live.
+ */
+
+:root {
+    /* Color palette */
+    --das-color-primary: #2E4F21;
+    --das-color-on-primary: #FFFFFF;
+    --das-color-on-primary-soft: #D5E4D0;
+    --das-color-bg-hero: #A0F1BD;
+    --das-color-bg-page: #F9F9F9;
+    --das-color-accent: #D2F8DC;
+    --das-color-muted: #506349;
+    --das-color-border-subtle: #7D9276;
+    --das-color-surface: #FFFFFF;
+
+    /* Typography */
+    --das-font-family: "Work Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --das-fw-regular: 400;
+    --das-fw-medium: 500;
+
+    --das-fs-h1: 80px;
+    --das-fs-h2: 60px;
+    --das-fs-h3: 40px;
+    --das-fs-h4: 24px;
+    --das-fs-h5: 18px;
+    --das-fs-quote: 30px;
+    --das-fs-body: 16px;
+    --das-fs-label: 12px;
+
+    --das-lh-tight: 1.0;
+    --das-lh-heading: 1.05;
+    --das-lh-body: 1.1;
+
+    /* Border radius */
+    --das-radius-pill: 52px;
+    --das-radius-card: 20px;
+    --das-radius-hero: 16px;
+    --das-radius-label: 8px;
+    --das-radius-avatar: 16px;
+
+    /* Spacing scale */
+    --das-space-1: 4px;
+    --das-space-2: 8px;
+    --das-space-3: 12px;
+    --das-space-4: 16px;
+    --das-space-5: 20px;
+    --das-space-6: 24px;
+    --das-space-7: 28px;
+    --das-space-8: 30px;
+    --das-space-9: 40px;
+    --das-space-10: 50px;
+    --das-space-11: 70px;
+    --das-space-12: 80px;
+    --das-space-13: 100px;
+    --das-space-14: 120px;
+
+    /* Layout */
+    --das-container-max: 1200px;
+    --das-container-hero-max: 1500px;
+    --das-bp-desktop: 1024px;
+    --das-bp-mobile: 640px;
+
+    /* Editor placeholder */
+    --das-placeholder-border: #b7b7b7;
+    --das-placeholder-bg: #fafafa;
+    --das-placeholder-text: #666;
+}
+
+/* Base page font */
+.demo-ai-site,
+body {
+    font-family: var(--das-font-family);
+    color: var(--das-color-primary);
+}
+
+/* Reusable editor empty-state block (placed inside a component wrapper) */
+.cmp-empty-state {
+    display: block;
+    padding: var(--das-space-6);
+    border: 2px dashed var(--das-placeholder-border);
+    background: var(--das-placeholder-bg);
+    color: var(--das-placeholder-text);
+    font-family: var(--das-font-family);
+    font-size: var(--das-fs-body);
+    text-align: center;
+}

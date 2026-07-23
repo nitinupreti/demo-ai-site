@@ -1,0 +1,180 @@
+/**
+ * Component: service-card
+ *
+ * Single positional field ("Margin") drives the whole zig-zag:
+ *   margin=right → card hugs LEFT edge; empty space on the RIGHT; image on LEFT
+ *   margin=left  → card hugs RIGHT edge; empty space on the LEFT; image on RIGHT
+ *
+ * Background is either a preset (mint | white) or an author-supplied hex
+ * pushed onto the root as an inline style attribute — presets are token-driven,
+ * "other" wins via CSS specificity because inline styles beat class rules.
+ */
+
+/* Outer section: full viewport width, but the .cmp-service-card__card inside
+   is capped and shifted to one side by the margin variant. */
+.cmp-service-card {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--das-space-5) var(--das-space-9);   /* 20px 40px */
+    background: transparent;
+}
+
+/* margin=right → card sits flush LEFT, empty space on the right */
+.cmp-service-card--margin-right {
+    justify-content: flex-start;
+}
+
+/* margin=left → card sits flush RIGHT, empty space on the left */
+.cmp-service-card--margin-left {
+    justify-content: flex-end;
+}
+
+.cmp-service-card__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--das-space-11);                          /* 70px */
+    align-items: center;
+    box-sizing: border-box;
+    /* Card fills 90% of viewport width up to container-max, leaving ~10% on
+       one side per the Figma zig-zag. */
+    width: 90%;
+    max-width: calc(var(--das-container-max) - var(--das-space-14));
+    padding: var(--das-space-12);                      /* 80px */
+    border-radius: var(--das-radius-card);
+    color: var(--das-color-primary);
+}
+
+/* --- Background presets -------------------------------------------------- */
+.cmp-service-card--bg-mint  .cmp-service-card__card { background: var(--das-color-accent); }
+.cmp-service-card--bg-white .cmp-service-card__card { background: var(--das-color-surface); }
+/* bg-other: transparent so the inline style on the root cascades through */
+.cmp-service-card--bg-other .cmp-service-card__card { background: inherit; }
+.cmp-service-card--bg-other { background: transparent; }
+
+/* --- Image + content layout --------------------------------------------- */
+
+/* Default (margin=right → image on LEFT). HTL renders image first, content
+   second, so the grid places them in DOM order — no override needed. */
+
+/* margin=left → swap columns so the image lands on the RIGHT */
+.cmp-service-card--margin-left .cmp-service-card__card {
+    grid-template-areas: "content image";
+}
+.cmp-service-card--margin-left .cmp-service-card__image   { grid-area: image; }
+.cmp-service-card--margin-left .cmp-service-card__content { grid-area: content; }
+
+.cmp-service-card__image {
+    align-self: stretch;
+    min-width: 0;
+}
+.cmp-service-card__image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--das-radius-label);
+}
+
+.cmp-service-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-11);
+    min-width: 0;
+}
+.cmp-service-card__text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-9);
+}
+.cmp-service-card__title {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-h3);
+    line-height: var(--das-lh-heading);
+    letter-spacing: -0.045em;
+    color: inherit;
+}
+.cmp-service-card__description {
+    margin: 0;
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-regular);
+    font-size: var(--das-fs-body);
+    line-height: var(--das-lh-body);
+    color: inherit;
+}
+
+/* --- CTA buttons (pill-style) ------------------------------------------- */
+.cmp-service-card__ctas {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--das-space-3);
+}
+.cmp-service-card__cta {
+    display: inline-block;
+    padding: var(--das-space-3) var(--das-space-4);
+    background: var(--das-color-surface);
+    color: var(--das-color-muted);
+    border-radius: var(--das-radius-label);
+    font-family: var(--das-font-family);
+    font-weight: var(--das-fw-medium);
+    font-size: var(--das-fs-label);
+    line-height: var(--das-lh-body);
+    text-decoration: none;
+}
+.cmp-service-card__cta:hover,
+.cmp-service-card__cta:focus {
+    background: var(--das-color-primary);
+    color: var(--das-color-surface);
+}
+
+/* --- Responsive collapse ------------------------------------------------ */
+
+/* Tablet: stack vertically, centre the card, drop the zig-zag offset. */
+@media (max-width: 1024px) {
+    .cmp-service-card,
+    .cmp-service-card--margin-left,
+    .cmp-service-card--margin-right {
+        justify-content: center;
+    }
+    .cmp-service-card__card {
+        grid-template-columns: 1fr;
+        grid-template-areas: "image" "content";
+        gap: var(--das-space-9);
+        padding: var(--das-space-9);
+        width: 100%;
+        max-width: var(--das-container-max);
+    }
+    .cmp-service-card__image,
+    .cmp-service-card__content {
+        grid-area: auto;
+    }
+    .cmp-service-card--margin-left .cmp-service-card__card {
+        grid-template-areas: "image" "content";
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .cmp-service-card {
+        padding: var(--das-space-4);
+    }
+    .cmp-service-card__card {
+        padding: var(--das-space-6);
+        gap: var(--das-space-6);
+    }
+    .cmp-service-card__title {
+        font-size: 28px;
+        letter-spacing: -0.03em;
+    }
+    .cmp-service-card__text {
+        gap: var(--das-space-4);
+    }
+    .cmp-service-card__ctas {
+        gap: var(--das-space-2);
+    }
+}

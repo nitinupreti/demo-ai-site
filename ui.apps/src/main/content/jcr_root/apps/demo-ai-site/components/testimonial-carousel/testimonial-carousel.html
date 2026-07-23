@@ -1,0 +1,42 @@
+<!--/* Component: testimonial-carousel */-->
+<sly data-sly-use.model="com.demo.core.models.TestimonialCarouselModel"/>
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.testimonial-carousel'}"/>
+</sly>
+<section class="cmp-testimonial-carousel" data-cmp-is="testimonial-carousel">
+    <div class="cmp-testimonial-carousel__container">
+        <h2 data-sly-test="${model.title}" class="cmp-testimonial-carousel__title">${model.title}</h2>
+        <div data-sly-test="${model.hasItems}" class="cmp-testimonial-carousel__body">
+            <ul class="cmp-testimonial-carousel__tabs" role="tablist">
+                <li data-sly-repeat.item="${model.items}"
+                    class="cmp-testimonial-carousel__tab ${itemList.first ? 'cmp-testimonial-carousel__tab--active' : ''}">
+                    <button type="button"
+                            role="tab"
+                            class="cmp-testimonial-carousel__tab-button"
+                            data-index="${itemList.index}"
+                            aria-selected="${itemList.first ? 'true' : 'false'}">
+                        <span class="cmp-testimonial-carousel__tab-profession">${item.profession}</span>
+                        <span class="cmp-testimonial-carousel__tab-location">${item.location}</span>
+                    </button>
+                </li>
+            </ul>
+            <div class="cmp-testimonial-carousel__quotes">
+                <article data-sly-repeat.item="${model.items}"
+                         class="cmp-testimonial-carousel__quote ${itemList.first ? 'cmp-testimonial-carousel__quote--active' : ''}"
+                         data-index="${itemList.index}">
+                    <p class="cmp-testimonial-carousel__quote-text">${item.quote}</p>
+                    <div class="cmp-testimonial-carousel__byline">
+                        <span data-sly-test="${item.hasAuthorImage}" class="cmp-testimonial-carousel__avatar">
+                            <img src="${item.authorImage @ context='uri'}" alt="${item.authorName @ context='attribute'}"/>
+                        </span>
+                        <span class="cmp-testimonial-carousel__byline-name">${item.authorName}</span>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </div>
+    <div data-sly-test="${!model.hasContent && wcmmode.edit}" class="cmp-empty-state">
+        ${'Configure Testimonial Carousel…' @ i18n}
+    </div>
+</section>
+<sly data-sly-call="${clientlib.js @ categories='demo-ai-site.components.testimonial-carousel'}"/>
