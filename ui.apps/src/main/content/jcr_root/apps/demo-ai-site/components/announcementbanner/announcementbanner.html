@@ -1,0 +1,23 @@
+<!--/*
+    Announcement Banner — thin promotional bar with message and optional link.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.AnnouncementBannerModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.announcementbanner'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-announcementbanner cmp-announcementbanner--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-announcementbanner__inner">
+            <p class="cmp-announcementbanner__message">${model.message}</p>
+            <a class="cmp-announcementbanner__link"
+               data-sly-test="${model.linkText && model.linkUrl}"
+               href="${model.linkUrl @ context='uri'}">${model.linkText}</a>
+        </div>
+    </section>
+    <div class="cmp-announcementbanner cmp-announcementbanner--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Announcement Banner — click to configure a message.' @ i18n}</span>
+    </div>
+</sly>

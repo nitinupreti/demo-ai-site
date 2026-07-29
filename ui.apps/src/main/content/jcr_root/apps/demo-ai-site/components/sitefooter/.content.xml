@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Component"
+    jcr:title="Site Footer"
+    jcr:description="Footer band with brand tagline, social icons, contact details and copyright."
+    componentGroup="Demo AI Site - Content"/>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Feature Grid"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/tabs"
+        maximized="{Boolean}true">
+        <items jcr:primaryType="nt:unstructured">
+            <properties
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Properties"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <title
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Section Title"
+                                required="{Boolean}true"
+                                name="./title"/>
+                            <eyebrow
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Intro Card Eyebrow"
+                                fieldDescription="Small label on the intro card (e.g. 'Club Details:')."
+                                name="./eyebrow"/>
+                            <description
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                fieldLabel="Intro Card Description"
+                                name="./description"/>
+                            <items
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                fieldLabel="Grid Items"
+                                composite="{Boolean}true">
+                                <field
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"
+                                    name="./items">
+                                    <items jcr:primaryType="nt:unstructured">
+                                        <itemEyebrow
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="Eyebrow"
+                                            fieldDescription="Small label (e.g. 'What:', 'Who:')."
+                                            name="./itemEyebrow"/>
+                                        <itemTitle
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="Title"
+                                            required="{Boolean}true"
+                                            name="./itemTitle"/>
+                                        <itemDescription
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                            fieldLabel="Description"
+                                            name="./itemDescription"/>
+                                    </items>
+                                </field>
+                            </items>
+                        </items>
+                    </inner>
+                </items>
+            </properties>
+            <style
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Style"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Columns"
+                                fieldDescription="Number of columns per row on desktop."
+                                name="./columns"
+                                value="2">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <two jcr:primaryType="nt:unstructured" text="Two (default)" value="2"/>
+                                    <three jcr:primaryType="nt:unstructured" text="Three" value="3"/>
+                                    <four jcr:primaryType="nt:unstructured" text="Four" value="4"/>
+                                </items>
+                            </columns>
+                            <sectionPadding
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Section Padding"
+                                name="./sectionPadding"
+                                value="lg">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <none jcr:primaryType="nt:unstructured" text="None" value="none"/>
+                                    <sm jcr:primaryType="nt:unstructured" text="Small" value="sm"/>
+                                    <md jcr:primaryType="nt:unstructured" text="Medium" value="md"/>
+                                    <lg jcr:primaryType="nt:unstructured" text="Large (default)" value="lg"/>
+                                </items>
+                            </sectionPadding>
+                            <backgroundColor
+                                granite:class="cq-dialog-dropdown-showhide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Background Color"
+                                name="./backgroundColor"
+                                value="cream">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    cq-dialog-dropdown-showhide-target=".cmp-featuregrid__hex-showhide"/>
+                                <items jcr:primaryType="nt:unstructured">
+                                    <cream jcr:primaryType="nt:unstructured" text="Cream (default)" value="cream"/>
+                                    <white jcr:primaryType="nt:unstructured" text="White" value="white"/>
+                                    <other jcr:primaryType="nt:unstructured" text="Other (custom hex)" value="other"/>
+                                </items>
+                            </backgroundColor>
+                            <hexColor
+                                granite:class="cmp-featuregrid__hex-showhide hide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Custom Background (hex)"
+                                name="./hexColor">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    showhidetargetvalue="other"/>
+                            </hexColor>
+                        </items>
+                    </inner>
+                </items>
+            </style>
+        </items>
+    </content>
+</jcr:root>

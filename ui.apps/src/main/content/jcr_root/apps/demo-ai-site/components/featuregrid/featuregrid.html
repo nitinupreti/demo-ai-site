@@ -1,0 +1,33 @@
+<!--/*
+    Feature Grid — section title + intro card + N-column grid of feature items.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.FeatureGridModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.featuregrid'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-featuregrid cmp-featuregrid--cols-${model.columns @ context='attribute'} cmp-featuregrid--pad-${model.sectionPadding @ context='attribute'} cmp-featuregrid--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-featuregrid__inner">
+            <h2 class="cmp-featuregrid__title" data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-featuregrid__introcard" data-sly-test="${model.eyebrow || model.description}">
+                <p class="cmp-featuregrid__intro-eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+                <p class="cmp-featuregrid__intro-description" data-sly-test="${model.description}">${model.description}</p>
+            </div>
+            <ul class="cmp-featuregrid__list"
+                data-sly-list.item="${model.items}"
+                data-sly-test="${model.items.size > 0}">
+                <li class="cmp-featuregrid__item" data-index="${itemList.index}">
+                    <p class="cmp-featuregrid__item-eyebrow" data-sly-test="${item.itemEyebrow}">${item.itemEyebrow}</p>
+                    <h3 class="cmp-featuregrid__item-title">${item.itemTitle}</h3>
+                    <p class="cmp-featuregrid__item-description" data-sly-test="${item.itemDescription}">${item.itemDescription}</p>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <div class="cmp-featuregrid cmp-featuregrid--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Feature Grid — click to configure title and grid items.' @ i18n}</span>
+    </div>
+</sly>

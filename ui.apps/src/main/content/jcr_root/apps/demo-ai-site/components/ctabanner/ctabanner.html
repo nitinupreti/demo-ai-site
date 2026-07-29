@@ -1,0 +1,30 @@
+<!--/*
+    CTA Banner — full-width dark banner with title and CTA link, optional background image.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.CtaBannerModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.ctabanner'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-ctabanner cmp-ctabanner--align-${model.alignment @ context='attribute'} cmp-ctabanner--pad-${model.sectionPadding @ context='attribute'} cmp-ctabanner--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-ctabanner__media" data-sly-test="${model.backgroundImage}">
+            <img class="cmp-ctabanner__media-image"
+                 src="${model.backgroundImage @ context='uri'}"
+                 alt=""
+                 aria-hidden="true"/>
+            <span class="cmp-ctabanner__media-overlay" aria-hidden="true"></span>
+        </div>
+        <div class="cmp-ctabanner__inner">
+            <h2 class="cmp-ctabanner__title">${model.title}</h2>
+            <a class="cmp-ctabanner__cta"
+               data-sly-test="${model.ctaText && model.ctaLink}"
+               href="${model.ctaLink @ context='uri'}">${model.ctaText}</a>
+        </div>
+    </section>
+    <div class="cmp-ctabanner cmp-ctabanner--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'CTA Banner — click to configure a title and CTA.' @ i18n}</span>
+    </div>
+</sly>

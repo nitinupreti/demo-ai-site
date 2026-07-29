@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Site Footer"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/tabs"
+        maximized="{Boolean}true">
+        <items jcr:primaryType="nt:unstructured">
+            <properties
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Properties"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <tagline
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Tagline"
+                                required="{Boolean}true"
+                                name="./tagline"/>
+                            <email
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Email"
+                                name="./email"/>
+                            <addressLine1
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Address Line 1"
+                                name="./addressLine1"/>
+                            <addressLine2
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Address Line 2"
+                                name="./addressLine2"/>
+                            <phone
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Phone"
+                                name="./phone"/>
+                            <copyright
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Copyright"
+                                name="./copyright"/>
+                            <socialLinks
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                fieldLabel="Social Links"
+                                composite="{Boolean}true">
+                                <field
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/fieldset"
+                                    name="./socialLinks">
+                                    <items jcr:primaryType="nt:unstructured">
+                                        <platform
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                            fieldLabel="Platform"
+                                            name="./platform"
+                                            value="facebook">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <facebook jcr:primaryType="nt:unstructured" text="Facebook" value="facebook"/>
+                                                <instagram jcr:primaryType="nt:unstructured" text="Instagram" value="instagram"/>
+                                                <twitter jcr:primaryType="nt:unstructured" text="X / Twitter" value="twitter"/>
+                                                <tiktok jcr:primaryType="nt:unstructured" text="TikTok" value="tiktok"/>
+                                                <youtube jcr:primaryType="nt:unstructured" text="YouTube" value="youtube"/>
+                                            </items>
+                                        </platform>
+                                        <url
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="URL"
+                                            required="{Boolean}true"
+                                            name="./url"/>
+                                    </items>
+                                </field>
+                            </socialLinks>
+                        </items>
+                    </inner>
+                </items>
+            </properties>
+            <style
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Style"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <backgroundColor
+                                granite:class="cq-dialog-dropdown-showhide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Background Color"
+                                name="./backgroundColor"
+                                value="footer">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    cq-dialog-dropdown-showhide-target=".cmp-sitefooter__hex-showhide"/>
+                                <items jcr:primaryType="nt:unstructured">
+                                    <footer jcr:primaryType="nt:unstructured" text="Slate Gray (default)" value="footer"/>
+                                    <dark jcr:primaryType="nt:unstructured" text="Black" value="dark"/>
+                                    <accent jcr:primaryType="nt:unstructured" text="Accent Burgundy" value="accent"/>
+                                    <other jcr:primaryType="nt:unstructured" text="Other (custom hex)" value="other"/>
+                                </items>
+                            </backgroundColor>
+                            <hexColor
+                                granite:class="cmp-sitefooter__hex-showhide hide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Custom Background (hex)"
+                                name="./hexColor">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    showhidetargetvalue="other"/>
+                            </hexColor>
+                        </items>
+                    </inner>
+                </items>
+            </style>
+        </items>
+    </content>
+</jcr:root>

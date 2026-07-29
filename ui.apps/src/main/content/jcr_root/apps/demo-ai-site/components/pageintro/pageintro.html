@@ -1,0 +1,24 @@
+<!--/*
+    Page Intro — hero title block with eyebrow, big serif title, optional CTA link.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.PageIntroModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pageintro'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-pageintro cmp-pageintro--align-${model.alignment @ context='attribute'} cmp-pageintro--pad-${model.sectionPadding @ context='attribute'} cmp-pageintro--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-pageintro__inner">
+            <p class="cmp-pageintro__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+            <h1 class="cmp-pageintro__title">${model.title}</h1>
+            <a class="cmp-pageintro__cta"
+               data-sly-test="${model.ctaText && model.ctaLink}"
+               href="${model.ctaLink @ context='uri'}">${model.ctaText}</a>
+        </div>
+    </section>
+    <div class="cmp-pageintro cmp-pageintro--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Page Intro — click to configure a title.' @ i18n}</span>
+    </div>
+</sly>

@@ -1,0 +1,145 @@
+/*
+ * Demo AI Site — shared design tokens
+ * Derived from design/AfterSchoolHome.pdf. Do not hardcode these values in components.
+ */
+:root {
+    /* Color palette (extracted from PDF fills) */
+    --das-color-bg: #ffffff;
+    --das-color-surface: #fbf9f6;          /* warm cream section background */
+    --das-color-surface-alt: #f6f0e4;      /* stronger cream announcement stripe */
+    --das-color-ink: #000000;              /* headings + primary text */
+    --das-color-ink-muted: #5a5a5a;        /* secondary body text */
+    --das-color-accent: #3d1a0c;           /* dark burgundy eyebrow label */
+    --das-color-border: #e3e3e3;           /* dividers, placeholders */
+    --das-color-footer-bg: #535353;        /* footer band */
+    --das-color-on-dark: #fbf9f6;          /* text on dark banners/footer */
+    --das-color-cta-bg: #000000;           /* solid CTA banner background */
+
+    /* Typography */
+    --das-font-serif: "Playfair Display", "Georgia", "Times New Roman", serif;
+    --das-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    --das-fs-eyebrow: 0.75rem;      /* 12px */
+    --das-fs-label: 0.875rem;       /* 14px, section eyebrow like "Club Details:" */
+    --das-fs-body: 1rem;            /* 16px */
+    --das-fs-body-lg: 1.375rem;     /* 22px */
+    --das-fs-lead: 1.875rem;        /* 30px, feature titles + description */
+    --das-fs-title: 3rem;           /* 48px, secondary titles */
+    --das-fs-display: 4.375rem;     /* 70px, hero + section titles */
+
+    --das-lh-tight: 1.15;
+    --das-lh-body: 1.5;
+    --das-ls-eyebrow: 0.08em;
+
+    /* Spacing scale */
+    --das-space-0: 0;
+    --das-space-1: 0.25rem;   /* 4  */
+    --das-space-2: 0.5rem;    /* 8  */
+    --das-space-3: 0.75rem;   /* 12 */
+    --das-space-4: 1rem;      /* 16 */
+    --das-space-5: 1.5rem;    /* 24 */
+    --das-space-6: 2rem;      /* 32 */
+    --das-space-7: 3rem;      /* 48 */
+    --das-space-8: 4rem;      /* 64 */
+    --das-space-9: 5rem;      /* 80 */
+    --das-space-10: 6rem;     /* 96 */
+
+    /* Section vertical padding scale (per-instance authored) */
+    --das-section-pad-none: 0;
+    --das-section-pad-sm: 2.5rem;
+    --das-section-pad-md: 4rem;
+    --das-section-pad-lg: 6rem;
+
+    /* Horizontal side gutter scale (per-instance authored) */
+    --das-gutter-none: 0;
+    --das-gutter-sm: 1rem;
+    --das-gutter-md: 2rem;
+    --das-gutter-lg: 3rem;
+
+    /* Container widths */
+    --das-container-max: 1280px;
+    --das-container-inner: 1040px;
+    --das-container-narrow: 800px;
+
+    /* Radii */
+    --das-radius-none: 0;
+    --das-radius-sm: 4px;
+    --das-radius-md: 12px;
+    --das-radius-lg: 20px;
+    --das-radius-xl: 28px;
+    --das-radius-pill: 999px;
+    --das-radius-full: 50%;
+
+    /* Shadows */
+    --das-shadow-none: none;
+    --das-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --das-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+    /* Breakpoints (documented; used in @media) */
+    --das-bp-tablet: 1024px;
+    --das-bp-mobile: 640px;
+}
+
+/* Global helpers */
+.das-container {
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    box-sizing: border-box;
+}
+
+.das-eyebrow {
+    color: var(--das-color-accent);
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-label);
+    font-weight: 500;
+    letter-spacing: var(--das-ls-eyebrow);
+    text-transform: none;
+    margin: 0 0 var(--das-space-3) 0;
+}
+
+/*
+ * Rounded-image treatment for Core Components image blocks used as hero/inline images.
+ * Applies to any image rendered by the Core Components image or WCM image resource type
+ * so authored images get design-consistent rounded corners without a custom component.
+ */
+.cmp-image {
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    box-sizing: border-box;
+    display: block;
+}
+
+.cmp-image__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--das-radius-lg);
+    object-fit: cover;
+}
+
+
+/* Basic body reset that other clientlibs can rely on */
+html,
+body {
+    color: var(--das-color-ink);
+    background: var(--das-color-bg);
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    line-height: var(--das-lh-body);
+    margin: 0;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--das-font-serif);
+    color: var(--das-color-ink);
+    margin: 0;
+    line-height: var(--das-lh-tight);
+}
+
+a {
+    color: inherit;
+}

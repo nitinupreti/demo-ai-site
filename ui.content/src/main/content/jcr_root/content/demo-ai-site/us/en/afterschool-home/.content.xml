@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="cq:PageContent"
+        jcr:title="After School Home"
+        pageTitle="Lincoln High School Speech and Debate Club"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <announcementbanner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/announcementbanner"
+                        message="Announcement: Spring ASB Election is now live for voting!"
+                        linkText="Survey here"
+                        linkUrl="#survey"
+                        backgroundColor="cream-alt"/>
+                    <pageintro
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pageintro"
+                        eyebrow="Committed to all students in need"
+                        title="Lincoln High School Speech and Debate Club"
+                        ctaText="Join us"
+                        ctaLink="#join"
+                        alignment="center"
+                        sectionPadding="md"
+                        backgroundColor="cream"/>
+                    <hero_image
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/image"
+                        fileReference="/content/dam/demo-ai-site/asset.jpg"
+                        alt="Students in the school library working together"/>
+                    <featuregrid
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/featuregrid"
+                        title="What We Do"
+                        eyebrow="Club Details:"
+                        description="Speech and Debate is where you'll learn to think critically, speak confidently, and engage in exciting competitions. Here's everything you need to know:"
+                        columns="2"
+                        sectionPadding="lg"
+                        backgroundColor="cream">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                itemEyebrow="What"
+                                itemTitle="Ready to find your voice?"
+                                itemDescription="This is a safe place to hone your skills with like-minded peers."/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                itemEyebrow="Who"
+                                itemTitle="All Lincoln High students"
+                                itemDescription="Everyone in any grade is welcome to join."/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                itemEyebrow="When"
+                                itemTitle="Wednesday, 3:30-4:30pm"
+                                itemDescription="You'll be out in time for the late bus home."/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                itemEyebrow="Where"
+                                itemTitle="Room 204"
+                                itemDescription="We meet in Mr. Smith's room. He's our teacher sponsor."/>
+                        </items>
+                    </featuregrid>
+                    <classroom_image
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/image"
+                        fileReference="/content/dam/demo-ai-site/asset.jpg"
+                        alt="Classroom during a debate practice"/>
+                    <newshub
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/newshub"
+                        title="The latest news"
+                        sectionPadding="lg"
+                        backgroundColor="cream">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                size="featured"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                itemEyebrow="2025 Regional Results"
+                                itemTitle="Lincoln Takes Home 1st place overall."
+                                itemDescription="At the Regional Championship this weekend, our team brought home the overall trophy along with individual medals across Speech and Debate events."
+                                linkUrl="#news-1"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                size="regular"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                itemEyebrow="Upcoming event"
+                                itemTitle="6/11 Lunch Hour Pizza"
+                                itemDescription="Team pizza lunch this Wednesday. Bring a friend who might be interested in joining next year."
+                                linkUrl="#news-2"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                size="spotlight"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                itemEyebrow="Spotlight"
+                                itemTitle="Johnny S."
+                                itemDescription="Congrats Johnny on qualifying for Nationals!"
+                                linkUrl="#news-3"/>
+                        </items>
+                    </newshub>
+                    <resultscolumns
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/resultscolumns"
+                        title="2025 Regional Results"
+                        subtitle="Scoresheets are available for download below."
+                        sectionPadding="lg"
+                        backgroundColor="cream">
+                        <columns jcr:primaryType="nt:unstructured">
+                            <col0
+                                jcr:primaryType="nt:unstructured"
+                                columnLabel="Speech events"
+                                entries="Dramatic Interpretation (DI)&#10;Duo Interpretation (DUO)&#10;Poetry (POE)&#10;Humorous Interpretation (HI)"/>
+                            <col1
+                                jcr:primaryType="nt:unstructured"
+                                columnLabel="Debate events"
+                                entries="Extemporaneous Debate (XDB)&#10;Lincoln-Douglas Debate (LD)"/>
+                        </columns>
+                    </resultscolumns>
+                    <ctabanner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/ctabanner"
+                        title="All voices are welcome here!"
+                        ctaText="Join us"
+                        ctaLink="#join"
+                        backgroundImage="/content/dam/demo-ai-site/asset.jpg"
+                        alignment="center"
+                        sectionPadding="md"
+                        backgroundColor="dark"/>
+                    <sitefooter
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/sitefooter"
+                        tagline="Debate It. Don't Hate It."
+                        email="hello@figma.com"
+                        addressLine1="1750 Candyland Lane"
+                        addressLine2="Portland, OR 97205"
+                        phone="(646) 555-4567"
+                        copyright="Lincoln High School © 2025 All Rights Reserved"
+                        backgroundColor="footer">
+                        <socialLinks jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" platform="facebook" url="https://facebook.com/lincolndebate"/>
+                            <item1 jcr:primaryType="nt:unstructured" platform="instagram" url="https://instagram.com/lincolndebate"/>
+                            <item2 jcr:primaryType="nt:unstructured" platform="tiktok" url="https://tiktok.com/@lincolndebate"/>
+                        </socialLinks>
+                    </sitefooter>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Announcement Banner"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/tabs"
+        maximized="{Boolean}true">
+        <items jcr:primaryType="nt:unstructured">
+            <properties
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Properties"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <message
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Message"
+                                fieldDescription="Short announcement copy shown in the banner."
+                                required="{Boolean}true"
+                                name="./message"/>
+                            <linkText
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Link Text"
+                                fieldDescription="Text for the trailing call-to-action link (e.g. 'Survey here')."
+                                name="./linkText"/>
+                            <linkUrl
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                fieldLabel="Link URL"
+                                rootPath="/content"
+                                name="./linkUrl"/>
+                        </items>
+                    </inner>
+                </items>
+            </properties>
+            <style
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Style"
+                sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <inner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <backgroundColor
+                                granite:class="cq-dialog-dropdown-showhide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Background Color"
+                                name="./backgroundColor"
+                                value="cream-alt">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    cq-dialog-dropdown-showhide-target=".cmp-announcementbanner__hex-showhide"/>
+                                <items jcr:primaryType="nt:unstructured">
+                                    <creamAlt
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Cream (default)"
+                                        value="cream-alt"/>
+                                    <cream
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Warm White"
+                                        value="cream"/>
+                                    <white
+                                        jcr:primaryType="nt:unstructured"
+                                        text="White"
+                                        value="white"/>
+                                    <other
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Other (custom hex)"
+                                        value="other"/>
+                                </items>
+                            </backgroundColor>
+                            <hexColor
+                                granite:class="cmp-announcementbanner__hex-showhide hide"
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Custom Background (hex)"
+                                fieldDescription="Any valid CSS color when 'Other' is selected (e.g. #f6f0e4)."
+                                name="./hexColor">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    showhidetargetvalue="other"/>
+                            </hexColor>
+                        </items>
+                    </inner>
+                </items>
+            </style>
+        </items>
+    </content>
+</jcr:root>

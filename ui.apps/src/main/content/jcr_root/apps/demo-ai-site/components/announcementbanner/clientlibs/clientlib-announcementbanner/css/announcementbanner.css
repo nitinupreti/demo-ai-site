@@ -1,0 +1,54 @@
+/* Announcement Banner — cream stripe with message and optional trailing link. */
+.cmp-announcementbanner {
+    width: 100%;
+    background: var(--das-color-surface-alt);
+    color: var(--das-color-ink);
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    box-sizing: border-box;
+}
+
+.cmp-announcementbanner--bg-cream {
+    background: var(--das-color-surface);
+}
+
+.cmp-announcementbanner--bg-white {
+    background: var(--das-color-bg);
+}
+
+.cmp-announcementbanner__inner {
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding: var(--das-space-3) var(--das-space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--das-space-4);
+}
+
+.cmp-announcementbanner__message {
+    margin: 0;
+    line-height: var(--das-lh-body);
+}
+
+.cmp-announcementbanner__link {
+    color: var(--das-color-ink);
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.cmp-announcementbanner--placeholder {
+    background: var(--das-color-border);
+    color: var(--das-color-ink-muted);
+    padding: var(--das-space-4);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .cmp-announcementbanner__inner {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--das-space-2);
+    }
+}

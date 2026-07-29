@@ -1,0 +1,40 @@
+<!--/*
+    News Hub — section title + list of cards (featured or regular size, per instance).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.NewsHubModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.newshub'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-newshub cmp-newshub--pad-${model.sectionPadding @ context='attribute'} cmp-newshub--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-newshub__inner">
+            <h2 class="cmp-newshub__title" data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-newshub__list"
+                 data-sly-list.item="${model.items}"
+                 data-sly-test="${model.items.size > 0}">
+                <article class="cmp-newshub__card cmp-newshub__card--size-${item.size @ context='attribute'}"
+                         data-index="${itemList.index}">
+                    <div class="cmp-newshub__card-media" data-sly-test="${item.imagePath}">
+                        <img class="cmp-newshub__card-image"
+                             src="${item.imagePath @ context='uri'}"
+                             alt="${item.itemTitle @ context='attribute'}"/>
+                    </div>
+                    <div class="cmp-newshub__card-body">
+                        <p class="cmp-newshub__card-eyebrow" data-sly-test="${item.itemEyebrow}">${item.itemEyebrow}</p>
+                        <h3 class="cmp-newshub__card-title">${item.itemTitle}</h3>
+                        <p class="cmp-newshub__card-description" data-sly-test="${item.itemDescription}">${item.itemDescription}</p>
+                        <a class="cmp-newshub__card-link"
+                           data-sly-test="${item.linkUrl}"
+                           href="${item.linkUrl @ context='uri'}">${'Read more' @ i18n}</a>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+    <div class="cmp-newshub cmp-newshub--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'News Hub — click to configure title and news cards.' @ i18n}</span>
+    </div>
+</sly>

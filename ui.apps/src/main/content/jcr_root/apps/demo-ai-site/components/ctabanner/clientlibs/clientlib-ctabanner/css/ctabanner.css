@@ -1,0 +1,98 @@
+/* CTA Banner — dark full-width banner with title, CTA link and optional background image. */
+.cmp-ctabanner {
+    --cmp-ctabanner-pad: var(--das-section-pad-md);
+    --cmp-ctabanner-align: center;
+    position: relative;
+    background: var(--das-color-cta-bg);
+    color: var(--das-color-on-dark);
+    padding-block: var(--cmp-ctabanner-pad);
+    overflow: hidden;
+    isolation: isolate;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: var(--cmp-ctabanner-align);
+}
+
+.cmp-ctabanner--pad-none { --cmp-ctabanner-pad: var(--das-section-pad-none); }
+.cmp-ctabanner--pad-sm   { --cmp-ctabanner-pad: var(--das-section-pad-sm); }
+.cmp-ctabanner--pad-md   { --cmp-ctabanner-pad: var(--das-section-pad-md); }
+.cmp-ctabanner--pad-lg   { --cmp-ctabanner-pad: var(--das-section-pad-lg); }
+
+.cmp-ctabanner--align-left   { --cmp-ctabanner-align: left; }
+.cmp-ctabanner--align-center { --cmp-ctabanner-align: center; }
+
+.cmp-ctabanner--bg-dark { background: var(--das-color-cta-bg); }
+.cmp-ctabanner--bg-accent { background: var(--das-color-accent); }
+
+.cmp-ctabanner__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.cmp-ctabanner__media-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cmp-ctabanner__media-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: block;
+}
+
+.cmp-ctabanner__inner {
+    position: relative;
+    z-index: 1;
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-3);
+    align-items: stretch;
+}
+
+.cmp-ctabanner__title {
+    margin: 0;
+    font-family: var(--das-font-serif);
+    font-size: var(--das-fs-display);
+    font-weight: 500;
+    color: var(--das-color-on-dark);
+    line-height: var(--das-lh-tight);
+}
+
+.cmp-ctabanner__cta {
+    color: var(--das-color-on-dark);
+    text-decoration: underline;
+    font-family: var(--das-font-serif);
+    font-size: var(--das-fs-display);
+    font-weight: 400;
+    align-self: center;
+    line-height: var(--das-lh-tight);
+}
+
+.cmp-ctabanner--align-left .cmp-ctabanner__cta { align-self: flex-start; }
+
+.cmp-ctabanner--placeholder {
+    background: var(--das-color-border);
+    color: var(--das-color-ink-muted);
+    padding: var(--das-space-6);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 1024px) {
+    .cmp-ctabanner__title,
+    .cmp-ctabanner__cta { font-size: var(--das-fs-title); }
+}
+
+@media (max-width: 640px) {
+    .cmp-ctabanner { --cmp-ctabanner-pad: var(--das-section-pad-md); --cmp-ctabanner-align: center; }
+    .cmp-ctabanner__title,
+    .cmp-ctabanner__cta { font-size: 2rem; }
+    .cmp-ctabanner__cta { align-self: center; }
+}

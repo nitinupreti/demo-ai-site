@@ -1,0 +1,78 @@
+/* Page Intro — hero title with eyebrow, big serif title, optional CTA link. */
+.cmp-pageintro {
+    --cmp-pageintro-pad: var(--das-section-pad-md);
+    --cmp-pageintro-align: center;
+    background: var(--das-color-surface);
+    width: 100%;
+    box-sizing: border-box;
+    padding-block: var(--cmp-pageintro-pad);
+    text-align: var(--cmp-pageintro-align);
+}
+
+.cmp-pageintro--pad-none { --cmp-pageintro-pad: var(--das-section-pad-none); }
+.cmp-pageintro--pad-sm   { --cmp-pageintro-pad: var(--das-section-pad-sm); }
+.cmp-pageintro--pad-md   { --cmp-pageintro-pad: var(--das-section-pad-md); }
+.cmp-pageintro--pad-lg   { --cmp-pageintro-pad: var(--das-section-pad-lg); }
+
+.cmp-pageintro--align-left   { --cmp-pageintro-align: left; }
+.cmp-pageintro--align-center { --cmp-pageintro-align: center; }
+.cmp-pageintro--align-right  { --cmp-pageintro-align: right; }
+
+.cmp-pageintro--bg-white { background: var(--das-color-bg); }
+.cmp-pageintro--bg-cream { background: var(--das-color-surface); }
+
+.cmp-pageintro__inner {
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-4);
+    align-items: stretch;
+}
+
+.cmp-pageintro__eyebrow {
+    margin: 0;
+    color: var(--das-color-ink);
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    font-weight: 400;
+}
+
+.cmp-pageintro__title {
+    margin: 0;
+    font-family: var(--das-font-serif);
+    font-size: var(--das-fs-display);
+    font-weight: 500;
+    color: var(--das-color-ink);
+    line-height: var(--das-lh-tight);
+}
+
+.cmp-pageintro__cta {
+    margin-top: var(--das-space-4);
+    font-size: var(--das-fs-body);
+    color: var(--das-color-ink);
+    text-decoration: underline;
+    align-self: center;
+}
+
+.cmp-pageintro--align-left .cmp-pageintro__cta { align-self: flex-start; }
+.cmp-pageintro--align-right .cmp-pageintro__cta { align-self: flex-end; }
+
+.cmp-pageintro--placeholder {
+    background: var(--das-color-border);
+    color: var(--das-color-ink-muted);
+    padding: var(--das-space-6);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 1024px) {
+    .cmp-pageintro__title { font-size: var(--das-fs-title); }
+}
+
+@media (max-width: 640px) {
+    .cmp-pageintro { --cmp-pageintro-pad: var(--das-section-pad-sm); --cmp-pageintro-align: center; }
+    .cmp-pageintro__title { font-size: 2rem; }
+    .cmp-pageintro__cta { align-self: center; }
+}

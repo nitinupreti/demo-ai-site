@@ -1,0 +1,40 @@
+<!--/*
+    Site Footer — brand tagline, social icons, contact block and copyright.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.SiteFooterModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.sitefooter'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <footer class="cmp-sitefooter cmp-sitefooter--bg-${model.backgroundColor @ context='attribute'}"
+            style="${model.backgroundStyle @ context='styleString'}"
+            data-sly-test="${model.hasContent}">
+        <div class="cmp-sitefooter__inner">
+            <div class="cmp-sitefooter__brand-block">
+                <ul class="cmp-sitefooter__social"
+                    data-sly-list.social="${model.socialLinks}"
+                    data-sly-test="${model.socialLinks.size > 0}">
+                    <li class="cmp-sitefooter__social-item" data-index="${socialList.index}">
+                        <a class="cmp-sitefooter__social-link cmp-sitefooter__social-link--${social.platform @ context='attribute'}"
+                           href="${social.url @ context='uri'}"
+                           aria-label="${social.platform @ context='attribute'}">
+                            <span class="cmp-sitefooter__social-icon" aria-hidden="true"></span>
+                        </a>
+                    </li>
+                </ul>
+                <p class="cmp-sitefooter__tagline">${model.tagline}</p>
+            </div>
+            <div class="cmp-sitefooter__contact" data-sly-test="${model.email || model.addressLine1 || model.phone}">
+                <p class="cmp-sitefooter__contact-line" data-sly-test="${model.email}">${model.email}</p>
+                <p class="cmp-sitefooter__contact-line" data-sly-test="${model.addressLine1}">${model.addressLine1}</p>
+                <p class="cmp-sitefooter__contact-line" data-sly-test="${model.addressLine2}">${model.addressLine2}</p>
+                <p class="cmp-sitefooter__contact-line" data-sly-test="${model.phone}">${model.phone}</p>
+            </div>
+        </div>
+        <div class="cmp-sitefooter__copyright" data-sly-test="${model.copyright}">${model.copyright}</div>
+    </footer>
+    <div class="cmp-sitefooter cmp-sitefooter--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Site Footer — click to configure tagline and contact.' @ i18n}</span>
+    </div>
+</sly>

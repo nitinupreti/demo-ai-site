@@ -1,0 +1,33 @@
+<!--/*
+    Results Columns — title + subtitle + N configurable columns of labeled entries.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.ResultsColumnsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.resultscolumns'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-resultscolumns cmp-resultscolumns--pad-${model.sectionPadding @ context='attribute'} cmp-resultscolumns--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-resultscolumns__inner">
+            <h2 class="cmp-resultscolumns__title" data-sly-test="${model.title}">${model.title}</h2>
+            <p class="cmp-resultscolumns__subtitle" data-sly-test="${model.subtitle}">${model.subtitle}</p>
+            <div class="cmp-resultscolumns__grid"
+                 data-sly-list.col="${model.columns}"
+                 data-sly-test="${model.columns.size > 0}">
+                <div class="cmp-resultscolumns__column" data-index="${colList.index}">
+                    <p class="cmp-resultscolumns__column-label">${col.columnLabel}</p>
+                    <ul class="cmp-resultscolumns__entries"
+                        data-sly-list.entry="${col.entriesList}"
+                        data-sly-test="${col.entriesList.size > 0}">
+                        <li class="cmp-resultscolumns__entry" data-index="${entryList.index}">${entry}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="cmp-resultscolumns cmp-resultscolumns--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Results Columns — click to configure title and columns.' @ i18n}</span>
+    </div>
+</sly>
