@@ -1,0 +1,97 @@
+/* Logo Strip — centered title/description + row of client logos. */
+.cmp-logostrip {
+    --cmp-logostrip-pad: var(--das-section-pad-md);
+    background: var(--das-color-bg);
+    padding-block: var(--cmp-logostrip-pad);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cmp-logostrip--pad-none { --cmp-logostrip-pad: var(--das-section-pad-none); }
+.cmp-logostrip--pad-sm { --cmp-logostrip-pad: var(--das-section-pad-sm); }
+.cmp-logostrip--pad-md { --cmp-logostrip-pad: var(--das-section-pad-md); }
+.cmp-logostrip--pad-lg { --cmp-logostrip-pad: var(--das-section-pad-lg); }
+
+.cmp-logostrip--bg-white { background: var(--das-color-bg); }
+.cmp-logostrip--bg-grey { background: var(--das-color-nx-surface); }
+
+.cmp-logostrip__inner {
+    max-width: var(--das-container-max);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--das-space-6);
+}
+
+.cmp-logostrip__heading {
+    text-align: center;
+    max-width: var(--das-container-narrow);
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-2);
+}
+
+.cmp-logostrip__title {
+    margin: 0;
+    font-family: var(--das-font-serif);
+    font-size: var(--das-fs-title);
+    color: var(--das-color-nx-ink);
+    font-weight: 600;
+}
+
+.cmp-logostrip__description {
+    margin: 0;
+    color: var(--das-color-nx-ink-muted);
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    line-height: var(--das-lh-body);
+}
+
+.cmp-logostrip__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--das-space-5);
+    width: 100%;
+    max-width: var(--das-container-inner);
+}
+
+.cmp-logostrip__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.cmp-logostrip__logo {
+    display: block;
+    max-height: 40px;
+    max-width: 120px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.cmp-logostrip--placeholder {
+    background: var(--das-color-border);
+    color: var(--das-color-ink-muted);
+    padding: var(--das-space-6);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 1024px) {
+    .cmp-logostrip__title { font-size: var(--das-fs-lead); }
+    .cmp-logostrip__list { justify-content: center; gap: var(--das-space-6); }
+}
+
+@media (max-width: 640px) {
+    .cmp-logostrip { --cmp-logostrip-pad: var(--das-section-pad-sm); }
+    .cmp-logostrip__logo { max-height: 32px; max-width: 96px; }
+}

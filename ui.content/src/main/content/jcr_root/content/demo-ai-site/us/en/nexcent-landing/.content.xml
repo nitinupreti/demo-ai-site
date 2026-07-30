@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Nexcent Landing"
+        pageTitle="Nexcent — Lessons and insights from 8 years"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/nexcenthero"
+                        titlePrefix="Lessons and insights"
+                        titleAccent="from 8 years"
+                        description="Where to grow your business as a photographer: site or social media?"
+                        ctaText="Register"
+                        ctaLink="#register"
+                        imagePath="/content/dam/demo-ai-site/asset.jpg"
+                        imageAlt="Lessons hero illustration"
+                        imagePosition="right"
+                        sectionPadding="lg"
+                        backgroundColor="grey"/>
+                    <clients
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/logostrip"
+                        title="Our Clients"
+                        description="We have been working with some Fortune 500+ clients"
+                        sectionPadding="md"
+                        backgroundColor="white">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 1"/>
+                            <item1 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 2"/>
+                            <item2 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 3"/>
+                            <item3 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 4"/>
+                            <item4 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 5"/>
+                            <item5 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 6"/>
+                            <item6 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Client logo 7"/>
+                        </items>
+                    </clients>
+                    <community
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/iconcards"
+                        titlePrefix="Manage your entire community in a"
+                        title="single system"
+                        description="Who is Nexcent suitable for?"
+                        columns="3"
+                        sectionPadding="lg"
+                        backgroundColor="white">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                iconPath="/content/dam/demo-ai-site/asset.jpg"
+                                iconAlt="Membership icon"
+                                title="Membership Organisations"
+                                description="Our membership management software provides full automation of membership renewals and payments."/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                iconPath="/content/dam/demo-ai-site/asset.jpg"
+                                iconAlt="Associations icon"
+                                title="National Associations"
+                                description="Our membership management software provides full automation of membership renewals and payments."/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                iconPath="/content/dam/demo-ai-site/asset.jpg"
+                                iconAlt="Clubs icon"
+                                title="Clubs And Groups"
+                                description="Our membership management software provides full automation of membership renewals and payments."/>
+                        </items>
+                    </community>
+                    <unseen
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/splitfeature"
+                        title="The unseen of spending three years at Pixelgrade"
+                        description="When joining the JustGo Community, your success becomes our success. In other words, our Customer Success team will be on hand from day one to ensure we understand your requirements, share your goals and work with you for a smooth adoption of our software."
+                        ctaText="Learn More"
+                        ctaLink="#learn-more"
+                        imagePath="/content/dam/demo-ai-site/asset.jpg"
+                        imageAlt="Pixelgrade illustration"
+                        imagePosition="left"
+                        sectionPadding="md"
+                        backgroundColor="white"/>
+                    <achievements
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/statsblock"
+                        titlePrefix="Helping a local"
+                        title="business reinvent itself"
+                        description="Aliquam vitae condimentum lorem eu nisi facilisis."
+                        sectionPadding="md"
+                        backgroundColor="grey">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" iconPath="/content/dam/demo-ai-site/asset.jpg" iconAlt="Members" number="2,245,341" label="Members"/>
+                            <item1 jcr:primaryType="nt:unstructured" iconPath="/content/dam/demo-ai-site/asset.jpg" iconAlt="Clubs" number="46,328" label="Clubs"/>
+                            <item2 jcr:primaryType="nt:unstructured" iconPath="/content/dam/demo-ai-site/asset.jpg" iconAlt="Bookings" number="828,867" label="Event Bookings"/>
+                            <item3 jcr:primaryType="nt:unstructured" iconPath="/content/dam/demo-ai-site/asset.jpg" iconAlt="Payments" number="1,926,436" label="Payments"/>
+                        </items>
+                    </achievements>
+                    <footer_feature
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/splitfeature"
+                        title="How to design your site footer like we did"
+                        description="One event calendar shared across National, Regional and Club events to simplify your event experience. Allowing you to create waiting lists, share data capture, issue credentials for course completion, apply smart purchasing rules and much more."
+                        ctaText="Learn More"
+                        ctaLink="#footer-tips"
+                        imagePath="/content/dam/demo-ai-site/asset.jpg"
+                        imageAlt="Mobile design illustration"
+                        imagePosition="left"
+                        sectionPadding="md"
+                        backgroundColor="white"/>
+                    <testimonial
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/testimonialblock"
+                        quote="Maecenas dignissim justo eget nulla rutrum molestie. Maecenas lobortis sem dui, vel rutrum risus tincidunt ullamcorper. Praesent volutpat tempus nibh, ac efficitur mauris fringilla nec. Nulla facilisi. Aliquam vitae congue eros, sit amet aliquam magna."
+                        authorName="Tim Smith"
+                        authorRole="British Dragon Boat Racing Association"
+                        imagePath="/content/dam/demo-ai-site/asset.jpg"
+                        imageAlt="Tim Smith at an event"
+                        linkText="Meet all customers"
+                        linkUrl="#customers"
+                        sectionPadding="md"
+                        backgroundColor="white">
+                        <logos jcr:primaryType="nt:unstructured">
+                            <logo0 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 1"/>
+                            <logo1 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 2"/>
+                            <logo2 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 3"/>
+                            <logo3 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 4"/>
+                            <logo4 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 5"/>
+                            <logo5 jcr:primaryType="nt:unstructured" imagePath="/content/dam/demo-ai-site/asset.jpg" imageAlt="Customer 6"/>
+                        </logos>
+                    </testimonial>
+                    <blog
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/bloglist"
+                        title="Caring is the new marketing"
+                        description="The Nexcent blog is the best place to read about the latest membership insights, trends and more. See who's joining the community, read about how our community are increasing their membership income and lots more."
+                        columns="3"
+                        sectionPadding="md"
+                        backgroundColor="white">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                imageAlt="OneRen article"
+                                title="Creating Streamlined Safeguarding Processes with OneRen"
+                                linkText="Readmore"
+                                linkUrl="#blog-1"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                imageAlt="Safeguarding article"
+                                title="What are your safeguarding responsibilities and how can you manage them?"
+                                linkText="Readmore"
+                                linkUrl="#blog-2"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                imagePath="/content/dam/demo-ai-site/asset.jpg"
+                                imageAlt="Triathlon article"
+                                title="Revamping the Membership Model with Triathlon Australia"
+                                linkText="Readmore"
+                                linkUrl="#blog-3"/>
+                        </items>
+                    </blog>
+                    <finalcta
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/ctabanner"
+                        title="Pellentesque suscipit fringilla libero eu."
+                        ctaText="Get a Demo"
+                        ctaLink="#demo"
+                        alignment="center"
+                        sectionPadding="md"
+                        backgroundColor="cream"/>
+                    <sitefooter
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/sitefooter"
+                        tagline="Nexcent"
+                        email="hello@nexcent.com"
+                        addressLine1="Copyright © 2020 Nexcent ltd."
+                        addressLine2="All rights reserved"
+                        copyright="Copyright © 2020 Nexcent ltd. All rights reserved."
+                        backgroundColor="footer">
+                        <socialLinks jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" platform="facebook" url="https://facebook.com/nexcent"/>
+                            <item1 jcr:primaryType="nt:unstructured" platform="instagram" url="https://instagram.com/nexcent"/>
+                            <item2 jcr:primaryType="nt:unstructured" platform="tiktok" url="https://tiktok.com/@nexcent"/>
+                        </socialLinks>
+                    </sitefooter>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

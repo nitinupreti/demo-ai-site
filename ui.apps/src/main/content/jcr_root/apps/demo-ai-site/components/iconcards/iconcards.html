@@ -1,0 +1,37 @@
+<!--/*
+    Icon Cards — section heading + grid of icon/title/description cards.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.IconCardsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.iconcards'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-iconcards cmp-iconcards--cols-${model.columns @ context='attribute'} cmp-iconcards--pad-${model.sectionPadding @ context='attribute'} cmp-iconcards--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-iconcards__inner">
+            <div class="cmp-iconcards__heading" data-sly-test="${model.title || model.description}">
+                <h2 class="cmp-iconcards__title" data-sly-test="${model.title}">
+                    <span data-sly-test="${model.titlePrefix}">${model.titlePrefix} </span>
+                    <span class="cmp-iconcards__title-main">${model.title}</span>
+                </h2>
+                <p class="cmp-iconcards__description" data-sly-test="${model.description}">${model.description}</p>
+            </div>
+            <ul class="cmp-iconcards__list"
+                data-sly-list.item="${model.items}"
+                data-sly-test="${model.items.size > 0}">
+                <li class="cmp-iconcards__item" data-index="${itemList.index}">
+                    <div class="cmp-iconcards__icon" data-sly-test="${item.iconPath}">
+                        <img src="${item.iconPath @ context='uri'}" alt="${item.iconAlt @ context='attribute'}"/>
+                    </div>
+                    <h3 class="cmp-iconcards__item-title">${item.title}</h3>
+                    <p class="cmp-iconcards__item-description" data-sly-test="${item.description}">${item.description}</p>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <div class="cmp-iconcards cmp-iconcards--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Icon Cards — click to configure section title and cards.' @ i18n}</span>
+    </div>
+</sly>

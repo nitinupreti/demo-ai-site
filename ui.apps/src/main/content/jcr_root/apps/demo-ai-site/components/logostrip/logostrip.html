@@ -1,0 +1,32 @@
+<!--/*
+    Logo Strip — centered title/description + row of client logos.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.LogoStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.logostrip'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-logostrip cmp-logostrip--pad-${model.sectionPadding @ context='attribute'} cmp-logostrip--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-logostrip__inner">
+            <div class="cmp-logostrip__heading" data-sly-test="${model.title || model.description}">
+                <h2 class="cmp-logostrip__title" data-sly-test="${model.title}">${model.title}</h2>
+                <p class="cmp-logostrip__description" data-sly-test="${model.description}">${model.description}</p>
+            </div>
+            <ul class="cmp-logostrip__list"
+                data-sly-list.item="${model.items}"
+                data-sly-test="${model.items.size > 0}">
+                <li class="cmp-logostrip__item" data-index="${itemList.index}">
+                    <img class="cmp-logostrip__logo"
+                         src="${item.imagePath @ context='uri'}"
+                         alt="${item.imageAlt @ context='attribute'}"/>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <div class="cmp-logostrip cmp-logostrip--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Logo Strip — click to configure title and logo images.' @ i18n}</span>
+    </div>
+</sly>

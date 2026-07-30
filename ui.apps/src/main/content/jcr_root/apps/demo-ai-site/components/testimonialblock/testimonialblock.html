@@ -1,0 +1,43 @@
+<!--/*
+    Testimonial — image + quote + attribution + logos + link.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.TestimonialBlockModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.testimonialblock'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-testimonialblock cmp-testimonialblock--pad-${model.sectionPadding @ context='attribute'} cmp-testimonialblock--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-testimonialblock__inner">
+            <div class="cmp-testimonialblock__media" data-sly-test="${model.imagePath}">
+                <img class="cmp-testimonialblock__image"
+                     src="${model.imagePath @ context='uri'}"
+                     alt="${model.imageAlt @ context='attribute'}"/>
+            </div>
+            <div class="cmp-testimonialblock__content">
+                <blockquote class="cmp-testimonialblock__quote" data-sly-test="${model.quote}">${model.quote}</blockquote>
+                <div class="cmp-testimonialblock__attribution" data-sly-test="${model.authorName || model.authorRole}">
+                    <div class="cmp-testimonialblock__author-name" data-sly-test="${model.authorName}">${model.authorName}</div>
+                    <div class="cmp-testimonialblock__author-role" data-sly-test="${model.authorRole}">${model.authorRole}</div>
+                </div>
+                <div class="cmp-testimonialblock__footer">
+                    <ul class="cmp-testimonialblock__logos"
+                        data-sly-list.logo="${model.logos}"
+                        data-sly-test="${model.logos.size > 0}">
+                        <li class="cmp-testimonialblock__logo-item" data-index="${logoList.index}">
+                            <img src="${logo.imagePath @ context='uri'}" alt="${logo.imageAlt @ context='attribute'}"/>
+                        </li>
+                    </ul>
+                    <a class="cmp-testimonialblock__link"
+                       data-sly-test="${model.linkText && model.linkUrl}"
+                       href="${model.linkUrl @ context='uri'}">${model.linkText} <span aria-hidden="true">&rarr;</span></a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="cmp-testimonialblock cmp-testimonialblock--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Testimonial — click to configure quote, author, image, and logos.' @ i18n}</span>
+    </div>
+</sly>

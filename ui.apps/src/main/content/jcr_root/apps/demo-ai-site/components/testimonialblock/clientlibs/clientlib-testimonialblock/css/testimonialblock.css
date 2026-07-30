@@ -1,0 +1,147 @@
+/* Testimonial — image + long quote + attribution + logos + link. */
+.cmp-testimonialblock {
+    --cmp-testimonialblock-pad: var(--das-section-pad-md);
+    background: var(--das-color-bg);
+    padding-block: var(--cmp-testimonialblock-pad);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cmp-testimonialblock--pad-none { --cmp-testimonialblock-pad: var(--das-section-pad-none); }
+.cmp-testimonialblock--pad-sm { --cmp-testimonialblock-pad: var(--das-section-pad-sm); }
+.cmp-testimonialblock--pad-md { --cmp-testimonialblock-pad: var(--das-section-pad-md); }
+.cmp-testimonialblock--pad-lg { --cmp-testimonialblock-pad: var(--das-section-pad-lg); }
+
+.cmp-testimonialblock--bg-white { background: var(--das-color-bg); }
+.cmp-testimonialblock--bg-grey { background: var(--das-color-nx-surface); }
+
+/*
+ * Design: the person image is a small fixed-size square avatar next to a quote
+ * block — NOT a proportional column that grows with viewport width. Figma frame
+ * shows image 108x108 with gap ~26px to a text column ~250px wide.
+ * We keep the avatar at a fixed size and let the text column take the remaining
+ * space (capped by --das-container-inner so the footer row doesn't stretch too far).
+ */
+.cmp-testimonialblock__inner {
+    --cmp-testimonialblock-avatar: 108px;
+    max-width: var(--das-container-inner);
+    margin-inline: auto;
+    padding-inline: var(--das-space-6);
+    display: grid;
+    grid-template-columns: var(--cmp-testimonialblock-avatar) 1fr;
+    gap: var(--das-space-6);
+    align-items: start;
+}
+
+.cmp-testimonialblock__media {
+    display: block;
+    width: var(--cmp-testimonialblock-avatar);
+    height: var(--cmp-testimonialblock-avatar);
+}
+
+.cmp-testimonialblock__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: var(--das-radius-md);
+}
+
+.cmp-testimonialblock__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--das-space-4);
+}
+
+.cmp-testimonialblock__quote {
+    margin: 0;
+    padding: 0;
+    border: none;
+    quotes: "\201C" "\201D";
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    color: var(--das-color-nx-ink);
+    line-height: var(--das-lh-body);
+    font-style: normal;
+}
+
+.cmp-testimonialblock__attribution {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cmp-testimonialblock__author-name {
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    font-weight: 600;
+    color: var(--das-color-green);
+}
+
+.cmp-testimonialblock__author-role {
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-label);
+    color: var(--das-color-nx-ink-muted);
+}
+
+.cmp-testimonialblock__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--das-space-5);
+    flex-wrap: wrap;
+    margin-top: var(--das-space-3);
+}
+
+.cmp-testimonialblock__logos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--das-space-5);
+    flex-wrap: wrap;
+}
+
+.cmp-testimonialblock__logo-item img {
+    display: block;
+    max-height: 24px;
+    max-width: 80px;
+    object-fit: contain;
+}
+
+.cmp-testimonialblock__link {
+    color: var(--das-color-green);
+    font-family: var(--das-font-sans);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: var(--das-fs-body);
+}
+
+.cmp-testimonialblock__link:hover,
+.cmp-testimonialblock__link:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.cmp-testimonialblock--placeholder {
+    background: var(--das-color-border);
+    color: var(--das-color-ink-muted);
+    padding: var(--das-space-6);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 1024px) {
+    .cmp-testimonialblock__inner { --cmp-testimonialblock-avatar: 96px; gap: var(--das-space-5); }
+}
+
+@media (max-width: 640px) {
+    .cmp-testimonialblock { --cmp-testimonialblock-pad: var(--das-section-pad-sm); }
+    .cmp-testimonialblock__inner {
+        --cmp-testimonialblock-avatar: 96px;
+        grid-template-columns: 1fr;
+    }
+    .cmp-testimonialblock__media { margin-inline: auto; }
+}

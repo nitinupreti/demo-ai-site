@@ -1,0 +1,31 @@
+<!--/*
+    Split Feature — two-column: image + text block with title + description + CTA.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.SplitFeatureModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.splitfeature'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-splitfeature cmp-splitfeature--image-${model.imagePosition @ context='attribute'} cmp-splitfeature--pad-${model.sectionPadding @ context='attribute'} cmp-splitfeature--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-splitfeature__inner">
+            <div class="cmp-splitfeature__media" data-sly-test="${model.imagePath}">
+                <img class="cmp-splitfeature__image"
+                     src="${model.imagePath @ context='uri'}"
+                     alt="${model.imageAlt @ context='attribute'}"/>
+            </div>
+            <div class="cmp-splitfeature__content">
+                <h2 class="cmp-splitfeature__title" data-sly-test="${model.title}">${model.title}</h2>
+                <p class="cmp-splitfeature__description" data-sly-test="${model.description}">${model.description}</p>
+                <a class="cmp-splitfeature__cta"
+                   data-sly-test="${model.ctaText && model.ctaLink}"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaText}</a>
+            </div>
+        </div>
+    </section>
+    <div class="cmp-splitfeature cmp-splitfeature--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Split Feature — click to configure image, title, description, and CTA.' @ i18n}</span>
+    </div>
+</sly>

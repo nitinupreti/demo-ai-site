@@ -1,0 +1,40 @@
+<!--/*
+    Blog List — section heading + grid of blog cards (image + title + read more link).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.BlogListModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.bloglist'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-bloglist cmp-bloglist--cols-${model.columns @ context='attribute'} cmp-bloglist--pad-${model.sectionPadding @ context='attribute'} cmp-bloglist--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-bloglist__inner">
+            <div class="cmp-bloglist__heading" data-sly-test="${model.title || model.description}">
+                <h2 class="cmp-bloglist__title" data-sly-test="${model.title}">${model.title}</h2>
+                <p class="cmp-bloglist__description" data-sly-test="${model.description}">${model.description}</p>
+            </div>
+            <ul class="cmp-bloglist__list"
+                data-sly-list.item="${model.items}"
+                data-sly-test="${model.items.size > 0}">
+                <li class="cmp-bloglist__item" data-index="${itemList.index}">
+                    <div class="cmp-bloglist__media" data-sly-test="${item.imagePath}">
+                        <img class="cmp-bloglist__image"
+                             src="${item.imagePath @ context='uri'}"
+                             alt="${item.imageAlt @ context='attribute'}"/>
+                    </div>
+                    <div class="cmp-bloglist__content">
+                        <h3 class="cmp-bloglist__item-title">${item.title}</h3>
+                        <a class="cmp-bloglist__link"
+                           data-sly-test="${item.linkUrl}"
+                           href="${item.linkUrl @ context='uri'}">${item.linkText || 'Readmore'} <span aria-hidden="true">&rarr;</span></a>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <div class="cmp-bloglist cmp-bloglist--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Blog List — click to configure title and blog cards.' @ i18n}</span>
+    </div>
+</sly>

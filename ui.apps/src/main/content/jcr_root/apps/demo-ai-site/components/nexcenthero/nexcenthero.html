@@ -1,0 +1,34 @@
+<!--/*
+    Nexcent Hero — split layout: title + description + CTA on one side, image on the other.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.NexcentHeroModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.nexcenthero'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-nexcenthero cmp-nexcenthero--image-${model.imagePosition @ context='attribute'} cmp-nexcenthero--pad-${model.sectionPadding @ context='attribute'} cmp-nexcenthero--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-nexcenthero__inner">
+            <div class="cmp-nexcenthero__content">
+                <h1 class="cmp-nexcenthero__title">
+                    <span data-sly-test="${model.titlePrefix}">${model.titlePrefix} </span>
+                    <span class="cmp-nexcenthero__title-accent" data-sly-test="${model.titleAccent}">${model.titleAccent}</span>
+                </h1>
+                <p class="cmp-nexcenthero__description" data-sly-test="${model.description}">${model.description}</p>
+                <a class="cmp-nexcenthero__cta"
+                   data-sly-test="${model.ctaText && model.ctaLink}"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaText}</a>
+            </div>
+            <div class="cmp-nexcenthero__media" data-sly-test="${model.imagePath}">
+                <img class="cmp-nexcenthero__image"
+                     src="${model.imagePath @ context='uri'}"
+                     alt="${model.imageAlt @ context='attribute'}"/>
+            </div>
+        </div>
+    </section>
+    <div class="cmp-nexcenthero cmp-nexcenthero--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Nexcent Hero — click to configure title, description, image, and CTA.' @ i18n}</span>
+    </div>
+</sly>

@@ -15,6 +15,15 @@
     --das-color-on-dark: #fbf9f6;          /* text on dark banners/footer */
     --das-color-cta-bg: #000000;           /* solid CTA banner background */
 
+    /* Nexcent-style palette (green accent + neutral grey) */
+    --das-color-green: #4caf4f;            /* Nexcent primary green */
+    --das-color-green-hover: #388e3b;      /* Nexcent green hover */
+    --das-color-nx-ink: #263238;           /* Nexcent heading dark */
+    --das-color-nx-ink-muted: #717171;     /* Nexcent body copy grey */
+    --das-color-nx-surface: #f5f7fa;       /* Nexcent stats/grey block */
+    --das-color-nx-footer-bg: #263238;     /* Nexcent dark footer */
+    --das-color-nx-illustration: #eaf4ea;  /* Nexcent illustration soft green tint */
+
     /* Typography */
     --das-font-serif: "Playfair Display", "Georgia", "Times New Roman", serif;
     --das-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

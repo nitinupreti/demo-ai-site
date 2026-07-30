@@ -1,0 +1,39 @@
+<!--/*
+    Stats Block — split layout: heading/description + grid of stats (icon + number + label).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.StatsBlockModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.statsblock'}"/>
+</sly>
+<sly data-sly-test="${model.hasContent || wcmmode.edit}">
+    <section class="cmp-statsblock cmp-statsblock--pad-${model.sectionPadding @ context='attribute'} cmp-statsblock--bg-${model.backgroundColor @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-sly-test="${model.hasContent}">
+        <div class="cmp-statsblock__inner">
+            <div class="cmp-statsblock__heading" data-sly-test="${model.title || model.description}">
+                <h2 class="cmp-statsblock__title" data-sly-test="${model.title}">
+                    <span data-sly-test="${model.titlePrefix}">${model.titlePrefix} </span>
+                    <span class="cmp-statsblock__title-accent">${model.title}</span>
+                </h2>
+                <p class="cmp-statsblock__description" data-sly-test="${model.description}">${model.description}</p>
+            </div>
+            <ul class="cmp-statsblock__list"
+                data-sly-list.item="${model.items}"
+                data-sly-test="${model.items.size > 0}">
+                <li class="cmp-statsblock__item" data-index="${itemList.index}">
+                    <div class="cmp-statsblock__icon" data-sly-test="${item.iconPath}">
+                        <img src="${item.iconPath @ context='uri'}" alt="${item.iconAlt @ context='attribute'}"/>
+                    </div>
+                    <div class="cmp-statsblock__stat">
+                        <div class="cmp-statsblock__number">${item.number}</div>
+                        <div class="cmp-statsblock__label" data-sly-test="${item.label}">${item.label}</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </section>
+    <div class="cmp-statsblock cmp-statsblock--placeholder"
+         data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <span>${'Stats Block — click to configure title and stats.' @ i18n}</span>
+    </div>
+</sly>

@@ -1,6 +1,6 @@
 ================================================================
 # DESIGN_SOURCE — provide AT LEAST ONE of the following. Both may be provided (see "Input modes" for precedence).
-FIGMA_URL:   <figma.com URL, e.g. https://www.figma.com/design/:fileKey/:fileName?node-id=:nodeId>
+FIGMA_URL:   "https://www.figma.com/design/8VZ2Qj3FCG95Fdyldz9Lo4/Minimal-Landing-Page-Design-%7C-Website-Home-Page-Design-%7C-Agency-Website-UI-Design--Community-?node-id=212-813&t=AmiuUfg2UefmitKZ-0"
 DESIGN_FILE: <path to a .pdf or .fig exported from Figma>
 # Optional companion assets (any that exist — use if present, ignore if absent):
 #   DESIGN_SCREENSHOTS_DIR: <path to a folder of .png / .jpg frame exports>
@@ -347,4 +347,55 @@ Mode-A tool call sequence per top-level frame:
 5. `download_assets(fileKey, [nodeIds])` → SVG icons and raster images to the local scratch folder.
 
 If any Figma MCP call fails (network, auth, rate-limit, missing node), do NOT silently fall back to guessing. Either ask the user for a `DESIGN_FILE` companion, or ask for the specific `node-id` that failed. In Mode C, only fall back to `DESIGN_FILE` for the specific failing node — do not abandon the URL for the entire run.
+
+### A15. Design-frame width vs. target render width — cap the component's inner container proportionally
+When the DESIGN_SOURCE frame's width is materially different from the width at which the component will actually render (a very common case: a mobile-preview or tablet-preview frame designed to appear on a desktop page whose container-max is much wider), the component's inner container MUST cap at a `max-width` that preserves the design's internal proportions. Otherwise CSS layout primitives that distribute *remaining space* — `justify-content: space-between`, `justify-content: space-around`, `flex-wrap`, `align-self`, `margin-inline: auto`, `grid-template-columns: … 1fr …`, and `grid-template-columns: repeat(N, 1fr)` — will silently produce visibly different spacing than the design shows, because remaining space grows unboundedly with the container.
+
+Symptom to watch for: the DOM structure is correct, per-element sizes look correct, every CSS rule passes lint, but sibling elements that sit close together in the design (e.g., two items in a bounded row, a logo strip next to a link, an icon next to a heading) end up separated by a large empty gap in the rendered page. The visual parity check (A4 / A11) fails even though the rendered-DOM check (Step 10) passes.
+
+Contract (applies to EVERY component, not just those that show the symptom):
+- In Step 2, record the design frame's usable content width (frame width minus outer gutters) and every primary element width and gap inside it. Convert those to ratios of the usable content width.
+- In Step 5, compare the design's usable content width against the project's default page container-max. If the design width is materially smaller, set the component's inner container's `max-width` to a shared token whose value preserves the design's usable content width proportionally (prefer an existing narrower content token over introducing a new one; if none exists, add one per A5). Never leave a component to inherit the full page container-max when the design frame is materially smaller.
+- Fixed sidebar / media columns should be sized in `px`, `%`, or `minmax()` bounds derived from the design's ratios, not left as bare `1fr` on both sides of a grid when the design shows a stable image-column vs. text-column ratio.
+- After the fix, re-verify per A4 / A11 — the same `justify-content` / `align-self` rules will then produce the design's intended spacing without further per-instance overrides.
+
+Iteration order when the visual parity check flags "too much space between siblings" or "the two columns look wildly out of proportion":
+1. Confirm the design frame's usable content width and compare it to the rendered container width in the browser (DevTools → element box → `.getBoundingClientRect().width` on the component's inner container).
+2. If they differ materially, cap the inner container's `max-width` FIRST — do NOT reach for `margin`, `translate`, negative offsets, hardcoded `gap: 8px`, or overriding the distribution primitive with `justify-content: flex-start` + `margin-left: auto`. Those hide the root cause and break other breakpoints.
+3. Only AFTER the inner container is proportionally capped, decide whether any residual spatial variation between sibling instances warrants a per-instance dialog field per the per-instance spatial-authoring rule.
+
+Anti-patterns (do not do these to "close the gap"):
+- Adding `max-width` in `px` inside a component when a shared width/container token exists or should be added.
+- Wrapping the whole layout in a nested extra `<div>` with hardcoded `max-width` and `margin: auto` when the existing `__inner` element could take that responsibility.
+- Replacing `justify-content: space-between` with `flex-start` + hand-tuned `gap` values to force a specific pixel gap — the fix disappears the moment the container size changes.
+- Enlarging the sidebar/media column arbitrarily to "fill" the extra space — this breaks the design's image / text ratio.
+
+### A16. No image `filter:` effects unless the design shows them
+Never apply CSS `filter:` (or any other visual transform — `mix-blend-mode`, `mask-image`, `-webkit-filter`, `opacity` below 1 on the base state, `background-blend-mode`) to author-supplied images (logos, avatars, product shots, hero photos, testimonial portraits, icon slots) unless the DESIGN_SOURCE frame explicitly shows the treatment on the exact same element. In particular do NOT default to any of these "conventional" treatments on logo strips, partner grids, testimonial rails, sponsor rows, or client walls:
+- `filter: grayscale(1)` / `grayscale(100%)` — desaturating logos to a monochrome strip.
+- `filter: opacity(0.7)` / `opacity: 0.7` on the base image state — muting logos so they "read as secondary".
+- `filter: brightness()` / `contrast()` / `sepia()` / `hue-rotate()` — recoloring authored images.
+- `mix-blend-mode: multiply` / `luminosity` — blending logos into a tinted background.
+- `filter: grayscale(1)` on rest with `filter: none` on `:hover` — the "colored-on-hover" pattern.
+
+These treatments look professional in isolation but they DESTROY the author's uploaded artwork: an author who uploads a full-color brand logo, product photo, or customer portrait sees it rendered in monochrome/muted with no way to opt out, and no error is emitted anywhere. The rendered-DOM check (Step 10) passes because the `<img>` tag is present; the visual parity check (A4 / A11) fails because the color is wrong, but the root cause is easy to misdiagnose as an asset problem when it is actually component CSS.
+
+Contract:
+- Author-supplied media is rendered with `object-fit`, `aspect-ratio`, and sizing constraints only. Color, saturation, and opacity of the base state come from the source asset — the component CSS does not touch them.
+- If the design frame genuinely shows a desaturated / tinted / blended image treatment (rare but possible — e.g. a hero image with a dark overlay, a partner logo intentionally rendered in a single brand color), encode that as a dialog select whose values map to opt-in modifier classes (`cmp-<name>__image--treatment-<value>`), default `none`, so authors can turn it on per instance. Never make it the unconditional base style.
+- When the design shows what look like grayscale logos, first verify with `get_screenshot` at a higher `maxDimension` and by inspecting the SVG / raster export directly — many "monochrome" partner logos in Figma are actually the brand's own single-color mark exported as-is, not a grayscale CSS filter on a colored source.
+- Interactive states (`:hover`, `:focus-visible`) MAY animate a subtle transform / shadow / underline, but must never change the color rendering of an author-supplied image unless the design shows both rest and hover states of that image with explicitly different renderings.
+
+Anti-pattern to flag in code review:
+```css
+/* Do NOT ship this on a logo strip / partner grid / testimonial rail. */
+.cmp-<name>__logo,
+.cmp-<name>__logo-item img {
+    filter: grayscale(1) opacity(0.7);
+}
+.cmp-<name>__logo:hover {
+    filter: grayscale(0) opacity(1);
+}
+```
+If this pattern already exists on a component and the design does not explicitly require it, remove it as part of the visual parity iteration loop (A4). Do not "improve" it into a smoother animation — remove it entirely.
 ================================================================
