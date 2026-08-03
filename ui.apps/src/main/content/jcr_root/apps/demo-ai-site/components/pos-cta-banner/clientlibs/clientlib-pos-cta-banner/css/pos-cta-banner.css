@@ -1,0 +1,73 @@
+.cmp-pos-cta-banner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 494px);
+    gap: var(--pos-space-4);
+    align-items: center;
+    padding: var(--pos-space-7) var(--pos-space-7);
+    background: var(--pos-color-grey);
+    border-radius: var(--pos-radius-card);
+    font-family: var(--pos-font-family);
+    color: var(--pos-color-dark);
+}
+
+.cmp-pos-cta-banner__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pos-space-3);
+    max-width: 500px;
+}
+
+.cmp-pos-cta-banner__title {
+    margin: 0;
+    font-size: var(--pos-fs-h2);
+    font-weight: var(--pos-font-weight-medium);
+    line-height: var(--pos-lh-heading);
+}
+
+.cmp-pos-cta-banner__body {
+    margin: 0;
+    font-size: var(--pos-fs-body);
+    line-height: var(--pos-lh-body);
+}
+
+.cmp-pos-cta-banner__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 35px;
+    background: var(--pos-color-dark);
+    color: var(--pos-color-white);
+    text-decoration: none;
+    border-radius: var(--pos-radius-button);
+    font-size: var(--pos-fs-h4);
+    align-self: flex-start;
+    font-weight: var(--pos-font-weight-medium);
+    transition: transform 120ms ease;
+}
+
+.cmp-pos-cta-banner__button:hover,
+.cmp-pos-cta-banner__button:focus-visible {
+    background: var(--pos-color-black);
+    transform: translateY(-2px);
+}
+
+.cmp-pos-cta-banner__illustration {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.cmp-pos-cta-banner__illustration img {
+    max-width: 100%;
+    height: auto;
+    max-height: 394px;
+    object-fit: contain;
+}
+
+@media (max-width: 1024px) {
+    .cmp-pos-cta-banner {
+        grid-template-columns: 1fr;
+        padding: var(--pos-space-5);
+        text-align: left;
+    }
+}

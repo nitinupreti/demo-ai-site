@@ -1,0 +1,24 @@
+<sly data-sly-use.model="com.demo.core.models.CtaBannerModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-cta-banner'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-cta-banner">
+            <div class="cmp-pos-cta-banner__content">
+                <h2 class="cmp-pos-cta-banner__title">${model.title}</h2>
+                <p class="cmp-pos-cta-banner__body" data-sly-test="${model.body}">${model.body}</p>
+                <a class="cmp-pos-cta-banner__button"
+                   href="${model.ctaLink @ context='uri'}"
+                   data-sly-test="${model.ctaText}">${model.ctaText}</a>
+            </div>
+            <div class="cmp-pos-cta-banner__illustration" data-sly-test="${model.illustration}">
+                <img src="${model.illustration @ context='uri'}"
+                     alt="${model.illustrationAlt @ context='attribute'}"/>
+            </div>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus CTA Banner' @ i18n}"></div>
+    </sly>
+</sly>

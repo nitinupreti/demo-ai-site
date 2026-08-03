@@ -1,0 +1,67 @@
+/*
+ * Positivus base — page-level styles applied once via the tokens clientlib.
+ * Component CSS never repeats these; instead it inherits and only overrides
+ * the specific properties a component's frame in Figma demands.
+ */
+
+html {
+    box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: inherit;
+}
+
+body {
+    font-family: var(--pos-font-family);
+    font-size: var(--pos-fs-body);
+    line-height: var(--pos-lh-body);
+    color: var(--pos-color-dark);
+    background: var(--pos-color-white);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Consistent focus outline for every interactive control. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+    outline: var(--pos-focus-ring);
+    outline-offset: var(--pos-focus-offset);
+    border-radius: 4px;
+}
+
+/* Site-wide section rhythm — every top-level responsive-grid column becomes
+   a Positivus section with consistent vertical padding. Individual
+   components can override --pos-section-py locally when the design shows
+   a different rhythm for that section only. */
+.aem-Grid > .aem-GridColumn {
+    padding-top: var(--pos-section-py);
+    padding-bottom: var(--pos-section-py);
+}
+
+/* The template already wraps children in nested responsive-grids inside the
+   main container. Remove the extra vertical padding from the outer grid so
+   sections stack tightly without doubling their padding. */
+main > .aem-Grid > .aem-GridColumn {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Center + cap the container width to match the design's 1240px content. */
+main.container {
+    max-width: 100%;
+    padding: 0 var(--pos-page-gutter);
+    margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+    main.container {
+        padding: 0 var(--pos-page-gutter);
+    }
+}

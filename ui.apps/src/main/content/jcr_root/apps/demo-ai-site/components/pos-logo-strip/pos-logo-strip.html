@@ -1,0 +1,21 @@
+<sly data-sly-use.model="com.demo.core.models.LogoStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-logo-strip'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-logo-strip">
+            <ul class="cmp-pos-logo-strip__list">
+                <li class="cmp-pos-logo-strip__item"
+                    data-sly-repeat.logo="${model.logos}">
+                    <img class="cmp-pos-logo-strip__image cmp-pos-logo-strip__image--treatment-${model.treatment}"
+                         src="${logo.image @ context='uri'}"
+                         alt="${logo.alt @ context='attribute'}"/>
+                </li>
+            </ul>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Logo Strip' @ i18n}"></div>
+    </sly>
+</sly>

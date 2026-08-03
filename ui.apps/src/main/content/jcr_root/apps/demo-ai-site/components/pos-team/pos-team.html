@@ -1,0 +1,40 @@
+<sly data-sly-use.model="com.demo.core.models.TeamModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-team'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-team">
+            <ul class="cmp-pos-team__grid">
+                <li class="cmp-pos-team__card"
+                    data-sly-repeat.member="${model.members}">
+                    <div class="cmp-pos-team__header">
+                        <div class="cmp-pos-team__photo" data-sly-test="${member.photo}">
+                            <img src="${member.photo @ context='uri'}"
+                                 alt="${member.name @ context='attribute'}"/>
+                        </div>
+                        <div class="cmp-pos-team__identity">
+                            <div class="cmp-pos-team__name">${member.name}</div>
+                            <div class="cmp-pos-team__role">${member.role}</div>
+                        </div>
+                        <a class="cmp-pos-team__social"
+                           href="${member.socialLink @ context='uri'}"
+                           data-sly-test="${member.socialLink}"
+                           aria-label="LinkedIn profile for ${member.name @ context='attribute'}">
+                            <span aria-hidden="true">in</span>
+                        </a>
+                    </div>
+                    <hr class="cmp-pos-team__rule"/>
+                    <p class="cmp-pos-team__bio">${member.bio}</p>
+                </li>
+            </ul>
+            <div class="cmp-pos-team__footer" data-sly-test="${model.ctaText}">
+                <a class="cmp-pos-team__cta"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaText}</a>
+            </div>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Team' @ i18n}"></div>
+    </sly>
+</sly>

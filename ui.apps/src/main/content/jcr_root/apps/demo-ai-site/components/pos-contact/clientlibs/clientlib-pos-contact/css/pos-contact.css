@@ -1,0 +1,139 @@
+.cmp-pos-contact {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 556px) 1fr;
+    gap: var(--pos-space-6);
+    align-items: stretch;
+    padding: var(--pos-space-7) var(--pos-space-6);
+    background: var(--pos-color-grey);
+    border-radius: var(--pos-radius-card);
+    font-family: var(--pos-font-family);
+    color: var(--pos-color-dark);
+    overflow: hidden;
+}
+
+.cmp-pos-contact__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pos-space-3);
+    max-width: 556px;
+}
+
+.cmp-pos-contact__radios {
+    display: flex;
+    gap: var(--pos-space-5);
+    border: 0;
+    padding: 0;
+    margin: 0 0 var(--pos-space-2);
+}
+
+.cmp-pos-contact__legend {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.cmp-pos-contact__radio {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--pos-space-2);
+    cursor: pointer;
+    font-size: var(--pos-fs-body);
+}
+
+.cmp-pos-contact__radio input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cmp-pos-contact__radio-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--pos-color-white);
+    border: 1px solid var(--pos-color-dark);
+    position: relative;
+    display: inline-block;
+}
+
+.cmp-pos-contact__radio input:checked + .cmp-pos-contact__radio-dot::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: var(--pos-color-green);
+}
+
+.cmp-pos-contact__field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.cmp-pos-contact__label {
+    font-size: var(--pos-fs-body);
+    color: var(--pos-color-dark);
+}
+
+.cmp-pos-contact__input {
+    width: 100%;
+    padding: 18px 30px;
+    border: 1px solid var(--pos-color-dark);
+    border-radius: var(--pos-radius-input);
+    background: var(--pos-color-white);
+    font-family: inherit;
+    font-size: var(--pos-fs-body);
+    color: var(--pos-color-dark);
+    box-sizing: border-box;
+}
+
+.cmp-pos-contact__input:focus-visible {
+    outline: 2px solid var(--pos-color-green);
+    outline-offset: 2px;
+}
+
+.cmp-pos-contact__submit {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 35px;
+    background: var(--pos-color-dark);
+    color: var(--pos-color-white);
+    border: none;
+    border-radius: var(--pos-radius-button);
+    font-size: var(--pos-fs-h4);
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: var(--pos-space-2);
+}
+
+.cmp-pos-contact__submit:hover,
+.cmp-pos-contact__submit:focus-visible {
+    background: var(--pos-color-black);
+}
+
+.cmp-pos-contact__illustration {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.cmp-pos-contact__illustration img {
+    max-width: 100%;
+    height: auto;
+    max-height: 500px;
+    object-fit: contain;
+}
+
+@media (max-width: 1024px) {
+    .cmp-pos-contact {
+        grid-template-columns: 1fr;
+    }
+
+    .cmp-pos-contact__illustration {
+        display: none;
+    }
+}

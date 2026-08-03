@@ -1,0 +1,17 @@
+<sly data-sly-use.model="com.demo.core.models.SectionHeadingModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-section-heading'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-section-heading cmp-pos-section-heading--align-${model.align @ context='attribute'} cmp-pos-section-heading--label-${model.labelColor @ context='attribute'}">
+            <span class="cmp-pos-section-heading__label">${model.label}</span>
+            <sly data-sly-test="${model.subtitle}">
+                <p class="cmp-pos-section-heading__subtitle">${model.subtitle}</p>
+            </sly>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Section Heading' @ i18n}"></div>
+    </sly>
+</sly>

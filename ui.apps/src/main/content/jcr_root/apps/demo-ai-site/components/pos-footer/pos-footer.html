@@ -1,0 +1,52 @@
+<sly data-sly-use.model="com.demo.core.models.FooterModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-footer'}"/>
+
+    <footer class="cmp-pos-footer">
+        <div class="cmp-pos-footer__top">
+            <div class="cmp-pos-footer__brand">${model.logoText}</div>
+            <nav class="cmp-pos-footer__nav" aria-label="Footer navigation">
+                <ul class="cmp-pos-footer__nav-list">
+                    <li data-sly-repeat.item="${model.nav}">
+                        <a class="cmp-pos-footer__nav-link"
+                           href="${item.link @ context='uri'}">${item.label}</a>
+                    </li>
+                </ul>
+            </nav>
+            <ul class="cmp-pos-footer__social">
+                <li data-sly-repeat.s="${model.social}">
+                    <a class="cmp-pos-footer__social-link"
+                       href="${s.link @ context='uri'}"
+                       aria-label="${s.label @ context='attribute'}">${s.label}</a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="cmp-pos-footer__middle">
+            <div class="cmp-pos-footer__contact">
+                <h3 class="cmp-pos-footer__contact-heading">${model.contactHeading}</h3>
+                <p class="cmp-pos-footer__contact-line" data-sly-test="${model.email}">Email: ${model.email}</p>
+                <p class="cmp-pos-footer__contact-line" data-sly-test="${model.phone}">Phone: ${model.phone}</p>
+                <p class="cmp-pos-footer__contact-line" data-sly-test="${model.address}">Address: ${model.address}</p>
+            </div>
+            <form class="cmp-pos-footer__subscribe" action="#" method="post">
+                <label class="cmp-pos-footer__subscribe-label" for="pos-footer-subscribe">Subscribe</label>
+                <input id="pos-footer-subscribe"
+                       type="email"
+                       name="email"
+                       class="cmp-pos-footer__subscribe-input"
+                       placeholder="${model.subscribePlaceholder @ context='attribute'}"/>
+                <button type="submit" class="cmp-pos-footer__subscribe-button">${model.subscribeButton}</button>
+            </form>
+        </div>
+
+        <hr class="cmp-pos-footer__rule"/>
+
+        <div class="cmp-pos-footer__bottom">
+            <span class="cmp-pos-footer__copyright">${model.copyright}</span>
+            <a class="cmp-pos-footer__privacy"
+               href="${model.privacyLink @ context='uri'}"
+               data-sly-test="${model.privacyText}">${model.privacyText}</a>
+        </div>
+    </footer>
+</sly>

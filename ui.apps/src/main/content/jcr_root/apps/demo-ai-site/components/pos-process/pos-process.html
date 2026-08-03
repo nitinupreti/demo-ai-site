@@ -1,0 +1,38 @@
+<sly data-sly-use.model="com.demo.core.models.ProcessModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-process'}"/>
+    <sly data-sly-call="${clientlib.js @ categories='demo-ai-site.pos-process'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-process" data-cmp-is="pos-process">
+            <ul class="cmp-pos-process__list">
+                <li class="cmp-pos-process__item ${stepList.first ? 'cmp-pos-process__item--active' : ''}"
+                    data-index="${stepList.index}"
+                    data-sly-repeat.step="${model.steps}">
+                    <button type="button"
+                            class="cmp-pos-process__header"
+                            aria-expanded="${stepList.first ? 'true' : 'false' @ context='attribute'}"
+                            aria-controls="cmp-pos-process-panel-${stepList.index}"
+                            id="cmp-pos-process-header-${stepList.index}">
+                        <span class="cmp-pos-process__number">${step.number}</span>
+                        <span class="cmp-pos-process__title">${step.title}</span>
+                        <span class="cmp-pos-process__toggle" aria-hidden="true">
+                            <span class="cmp-pos-process__toggle-icon"></span>
+                        </span>
+                    </button>
+                    <div class="cmp-pos-process__panel"
+                         id="cmp-pos-process-panel-${stepList.index}"
+                         role="region"
+                         aria-labelledby="cmp-pos-process-header-${stepList.index}"
+                         data-sly-test="${step.body}">
+                        <p class="cmp-pos-process__body">${step.body}</p>
+                    </div>
+                </li>
+            </ul>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Process' @ i18n}"></div>
+    </sly>
+</sly>

@@ -1,0 +1,25 @@
+<sly data-sly-use.model="com.demo.core.models.CaseStudiesModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-case-studies'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-case-studies">
+            <ul class="cmp-pos-case-studies__list">
+                <li class="cmp-pos-case-studies__item"
+                    data-sly-repeat.item="${model.items}">
+                    <p class="cmp-pos-case-studies__body">${item.body}</p>
+                    <a class="cmp-pos-case-studies__link"
+                       href="${item.linkPath @ context='uri'}"
+                       data-sly-test="${item.linkText}">
+                        ${item.linkText}
+                        <span class="cmp-pos-case-studies__arrow" aria-hidden="true">↗</span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Case Studies' @ i18n}"></div>
+    </sly>
+</sly>

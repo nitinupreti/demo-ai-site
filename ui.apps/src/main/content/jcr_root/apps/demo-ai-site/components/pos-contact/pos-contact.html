@@ -1,0 +1,42 @@
+<sly data-sly-use.model="com.demo.core.models.ContactModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-contact'}"/>
+
+    <section class="cmp-pos-contact">
+        <form class="cmp-pos-contact__form"
+              action="${model.submitAction @ context='uri'}"
+              method="post"
+              novalidate="novalidate">
+            <fieldset class="cmp-pos-contact__radios">
+                <legend class="cmp-pos-contact__legend">Contact type</legend>
+                <label class="cmp-pos-contact__radio">
+                    <input type="radio" name="contactType" value="sayHi" checked="checked"/>
+                    <span class="cmp-pos-contact__radio-dot"></span>
+                    <span>${model.sayHiLabel}</span>
+                </label>
+                <label class="cmp-pos-contact__radio">
+                    <input type="radio" name="contactType" value="getQuote"/>
+                    <span class="cmp-pos-contact__radio-dot"></span>
+                    <span>${model.getQuoteLabel}</span>
+                </label>
+            </fieldset>
+            <label class="cmp-pos-contact__field">
+                <span class="cmp-pos-contact__label">${model.nameLabel}</span>
+                <input type="text" name="name" class="cmp-pos-contact__input"/>
+            </label>
+            <label class="cmp-pos-contact__field">
+                <span class="cmp-pos-contact__label">${model.emailLabel}</span>
+                <input type="email" name="email" class="cmp-pos-contact__input" required="required"/>
+            </label>
+            <label class="cmp-pos-contact__field">
+                <span class="cmp-pos-contact__label">${model.messageLabel}</span>
+                <textarea name="message" rows="5" class="cmp-pos-contact__input" required="required"></textarea>
+            </label>
+            <button type="submit" class="cmp-pos-contact__submit">${model.submitLabel}</button>
+        </form>
+        <div class="cmp-pos-contact__illustration" data-sly-test="${model.illustration}">
+            <img src="${model.illustration @ context='uri'}"
+                 alt="${model.illustrationAlt @ context='attribute'}"/>
+        </div>
+    </section>
+</sly>

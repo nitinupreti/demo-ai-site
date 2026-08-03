@@ -1,0 +1,120 @@
+.cmp-pos-team {
+    font-family: var(--pos-font-family);
+}
+
+.cmp-pos-team__grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--pos-space-5);
+}
+
+.cmp-pos-team__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pos-space-3);
+    padding: var(--pos-space-5) var(--pos-space-4);
+    background: var(--pos-color-white);
+    border: var(--pos-border);
+    border-radius: var(--pos-radius-card);
+    box-shadow: var(--pos-shadow-card);
+    color: var(--pos-color-dark);
+}
+
+.cmp-pos-team__header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--pos-space-2);
+    align-items: center;
+}
+
+.cmp-pos-team__photo {
+    width: 103px;
+    height: 103px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--pos-color-green);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.cmp-pos-team__photo img {
+    max-width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.cmp-pos-team__name {
+    font-size: var(--pos-fs-h4);
+    font-weight: var(--pos-font-weight-medium);
+    line-height: 1.2;
+}
+
+.cmp-pos-team__role {
+    font-size: var(--pos-fs-body);
+    color: var(--pos-color-dark);
+}
+
+.cmp-pos-team__social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: var(--pos-color-dark);
+    color: var(--pos-color-green);
+    border-radius: 50%;
+    text-decoration: none;
+    font-weight: var(--pos-font-weight-bold);
+    font-family: serif;
+    font-size: 16px;
+}
+
+.cmp-pos-team__rule {
+    border: 0;
+    border-top: 1px solid var(--pos-color-dark);
+    margin: var(--pos-space-1) 0;
+}
+
+.cmp-pos-team__bio {
+    margin: 0;
+    font-size: var(--pos-fs-body);
+    line-height: var(--pos-lh-body);
+}
+
+.cmp-pos-team__footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--pos-space-4);
+}
+
+.cmp-pos-team__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 35px;
+    background: var(--pos-color-dark);
+    color: var(--pos-color-white);
+    text-decoration: none;
+    border-radius: var(--pos-radius-button);
+    font-size: var(--pos-fs-h4);
+}
+
+@media (max-width: 1024px) {
+    .cmp-pos-team__grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-pos-team__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cmp-pos-team__footer {
+        justify-content: center;
+    }
+}

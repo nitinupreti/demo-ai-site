@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        pageTitle="Positivus — Navigating the digital landscape for success"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Positivus"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <!-- 1. Hero -->
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-hero"
+                        heading="Navigating the digital landscape for success"
+                        body="Our digital marketing agency helps businesses grow and succeed online through a range of services including SEO, PPC, social media marketing, and content creation."
+                        ctaText="Book a consultation"
+                        ctaLink="#contact"
+                        illustration="/content/dam/demo-ai-site/design/hero-illustration.png"
+                        illustrationAlt="Illustration of a person megaphone and rocket"/>
+                    <!-- 2. Logo strip -->
+                    <logoStrip
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-logo-strip"
+                        treatment="mono">
+                        <logos jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-amazon.svg"
+                                alt="Amazon"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-dribbble.svg"
+                                alt="Dribbble"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-hubspot.svg"
+                                alt="HubSpot"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-notion.svg"
+                                alt="Notion"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-netflix.svg"
+                                alt="Netflix"/>
+                            <item5
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/logo-zoom.svg"
+                                alt="Zoom"/>
+                        </logos>
+                    </logoStrip>
+                    <!-- 3. Services heading -->
+                    <servicesHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Services"
+                        subtitle="At our digital marketing agency, we offer a range of services to help businesses grow and succeed online. These services include:"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 4. Services grid -->
+                    <services
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-services">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Search engine"
+                                titleBottom="optimization"
+                                variant="grey"
+                                illustration="/content/dam/demo-ai-site/design/service-seo.png"
+                                illustrationAlt="SEO illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Pay-per-click"
+                                titleBottom="advertising"
+                                variant="green"
+                                illustration="/content/dam/demo-ai-site/design/service-ppc.png"
+                                illustrationAlt="PPC illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Social Media"
+                                titleBottom="Marketing"
+                                variant="dark"
+                                illustration="/content/dam/demo-ai-site/design/service-social.png"
+                                illustrationAlt="Social media illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Email"
+                                titleBottom="Marketing"
+                                variant="grey"
+                                illustration="/content/dam/demo-ai-site/design/service-email.png"
+                                illustrationAlt="Email marketing illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Content"
+                                titleBottom="Creation"
+                                variant="green"
+                                illustration="/content/dam/demo-ai-site/design/service-content.png"
+                                illustrationAlt="Content creation illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item5
+                                jcr:primaryType="nt:unstructured"
+                                titleTop="Analytics and"
+                                titleBottom="Tracking"
+                                variant="dark"
+                                illustration="/content/dam/demo-ai-site/design/service-analytics.png"
+                                illustrationAlt="Analytics illustration"
+                                linkText="Learn more"
+                                linkPath="#"/>
+                        </cards>
+                    </services>
+                    <!-- 5. CTA banner -->
+                    <ctaBanner
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-cta-banner"
+                        title="Let's make things happen"
+                        body="Contact us today to learn more about how our digital marketing services can help your business grow and succeed online."
+                        ctaText="Get your free proposal"
+                        ctaLink="#contact"
+                        illustration="/content/dam/demo-ai-site/design/cta-illustration.png"
+                        illustrationAlt="CTA illustration"/>
+                    <!-- 6. Case studies heading -->
+                    <caseStudiesHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Case Studies"
+                        subtitle="Explore Real-Life Examples of Our Proven Digital Marketing Success through Our Case Studies"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 7. Case studies -->
+                    <caseStudies
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-case-studies">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                body="For a local restaurant, we implemented a targeted PPC campaign that resulted in a 50% increase in website traffic and a 25% increase in sales."
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                body="For a B2B software company, we developed an SEO strategy that resulted in a first-page ranking for key keywords and a 200% increase in organic traffic."
+                                linkText="Learn more"
+                                linkPath="#"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                body="For a national retail chain, we created a social media marketing campaign that increased followers by 25% and generated a 20% increase in online sales."
+                                linkText="Learn more"
+                                linkPath="#"/>
+                        </items>
+                    </caseStudies>
+                    <!-- 8. Process heading -->
+                    <processHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Our Working Process"
+                        subtitle="Step-by-Step Guide to Achieving Your Business Goals"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 9. Process accordion -->
+                    <process
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-process">
+                        <steps jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                number="01"
+                                title="Consultation"
+                                body="During the initial consultation, we will discuss your business goals and objectives, target audience, and current marketing efforts. This will allow us to understand your needs and tailor our services to best fit your requirements."/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                number="02"
+                                title="Research and Strategy Development"
+                                body="Based on our consultation, we develop a customized marketing strategy that aligns with your goals and budget."/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                number="03"
+                                title="Implementation"
+                                body="Our team implements the campaigns across the chosen channels and continuously monitors performance."/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                number="04"
+                                title="Monitoring and Optimization"
+                                body="We continuously monitor your campaigns and optimize them for peak performance."/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                number="05"
+                                title="Reporting and Communication"
+                                body="You receive regular reports and stay in constant communication with our team."/>
+                            <item5
+                                jcr:primaryType="nt:unstructured"
+                                number="06"
+                                title="Continual Improvement"
+                                body="We iterate on results and refine strategies to maximize ROI over time."/>
+                        </steps>
+                    </process>
+                    <!-- 10. Team heading -->
+                    <teamHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Team"
+                        subtitle="Meet the skilled and experienced team behind our successful digital marketing strategies"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 11. Team grid -->
+                    <team
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-team"
+                        ctaText="See all team"
+                        ctaLink="#">
+                        <members jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                name="John Smith"
+                                role="CEO and Founder"
+                                photo="/content/dam/demo-ai-site/design/team-1.png"
+                                bio="10+ years of experience in digital marketing. Expertise in SEO, PPC, and content strategy."
+                                socialLink="#"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                name="Jane Doe"
+                                role="Director of Operations"
+                                photo="/content/dam/demo-ai-site/design/team-2.png"
+                                bio="7+ years of experience in project management and team leadership. Strong organizational and communication skills."
+                                socialLink="#"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                name="Michael Brown"
+                                role="Senior SEO Specialist"
+                                photo="/content/dam/demo-ai-site/design/team-3.png"
+                                bio="5+ years of experience in SEO and content creation. Proficient in keyword research and on-page optimization."
+                                socialLink="#"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                name="Emily Johnson"
+                                role="PPC Manager"
+                                photo="/content/dam/demo-ai-site/design/team-4.png"
+                                bio="3+ years of experience in paid search advertising. Skilled in campaign management and performance analysis."
+                                socialLink="#"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                name="Brian Williams"
+                                role="Social Media Specialist"
+                                photo="/content/dam/demo-ai-site/design/team-5.png"
+                                bio="4+ years of experience in social media marketing. Proficient in creating and scheduling content and social media analytics."
+                                socialLink="#"/>
+                            <item5
+                                jcr:primaryType="nt:unstructured"
+                                name="Sarah Kim"
+                                role="Content Creator"
+                                photo="/content/dam/demo-ai-site/design/team-6.png"
+                                bio="2+ years of experience in writing and editing. Skilled in creating compelling, SEO-optimized content."
+                                socialLink="#"/>
+                        </members>
+                    </team>
+                    <!-- 12. Testimonials heading -->
+                    <testimonialsHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Testimonials"
+                        subtitle="Hear from Our Satisfied Clients: Read Our Testimonials to Learn More about Our Digital Marketing Services"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 13. Testimonials -->
+                    <testimonials
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-testimonials">
+                        <quotes jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                quote="We have been working with Positivus for the past year and have seen a significant increase in website traffic and leads as a result of their efforts. The team is professional, responsive, and truly cares about the success of our business. We highly recommend Positivus to any company looking to grow their online presence."
+                                name="John Smith"
+                                title="Marketing Director at XYZ Corp"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                quote="Positivus transformed our digital strategy. Their team's creativity and attention to detail exceeded our expectations."
+                                name="Emily Johnson"
+                                title="CMO at ABC Inc."/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                quote="Working with Positivus has been a game changer. Our engagement metrics have never looked better."
+                                name="Michael Brown"
+                                title="Founder at Startup Hub"/>
+                        </quotes>
+                    </testimonials>
+                    <!-- 14. Contact heading -->
+                    <contactHeading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-section-heading"
+                        label="Contact Us"
+                        subtitle="Connect with Us: Let's Discuss Your Digital Marketing Needs"
+                        labelColor="green"
+                        align="left"/>
+                    <!-- 15. Contact form -->
+                    <contact
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-contact"
+                        sayHiLabel="Say Hi"
+                        getQuoteLabel="Get a Quote"
+                        nameLabel="Name"
+                        emailLabel="Email*"
+                        messageLabel="Message*"
+                        submitLabel="Send Message"
+                        submitAction="#"
+                        illustration="/content/dam/demo-ai-site/design/contact-illustration.png"
+                        illustrationAlt="Contact us illustration"/>
+                    <!-- 16. Footer -->
+                    <footer
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/pos-footer"
+                        logoText="Positivus"
+                        contactHeading="Contact us:"
+                        email="info@positivus.com"
+                        phone="555-567-8901"
+                        address="1234 Main St&#xa;Moonstone City, Stardust State 12345"
+                        subscribePlaceholder="Email"
+                        subscribeButton="Subscribe to news"
+                        copyright="© 2023 Positivus. All Rights Reserved."
+                        privacyText="Privacy Policy"
+                        privacyLink="#">
+                        <nav jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                label="About us"
+                                link="#"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                label="Services"
+                                link="#"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                label="Use Cases"
+                                link="#"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                label="Pricing"
+                                link="#"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                label="Blog"
+                                link="#"/>
+                        </nav>
+                        <social jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                label="in"
+                                link="#"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                label="fb"
+                                link="#"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                label="tw"
+                                link="#"/>
+                        </social>
+                    </footer>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

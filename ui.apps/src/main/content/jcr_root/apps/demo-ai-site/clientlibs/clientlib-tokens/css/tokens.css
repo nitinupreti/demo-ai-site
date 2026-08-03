@@ -1,0 +1,106 @@
+/*
+ * Positivus design tokens — derived from Figma variables at
+ * https://www.figma.com/design/Vu88Jnb2clJ0rz8w22MG9U (node 330:762).
+ * These are the single source of truth for colors, typography, radii,
+ * spacing, container widths, and elevation across every component.
+ */
+
+/* Space Grotesk web font (Google Fonts) — the design's primary typeface. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+    /* Palette */
+    --pos-color-green: #B9FF66;
+    --pos-color-dark: #191A23;
+    --pos-color-black: #000000;
+    --pos-color-grey: #F3F3F3;
+    --pos-color-white: #FFFFFF;
+    --pos-color-focus: #4C6EF5;
+
+    /* Typography — family + weights */
+    --pos-font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --pos-font-weight-regular: 400;
+    --pos-font-weight-medium: 500;
+    --pos-font-weight-bold: 700;
+
+    /* Type scale (matches Figma h1/h2/h3/h4/p) */
+    --pos-fs-h1: 60px;
+    --pos-fs-h2: 40px;
+    --pos-fs-h3: 30px;
+    --pos-fs-h4: 20px;
+    --pos-fs-body: 18px;
+    --pos-fs-small: 16px;
+
+    /* Line heights (100% for headings in Figma; comfortable for body) */
+    --pos-lh-tight: 1.1;
+    --pos-lh-heading: 1.15;
+    --pos-lh-body: 1.4;
+
+    /* Radii */
+    --pos-radius-card: 45px;
+    --pos-radius-card-sm: 30px;
+    --pos-radius-chip: 7px;
+    --pos-radius-button: 14px;
+
+    /* Spacing — 8px scale extended with common values */
+    --pos-space-0: 0;
+    --pos-space-1: 8px;
+    --pos-space-2: 16px;
+    --pos-space-3: 24px;
+    --pos-space-4: 32px;
+    --pos-space-5: 40px;
+    --pos-space-6: 50px;
+    --pos-space-7: 60px;
+    --pos-space-8: 80px;
+    --pos-space-9: 100px;
+    --pos-space-10: 140px;
+
+    /* Layout */
+    --pos-container-max: 1240px;
+    --pos-page-gutter: 100px;
+    --pos-section-py: 70px;
+
+    /* Border + shadow — the signature Positivus offset */
+    --pos-border-width: 1px;
+    --pos-border-color: var(--pos-color-dark);
+    --pos-border: var(--pos-border-width) solid var(--pos-border-color);
+    --pos-shadow-card: 0 5px 0 0 var(--pos-color-dark);
+    --pos-shadow-card-lg: 0 8px 0 0 var(--pos-color-dark);
+
+    /* Focus ring — accessibility floor */
+    --pos-focus-ring: 3px solid var(--pos-color-focus);
+    --pos-focus-offset: 3px;
+
+    /* Per-instance spatial scale (used by components that expose
+       alignment / gutter / offset dialog fields). */
+    --pos-offset-none: 0;
+    --pos-offset-sm: 40px;
+    --pos-offset-md: 80px;
+    --pos-offset-lg: 140px;
+}
+
+/* Tablet — shrink section rhythm and page gutter. */
+@media (max-width: 1024px) {
+    :root {
+        --pos-page-gutter: 40px;
+        --pos-section-py: 48px;
+        --pos-fs-h1: 44px;
+        --pos-fs-h2: 32px;
+        --pos-fs-h3: 24px;
+        --pos-radius-card: 30px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    :root {
+        --pos-page-gutter: 20px;
+        --pos-section-py: 32px;
+        --pos-fs-h1: 36px;
+        --pos-fs-h2: 28px;
+        --pos-fs-h3: 22px;
+        --pos-fs-h4: 18px;
+        --pos-fs-body: 16px;
+        --pos-radius-card: 24px;
+    }
+}

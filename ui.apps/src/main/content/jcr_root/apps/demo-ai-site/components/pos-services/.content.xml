@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Component"
+    jcr:title="Positivus Services Grid"
+    jcr:description="Grid of service cards with title, illustration and Learn more link; each card supports a color variant"
+    componentGroup="Demo AI Site - Positivus"/>

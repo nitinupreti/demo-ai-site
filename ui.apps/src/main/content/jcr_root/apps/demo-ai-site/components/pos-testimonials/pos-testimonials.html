@@ -1,0 +1,32 @@
+<sly data-sly-use.model="com.demo.core.models.TestimonialsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html">
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.pos-testimonials'}"/>
+    <sly data-sly-call="${clientlib.js @ categories='demo-ai-site.pos-testimonials'}"/>
+
+    <sly data-sly-test.hasContent="${model.hasContent}">
+        <section class="cmp-pos-testimonials" data-cmp-is="pos-testimonials">
+            <div class="cmp-pos-testimonials__track">
+                <div class="cmp-pos-testimonials__slide"
+                     data-sly-repeat.quote="${model.quotes}">
+                    <blockquote class="cmp-pos-testimonials__bubble">
+                        <p class="cmp-pos-testimonials__quote">${quote.quote}</p>
+                    </blockquote>
+                    <div class="cmp-pos-testimonials__meta">
+                        <div class="cmp-pos-testimonials__name">${quote.name}</div>
+                        <div class="cmp-pos-testimonials__title">${quote.title}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="cmp-pos-testimonials__controls">
+                <button type="button" class="cmp-pos-testimonials__nav cmp-pos-testimonials__nav--prev"
+                        aria-label="Previous testimonial">&#8592;</button>
+                <button type="button" class="cmp-pos-testimonials__nav cmp-pos-testimonials__nav--next"
+                        aria-label="Next testimonial">&#8594;</button>
+            </div>
+        </section>
+    </sly>
+
+    <sly data-sly-test="${!hasContent && wcmmode.edit}">
+        <div class="cq-placeholder" data-emptytext="${'Positivus Testimonials' @ i18n}"></div>
+    </sly>
+</sly>

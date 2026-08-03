@@ -1,0 +1,55 @@
+.cmp-pos-logo-strip {
+    padding: var(--pos-space-3) 0;
+    font-family: var(--pos-font-family);
+}
+
+.cmp-pos-logo-strip__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--pos-space-3);
+}
+
+.cmp-pos-logo-strip__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+}
+
+.cmp-pos-logo-strip__image {
+    max-height: 48px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+/*
+ * Opt-in image treatments. Authors select a treatment in the component
+ * dialog; the default is "none" so uploaded artwork is preserved.
+ *
+ * treatment=mono  — flatten every logo to a single dark mark (matches the
+ *                   Figma design where the partner wall is rendered as
+ *                   monochrome brand marks on a light background).
+ * treatment=muted — subtle desaturation + opacity, useful for secondary rails.
+ */
+.cmp-pos-logo-strip__image--treatment-mono {
+    filter: grayscale(1) brightness(0);
+}
+
+.cmp-pos-logo-strip__image--treatment-muted {
+    filter: grayscale(1);
+    opacity: 0.7;
+}
+
+/* treatment=none renders the source artwork unmodified (no rule needed). */
+
+@media (max-width: 640px) {
+    .cmp-pos-logo-strip__list {
+        justify-content: center;
+    }
+}
