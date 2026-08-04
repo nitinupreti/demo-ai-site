@@ -19,6 +19,26 @@ Build every reusable AEM as a Cloud Service component (Java stack, Sling Models,
 
 Discover everything else — component list, dialog fields, variants, tokens, breakpoints, build commands, package prefix, module layout, content root — from DESIGN_SOURCE (+ optional companion assets) and from the repo. Do not hardcode assumptions about counts, names, or types.
 
+## P0 — Non-negotiable design-fidelity rule (applies to EVERY run)
+Matching the Figma design as closely as possible is a **hard requirement**, not a nice-to-have. On every run — first pass and every subsequent iteration — the rendered component MUST match the DESIGN_SOURCE for:
+- **Typography**: exact font family (including web-font loading per A6), weight, size, line-height, letter-spacing, and text color per text style.
+- **Color**: exact background color of the page, section, card, chip, button, and every nested surface; exact text color, border color, accent color, and icon color; exact opacity and any gradient stops.
+- **Background**: page background, section background, component background (including any image, gradient, or overlay layer), and any per-variant background swap.
+- **Look and feel**: spacing rhythm, radii, borders, shadows, iconography, image aspect ratios, alignment, per-instance offset/gutter, and interactive states.
+
+**Verification is mandatory in BOTH modes:**
+1. **Disabled-mode (published-view) parity check** — per Step 10 rendered-DOM check and A4 / A11 visual parity.
+2. **Author-mode parity check** — after deploy, ALSO open the demo page in AEM author (`/editor.html<demo-page-path>.html`) and verify the same font / color / background / look-and-feel match the design while the page is being authored. Empty-state placeholders and edit-mode chrome are the only permitted visual differences.
+
+**If ANY mismatch is observed in either mode, the run is NOT done.** The agent MUST iterate:
+- First fix at the token layer (color, font, spacing, radius token) if the mismatch is a shared value.
+- Then fix at the component CSS layer (BEM modifier, per-instance CSS custom property, media query).
+- Then, if the CSS alone cannot reach parity because the component's structure is wrong, **redesign the component** — change the HTL structure, add/remove dialog fields, split into sub-components, or introduce new variants — and re-run the full deploy → author-mode check → disabled-mode check loop.
+- Redeploy after every change (use A1 recovery when `ui.content` `mode="merge"` blocks property updates on existing authored nodes) and re-run BOTH parity checks.
+- Repeat until zero mismatches remain in BOTH author mode and disabled mode at every design-defined breakpoint.
+
+This rule OVERRIDES any temptation to declare the run complete because the build is green, the tests pass, or the DOM contains the right classes. Green build + wrong colors / wrong font / wrong background = **NOT DONE**. Follow this every single time this prompt is invoked.
+
 ## Input modes
 - **Mode A — Figma URL (`FIGMA_URL` set):** use the Figma MCP tools (`get_design_context`, `get_metadata`, `get_screenshot`, `get_variable_defs`, `download_assets` / `upload_assets`) as the authoritative source. Parse the URL per A14 to derive `fileKey` + `nodeId`. Preferred when reachable, because vector geometry, variables, and typography are exact.
 - **Mode B — Local design file (`DESIGN_FILE` set):** parse the local PDF (or fall back to a `.fig` per the format rules) plus any companion assets. Use when the environment has no Figma MCP access, when the file is confidential, or when the URL is stale.
@@ -41,6 +61,7 @@ Discover everything else — component list, dialog fields, variants, tokens, br
 
 ## Rules (must follow)
 - **Source of truth is DESIGN_SOURCE** — `FIGMA_URL` (Mode A), `DESIGN_FILE` (Mode B), or both (Mode C, Figma MCP wins per "Input modes"). When the design and existing code disagree, the design wins.
+- **Design fidelity is non-negotiable** — per the P0 rule, every rendered component MUST match the design's font, color, background, and look-and-feel in BOTH author mode and disabled mode. Any mismatch triggers a CSS iteration or a component redesign; the run is not done until parity is reached at every breakpoint.
 - Build reusable, author-friendly components: every visual variant that appears in the design becomes a dialog select / checkbox / numeric input, not a duplicate component.
 - Discover the component list from the design — do not assume a fixed count or set of names.
 - Establish/refresh shared design tokens first (colors, typography scale + line-heights + letter-spacing, spacing scale, radii, shadows, container widths, breakpoints, positional-offset scale). Prefer the exported tokens JSON if present; otherwise derive tokens from the PDF's repeated values. Reuse existing tokens; **never hardcode a px/hex/font value that a token already covers.**
@@ -440,4 +461,96 @@ Anti-pattern to flag in code review:
 }
 ```
 If this pattern already exists on a component and the design does not explicitly require it, remove it as part of the visual parity iteration loop (A4). Do not "improve" it into a smoother animation — remove it entirely.
+
+### A17. Author-mode parity check and redesign trigger (enforces the P0 rule)
+The disabled-mode rendered-DOM check (Step 10) and the visual parity check (A4 / A11) are NOT sufficient on their own. Every run MUST also verify the design in AEM **author mode**, because authors evaluate the site through the editor and any font/color/background mismatch there is a shipped defect.
+
+**Author-mode check recipe** (run after Step 10 and A4 pass):
+1. Load `http://localhost:4502/editor.html<demo-page-path>.html` with `admin:admin` and the standard Referer.
+2. For each component instance, take a screenshot (via `screenshot_page` if available, or manually) and diff against DESIGN_SOURCE at the design's native width. Ignore only the AEM editor chrome (rails, overlays, empty-state placeholders in unauthored slots).
+3. For each component root, use browser DevTools or `run_playwright_code` to read the computed styles and confirm:
+   - `font-family` on body-text elements matches the design's typography token (A6 web-font loading actually resolved).
+   - `background-color` on the page `<body>`, on the section wrapper, and on each component root matches the design's color hex.
+   - `color` on headings, body copy, links, and button labels matches the design.
+   - Every gradient, shadow, border, and radius the design shows is present.
+4. Repeat at every design-defined breakpoint.
+
+**Redesign trigger — mandatory iteration if ANY of these fail:**
+- Computed `font-family` falls back to the browser default (font not loaded → fix A6 wiring, redeploy, re-verify).
+- Computed background color, text color, border color, or accent color on any element differs from the design hex by more than a rounding-margin (adjust the token → redeploy → re-verify; if a token is shared and cannot change without breaking other components, add a new token per A5 and switch the component to the new token).
+- Section/page background does not match the design (check A9 — page-level tokens live on the site clientlib, not per component).
+- The overall look and feel (spacing rhythm, radius language, shadow depth, iconography style, image treatment) reads differently from the design — even when individual measurements pass. In this case, do NOT try to close the gap with piecemeal CSS overrides. **Redesign the component**: revisit Step 1 decomposition, add/remove variants, restructure HTL, split into sub-components, or introduce new tokens — whatever it takes to reach parity. Then re-run Steps 4 → 10 → A4 → A17 in full.
+- Author mode looks materially different from disabled mode in font/color/background (edit-mode CSS is bleeding through — scope styles correctly, do not use `.aem-AuthorLayer` selectors, and never rely on `wcmmode.disabled` for base styling).
+
+**Do NOT declare the run complete** until the author-mode check is clean AND the disabled-mode check is clean AND the automated visual diff (A11) is clean AND the manual side-by-side (A4) is clean — at every breakpoint. If time-boxed, report the residual gaps explicitly in the Final summary rather than papering over them.
+
+This addendum enforces the P0 rule at the top of the prompt. Every future run of this prompt MUST execute A17 as part of the standard completion loop — not as an optional bonus check.
+
+### A18. Structured design-facts checkpoint — model-agnostic, no new files
+Before writing any CSS/HTL/Java, post a `design-facts` block **inline in the response** (as a fenced code block, YAML or JSON). This is a checkpoint the agent produces in-chat — do NOT create a new markdown file, do NOT write it to disk, do NOT store it in memory. It anchors every subsequent code change to a measured value so any LLM (Claude, GPT, Gemini, local) that resumes the conversation reads the same facts and produces the same output.
+
+Required structure inside the fenced block (per DESIGN_SOURCE, per top-level frame):
+- **Global tokens**: color palette (name → hex), typography scale (name → family/weight/size/line-height/letter-spacing), spacing scale, radii, shadows, container widths, breakpoints — one entry per token, referencing the Figma variable name when available.
+- **Per component** (repeated per component discovered in Step 1):
+  - Name, group, role in the design.
+  - Dialog fields (name → type → default → variant options → tab).
+  - Every measured value from Step 2 (outer width, gutters, padding, gaps, radii, shadows, per-element typography, colors, icon sizes, image aspect ratios).
+  - Per-instance spatial deltas — one entry per instance visible in the design.
+  - Interactive states observed (rest / hover / focus / active / open / closed).
+
+**Rule:** every entry in component CSS / HTL / dialog / model MUST trace back to a row in the most-recent `design-facts` block. If a row is missing, post an updated `design-facts` block first, then write code. Update the block inline before every iteration. Never edit CSS/HTL without a corresponding entry in the block.
+
+### A19. Exact-value discipline — no rounding, no scale-snapping, no unit drift
+LLMs (especially cheaper/faster ones) commonly "round to a nice number" or snap to a familiar scale. This silently breaks pixel-parity. Rules:
+- **Colors**: `#RRGGBB` (or `#RRGGBBAA` with explicit alpha) copied byte-for-byte from Figma. Never round `#0f172b` to `#0f172c` or "close enough" to a token unless the token IS that hex.
+- **Spacing / sizes**: use Figma's exact px value. Do NOT snap `10px`, `14px`, `18px` to an assumed 8px scale. If the design uses 13px, ship 13px.
+- **Font-weight**: numeric (`400`, `500`, `600`, `700`) — never `bold`/`normal` keywords. Do not assume "Medium = 500"; some families use 550 or 450 — read the exact value from Figma.
+- **Line-height**: preserve Figma's format — px stays px, unitless/percent stays unitless. Converting between them changes rendering.
+- **Letter-spacing**: preserve sign and unit. Figma's `-1%` is `-0.01em`, NOT `-1px`.
+- **Border-radius**: per-corner when the design shows asymmetric radii (`border-radius: 8px 8px 0 0`) — never collapse to a single value.
+- **Opacity / alpha**: read the exact value; do not round `0.87` to `0.9`.
+
+Anti-pattern to reject in review: "the design says 13px but our spacing scale is 8/12/16 so we shipped 12". WRONG. Add a new token or ship the exact value.
+
+### A20. Figma auto-layout → CSS mapping — deterministic and identical across models
+Different LLMs interpret Figma auto-layout differently, producing different CSS from the same design. Use this fixed mapping:
+- **Direction**: Figma `Horizontal` → `flex-direction: row`; `Vertical` → `flex-direction: column`.
+- **Item spacing**: → `gap: <value>`; NEVER `margin-right`/`margin-bottom` on children.
+- **Padding**: `padding: <top> <right> <bottom> <left>` — always write all four values; do not collapse to shorthand that loses information.
+- **Main-axis alignment**: Figma `Packed` + start / center / end → `justify-content: flex-start | center | flex-end`; Figma `Space between` → `justify-content: space-between`.
+- **Cross-axis alignment**: Figma vertical align → `align-items: flex-start | center | flex-end | stretch`.
+- **Sizing**: `Hug contents` → intrinsic (`width: auto` / `height: auto`); `Fill container` → `flex: 1 1 auto` or `width: 100%`; `Fixed` → explicit px.
+- **Absolute-positioned children of an auto-layout frame**: child gets `position: absolute` with the exact `top`/`left`/`right`/`bottom` values from Figma; parent gets `position: relative`.
+- **Wrap**: Figma `Wrap` → `flex-wrap: wrap`; if the design implies a grid (equal columns), use CSS Grid with explicit `grid-template-columns` (never `repeat(auto-fit, minmax(…))` unless the design explicitly shows responsive reflow at multiple widths).
+- **Constraints** (non-auto-layout children): Figma horizontal `Left and right` → `left`/`right` in px (child stretches); `Center` → `left: 50%; transform: translateX(-50%)`; vertical analogous.
+
+### A21. No glyph / icon substitution — SVG only
+Common LLM failure: replacing designed icons with Unicode chars or emoji because they render "for free". Every icon comes from Figma via SVG export (A7). Never substitute:
+- `★` / `⭐` for a designed star or rating glyph.
+- `▶` / `▷` / `›` / `→` for a designed chevron or arrow.
+- `✓` / `✔` for a designed checkmark.
+- `✕` / `✖` / `×` for a designed close.
+- `🔍` for a designed search glyph.
+- `•` / `●` / `▪` for a designed list marker.
+- Any emoji for a designed illustration.
+
+If an SVG export is unavailable for a specific icon, ask the user for it or download it via `download_assets` in Mode A. **Never** substitute — the Unicode/emoji glyph will render in the system-default font at a different size, weight, color, and baseline than the designed icon.
+
+### A22. Evidence-in-summary — claims must be backed by artifacts
+The Final summary MUST include, per component, concrete evidence that parity was reached — not just the words "matches the design". A summary without evidence is treated as INCOMPLETE and the run is not accepted:
+- **Screenshot pair**: DESIGN_SOURCE frame + deployed page rendered at the same width, side-by-side or overlayed.
+- **Computed-style excerpt** (from browser DevTools or `run_playwright_code`): `font-family`, `font-weight`, `font-size`, `line-height`, `background-color`, `color`, `padding`, `border-radius`, `box-shadow` on the component root and 2–3 nested key elements, showing the resolved values.
+- **Design-facts cross-reference**: for each computed value, show the corresponding entry from the most-recent inline `design-facts` block (A18). Values must match; any delta > rounding-margin (>1px, >1 hex digit) is a failure and requires another iteration.
+- **Per-breakpoint evidence**: at least one screenshot pair and one computed-style excerpt per design-defined breakpoint.
+
+If browser tooling is unavailable, substitute with: the rendered HTML string, the deployed clientlib CSS excerpt, and a manual measurement callout — but state clearly in the summary that automated visual diff was not performed.
+
+### A23. Iteration budget and mandatory escalation — never spin silently
+Cap CSS-iteration attempts at **3 per component per parity gap**. If parity is still not reached on the same gap after 3 iterations:
+1. STOP CSS-tweaking for that component.
+2. Re-read Steps 1–2 in full: the discovery pass may have mis-classified a variant, missed a field, or picked the wrong root structure.
+3. If the re-read reveals a structural fix, apply it (may require a component redesign per A17) and reset the iteration counter.
+4. If it does not, **escalate to the user** with a specific, closed-ended question and evidence: the parity gap description, a screenshot pair, the diffs of the 3 attempted fixes, and a yes/no or A/B question ("Is the radius on the outer card or the media wrapper?", "Is the background color `#F5F7FA` per the Figma variable, or `#F4F6F9` per the raster export?").
+
+Never silently give up, and never keep spinning past 3 iterations without escalating. A caller who runs this prompt on a fast/small model MUST see either parity or a specific escalation — not a claim of "close enough".
 ================================================================
