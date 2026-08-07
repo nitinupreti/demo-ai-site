@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="TOTC Hero"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Properties"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <column
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <titlePrefix
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Title — Accent Prefix"
+                                                fieldDescription="Rendered in accent orange. Example: 'Studying'."
+                                                name="./titlePrefix"/>
+                                            <titleRest
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Title — Rest"
+                                                fieldDescription="Rendered in white. Example: 'Online is now much easier'."
+                                                name="./titleRest"/>
+                                            <subtitle
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                                fieldLabel="Subtitle"
+                                                name="./subtitle"/>
+                                            <primaryCtaLabel
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Primary CTA Label"
+                                                name="./primaryCtaLabel"
+                                                value="Join for free"/>
+                                            <primaryCtaLink
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Primary CTA Link"
+                                                name="./primaryCtaLink"
+                                                rootPath="/content"/>
+                                            <secondaryCtaLabel
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Secondary CTA Label"
+                                                name="./secondaryCtaLabel"
+                                                value="Watch how it works"/>
+                                            <secondaryCtaLink
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Secondary CTA Link"
+                                                name="./secondaryCtaLink"
+                                                rootPath="/content"/>
+                                            <heroImage
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Hero Image"
+                                                name="./heroImage"
+                                                rootPath="/content/dam"/>
+                                            <heroImageAlt
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Hero Image Alt Text"
+                                                name="./heroImageAlt"/>
+                                            <floatingCards
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                                fieldLabel="Floating Info Cards"
+                                                fieldDescription="Small glass-effect info chips overlaid on the hero image."
+                                                composite="{Boolean}true">
+                                                <field
+                                                    jcr:primaryType="nt:unstructured"
+                                                    sling:resourceType="granite/ui/components/coral/foundation/container"
+                                                    name="./floatingCards">
+                                                    <items jcr:primaryType="nt:unstructured">
+                                                        <title
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                            fieldLabel="Title"
+                                                            name="./title"/>
+                                                        <subtitle
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                            fieldLabel="Subtitle"
+                                                            name="./subtitle"/>
+                                                        <iconStyle
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                                            fieldLabel="Icon Style"
+                                                            name="./iconStyle"
+                                                            value="blue">
+                                                            <items jcr:primaryType="nt:unstructured">
+                                                                <blue jcr:primaryType="nt:unstructured" text="Blue calendar" value="blue"/>
+                                                                <orange jcr:primaryType="nt:unstructured" text="Orange email" value="orange"/>
+                                                                <pink jcr:primaryType="nt:unstructured" text="Pink avatar" value="pink"/>
+                                                                <cta jcr:primaryType="nt:unstructured" text="With pink CTA button" value="cta"/>
+                                                            </items>
+                                                        </iconStyle>
+                                                        <ctaLabel
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                            fieldLabel="Card CTA Label (optional)"
+                                                            name="./ctaLabel"/>
+                                                        <position
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                                            fieldLabel="Position"
+                                                            name="./position"
+                                                            value="topLeft">
+                                                            <items jcr:primaryType="nt:unstructured">
+                                                                <topLeft jcr:primaryType="nt:unstructured" text="Top left of image" value="topLeft"/>
+                                                                <topRight jcr:primaryType="nt:unstructured" text="Top right of image" value="topRight"/>
+                                                                <bottomLeft jcr:primaryType="nt:unstructured" text="Bottom left of image" value="bottomLeft"/>
+                                                                <accent jcr:primaryType="nt:unstructured" text="Small accent (top right corner)" value="accent"/>
+                                                            </items>
+                                                        </position>
+                                                    </items>
+                                                </field>
+                                            </floatingCards>
+                                        </items>
+                                    </column>
+                                </items>
+                            </columns>
+                        </items>
+                    </properties>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

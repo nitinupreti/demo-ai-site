@@ -1,0 +1,41 @@
+<!--/* TOTC Testimonial. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.TestimonialModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.testimonial'}"></sly>
+
+<section class="cmp-totc-testimonial">
+    <div class="cmp-totc-testimonial__inner">
+        <div class="cmp-totc-testimonial__copy">
+            <p class="cmp-totc-testimonial__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+            <h2 class="cmp-totc-testimonial__title" data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-totc-testimonial__lead" data-sly-test="${model.lead}">${model.lead}</div>
+            <a class="cmp-totc-testimonial__cta" data-sly-test="${model.cta}" href="#">${model.cta}</a>
+        </div>
+        <div class="cmp-totc-testimonial__media">
+            <div class="cmp-totc-testimonial__photo-frame">
+                <img data-sly-test="${model.photo}"
+                     class="cmp-totc-testimonial__photo"
+                     src="${model.photo @ context='uri'}"
+                     alt="${model.photoAlt || model.author || '' @ context='attribute'}"/>
+            </div>
+            <blockquote class="cmp-totc-testimonial__quote">
+                <div class="cmp-totc-testimonial__quote-text" data-sly-test="${model.quote}">
+                    ${model.quote @ context='html'}
+                </div>
+                <footer class="cmp-totc-testimonial__meta">
+                    <div>
+                        <p class="cmp-totc-testimonial__author" data-sly-test="${model.author}">${model.author}</p>
+                        <p class="cmp-totc-testimonial__source" data-sly-test="${model.reviewSource}">${model.reviewSource}</p>
+                    </div>
+                    <div class="cmp-totc-testimonial__stars" aria-label="Rating: ${model.rating} out of 5">
+                        <sly data-sly-repeat.i="${[1,2,3,4,5]}"><span class="cmp-totc-testimonial__star ${i <= model.rating ? 'is-filled' : ''}">★</span></sly>
+                    </div>
+                </footer>
+            </blockquote>
+        </div>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-testimonial__placeholder cq-placeholder"
+             data-emptytext="TOTC Testimonial — configure via dialog."></div>
+    </sly>
+</section>

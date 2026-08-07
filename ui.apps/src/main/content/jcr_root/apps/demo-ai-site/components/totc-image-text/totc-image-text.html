@@ -1,0 +1,43 @@
+<!--/* TOTC Image + Text. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.ImageTextModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.image-text'}"></sly>
+
+<section class="cmp-totc-image-text cmp-totc-image-text--side-${model.imageSide @ context='attribute'} cmp-totc-image-text--title-${model.titleColor @ context='attribute'} cmp-totc-image-text--accent-${model.accentColor @ context='attribute'} cmp-totc-image-text--media-${model.mediaStyle @ context='attribute'} cmp-totc-image-text--pad-top-${model.padTop @ context='attribute'} cmp-totc-image-text--pad-bottom-${model.padBottom @ context='attribute'}">
+    <div class="cmp-totc-image-text__inner">
+        <div class="cmp-totc-image-text__copy">
+            <h2 class="cmp-totc-image-text__title" data-sly-test="${model.title || model.titleAccent}">
+                <span class="cmp-totc-image-text__title-accent" data-sly-test="${model.titleAccent}">${model.titleAccent}</span><sly data-sly-test="${model.titleAccent && model.title}"> </sly><sly data-sly-test="${model.title}">${model.title}</sly>
+            </h2>
+            <div class="cmp-totc-image-text__body" data-sly-test="${model.body}">
+                ${model.body @ context='html'}
+            </div>
+            <ul class="cmp-totc-image-text__bullets" data-sly-test="${model.bullets.size > 0}">
+                <li class="cmp-totc-image-text__bullet cmp-totc-image-text__bullet--icon-${bullet.iconColor @ context='attribute'}"
+                    data-sly-repeat.bullet="${model.bullets}">
+                    <span class="cmp-totc-image-text__bullet-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg>
+                    </span>
+                    <span class="cmp-totc-image-text__bullet-text">${bullet.text}</span>
+                </li>
+            </ul>
+            <a class="cmp-totc-image-text__cta"
+               data-sly-test="${model.ctaLabel}"
+               href="${model.ctaLink || '#' @ context='uri'}">${model.ctaLabel}</a>
+        </div>
+        <div class="cmp-totc-image-text__media" data-sly-test="${model.image}">
+            <div class="cmp-totc-image-text__frame">
+                <img class="cmp-totc-image-text__image"
+                     src="${model.image @ context='uri'}"
+                     alt="${model.imageAlt || '' @ context='attribute'}"/>
+                <span class="cmp-totc-image-text__play" data-sly-test="${model.playIcon}" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><polygon points="9,6 20,12 9,18" fill="#FFFFFF"/></svg>
+                </span>
+            </div>
+        </div>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-image-text__placeholder cq-placeholder"
+             data-emptytext="TOTC Image + Text — configure via dialog."></div>
+    </sly>
+</section>

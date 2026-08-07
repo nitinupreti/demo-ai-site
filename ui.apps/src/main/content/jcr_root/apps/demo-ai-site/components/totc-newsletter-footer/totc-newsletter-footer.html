@@ -1,0 +1,40 @@
+<!--/* TOTC Newsletter Footer. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.NewsletterFooterModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.newsletter-footer'}"></sly>
+
+<footer class="cmp-totc-newsletter-footer">
+    <div class="cmp-totc-newsletter-footer__inner">
+        <div class="cmp-totc-newsletter-footer__brand">
+            <span class="cmp-totc-newsletter-footer__logo-mark" aria-hidden="true"></span>
+            <div>
+                <p class="cmp-totc-newsletter-footer__logo-text">${model.logoText}</p>
+                <p class="cmp-totc-newsletter-footer__tagline" data-sly-test="${model.tagline}">${model.tagline}</p>
+            </div>
+        </div>
+
+        <div class="cmp-totc-newsletter-footer__signup" data-sly-test="${model.newsletterTitle}">
+            <p class="cmp-totc-newsletter-footer__signup-title">${model.newsletterTitle}</p>
+            <form class="cmp-totc-newsletter-footer__form" onsubmit="return false;">
+                <input class="cmp-totc-newsletter-footer__input"
+                       type="email"
+                       placeholder="${model.emailPlaceholder @ context='attribute'}"
+                       aria-label="${model.emailPlaceholder || 'Email' @ context='attribute'}"/>
+                <button class="cmp-totc-newsletter-footer__submit" type="submit">${model.ctaLabel}</button>
+            </form>
+        </div>
+
+        <nav class="cmp-totc-newsletter-footer__nav" data-sly-test="${model.footerLinks.size > 0}"
+             aria-label="Footer">
+            <a class="cmp-totc-newsletter-footer__link"
+               data-sly-repeat.link="${model.footerLinks}"
+               href="${link.link || '#' @ context='uri'}">${link.label}</a>
+        </nav>
+
+        <p class="cmp-totc-newsletter-footer__copyright" data-sly-test="${model.copyright}">${model.copyright}</p>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-newsletter-footer__placeholder cq-placeholder"
+             data-emptytext="TOTC Newsletter Footer — configure via dialog."></div>
+    </sly>
+</footer>

@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="cq:PageContent"
+        jcr:title="TOTC Landing"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page"
+        pageTitle="TOTC — Virtual Class for Zoom">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <site_header
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-site-header"
+                        logoText="TOTC"
+                        loginLabel="Login"
+                        signupLabel="Sign Up"
+                        theme="onHero">
+                        <navLinks jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Home"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Courses"/>
+                            <item2 jcr:primaryType="nt:unstructured" label="Careers"/>
+                            <item3 jcr:primaryType="nt:unstructured" label="Blog"/>
+                            <item4 jcr:primaryType="nt:unstructured" label="About Us"/>
+                        </navLinks>
+                    </site_header>
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-hero"
+                        titlePrefix="Studying"
+                        titleRest="Online is now much easier"
+                        subtitle="TOTC is an interesting platform that will teach you in more an interactive way"
+                        primaryCtaLabel="Join for free"
+                        secondaryCtaLabel="Watch how it works">
+                        <floatingCards jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" title="250k" subtitle="Assisted Student" iconStyle="blue" position="topLeft"/>
+                            <item1 jcr:primaryType="nt:unstructured" title="Congratulations" subtitle="Your admission completed" iconStyle="orange" position="topRight"/>
+                            <item2 jcr:primaryType="nt:unstructured" title="User Experience Class" subtitle="Today at 12.00 PM" iconStyle="cta" ctaLabel="Join Now" position="bottomLeft"/>
+                            <item3 jcr:primaryType="nt:unstructured" title="" subtitle="" iconStyle="pink" position="accent"/>
+                        </floatingCards>
+                    </hero>
+                    <stats
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        title="Our Success"
+                        subtitle="Ornare id fames interdum porttitor nulla turpis etiam. Diam vitae sollicitudin at nec nam et pharetra gravida. Adipiscing a quis ultrices eu ornare tristique vel nisl orci."
+                        align="center"
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"/>
+                    <stats_strip
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-stats-strip">
+                        <stats jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" value="15K+" label="Students"/>
+                            <item1 jcr:primaryType="nt:unstructured" value="75%" label="Total success"/>
+                            <item2 jcr:primaryType="nt:unstructured" value="35" label="Main questions"/>
+                            <item3 jcr:primaryType="nt:unstructured" value="26" label="Chief experts"/>
+                            <item4 jcr:primaryType="nt:unstructured" value="16" label="Years of experience"/>
+                        </stats>
+                    </stats_strip>
+                    <all_in_one
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        titleAccent=""
+                        title="All-In-One"
+                        subtitle="TOTC is one powerful online software suite that combines all the tools needed to run a successful school or office."
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"
+                        align="center"/>
+                    <feature_cards
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-feature-cards">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   title="Online Billing, Invoicing, &amp; Contracts"
+                                   description="Simple and secure control of your organization's financial and legal transactions. Send customized invoices and contracts"
+                                   iconVariant="pink"
+                                   iconGlyph="invoice"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   title="Easy Scheduling &amp; Attendance Tracking"
+                                   description="Schedule and reserve classrooms at one campus or multiple campuses. Keep detailed records of student attendance"
+                                   iconVariant="orange"
+                                   iconGlyph="calendar"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   title="Customer Tracking"
+                                   description="Automate and track emails to individuals or groups. TOTC's built-in system helps organize your organization"
+                                   iconVariant="blue"
+                                   iconGlyph="users"/>
+                        </cards>
+                    </feature_cards>
+                    <what_is_title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        title="What is TOTC?"
+                        subtitle="TOTC is a platform that allows educators to create online classes whereby they can store the course materials online; manage assignments, quizzes and exams; monitor due dates; grade results and provide students with feedback all in one place."
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"
+                        align="center"/>
+                    <split_cards
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-split-cards">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   label="FOR INSTRUCTORS"
+                                   ctaLabel="Start a class today"
+                                   tint="navy"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   label="FOR STUDENTS"
+                                   ctaLabel="Enter access code"
+                                   tint="pink"/>
+                        </cards>
+                    </split_cards>
+                    <you_can_do
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        titleAccent="Everything you can do in a physical classroom,"
+                        title="you can do with TOTC"
+                        body="&lt;p&gt;TOTC's school management software helps traditional and online schools manage scheduling, attendance, payments and virtual classrooms all in one secure cloud-based system.&lt;/p&gt;"
+                        ctaLabel="Learn more"
+                        imageSide="right"
+                        titleColor="navy"
+                        accentColor="orange"
+                        mediaStyle="rounded"
+                        playIcon="{Boolean}true"
+                        padTop="lg"
+                        padBottom="lg"/>
+                    <our_features_title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        title="Our Features"
+                        subtitle="This very extraordinary feature, can make learning activities more efficient"
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"
+                        align="center"/>
+                    <feature1
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        titleAccent="A user interface"
+                        title="designed for the classroom"
+                        imageSide="left"
+                        titleColor="navy"
+                        accentColor="orange"
+                        mediaStyle="rounded"
+                        padTop="md"
+                        padBottom="md">
+                        <bullets jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" text="Teachers don't get lost in the grid view and have a dedicated Podium space." iconColor="pink"/>
+                            <item1 jcr:primaryType="nt:unstructured" text="TA's and presenters can be moved to the front of the class." iconColor="orange"/>
+                            <item2 jcr:primaryType="nt:unstructured" text="Teachers can easily see all students and class data at one time." iconColor="blue"/>
+                        </bullets>
+                    </feature1>
+                    <feature2
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        title="Tools For Teachers And Learners"
+                        body="&lt;p&gt;Class has a dynamic set of teaching tools built to be deployed and used during class. Teachers can handout assignments in real-time for students to complete and submit.&lt;/p&gt;"
+                        imageSide="right"
+                        titleColor="navy"
+                        mediaStyle="rounded"
+                        padTop="md"
+                        padBottom="md"/>
+                    <feature3
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        title="Assessments, Quizzes, Tests"
+                        body="&lt;p&gt;Easily launch live assignments, quizzes, and tests. Student results are automatically entered in the online gradebook.&lt;/p&gt;"
+                        imageSide="left"
+                        titleColor="navy"
+                        mediaStyle="rounded"
+                        padTop="md"
+                        padBottom="md"/>
+                    <feature4
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        title="Class Management Tools for Educators"
+                        body="&lt;p&gt;Class provides tools to help run and manage the class such as Class Roster, Attendance, and more. With the Gradebook, teachers can review and grade tests and quizzes in real-time.&lt;/p&gt;"
+                        imageSide="right"
+                        titleColor="navy"
+                        mediaStyle="rounded"
+                        padTop="md"
+                        padBottom="md"/>
+                    <feature5
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-image-text"
+                        title="One-on-One Discussions"
+                        body="&lt;p&gt;Teachers and teacher assistants can talk with students privately without leaving the Zoom environment.&lt;/p&gt;"
+                        ctaLabel="See more features"
+                        imageSide="left"
+                        titleColor="navy"
+                        mediaStyle="rounded"
+                        padTop="md"
+                        padBottom="md"/>
+                    <explore_title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        eyebrow=""
+                        title="Explore Course"
+                        subtitle="Ut enim finibus, placerat vel id, dapibus."
+                        align="left"
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"/>
+                    <course1
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-course-carousel"
+                        categoryLabel="Lorem Ipsum"
+                        categoryIcon="palette"
+                        featuredTitle="Integer id Orc Sed Ante Tincidunt"
+                        featuredSubtitle="Cras convallis leo orci, tristique tincidunt magna fringilla id faucibus vel"
+                        featuredPrice="$ 456"
+                        featuredCta="EXPLORE"
+                        featuredPosition="{Long}5">
+                        <books jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="orange"/>
+                            <item1 jcr:primaryType="nt:unstructured" title="Curabitur Egestas" color="yellow"/>
+                            <item2 jcr:primaryType="nt:unstructured" title="Quisque Conseq…" color="green"/>
+                            <item3 jcr:primaryType="nt:unstructured" title="Cras Convallis" color="lightGreen"/>
+                            <item4 jcr:primaryType="nt:unstructured" title="Vestibulum fauci…" color="lilac"/>
+                            <item5 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="pink"/>
+                            <item6 jcr:primaryType="nt:unstructured" title="Vestibulum fauci…" color="blue"/>
+                        </books>
+                    </course1>
+                    <course2
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-course-carousel"
+                        categoryLabel="Quisque a Consequat"
+                        categoryIcon="globe"
+                        featuredTitle="Integer id Orc Sed Ante Tincidunt"
+                        featuredSubtitle="Cras convallis leo orci, tristique tincidunt magna fringilla id faucibus vel"
+                        featuredPrice="$ 459"
+                        featuredCta="EXPLORE"
+                        featuredPosition="{Long}2">
+                        <books jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="orange"/>
+                            <item1 jcr:primaryType="nt:unstructured" title="Curabitur Egestas" color="yellow"/>
+                            <item2 jcr:primaryType="nt:unstructured" title="Quisque Consequat" color="lilac"/>
+                            <item3 jcr:primaryType="nt:unstructured" title="Cras Convallis" color="lightGreen"/>
+                            <item4 jcr:primaryType="nt:unstructured" title="Vestibulum faucibu" color="pink"/>
+                            <item5 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="orange"/>
+                            <item6 jcr:primaryType="nt:unstructured" title="Vestibulum faucibu" color="blue"/>
+                        </books>
+                    </course2>
+                    <course3
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-course-carousel"
+                        categoryLabel="Aenean Facilisis"
+                        categoryIcon="ribbon"
+                        featuredTitle="Integer id Orc Sed Ante Tincidunt"
+                        featuredSubtitle="Cras convallis leo orci, tristique tincidunt magna fringilla id faucibus vel"
+                        featuredPrice="$ 490"
+                        featuredCta="EXPLORE"
+                        featuredPosition="{Long}1">
+                        <books jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="orange"/>
+                            <item1 jcr:primaryType="nt:unstructured" title="Curabitur Egestas" color="yellow"/>
+                            <item2 jcr:primaryType="nt:unstructured" title="Quisque Consequat" color="green"/>
+                            <item3 jcr:primaryType="nt:unstructured" title="Cras Convallis" color="pink"/>
+                            <item4 jcr:primaryType="nt:unstructured" title="Vestibulum faucibu" color="lilac"/>
+                            <item5 jcr:primaryType="nt:unstructured" title="Ut Sed Eros" color="orange"/>
+                            <item6 jcr:primaryType="nt:unstructured" title="Vestibulum faucibu" color="blue"/>
+                        </books>
+                    </course3>
+                    <testimonial
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-testimonial"
+                        eyebrow="TESTIMONIAL"
+                        title="What They Say?"
+                        lead="TOTC has got more than 100k positive ratings from our users around the world.&#10;&#10;Some of the students and teachers were greatly helped by the Skilline.&#10;&#10;Are you too? Please give your assessment"
+                        cta="Write your assessment"
+                        quote="&lt;p&gt;&quot;Thank you so much for your help. It's exactly what I've been looking for. You won't regret it. It really saves me time and effort. TOTC is exactly what our business has been lacking.&quot;&lt;/p&gt;"
+                        author="Gloria Rose"
+                        reviewSource="12 reviews at Yelp"
+                        rating="{Long}5"/>
+                    <news_title
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-section-title"
+                        title="Latest News and Resources"
+                        subtitle="See the developments that have occurred to TOTC in the world"
+                        titleColor="navy"
+                        padTop="lg"
+                        padBottom="md"
+                        align="center"/>
+                    <news
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-news-cards"
+                        heroLabel="NEWS"
+                        heroLabelColor="pink"
+                        heroTitle="Class adds $30 million to its balance sheet for a Zoom-friendly edtech solution"
+                        heroSummary="Class, launched less than a year ago by Blackboard co-founder Michael Chasen, integrates exclusively..."
+                        heroCta="Read more">
+                        <sideCards jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   title="Class Technologies Inc. Closes $30 Million Series A Financing to Meet High Demand"
+                                   summary="Class Technologies Inc., the company that created Class,..."
+                                   label="PRESS RELEASE"
+                                   labelColor="peach"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   title="Zoom's earliest investors are betting millions on a better Zoom for schools"
+                                   summary="Zoom was never created to be a consumer product. Nonetheless, the..."
+                                   label="NEWS"
+                                   labelColor="pink"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   title="Former Blackboard CEO Raises $16M to Bring LMS Features to Zoom Classrooms"
+                                   summary="This year, investors have reaped big financial returns from betting on Zoom..."
+                                   label="NEWS"
+                                   labelColor="pink"/>
+                        </sideCards>
+                    </news>
+                    <newsletter_footer
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/totc-newsletter-footer"
+                        newsletterTitle="Subscribe to get our Newsletter"
+                        emailPlaceholder="Your Email"
+                        ctaLabel="Subscribe"
+                        logoText="TOTC"
+                        tagline="Virtual Class for Zoom"
+                        copyright="© 2021 Class Technologies Inc.">
+                        <footerLinks jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Careers"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Privacy Policy"/>
+                            <item2 jcr:primaryType="nt:unstructured" label="Terms &amp; Conditions"/>
+                        </footerLinks>
+                    </newsletter_footer>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

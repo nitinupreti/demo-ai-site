@@ -1,0 +1,42 @@
+<!--/* TOTC News Cards. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.NewsCardsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.news-cards'}"></sly>
+
+<section class="cmp-totc-news-cards">
+    <div class="cmp-totc-news-cards__inner">
+        <div class="cmp-totc-news-cards__grid">
+            <article class="cmp-totc-news-cards__hero" data-sly-test="${model.heroTitle}">
+                <div class="cmp-totc-news-cards__hero-image">
+                    <img data-sly-test="${model.heroImage}"
+                         src="${model.heroImage @ context='uri'}" alt=""/>
+                    <span class="cmp-totc-news-cards__label cmp-totc-news-cards__label--${model.heroLabelColor @ context='attribute'}"
+                          data-sly-test="${model.heroLabel}">${model.heroLabel}</span>
+                </div>
+                <h3 class="cmp-totc-news-cards__hero-title">${model.heroTitle}</h3>
+                <p class="cmp-totc-news-cards__hero-summary" data-sly-test="${model.heroSummary}">${model.heroSummary}</p>
+                <a class="cmp-totc-news-cards__hero-cta" href="#" data-sly-test="${model.heroCta}">${model.heroCta}</a>
+            </article>
+
+            <ul class="cmp-totc-news-cards__list">
+                <li class="cmp-totc-news-cards__item"
+                    data-sly-repeat.card="${model.sideCards}">
+                    <div class="cmp-totc-news-cards__item-image">
+                        <img data-sly-test="${card.image}"
+                             src="${card.image @ context='uri'}" alt=""/>
+                    </div>
+                    <div class="cmp-totc-news-cards__item-body">
+                        <h4 class="cmp-totc-news-cards__item-title">${card.title}</h4>
+                        <p class="cmp-totc-news-cards__item-summary" data-sly-test="${card.summary}">${card.summary}</p>
+                        <span class="cmp-totc-news-cards__label cmp-totc-news-cards__label--${card.labelColor @ context='attribute'}"
+                              data-sly-test="${card.label}">${card.label}</span>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-news-cards__placeholder cq-placeholder"
+             data-emptytext="TOTC News Cards — configure via dialog."></div>
+    </sly>
+</section>

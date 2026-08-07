@@ -1,0 +1,16 @@
+<!--/* TOTC Section Title. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.SectionTitleModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.section-title'}"></sly>
+
+<section class="cmp-totc-section-title cmp-totc-section-title--align-${model.align @ context='attribute'} cmp-totc-section-title--title-${model.titleColor @ context='attribute'} cmp-totc-section-title--pad-top-${model.padTop @ context='attribute'} cmp-totc-section-title--pad-bottom-${model.padBottom @ context='attribute'}">
+    <div class="cmp-totc-section-title__inner">
+        <p class="cmp-totc-section-title__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+        <h2 class="cmp-totc-section-title__title" data-sly-test="${model.title}">${model.title}</h2>
+        <p class="cmp-totc-section-title__subtitle" data-sly-test="${model.subtitle}">${model.subtitle}</p>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-section-title__placeholder cq-placeholder"
+             data-emptytext="TOTC Section Title — configure via dialog."></div>
+    </sly>
+</section>

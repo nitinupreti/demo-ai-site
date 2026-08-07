@@ -1,0 +1,169 @@
+/* cmp-totc-site-header — top navigation. */
+.cmp-totc-site-header {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: 10;
+    padding: 30px var(--totc-container-gutter) 0;
+    box-sizing: border-box;
+    width: 100%;
+    font-family: var(--totc-font-heading);
+}
+
+.cmp-totc-site-header__inner {
+    margin-inline: auto;
+    max-width: var(--totc-container-max);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--totc-space-40);
+    min-height: 83px;
+}
+
+.cmp-totc-site-header__logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.cmp-totc-site-header__logo-mark {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polygon points='12,2 22,20 2,20' fill='%23000'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><polygon points='12,2 22,20 2,20' fill='%23000'/></svg>") center/contain no-repeat;
+}
+
+.cmp-totc-site-header__logo-text {
+    font-family: var(--totc-font-heading);
+    font-weight: 700;
+    font-size: 32px;
+    letter-spacing: 0.04em;
+}
+
+.cmp-totc-site-header__nav {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+}
+
+.cmp-totc-site-header__nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 48px;
+}
+
+.cmp-totc-site-header__nav-link {
+    font-family: var(--totc-font-heading);
+    font-weight: 400;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    color: inherit;
+    transition: opacity var(--totc-transition-fast);
+}
+
+.cmp-totc-site-header__nav-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.cmp-totc-site-header__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 26px;
+    flex-shrink: 0;
+}
+
+.cmp-totc-site-header__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 160px;
+    height: 60px;
+    padding: 0 24px;
+    border-radius: var(--totc-radius-pill);
+    font-family: var(--totc-font-heading);
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    box-shadow: var(--totc-shadow-card);
+    transition: transform var(--totc-transition-fast), box-shadow var(--totc-transition-fast);
+}
+
+.cmp-totc-site-header__btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--totc-shadow-card-lg);
+}
+
+.cmp-totc-site-header__btn--login {
+    background: #FFFFFF;
+    color: var(--totc-color-text-light);
+}
+
+.cmp-totc-site-header__btn--signup {
+    background: rgba(255, 255, 255, 0.3);
+    color: #FFFFFF;
+    backdrop-filter: blur(6px);
+}
+
+/* Theme: on hero (default) — transparent bar, white text */
+.cmp-totc-site-header--theme-onHero {
+    color: #FFFFFF;
+}
+
+/* Theme: light — solid white bar, dark text (used on pages without hero) */
+.cmp-totc-site-header--theme-light {
+    position: relative;
+    background: #FFFFFF;
+    color: var(--totc-color-primary);
+    box-shadow: var(--totc-shadow-card);
+}
+
+.cmp-totc-site-header--theme-light .cmp-totc-site-header__btn--signup {
+    background: var(--totc-color-primary);
+    color: #FFFFFF;
+}
+
+.cmp-totc-site-header__placeholder {
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.05);
+    text-align: center;
+}
+
+@media (max-width: 1024px) {
+    .cmp-totc-site-header__nav-list {
+        gap: 24px;
+    }
+    .cmp-totc-site-header__nav-link {
+        font-size: 18px;
+    }
+    .cmp-totc-site-header__btn {
+        min-width: 120px;
+        height: 48px;
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-totc-site-header__nav {
+        display: none;
+    }
+    .cmp-totc-site-header__actions {
+        gap: 12px;
+    }
+    .cmp-totc-site-header__btn {
+        min-width: 96px;
+        height: 40px;
+        font-size: 15px;
+        padding: 0 14px;
+    }
+}

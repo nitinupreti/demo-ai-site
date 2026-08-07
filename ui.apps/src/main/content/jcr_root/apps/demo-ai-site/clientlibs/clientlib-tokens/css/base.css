@@ -1,0 +1,97 @@
+/* TOTC base page rules (A9): typography + layout defaults applied once on <body>. */
+
+body,
+html,
+main.container {
+    background: var(--totc-color-surface);
+    color: var(--totc-color-text-default);
+    font-family: var(--totc-font-body);
+    font-size: 18px;
+    line-height: 1.6;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override the generic dark-mode rules in clientlib-site/css/site.css for TOTC pages. */
+@media (prefers-color-scheme: dark) {
+    body, html,
+    main.container {
+        background: var(--totc-color-surface);
+        color: var(--totc-color-text-default);
+    }
+}
+
+main.container {
+    padding: 0;
+}
+
+/* Neutralise generic .experiencefragment header/footer borders for the TOTC landing look. */
+header.experiencefragment,
+footer.experiencefragment {
+    border: 0;
+    padding: 0;
+}
+
+header.experiencefragment .cmp-container,
+footer.experiencefragment .cmp-container {
+    display: block;
+    grid-template-columns: none;
+}
+
+/* Section wrapper — every TOTC component uses .totc-section */
+.totc-section {
+    box-sizing: border-box;
+    padding-block: var(--totc-section-py);
+    padding-inline: var(--totc-container-gutter);
+    width: 100%;
+}
+
+.totc-section__inner {
+    box-sizing: border-box;
+    margin-inline: auto;
+    max-width: var(--totc-container-max);
+    width: 100%;
+}
+
+/* Focus ring (A12) */
+.totc-section :where(a, button, [role="button"]):focus-visible {
+    outline: var(--totc-focus-ring);
+    outline-offset: 4px;
+}
+
+/* Utility: eyebrow labels */
+.totc-eyebrow {
+    color: var(--totc-color-cta-pink-strong);
+    font-family: var(--totc-font-body);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+/* Reset: base heading margins so components own their vertical rhythm */
+h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+@media (max-width: 1024px) {
+    .totc-section {
+        padding-block: var(--totc-section-py-sm);
+        padding-inline: var(--totc-space-24);
+    }
+}
+
+@media (max-width: 640px) {
+    .totc-section {
+        padding-block: 48px;
+        padding-inline: var(--totc-space-20);
+    }
+}

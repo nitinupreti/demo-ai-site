@@ -1,0 +1,51 @@
+<!--/* TOTC Course Carousel. */-->
+<sly data-sly-use.model="com.demo.core.models.totc.CourseCarouselModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"></sly>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.totc.course-carousel'}"></sly>
+
+<section class="cmp-totc-course-carousel">
+    <div class="cmp-totc-course-carousel__inner">
+        <header class="cmp-totc-course-carousel__header">
+            <span class="cmp-totc-course-carousel__icon cmp-totc-course-carousel__icon--${model.categoryIcon @ context='attribute'}" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28">
+                    <sly data-sly-test="${model.categoryIcon == 'palette'}"><path fill="currentColor" d="M12 3a9 9 0 100 18h3a3 3 0 100-6h-1a2 2 0 010-4A9 9 0 0012 3zm-4 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4-4a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4 4a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></sly>
+                    <sly data-sly-test="${model.categoryIcon == 'globe'}"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2c1.3 0 2.5 2.3 3.1 5H8.9C9.5 6.3 10.7 4 12 4zM4.3 10h3.5a19 19 0 000 4H4.3a8 8 0 010-4zm.9 6h3a13 13 0 001.3 3.4A8 8 0 015.2 16zm3.7-2a17 17 0 010-4h6.2a17 17 0 010 4zm4.4 5.4A13 13 0 0014.6 16h3a8 8 0 01-4.3 3.4zM16.2 14a19 19 0 000-4h3.5a8 8 0 010 4z"/></sly>
+                    <sly data-sly-test="${model.categoryIcon == 'ribbon'}"><path fill="currentColor" d="M12 2l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"/></sly>
+                </svg>
+            </span>
+            <h2 class="cmp-totc-course-carousel__label">${model.categoryLabel}</h2>
+            <a class="cmp-totc-course-carousel__see-all"
+               data-sly-test="${model.seeAllLabel}"
+               href="${model.seeAllLink || '#' @ context='uri'}">${model.seeAllLabel}</a>
+        </header>
+
+        <div class="cmp-totc-course-carousel__track">
+            <sly data-sly-repeat.book="${model.books}">
+                <sly data-sly-test="${bookList.index == model.featuredPosition && model.featuredTitle}">
+                    <div class="cmp-totc-course-carousel__featured">
+                        <img data-sly-test="${model.featuredImage}"
+                             class="cmp-totc-course-carousel__featured-image"
+                             src="${model.featuredImage @ context='uri'}" alt=""/>
+                        <div class="cmp-totc-course-carousel__featured-body">
+                            <h3 class="cmp-totc-course-carousel__featured-title">${model.featuredTitle}</h3>
+                            <p class="cmp-totc-course-carousel__featured-subtitle" data-sly-test="${model.featuredSubtitle}">${model.featuredSubtitle}</p>
+                            <div class="cmp-totc-course-carousel__stars" aria-label="Rating: 5 stars">
+                                <span data-sly-repeat.i="${[0,1,2,3,4]}">★</span>
+                            </div>
+                            <p class="cmp-totc-course-carousel__price" data-sly-test="${model.featuredPrice}">${model.featuredPrice}</p>
+                            <a class="cmp-totc-course-carousel__cta" href="#">${model.featuredCta}</a>
+                        </div>
+                    </div>
+                </sly>
+                <div class="cmp-totc-course-carousel__book cmp-totc-course-carousel__book--color-${book.color @ context='attribute'}"
+                     data-sly-test="${bookList.index != model.featuredPosition || !model.featuredTitle}">
+                    <span class="cmp-totc-course-carousel__book-title">${book.title}</span>
+                </div>
+            </sly>
+        </div>
+    </div>
+    <sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+        <div class="cmp-totc-course-carousel__placeholder cq-placeholder"
+             data-emptytext="TOTC Course Carousel — configure via dialog."></div>
+    </sly>
+</section>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="TOTC News Cards"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/tabs" maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured" jcr:title="Properties" sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <column jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <heroLabel jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Hero Card Label" name="./heroLabel" value="NEWS"/>
+                                            <heroLabelColor jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Hero Label Color" name="./heroLabelColor" value="pink">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <pink jcr:primaryType="nt:unstructured" text="Pink" value="pink"/>
+                                                    <peach jcr:primaryType="nt:unstructured" text="Peach" value="peach"/>
+                                                </items>
+                                            </heroLabelColor>
+                                            <heroTitle jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Hero Title" name="./heroTitle"/>
+                                            <heroSummary jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textarea" fieldLabel="Hero Summary" name="./heroSummary"/>
+                                            <heroImage jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="Hero Image" name="./heroImage" rootPath="/content/dam"/>
+                                            <heroCta jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Hero CTA Label" name="./heroCta" value="Read more"/>
+                                            <sideCards jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/multifield" fieldLabel="Side Cards" composite="{Boolean}true">
+                                                <field jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container" name="./sideCards">
+                                                    <items jcr:primaryType="nt:unstructured">
+                                                        <title jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Title" name="./title"/>
+                                                        <summary jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textarea" fieldLabel="Summary" name="./summary"/>
+                                                        <label jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Label" name="./label"/>
+                                                        <labelColor jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Label Color" name="./labelColor" value="pink">
+                                                            <items jcr:primaryType="nt:unstructured">
+                                                                <pink jcr:primaryType="nt:unstructured" text="Pink" value="pink"/>
+                                                                <peach jcr:primaryType="nt:unstructured" text="Peach" value="peach"/>
+                                                            </items>
+                                                        </labelColor>
+                                                        <image jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="Image" name="./image" rootPath="/content/dam"/>
+                                                    </items>
+                                                </field>
+                                            </sideCards>
+                                        </items>
+                                    </column>
+                                </items>
+                            </columns>
+                        </items>
+                    </properties>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

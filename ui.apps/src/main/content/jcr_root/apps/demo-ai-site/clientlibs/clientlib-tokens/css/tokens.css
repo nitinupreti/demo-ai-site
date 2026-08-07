@@ -1,0 +1,81 @@
+/* TOTC design tokens — sourced from Figma "E-Learning Site (Community)" landing frame. */
+:root {
+    /* Fonts (A6) */
+    --totc-font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --totc-font-body:    'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+    /* Brand colors */
+    --totc-color-primary:            #2F327D;
+    --totc-color-primary-dark:       #252641;
+    --totc-color-accent:             #F48C06;
+    --totc-color-hero-bg:            #49BBBD;
+    --totc-color-cta-pink:           #F48B96;
+    --totc-color-cta-pink-strong:    #D8587E;
+    --totc-color-badge-orange:       #F88C3D;
+    --totc-color-badge-pink:         #F3627C;
+    --totc-color-badge-blue:         #23BDEE;
+    --totc-color-star:               #FCB61A;
+
+    /* Text */
+    --totc-color-text-default:       #010514;
+    --totc-color-text-muted:         #696984;
+    --totc-color-text-secondary:     #545567;
+    --totc-color-text-medium:        #595959;
+    --totc-color-text-light:         #5B5B5B;
+    --totc-color-text-on-dark:       #FFFFFF;
+
+    /* Surfaces */
+    --totc-color-surface:            #FFFFFF;
+    --totc-color-surface-alt:        #F5F5F5;
+    --totc-color-surface-glass:      rgba(255, 255, 255, 0.85);
+    --totc-color-surface-translucent: rgba(255, 255, 255, 0.30);
+    --totc-color-footer-bg:          #252641;
+    --totc-color-news-label:         #FFC0BE;
+    --totc-color-press-label:        #FFDDD1;
+    --totc-color-testimonial-bg:     #F3AAB9;
+    --totc-color-border-light:       #E5E7EB;
+
+    /* Spacing scale */
+    --totc-space-2:   2px;
+    --totc-space-4:   4px;
+    --totc-space-8:   8px;
+    --totc-space-12:  12px;
+    --totc-space-16:  16px;
+    --totc-space-20:  20px;
+    --totc-space-24:  24px;
+    --totc-space-32:  32px;
+    --totc-space-40:  40px;
+    --totc-space-48:  48px;
+    --totc-space-56:  56px;
+    --totc-space-64:  64px;
+    --totc-space-80:  80px;
+    --totc-space-100: 100px;
+    --totc-space-130: 130px;
+
+    /* Radii */
+    --totc-radius-xs:   8px;
+    --totc-radius-sm:   14px;
+    --totc-radius-md:   20px;
+    --totc-radius-lg:   40px;
+    --totc-radius-pill: 80px;
+
+    /* Container */
+    --totc-container-max:    1440px;
+    --totc-container-narrow: 1200px;
+    --totc-container-gutter: 40px;
+    --totc-section-py:       100px;
+    --totc-section-py-sm:    64px;
+
+    /* Shadows */
+    --totc-shadow-card:      0 20px 24px rgba(0, 0, 0, 0.03);
+    --totc-shadow-card-lg:   0 20px 48px rgba(0, 0, 0, 0.08);
+    --totc-shadow-cta-pink:  0 8px 40px rgba(210, 77, 101, 0.26);
+    --totc-shadow-image:     0 4px 100px rgba(29, 28, 24, 0.25);
+
+    /* Motion */
+    --totc-transition-fast: 150ms ease;
+    --totc-transition-med:  250ms ease;
+
+    /* Focus */
+    --totc-focus-ring: 2px solid #2F327D;
+}

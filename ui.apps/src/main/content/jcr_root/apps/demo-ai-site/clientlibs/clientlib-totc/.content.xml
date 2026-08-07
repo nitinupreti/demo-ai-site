@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:ClientLibraryFolder"
+    categories="[demo-ai-site.totc]"
+    dependencies="[demo-ai-site.tokens]"
+    embed="[demo-ai-site.tokens,demo-ai-site.totc.site-header,demo-ai-site.totc.hero,demo-ai-site.totc.stats-strip,demo-ai-site.totc.feature-cards,demo-ai-site.totc.split-cards,demo-ai-site.totc.image-text,demo-ai-site.totc.section-title,demo-ai-site.totc.course-carousel,demo-ai-site.totc.testimonial,demo-ai-site.totc.news-cards,demo-ai-site.totc.newsletter-footer]"
+    cssProcessor="[default:none,min:none]"
+    jsProcessor="[default:none,min:none]"
+    allowProxy="{Boolean}true"/>

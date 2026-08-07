@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="TOTC Image + Text"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/tabs" maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured" jcr:title="Properties" sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <column jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <title jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Title" name="./title"/>
+                                            <titleAccent jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Title Accent Prefix (colored)" name="./titleAccent"/>
+                                            <body jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/richtext" fieldLabel="Body" name="./body" useFixedInlineToolbar="{Boolean}true">
+                                                <rtePlugins jcr:primaryType="nt:unstructured">
+                                                    <format jcr:primaryType="nt:unstructured" features="bold,italic,underline"/>
+                                                    <links jcr:primaryType="nt:unstructured" features="modifylink,unlink"/>
+                                                    <lists jcr:primaryType="nt:unstructured" features="*"/>
+                                                    <paraformat jcr:primaryType="nt:unstructured" features="*"/>
+                                                </rtePlugins>
+                                            </body>
+                                            <bullets jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/multifield" fieldLabel="Bullet Rows" composite="{Boolean}true">
+                                                <field jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container" name="./bullets">
+                                                    <items jcr:primaryType="nt:unstructured">
+                                                        <text jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Bullet Text" name="./text"/>
+                                                        <iconColor jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Icon Color" name="./iconColor" value="pink">
+                                                            <items jcr:primaryType="nt:unstructured">
+                                                                <pink jcr:primaryType="nt:unstructured" text="Pink" value="pink"/>
+                                                                <orange jcr:primaryType="nt:unstructured" text="Orange" value="orange"/>
+                                                                <blue jcr:primaryType="nt:unstructured" text="Blue" value="blue"/>
+                                                            </items>
+                                                        </iconColor>
+                                                    </items>
+                                                </field>
+                                            </bullets>
+                                            <ctaLabel jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="CTA Label" name="./ctaLabel"/>
+                                            <ctaLink jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="CTA Link" name="./ctaLink" rootPath="/content"/>
+                                            <image jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="Image" name="./image" rootPath="/content/dam"/>
+                                            <imageAlt jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Image Alt Text" name="./imageAlt"/>
+                                            <playIcon jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/checkbox" fieldLabel="Show play icon on image" name="./playIcon" text="Show play icon" value="{Boolean}true" uncheckedValue="{Boolean}false"/>
+                                        </items>
+                                    </column>
+                                </items>
+                            </columns>
+                        </items>
+                    </properties>
+                    <style jcr:primaryType="nt:unstructured" jcr:title="Style" sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <column jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <imageSide jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Image Side" name="./imageSide" value="right">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <right jcr:primaryType="nt:unstructured" text="Right" value="right"/>
+                                                    <left jcr:primaryType="nt:unstructured" text="Left" value="left"/>
+                                                </items>
+                                            </imageSide>
+                                            <titleColor jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Title Color" name="./titleColor" value="navy">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <navy jcr:primaryType="nt:unstructured" text="Primary Navy" value="navy"/>
+                                                    <pink jcr:primaryType="nt:unstructured" text="Pink" value="pink"/>
+                                                    <dark jcr:primaryType="nt:unstructured" text="Dark" value="dark"/>
+                                                </items>
+                                            </titleColor>
+                                            <accentColor jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Title Accent Color" name="./accentColor" value="orange">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <orange jcr:primaryType="nt:unstructured" text="Orange" value="orange"/>
+                                                    <pink jcr:primaryType="nt:unstructured" text="Pink" value="pink"/>
+                                                    <blue jcr:primaryType="nt:unstructured" text="Blue" value="blue"/>
+                                                </items>
+                                            </accentColor>
+                                            <mediaStyle jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Media Style" name="./mediaStyle" value="rounded">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <rounded jcr:primaryType="nt:unstructured" text="Rounded image" value="rounded"/>
+                                                    <plain jcr:primaryType="nt:unstructured" text="Plain image" value="plain"/>
+                                                    <collage jcr:primaryType="nt:unstructured" text="Illustration collage (author area)" value="collage"/>
+                                                </items>
+                                            </mediaStyle>
+                                            <padTop jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Section Top Padding" name="./padTop" value="lg">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <lg jcr:primaryType="nt:unstructured" text="Large" value="lg"/>
+                                                    <md jcr:primaryType="nt:unstructured" text="Medium" value="md"/>
+                                                    <sm jcr:primaryType="nt:unstructured" text="Small" value="sm"/>
+                                                </items>
+                                            </padTop>
+                                            <padBottom jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Section Bottom Padding" name="./padBottom" value="lg">
+                                                <items jcr:primaryType="nt:unstructured">
+                                                    <lg jcr:primaryType="nt:unstructured" text="Large" value="lg"/>
+                                                    <md jcr:primaryType="nt:unstructured" text="Medium" value="md"/>
+                                                    <sm jcr:primaryType="nt:unstructured" text="Small" value="sm"/>
+                                                </items>
+                                            </padBottom>
+                                        </items>
+                                    </column>
+                                </items>
+                            </columns>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>
