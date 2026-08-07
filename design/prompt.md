@@ -54,7 +54,14 @@ This rule OVERRIDES any temptation to declare the run complete because the build
 - **Tokens JSON** (companion): if the user exported Figma variables/tokens, use it as the authoritative source for the shared design-tokens clientlib in Step 3. In Mode A, `get_variable_defs` returns the same information live.
 
 ## Mandatory skills / tools (must be used, not paraphrased)
-- **create-component skill** — invoke ONCE per discovered component. It owns the full deliverable set: component `.content.xml`, `_cq_dialog/.content.xml`, HTL, Sling Model + JUnit test, per-component clientlib with the project's design-tokens clientlib as a dependency.
+- **Repo-local agent skills at `.agents/skills/` are the authoritative playbook** — before anything else, list `.agents/skills/` in the workspace root and read every `SKILL.md` header (`name` + `description`) so you know which local skill owns which concern. When any activity below overlaps with a repo-local skill's stated domain, load and follow that skill's `SKILL.md` (and the reference modules it points at) instead of paraphrasing from memory or from generic AEM knowledge. Repo-local skills override any external skill of the same name. Concretely, at minimum the following are expected in this repo and MUST be used when applicable:
+  - `.agents/skills/create-component/SKILL.md` — the sole owner of new-component scaffolding, dialog authoring, HTL, Sling Model + tests, per-component clientlib, and Core Component extension patterns. Every component-creation invocation (Step 4 below) MUST run through this skill, following its Configuration Gate Check, "No Hallucination" rule, extension tiers (Tier 1 project components → Tier 2 Core Components → Tier 3 ask), and the field-type mapping table it ships. Do NOT reimplement dialog/model/HTL patterns inline in this prompt — defer to the skill.
+  - `.agents/skills/ensure-agents-md/SKILL.md` — run FIRST if the workspace root has no `AGENTS.md`.
+  - `.agents/skills/code-assessment/SKILL.md` — invoke on any generated Java / Sling Model / OSGi / Maven code before declaring the run complete, and to review anything the create-component skill produced.
+  - `.agents/skills/migration/SKILL.md` — use when the source is a legacy AEM page/dialog/template being ported forward, not a green-field Figma design.
+  - `.agents/skills/dispatcher/SKILL.md`, `.agents/skills/aem-workflow/SKILL.md`, `.agents/skills/content-distribution/SKILL.md`, `.agents/skills/aem-rde/SKILL.md` — load on-demand when the task at hand touches dispatcher config, workflow models, replication/distribution, or RDE deploy/inspect respectively.
+  If a repo-local skill's `SKILL.md` and any rule in this prompt disagree on a mechanical detail (paths, dialog resource type, XML structure, model annotations), the repo-local skill wins for that mechanical detail — this prompt's higher-level rules (P0 fidelity, per-instance spatial-authoring, reuse-first, verification loops) still apply on top.
+- **create-component skill** — invoke ONCE per discovered component **only after the Step 1.5 reuse decision (below) has ruled out extending an existing project component or Core Component**. It owns the full deliverable set: component `.content.xml`, `_cq_dialog/.content.xml`, HTL, Sling Model + JUnit test, per-component clientlib with the project's design-tokens clientlib as a dependency. Pass the reuse decision (create-new vs. extend-`<resourceSuperType>`) into the skill so it emits the correct `sling:resourceSuperType`, delegation model, and dialog resource-merger overlays instead of a duplicate from scratch.
 - **Figma MCP tools** — USE WHEN `FIGMA_URL` IS SET (Mode A or C). Load `/figma-design-to-code` skill first. Then call `get_design_context` (primary — returns geometry, variables, tokens), `get_metadata` (component tree), `get_screenshot` (per-node PNGs), `get_variable_defs` (design tokens), `download_assets` (SVG icons, raster images). Treat the response as a REFERENCE to adapt to the project's tokens/components, not final code. Do NOT invoke Figma MCP in Mode B (no URL provided).
 - **Local design-file parsers** — USE WHEN `DESIGN_FILE` IS SET (Mode B or C). For PDFs: extract text + fonts + colors + per-element geometry per page; extract embedded images; render page thumbnails if visual diffing is needed. For PNG/JPG/SVG: read directly from the filesystem. Record raw values; do not paraphrase.
 - **Repo agent docs** — read FIRST (AGENTS.md, CLAUDE.md, README.md) to discover build command, module layout, package prefix, component group, tokens clientlib category, per-component clientlib naming convention, and content root path.
@@ -63,6 +70,8 @@ This rule OVERRIDES any temptation to declare the run complete because the build
 - **Source of truth is DESIGN_SOURCE** — `FIGMA_URL` (Mode A), `DESIGN_FILE` (Mode B), or both (Mode C, Figma MCP wins per "Input modes"). When the design and existing code disagree, the design wins.
 - **Design fidelity is non-negotiable** — per the P0 rule, every rendered component MUST match the design's font, color, background, and look-and-feel in BOTH author mode and disabled mode. Any mismatch triggers a CSS iteration or a component redesign; the run is not done until parity is reached at every breakpoint.
 - Build reusable, author-friendly components: every visual variant that appears in the design becomes a dialog select / checkbox / numeric input, not a duplicate component.
+- **Reuse before create (MANDATORY — see Step 1.5 and A24).** Never scaffold a new component when an existing project component OR a Core Component can express the design — extend or configure it instead. The decision order is: (1) reuse an existing project component at `ui.apps/src/main/content/jcr_root/apps/<project>/components/<name>` as-is with a new dialog variant / new authored content; (2) extend a project component via `sling:resourceSuperType` + Sling Resource Merger for dialog overlays + Java delegation for model; (3) extend a Core Component via the create-component skill's Tier 2 mapping table and its "Extending Core Components" reference; (4) only if none of the above can accommodate the design — after a documented gap analysis — create a new component. Duplicating a project or Core Component "because it's easier" is a defect.
+- **Reuse templates and policies too.** Author the demo page from the existing editable template at `ui.content` that best matches the design's page structure; do not create a new template unless the design requires a page structure no existing template can express. Reuse existing template policies (allowed components, container widths, responsive grid config) — only add a new policy entry when the reuse decision above introduces a new component. Never edit `/conf/<project>/settings/wcm/templates/*/initial` or `/structure` beyond adding a policy for a genuinely new component.
 - Discover the component list from the design — do not assume a fixed count or set of names.
 - Establish/refresh shared design tokens first (colors, typography scale + line-heights + letter-spacing, spacing scale, radii, shadows, container widths, breakpoints, positional-offset scale). Prefer the exported tokens JSON if present; otherwise derive tokens from the PDF's repeated values. Reuse existing tokens; **never hardcode a px/hex/font value that a token already covers.**
 - Vanilla CSS only inside the existing clientlib structure. No Tailwind, React, CSS-in-JS, or new build tooling.
@@ -192,6 +201,9 @@ For net-new sample content that never existed, plain `merge` works fine.
 
 ## Step 0 — Discover
 - Read repo agent docs → capture build command, module layout, package prefix, component group, tokens clientlib category, per-component clientlib naming convention, content root path.
+- **List `.agents/skills/` and record every repo-local skill's `name` + `description` from its `SKILL.md`.** This is the authoritative playbook per the "Mandatory skills / tools" section. Do not proceed to Step 1 without having enumerated the local skills — otherwise you will re-invent scaffolding the `create-component` skill already handles correctly for this repo.
+- **Inventory existing project components** — list every folder under `ui.apps/src/main/content/jcr_root/apps/<project>/components/` (and any nested subfolders). For each, capture: folder name, `jcr:title`, `componentGroup`, `sling:resourceSuperType` (if any), and the top-level dialog tabs / fields defined in `_cq_dialog/.content.xml`. Store this inventory for the Step 1.5 reuse decision. In parallel, note which Core Components are already used in the project (grep for `core/wcm/components/…` in existing `.content.xml` files and in `ui.content` sample content).
+- **Inventory existing templates & policies** — list every editable template under `ui.content/src/main/content/jcr_root/conf/<project>/settings/wcm/templates/` and every policy under `.../policies/`. For each template capture: title, structure (top-level containers and their allowed component groups), and the responsive-grid breakpoints. This inventory drives the "reuse templates" rule and Step 9's authoring path.
 - **Determine mode** (A / B / C) from which of `FIGMA_URL` and `DESIGN_FILE` are set. If neither, STOP and ask.
 - **Mode A or C (Figma URL set):** parse the URL per A14 → `fileKey`, `nodeId`, `branchKey` (if any), surface (`design` / `board` / `make` / `slides`). Load the `/figma-design-to-code` skill. Call `get_metadata` for the component tree, then `get_design_context` for each top-level frame to capture geometry + text + variables. Call `get_variable_defs` for the token layer. Call `download_assets` to pull every SVG icon and raster image into a local scratch folder (they will be uploaded to DAM in Step 9). If any node cannot be resolved, ask the user for the specific `node-id`.
 - **Mode B or C (DESIGN_FILE set):** resolve DESIGN_FILE on the filesystem. Confirm the file exists and is readable. If it is a `.fig` and there is no `FIGMA_URL`, STOP and ask for a PDF export or a URL (see "Accepted design-source formats"). If it is a PDF, record the page count and each page's pixel/point dimensions. Enumerate every companion asset (screenshots, SVGs, tokens JSON) that is present. Parse DESIGN_FILE: extract per-page text runs (with font family, weight, size, line-height, color), vector shapes (with fill, stroke, radius, position, size), and embedded images (write each to a local scratch folder for later DAM upload). If a tokens JSON is provided, load it as-is.
@@ -204,6 +216,68 @@ For every distinct reusable section/block visible in DESIGN_FILE, capture:
 - Author-editable fields (text, rich text, image, link, path, multifield of child items).
 - Any interactive state (tabs, carousel, accordion) and its initial/active behavior. If DESIGN_FILE is a static PDF/PNG that cannot express interaction, infer state from repeated frames, adjacent hover/active/focus artboards, or annotations visible on the page; document each inference inline.
 - Repeating children → composite multifield with a dedicated child Sling Model.
+
+## Step 1.5 — Reuse-first component decision (MANDATORY before Step 4)
+For every design block from Step 1, run this decision BEFORE deciding to create a new component. Post the resulting table inline as part of the `design-facts` block (A18) so the choice is auditable.
+
+Decision tiers, in strict order — pick the highest tier that satisfies the design without loss of fidelity:
+
+1. **Reuse an existing project component as-is.** Match the block against the Step 0 project-component inventory by role AND by authorable field set. If a component already covers the design's semantics and every dialog field required, **reuse it** — no new component, no `sling:resourceSuperType`, no Java. New authored content and (if needed) one additional dialog option on the existing component are allowed. Prefer this tier whenever possible.
+2. **Extend an existing project component.** If a project component covers the role but is missing 1–3 fields or a variant, extend it via `sling:resourceSuperType = <project>/components/<parent>` in a new `.content.xml`, overlay only the delta fields into `_cq_dialog/.content.xml` via Sling Resource Merger (`sling:hideResource`, `sling:hideProperties`, `sling:orderBefore`), and delegate the Java model (`extends ParentModel` for project components; `@Self @Via(type = ResourceSuperType.class)` for Core Components). Reuse the parent's HTL and clientlib where possible; add a per-variant CSS modifier rather than a whole new stylesheet.
+3. **Extend a Core Component.** Use the `.agents/skills/create-component/SKILL.md` Tier 2 mapping table (image → `core/wcm/components/image/v3/image`, teaser/card → `.../teaser/v2/teaser`, list → `.../list/v4/list`, etc.) plus its `references/extending-core-components.md`. Apply the delegation pattern (`@Self @Via(type = ResourceSuperType.class)`, `implements ComponentExporter`, `resourceType` on `@Model`), and use Sling Resource Merger for every dialog override.
+4. **Create a new component.** ONLY if tiers 1–3 all fail. Before creating, document a one-line gap justification per block in the `design-facts` block: *"Reuse rejected because …"* — e.g. the design's authoring model is fundamentally different from any project or Core Component, or the required interaction is not expressible via the existing component's dialog and template.
+
+Duplicating a component "because it's simpler" is a defect and MUST be caught in this step, not later.
+
+**Variant vs. sibling extension — how to avoid "two teasers, which one do I pick?".** When the design shows the same semantic block twice (e.g. two teasers) with visual differences, the default choice is ONE component + a variant select (`style: default | hero | promo | media-left`), NOT two components. Two sibling extensions (`teaser` and `teaser-hero`) are only justified when the variants also differ in AUTHORING MODEL — different dialog fields, different required content, different multifield shape. Rule of thumb:
+- Same fields, different look → variant select on the existing component (Tier 1 with one added option, or Tier 2 with one CSS modifier). Author distinguishes instances by the dialog value, and every instance uses the SAME `sling:resourceType`.
+- Different fields / structure → sibling extension via `sling:resourceSuperType` (Tier 2), named `<parent>-<qualifier>` (see A24). Author distinguishes instances by picking a different tile from the Component Browser, and each instance has a DIFFERENT `sling:resourceType`.
+
+Never end a run with two components in the same group whose dialogs overlap by more than ~80% — that is a forked variant that should have been a select option. A24's dialog-overlap heuristic catches this before Step 10 signs off.
+
+**Per-instance authoring map (MANDATORY for Step 9).** After the reuse decision, emit a second table that binds every Figma instance to the exact resource type and dialog values Step 9 will author. This is what distinguishes "the first teaser" from "the second teaser" at authoring time — the `sling:resourceType` on the authored node plus the dialog values it carries. Without this map, Step 9 will guess and drop the wrong tile.
+
+**Template reuse decision (parallel to component reuse).** For the demo page in Step 9, pick the existing editable template from the Step 0 template inventory whose top-level structure best matches the design's page skeleton (header / hero / body sections / footer). Reuse it. Only create a new template if the design's page structure cannot be expressed by any existing template's structure + policies — and document the gap the same way.
+
+**Policy reuse decision.** For every reused or extended component, verify it (or its `sling:resourceSuperType` parent) is already listed in the chosen template's policy `allowedComponents`. If it is not, ADD it to the existing policy — do NOT create a new policy tree. Only add a genuinely new policy when a new component from tier 4 needs one and no existing policy is a natural fit.
+
+**Author-facing disambiguation contract.** When two components CAN legitimately coexist in the same `componentGroup` (a base + a Tier-2 sibling extension), the following MUST hold so authors can tell them apart in the Component Browser:
+- Distinct `jcr:title` on `.content.xml` — e.g. `"Teaser"` and `"Teaser (Hero)"`. Never ship two components with the same title.
+- Distinct `jcr:description` explaining when to pick each.
+- Both listed explicitly in the template policy's `allowedComponents`, in the order authors should see them (base first).
+- Same `componentGroup` so they cluster in the same rail section (unless the sibling is a genuinely different role, in which case use a different group).
+- Where possible, distinct component thumbnail (`cq:icon` or a `_cq_editConfig` icon) so the picker is visually unambiguous.
+
+Emit the reuse decision as a table in the inline `design-facts` block:
+```yaml
+reuse_decisions:
+  - design_block: "<name-from-Step-1>"
+    tier: 1 | 2 | 3 | 4
+    reuse_target: "<project>/components/<name>" | "core/wcm/components/<name>/vN/<name>" | null
+    gap: "<one-line justification if tier > 1, or 'none' for tier 1>"
+    additions: ["<delta dialog field>", "<delta variant>", "<delta CSS modifier>"]
+template_decision:
+  reuse_template: "<template-name-from-inventory>" | null
+  new_template_gap: "<one-line justification if creating a new template>"
+policy_decisions:
+  - policy_path: "<existing-policy-path>"
+    additions: ["<component-resource-type added to allowedComponents>"]
+instance_authoring_map:
+  - figma_instance: "<frame or node id / short label from Figma>"
+    resource_type: "<project>/components/<name>"        # exact sling:resourceType Step 9 will write
+    parent_path: "<content path under the template's editable region>"
+    node_name: "<unique node name — e.g. teaser_hero, teaser_promo_1>"
+    dialog_values:
+      style: "hero"                                     # variant select value, if any
+      title: "<exact copy from the Figma instance>"
+      # ...every non-default field the Figma instance shows
+```
+Rules for `instance_authoring_map`:
+- One row per Figma instance visible in the design, in the design's reading order.
+- `resource_type` MUST reference a component that appears as either `reuse_target` in `reuse_decisions` (tiers 1–3) or a newly created component (tier 4). No orphan resource types.
+- If two Figma instances resolve to the SAME `resource_type`, they differ only by `dialog_values` — most commonly a variant select or per-instance spatial fields. That is the correct outcome for "same component, different look".
+- If two Figma instances resolve to DIFFERENT `resource_type`s, one of them must be a Tier-2 sibling extension of the other (or of a shared parent) — otherwise `reuse_decisions` picked the wrong tier and should be re-evaluated.
+- `node_name` MUST be unique per demo page and hint at the variant (e.g. `teaser_hero`, `teaser_promo`), never `teaser_1` / `teaser_2` which force authors to open every dialog to tell them apart.
 
 ## Step 2 — Extract design facts per component (per-instance comparison required)
 For every component in DESIGN_FILE, record before editing:
@@ -222,8 +296,15 @@ When the PDF's parsed geometry is ambiguous, cross-check against the matching PN
 ## Step 3 — Establish shared design tokens
 Create or update the shared tokens clientlib (using the project's naming convention). If DESIGN_TOKENS_JSON is present, treat it as authoritative and map its variables 1:1 to CSS custom properties. Otherwise, derive tokens from the values captured in Step 2. Add tokens for every unique value — including spatial-offset tokens so per-instance authoring options map to a consistent token vocabulary across components.
 
-## Step 4 — Create every component via the skill (one invocation per component)
-For each component from Step 1, invoke the create-component skill with a spec including: name, group, dialog fields (correct types + required flags + defaults + fieldDescriptions), variants/modifiers including every per-instance spatial field and every color's `other`/hex escape hatch, Properties vs. Style tab split, tokens to consume, breakpoints, interactive behavior. The generated per-component clientlib depends on the shared design-tokens clientlib. The generated Sling Model / HTL / CSS / test satisfy their respective contracts above.
+## Step 4 — Realise every design block via the reuse decision (skill-driven)
+For each design block from Step 1, act on the tier chosen in Step 1.5:
+
+- **Tier 1 (reuse as-is):** do NOT invoke the create-component skill. Author new sample content on the demo page (Step 9) using the existing component with the design's copy, images, and variant selections. If Step 1.5 recorded any additive dialog option, add it via a minimal `_cq_dialog/.content.xml` overlay on the existing component using Sling Resource Merger — do not touch the parent's HTL or model.
+- **Tier 2 (extend a project component):** invoke `.agents/skills/create-component/SKILL.md` with the reuse target as `sling:resourceSuperType`, passing the delta dialog fields, delta variants, and delta CSS modifiers ONLY. Do not re-emit the parent's HTL, dialog, model, or clientlib. Follow the skill's "Extending Core Components" reference for the delegation and merger patterns even though the parent is a project component — the mechanics are the same.
+- **Tier 3 (extend a Core Component):** invoke `.agents/skills/create-component/SKILL.md` with the Core Component as `sling:resourceSuperType` (per its Tier 2 mapping table). Use `@Self @Via(type = ResourceSuperType.class)`, implement `ComponentExporter`, add `resourceType` to `@Model`, and overlay dialog changes via `sling:hideResource` / `sling:hideProperties`.
+- **Tier 4 (create new):** invoke `.agents/skills/create-component/SKILL.md` in full with a spec including: name, group, dialog fields (correct types + required flags + defaults + fieldDescriptions), variants/modifiers including every per-instance spatial field and every color's `other`/hex escape hatch, Properties vs. Style tab split, tokens to consume, breakpoints, interactive behavior. The generated per-component clientlib depends on the shared design-tokens clientlib. The generated Sling Model / HTL / CSS / test satisfy their respective contracts above.
+
+Across every tier, defer all mechanical details (paths, file naming, dialog resource types, model annotations, test scaffolding) to the create-component skill — do not paraphrase them here. This prompt's rules (P0 fidelity, per-instance spatial-authoring, dialog atomic-intent, HTL iteration, interactive-component contract, verification loops) apply on top of whatever the skill emits.
 
 ## Step 5 — Per-component CSS parity pass (with sibling-comparison checklist)
 Apply design-derived values using tokens. Verify outer padding, container max-width, gutters, card inner padding, radius/background/border/shadow, every variant, pill/label/chip sizing, typography per element, and responsive behavior at each design-defined breakpoint. For any component that renders multiple times on the page:
@@ -261,24 +342,48 @@ Under the project's content root, create a sample page and drop the components i
 - Open the same page in edit mode and confirm every component is author-friendly (empty-state placeholders render, dialogs open, no console errors).
 - Iterate on tokens + component CSS until parity is reached. Do not modify unrelated components.
 
-## Deliverables checklist (per component)
+## Deliverables checklist (per design block, gated by the Step 1.5 tier)
+**Tier 1 (reuse as-is):**
+- [ ] Reuse decision recorded in the inline `design-facts` block with `tier: 1` and `reuse_target` set
+- [ ] Sample authored instances in `ui.content` under an existing template's editable region path, populated with the design's copy / images / variant selections
+- [ ] No new files under `ui.apps/.../components/` or `core/.../models/`; no new clientlib
+- [ ] Verified: rendered page HTML matches design fidelity per Step 10 + A17 without any new code
+
+**Tier 2 / 3 (extend):**
+- [ ] Reuse decision recorded with `tier: 2 | 3`, `reuse_target` set to the parent resource type, `additions` listing every delta field/variant/modifier
+- [ ] `.content.xml` with `sling:resourceSuperType` pointing at the parent — nothing else duplicated
+- [ ] `_cq_dialog/.content.xml` overlay containing ONLY the delta fields (plus `sling:hideResource` / `sling:hideProperties` where needed) — no re-emission of parent fields
+- [ ] `<ComponentName>Model.java` delegates via `extends ParentModel` (project parent) or `@Self @Via(type = ResourceSuperType.class)` + `implements ComponentExporter` (Core parent); only the delta getters
+- [ ] Optional `<component>.html` ONLY if the delta changes structure; otherwise inherit
+- [ ] `clientlibs/clientlib-<name>/` ONLY if the delta adds CSS/JS; otherwise inherit
+- [ ] `<ComponentName>ModelTest.java` covering the delta getters
+- [ ] Sample authored instances in `ui.content` showing every variant added by the extension
+- [ ] Verified: model tests green, page HTML contains every new modifier class, no regression on the parent component's authored instances
+
+**Tier 4 (create new):**
+- [ ] Reuse decision recorded with `tier: 4` and the one-line `gap` justification explaining why tiers 1–3 fail
 - [ ] `_cq_dialog/.content.xml` — Properties + Style tabs, dropdown-showhide for `other` color, multifield for repeating rows, required flags, field descriptions
 - [ ] `<ComponentName>Model.java` + one child `@Model` per multifield type, with `getBackgroundStyle()` and `isHasContent()`
 - [ ] `<component>.html` — BEM classes, context annotations, empty state, clientlib include, correct `data-sly-list` vs. `data-sly-repeat` choice
 - [ ] `clientlibs/clientlib-<name>/` — `.content.xml` (category + dependency on tokens clientlib), `css.txt`, `css/<component>.css`
 - [ ] `<ComponentName>ModelTest.java` — `defaultsWhenEmpty` + `configuredFully` tests
 - [ ] Sample authored instances in `ui.content` demonstrating every variant visible in DESIGN_FILE (including any zig-zag / alternating layout), authored under the template's editable region path
+- [ ] Component's resource type added to the chosen template's existing policy `allowedComponents` (do NOT create a parallel policy tree)
 - [ ] Verified: model tests green, page HTML contains every expected modifier class and inline `background-color` where applicable, clientlib CSS contains every modifier class
 
 ## Final summary to post
+- Repo-local skills loaded from `.agents/skills/` (list them by name — this proves Step 0 ran correctly).
+- Existing-component inventory (name → resourceSuperType → group) and existing-template inventory captured in Step 0.
+- **Reuse decision table (Step 1.5)** — per design block: chosen tier, reuse target, gap justification, additions. Highlight any block where a lower tier was picked and explain why.
 - Component decomposition (name → dialog fields → variants, including every per-instance spatial field and every color-with-`other` escape hatch).
-- Skills invoked and for which components.
+- Skills invoked and for which components (create-component invocations MUST match tiers 2/3/4 in the reuse table; tier 1 must have zero invocations).
 - Design inputs consumed: DESIGN_FILE (path, format, page count) and every companion asset used (screenshots, SVGs, tokens JSON).
 - Shared tokens created/updated.
-- Every per-component file set produced (paths).
+- Every per-component file set produced (paths) — and, for tier 1 blocks, the sentence "no new files (reused `<parent>`)".
+- Template + policy decisions: reused template path, policy path(s) touched, and the `allowedComponents` additions.
 - HTL iteration audit.
 - Per-instance spatial-field audit (per component: dialog field → BEM modifier → CSS custom property → which layout properties consume it, and the sibling-comparison result from Step 5).
-- Unit-test results (`defaultsWhenEmpty` + `configuredFully` per component).
+- Unit-test results (`defaultsWhenEmpty` + `configuredFully` per new/extended component).
 - Rendered-DOM check results (per-item sibling counts, per-variant instance counts, inline `background-color` presence).
 - Deployed-clientlib check result.
 - Interaction-bug guards applied.
@@ -553,4 +658,41 @@ Cap CSS-iteration attempts at **3 per component per parity gap**. If parity is s
 4. If it does not, **escalate to the user** with a specific, closed-ended question and evidence: the parity gap description, a screenshot pair, the diffs of the 3 attempted fixes, and a yes/no or A/B question ("Is the radius on the outer card or the media wrapper?", "Is the background color `#F5F7FA` per the Figma variable, or `#F4F6F9` per the raster export?").
 
 Never silently give up, and never keep spinning past 3 iterations without escalating. A caller who runs this prompt on a fast/small model MUST see either parity or a specific escalation — not a claim of "close enough".
+
+### A24. Reuse-first enforcement — no duplicate components, no duplicate templates
+This addendum operationalises the "Reuse before create" rule and Step 1.5. It applies on EVERY run, not just first-time scaffolding, because "just one more copy" is how a project accumulates a shadow set of near-identical components that no author can navigate.
+
+Hard constraints:
+- **The Step 0 project-component inventory and template inventory are mandatory pre-reads.** If either is missing from the inline `design-facts` block, the run has skipped Step 0 — restart it. Do not proceed to Step 4.
+- **Every design block from Step 1 MUST have a matching row in `reuse_decisions`** with an explicit `tier` (1 | 2 | 3 | 4) and, for tier > 1, a one-line `gap` justifying why the lower tier was insufficient. A block with no reuse row is a defect.
+- **A tier-4 decision requires ALL three lower tiers to be explicitly ruled out** in the `gap` string — e.g. "Reuse rejected: no project component covers this role; core/wcm/components/teaser/v2 lacks the two-column swap-per-instance layout without a substantial HTL override; extending would require replacing >50% of the parent's HTML." A one-word "N/A" is not acceptable.
+- **A tier-2/3 decision MUST NOT duplicate the parent's dialog, HTL, model, or clientlib.** If the diff of the extending component vs. its `sling:resourceSuperType` parent contains more than the declared `additions`, the extension is really a fork — reclassify as tier 4 or, better, narrow the diff to only the true delta.
+- **Naming discipline for extensions.** Extending components are named `<parent>-<qualifier>` (e.g. `teaser-hero`, `list-linkgrid`), NOT a generic new name — this keeps the parent/child relationship greppable and prevents drift. If the qualifier ends up being the same as another existing extension, the two blocks are the same design pattern; unify them into one component with a variant select instead.
+- **Templates: reuse before create.** If Step 1.5's `template_decision.reuse_template` is `null`, the `new_template_gap` MUST cite a page-structure need (e.g. "no existing template exposes a full-bleed hero above the main container") that could not be met by adding an editable region or policy to an existing template. Never fork a template to change styling — styling belongs to components + tokens.
+- **Policies: extend, don't fork.** A new policy tree is only justified when a new template is justified. Otherwise every reuse tier's component (including tier 4 new components) is added to an EXISTING policy's `allowedComponents` list. Grep `ui.content/.../conf/<project>/settings/wcm/policies/` after every change — a run that adds a new policy node without a matching new template is a defect.
+
+Detection recipes (run before Step 10 declares done):
+```powershell
+# 1. Every component under apps/<project>/components/ must have either NO sling:resourceSuperType (a genuine tier-4 base), OR its parent must exist.
+Get-ChildItem "ui.apps\src\main\content\jcr_root\apps\<project>\components" -Recurse -Filter ".content.xml" |
+  Select-String -Pattern 'sling:resourceSuperType="([^"]+)"' |
+  ForEach-Object { $_.Matches[0].Groups[1].Value } |
+  Sort-Object -Unique
+# Cross-check each printed resourceSuperType against project components + Core Components. Any dangling parent is a bug.
+
+# 2. No two components in the same group should share more than 80% of their dialog fields.
+# Manual review: list `_cq_dialog/.content.xml` field names per component in the same group and diff pairs. Near-duplicates are candidates to unify into one component + variant select.
+
+# 3. No new policy node without a new template.
+git diff --stat -- "ui.content/src/main/content/jcr_root/conf/<project>/settings/wcm/policies/" "ui.content/src/main/content/jcr_root/conf/<project>/settings/wcm/templates/"
+# If policies has additions but templates does not, revert the policy additions and add the component to the existing policy that governs the reused template instead.
+```
+
+Anti-patterns to flag in review:
+- A new component whose `.content.xml` has no `sling:resourceSuperType` AND whose dialog is a near-copy of an existing component's dialog — this is a forked tier-4 that should have been tier 1 or 2.
+- A new component named after a page section rather than a semantic role (e.g. `homepage-hero-3` instead of `hero` with a variant select). Page-scoped components cannot be reused; refactor into a role-scoped component + variant.
+- A component's HTL that hardcodes copy or images from a single Figma frame instead of reading everything from the dialog. This shows the "reusable variant" step was skipped — the design's copy leaked into code and the component now only fits one page.
+- A new editable template whose only difference from an existing one is styling or policy. Move the styling to component CSS and the policy delta to the existing template.
+
+This addendum enforces the reuse rules from the top of the prompt and Step 1.5. Runs that accumulate duplicate components/templates over time — even if each individual run passes the P0 fidelity check — are treated as failed by A24.
 ================================================================
