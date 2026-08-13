@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Steps"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured"
+             sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured"
+                  sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                  maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured"
+                                jcr:title="Properties"
+                                sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
+                                margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <heading jcr:primaryType="nt:unstructured"
+                                             sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                             fieldLabel="Heading"
+                                             required="{Boolean}true"
+                                             name="./heading"/>
+                                    <subheading jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Subheading"
+                                                name="./subheading"/>
+                                    <items jcr:primaryType="nt:unstructured"
+                                           sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                           composite="{Boolean}true"
+                                           fieldLabel="Steps">
+                                        <field jcr:primaryType="nt:unstructured"
+                                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                                               name="./items">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <image jcr:primaryType="nt:unstructured"
+                                                       sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                       fieldLabel="Image"
+                                                       required="{Boolean}true"
+                                                       rootPath="/content/dam"
+                                                       name="./image"/>
+                                                <imageAlt jcr:primaryType="nt:unstructured"
+                                                          sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                          fieldLabel="Image Alt Text"
+                                                          name="./imageAlt"/>
+                                                <badge jcr:primaryType="nt:unstructured"
+                                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                       fieldLabel="Badge (number/label)"
+                                                       fieldDescription="Text shown in the round badge overlapping the image (e.g. &quot;1.&quot;)."
+                                                       name="./badge"/>
+                                                <title jcr:primaryType="nt:unstructured"
+                                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                       fieldLabel="Title"
+                                                       required="{Boolean}true"
+                                                       name="./title"/>
+                                                <description jcr:primaryType="nt:unstructured"
+                                                             sling:resourceType="cq/gui/components/authoring/dialog/richtext"
+                                                             fieldLabel="Description"
+                                                             name="./description"
+                                                             useFixedInlineToolbar="{Boolean}true">
+                                                    <rtePlugins jcr:primaryType="nt:unstructured">
+                                                        <format jcr:primaryType="nt:unstructured" features="bold,italic"/>
+                                                    </rtePlugins>
+                                                </description>
+                                            </items>
+                                        </field>
+                                    </items>
+                                </items>
+                            </column>
+                        </items>
+                    </properties>
+                    <style jcr:primaryType="nt:unstructured"
+                           jcr:title="Style"
+                           sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
+                           margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <style jcr:primaryType="nt:unstructured"
+                                           sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                           fieldLabel="Design Style"
+                                           name="./style">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <furniture jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Furniture" value="furniture"/>
+                                        </items>
+                                    </style>
+                                    <background jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                                fieldLabel="Background Color"
+                                                name="./background">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <default jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Default (page)" value=""/>
+                                            <tint jcr:primaryType="nt:unstructured" text="Tint" value="tint"/>
+                                            <other jcr:primaryType="nt:unstructured" text="Other (custom hex)" value="other"/>
+                                        </items>
+                                        <granite:data jcr:primaryType="nt:unstructured" cq-dialog-dropdown-showhide-target=".cmp-steps__bg-other-showhide"/>
+                                    </background>
+                                    <backgroundOther granite:class="cmp-steps__bg-other-showhide foundation-layout-util-vmargin"
+                                                     jcr:primaryType="nt:unstructured"
+                                                     sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <granite:data jcr:primaryType="nt:unstructured" showhidetargetvalue="other"/>
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <backgroundHex jcr:primaryType="nt:unstructured"
+                                                           sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                           fieldLabel="Custom Background Hex"
+                                                           name="./backgroundHex"/>
+                                        </items>
+                                    </backgroundOther>
+                                </items>
+                            </column>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

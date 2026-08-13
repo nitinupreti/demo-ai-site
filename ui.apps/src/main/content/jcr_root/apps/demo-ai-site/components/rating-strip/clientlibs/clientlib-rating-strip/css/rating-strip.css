@@ -1,0 +1,95 @@
+/* Rating Strip — furniture style. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:150 / 16:137 / 16:130. */
+
+.cmp-rating-strip {
+    background: var(--furn-color-tint);
+    padding: 45px 0;
+}
+
+.cmp-rating-strip--style-furniture {
+    background: var(--furn-color-tint);
+}
+
+.cmp-rating-strip__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+}
+
+.cmp-rating-strip__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+    align-items: center;
+}
+
+.cmp-rating-strip__item {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.cmp-rating-strip__icon {
+    display: inline-flex;
+    width: 55px;
+    height: 55px;
+    flex-shrink: 0;
+    color: var(--furn-color-primary);
+}
+
+.cmp-rating-strip__icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.cmp-rating-strip__body {
+    min-width: 0;
+}
+
+.cmp-rating-strip__title {
+    font-family: var(--furn-font-sans);
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: 0;
+    color: var(--furn-color-body);
+    margin: 0 0 6px 0;
+}
+
+.cmp-rating-strip__desc {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--furn-color-body);
+    margin: 0;
+}
+
+@media (max-width: 1024px) {
+    .cmp-rating-strip__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+    }
+    .cmp-rating-strip__list {
+        gap: 24px;
+    }
+    .cmp-rating-strip__title {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-rating-strip__inner {
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-rating-strip__list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+    }
+    .cmp-rating-strip {
+        padding: 32px 0;
+    }
+}

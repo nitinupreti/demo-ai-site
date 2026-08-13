@@ -1,0 +1,33 @@
+<!--/*
+    Subscribe — Join Our Mailing List. Centered heading + subtitle + inline email input with submit CTA.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.SubscribeModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.subscribe'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-subscribe cmp-subscribe--style-${model.style @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="subscribe">
+        <div class="cmp-subscribe__inner">
+            <h2 class="cmp-subscribe__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+            <p class="cmp-subscribe__subheading" data-sly-test="${model.subheading}">${model.subheading}</p>
+            <form class="cmp-subscribe__form" method="post" action="${model.endpoint @ context='uri'}">
+                <label class="cmp-subscribe__label" for="cmp-subscribe-email-${resource.name}">${'Email address' @ i18n}</label>
+                <input class="cmp-subscribe__input"
+                       id="cmp-subscribe-email-${resource.name}"
+                       type="email"
+                       name="email"
+                       required="required"
+                       placeholder="${model.placeholder @ context='attribute'}"/>
+                <button class="cmp-subscribe__cta" type="submit">${model.ctaLabel}</button>
+            </form>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-subscribe__placeholder"
+         data-emptytext="${'Subscribe — configure heading, placeholder and CTA' @ i18n}"></div>
+</sly>

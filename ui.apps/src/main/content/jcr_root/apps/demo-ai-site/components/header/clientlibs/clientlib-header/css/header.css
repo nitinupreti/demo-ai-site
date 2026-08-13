@@ -1,0 +1,261 @@
+/* Header component â€” Jadoo-style transparent site nav. */
+
+.cmp-header {
+    position: relative;
+    background: transparent;
+    padding: 47px 0 24px 0;
+    z-index: 2;
+}
+
+.cmp-header__inner {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    max-width: var(--das-container-max);
+    padding: 0 var(--das-page-gutter);
+    margin: 0 auto;
+    box-sizing: content-box;
+}
+
+/* -- Brand ---------------------------------------------------------------- */
+.cmp-header__brand {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    flex-shrink: 0;
+}
+
+.cmp-header__brand-logo {
+    display: block;
+    height: 34px;
+    width: auto;
+    max-width: 140px;
+}
+
+/* -- Nav ------------------------------------------------------------------ */
+.cmp-header__nav {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+}
+
+.cmp-header__nav-list {
+    display: flex;
+    align-items: center;
+    gap: 45px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cmp-header__nav-item {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+}
+
+.cmp-header__nav-link {
+    font-family: var(--das-font-ui);
+    font-weight: 500;
+    font-size: 17px;
+    line-height: 1;
+    color: var(--das-color-nav);
+    text-decoration: none;
+    padding: 12px 0;
+    display: inline-block;
+    min-height: 44px;
+    box-sizing: border-box;
+    transition: color 0.2s ease;
+}
+
+.cmp-header__nav-link:hover,
+.cmp-header__nav-link:focus-visible {
+    color: var(--das-color-yellow);
+}
+
+.cmp-header__nav-item--active .cmp-header__nav-link {
+    font-weight: 700;
+    color: var(--das-color-navy);
+}
+
+/* -- Actions ------------------------------------------------------------- */
+.cmp-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-shrink: 0;
+}
+
+.cmp-header__signup {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--das-font-ui);
+    font-weight: 500;
+    font-size: 17px;
+    color: var(--das-color-nav);
+    text-decoration: none;
+    height: 40px;
+    padding: 0 22px;
+    min-width: 102px;
+    border: 1px solid var(--das-color-nav);
+    border-radius: var(--das-radius-sm);
+    background: transparent;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.cmp-header__signup:hover,
+.cmp-header__signup:focus-visible {
+    background: var(--das-color-nav);
+    color: var(--das-color-white);
+}
+
+.cmp-header__language {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--das-font-ui);
+    font-weight: 500;
+    font-size: 17px;
+    color: var(--das-color-nav);
+    text-decoration: none;
+    padding: 12px 0;
+    min-height: 44px;
+    box-sizing: border-box;
+}
+
+.cmp-header__language-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+}
+
+.cmp-header__language-caret svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* -- Empty-state placeholder --------------------------------------------- */
+.cmp-header__placeholder {
+    padding: 24px;
+    text-align: center;
+    color: var(--das-color-muted);
+    font-family: var(--das-font-sans);
+}
+
+/* -- Focus ring floor ---------------------------------------------------- */
+.cmp-header a:focus-visible {
+    outline: var(--das-focus-ring);
+    outline-offset: var(--das-focus-offset);
+    border-radius: 4px;
+}
+
+/* -- Responsive ---------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .cmp-header {
+        padding: 24px 0 12px 0;
+    }
+    .cmp-header__inner {
+        padding: 0 var(--das-page-gutter-tablet);
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .cmp-header__nav-list {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-header__inner {
+        padding: 0 var(--das-page-gutter-mobile);
+        justify-content: space-between;
+    }
+    .cmp-header__nav {
+        display: none;
+    }
+    .cmp-header__actions {
+        gap: 12px;
+    }
+    .cmp-header__signup {
+        min-width: 0;
+        padding: 0 14px;
+    }
+}
+
+
+/* =================================================================================
+   Furniture style — white bar, brand text on the left, nav links centered/right.
+   Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:65 (Home-1).
+   ================================================================================= */
+
+.cmp-header--style-furniture {
+    background: var(--furn-color-page);
+    padding: 32px 0 32px 0;
+}
+
+.cmp-header--style-furniture .cmp-header__inner {
+    max-width: var(--furn-container-max);
+    padding: 0 var(--furn-page-gutter);
+}
+
+.cmp-header--style-furniture .cmp-header__brand-text {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--furn-color-primary);
+}
+
+.cmp-header--style-furniture .cmp-header__nav {
+    justify-content: flex-end;
+}
+
+.cmp-header--style-furniture .cmp-header__nav-list {
+    gap: 40px;
+}
+
+.cmp-header--style-furniture .cmp-header__nav-link {
+    font-family: var(--furn-font-sans);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--furn-color-body);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.cmp-header--style-furniture .cmp-header__nav-link:hover,
+.cmp-header--style-furniture .cmp-header__nav-item--active .cmp-header__nav-link {
+    color: var(--furn-color-primary);
+}
+
+.cmp-header--style-furniture .cmp-header__actions {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    .cmp-header--style-furniture .cmp-header__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+    }
+    .cmp-header--style-furniture .cmp-header__nav-list {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-header--style-furniture .cmp-header__inner {
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-header--style-furniture .cmp-header__brand-text {
+        font-size: 24px;
+    }
+    .cmp-header--style-furniture .cmp-header__nav {
+        display: none;
+    }
+}

@@ -1,0 +1,36 @@
+<!--/*
+    Feature CTA — split section with heading + description + CTA on one side and a portrait image on the other.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.FeatureCtaModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.feature-cta'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-feature-cta cmp-feature-cta--style-${model.style @ context='attribute'} cmp-feature-cta--image-${model.imageSide @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="feature-cta">
+        <div class="cmp-feature-cta__inner">
+            <div class="cmp-feature-cta__copy">
+                <h2 class="cmp-feature-cta__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+                <div class="cmp-feature-cta__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+                <a class="cmp-feature-cta__cta"
+                   data-sly-test="${model.ctaLabel}"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+            </div>
+            <div class="cmp-feature-cta__media">
+                <span class="cmp-feature-cta__decoration" data-sly-test="${model.showDecoration}" aria-hidden="true"></span>
+                <img class="cmp-feature-cta__image"
+                     data-sly-test="${model.image}"
+                     src="${model.image @ context='uri'}"
+                     alt="${model.imageAlt @ context='attribute'}"
+                     loading="lazy"/>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-feature-cta__placeholder"
+         data-emptytext="${'Feature CTA — configure heading, description, CTA and image' @ i18n}"></div>
+</sly>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Feature CTA"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured"
+             sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/tabs" maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured" jcr:title="Properties" sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns" margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <heading jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Heading" required="{Boolean}true" name="./heading"/>
+                                    <description jcr:primaryType="nt:unstructured" sling:resourceType="cq/gui/components/authoring/dialog/richtext" fieldLabel="Description" name="./description" useFixedInlineToolbar="{Boolean}true">
+                                        <rtePlugins jcr:primaryType="nt:unstructured">
+                                            <format jcr:primaryType="nt:unstructured" features="bold,italic"/>
+                                            <links jcr:primaryType="nt:unstructured" features="modifylink,unlink"/>
+                                        </rtePlugins>
+                                    </description>
+                                    <ctaLabel jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="CTA Label" name="./ctaLabel"/>
+                                    <ctaLink jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="CTA Link" rootPath="/content" name="./ctaLink"/>
+                                    <image jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="Image" required="{Boolean}true" rootPath="/content/dam" name="./image"/>
+                                    <imageAlt jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Image Alt Text" name="./imageAlt"/>
+                                </items>
+                            </column>
+                        </items>
+                    </properties>
+                    <style jcr:primaryType="nt:unstructured" jcr:title="Style" sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns" margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <style jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Design Style" name="./style">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <furniture jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Furniture" value="furniture"/>
+                                        </items>
+                                    </style>
+                                    <imageSide jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Image Side" fieldDescription="Which side of the section the image sits on." name="./imageSide">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <right jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Right" value="right"/>
+                                            <left jcr:primaryType="nt:unstructured" text="Left" value="left"/>
+                                        </items>
+                                    </imageSide>
+                                    <showDecoration jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/checkbox" fieldDescription="Show the accent ellipse behind the image." name="./showDecoration" text="Show decoration ellipse" value="{Boolean}true" uncheckedValue="{Boolean}false" checked="{Boolean}true"/>
+                                    <background jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Background Color" name="./background">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <default jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Default (tint)" value=""/>
+                                            <white jcr:primaryType="nt:unstructured" text="White" value="white"/>
+                                            <other jcr:primaryType="nt:unstructured" text="Other (custom hex)" value="other"/>
+                                        </items>
+                                        <granite:data jcr:primaryType="nt:unstructured" cq-dialog-dropdown-showhide-target=".cmp-feature-cta__bg-other-showhide"/>
+                                    </background>
+                                    <backgroundOther granite:class="cmp-feature-cta__bg-other-showhide foundation-layout-util-vmargin" jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <granite:data jcr:primaryType="nt:unstructured" showhidetargetvalue="other"/>
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <backgroundHex jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Custom Background Hex" name="./backgroundHex"/>
+                                        </items>
+                                    </backgroundOther>
+                                </items>
+                            </column>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

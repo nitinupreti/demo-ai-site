@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Furniture Home"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <header
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/header"
+                        style="furniture"
+                        brandText="Furniture"
+                        brandAlt="Furniture"
+                        brandLink="/content/demo-ai-site/us/en/furniture-home.html">
+                        <navItems jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                label="Home"
+                                link="/content/demo-ai-site/us/en/furniture-home.html"
+                                active="{Boolean}true"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                label="Services"
+                                link="#services"
+                                active="{Boolean}false"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                label="Gallery"
+                                link="#gallery"
+                                active="{Boolean}false"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                label="Products"
+                                link="#products"
+                                active="{Boolean}false"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                label="Rentals"
+                                link="#rentals"
+                                active="{Boolean}false"/>
+                        </navItems>
+                    </header>
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero"
+                        style="furniture"
+                        tagline="New Arrival"
+                        heading="&lt;p&gt;Discover Our&lt;/p&gt;&lt;p&gt;New Collection&lt;/p&gt;"
+                        description="&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pellentesque, turpis nec elementum vestibulum, tellus est mattis.&lt;/p&gt;"
+                        ctaLabel="BUY NOW"
+                        ctaLink="#buy"
+                        backgroundImage="/content/dam/demo-ai-site/design/furniture/hero-bg.png"
+                        backgroundImageAlt="Scandinavian living-room interior with rattan chair and plants"
+                        showDecorations="{Boolean}false"/>
+                    <rating_strip
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/rating-strip"
+                        style="furniture">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                icon="truck"
+                                title="Free Delivery"
+                                description="Lorem ipsum dolor sit amet."/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                icon="support"
+                                title="Support 24/7"
+                                description="Lorem ipsum dolor sit amet."/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                icon="shield"
+                                title="100% Authentic"
+                                description="Lorem ipsum dolor sit amet."/>
+                        </items>
+                    </rating_strip>
+                    <services_inspiration
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/services"
+                        style="furniture"
+                        heading="Inspiration Collection"
+                        subheading="Lorem ipsum dolor sit amet, consectetur adipiscing elit.">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/inspiration-1.png"
+                                imageAlt="Rattan side table with a potted plant in a light room"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/inspiration-2.jpeg"
+                                imageAlt="Soft round pouf beside a minimalist white sideboard"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/inspiration-3.png"
+                                imageAlt="Modern black pendant lamp against a white wall"/>
+                        </items>
+                    </services_inspiration>
+                    <feature_cta_beautify
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/feature-cta"
+                        style="furniture"
+                        imageSide="right"
+                        showDecoration="{Boolean}true"
+                        heading="Beautify Your Space"
+                        description="&lt;p&gt;Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.&lt;/p&gt;"
+                        ctaLabel="LEARN MORE"
+                        ctaLink="#learn-more"
+                        image="/content/dam/demo-ai-site/design/furniture/beautify-portrait.png"
+                        imageAlt="Portrait of a woman wearing a wide-brim hat, styled interior scene"/>
+                    <portfolio_browse
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/portfolio"
+                        style="furniture"
+                        heading="Browse The Range"
+                        subheading="Lorem ipsum dolor sit amet, consectetur adipiscing elit.">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/browse-dining.png"
+                                imageAlt="Dining area with wooden chairs and a cream tablecloth"
+                                label="Dining"
+                                link="#dining"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/browse-living.png"
+                                imageAlt="Bright living room with a light sofa and throw pillows"
+                                label="Living"
+                                link="#living"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/browse-bedroom.png"
+                                imageAlt="Cozy bedroom nook with a neutral cushion and dried florals"
+                                label="Bedroom"
+                                link="#bedroom"/>
+                        </items>
+                    </portfolio_browse>
+                    <steps_how_it_works
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/steps"
+                        style="furniture"
+                        heading="How It Works"
+                        subheading="Lorem ipsum dolor sit amet, consectetur adipiscing elit.">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/how-1.png"
+                                imageAlt="Person paying securely on a laptop"
+                                badge="1."
+                                title="Purchase Securely"
+                                description="&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit.&lt;/p&gt;"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/how-2.png"
+                                imageAlt="Warehouse building with shipping containers"
+                                badge="2."
+                                title="Ships From Warehouse"
+                                description="&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit.&lt;/p&gt;"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/how-3.png"
+                                imageAlt="Styled living-room corner with a plant and pendant lamp"
+                                badge="3."
+                                title="Style Your Room"
+                                description="&lt;p&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit.&lt;/p&gt;"/>
+                        </items>
+                    </steps_how_it_works>
+                    <subscribe
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/subscribe"
+                        style="furniture"
+                        heading="Join Our Mailing List"
+                        subheading="Sign up to receive inspiration, product updates, and special offers from our team."
+                        placeholder="Enter your email address"
+                        ctaLabel="Submit"
+                        endpoint="#subscribe"/>
+                    <footer
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/footer"
+                        style="furniture"
+                        aboutHeading="Beauty Care"
+                        aboutBody="&lt;p&gt;Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.&lt;/p&gt;"
+                        instagramHeading="Instagram Shop"
+                        followHeading="Follow Us">
+                        <instagramItems jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/ig-1.png"
+                                imageAlt="Instagram post — living room styling"
+                                link="#ig-1"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/ig-2.png"
+                                imageAlt="Instagram post — furniture detail"
+                                link="#ig-2"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/ig-3.png"
+                                imageAlt="Instagram post — bedroom detail"
+                                link="#ig-3"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                image="/content/dam/demo-ai-site/design/furniture/ig-4.png"
+                                imageAlt="Instagram post — decor arrangement"
+                                link="#ig-4"/>
+                        </instagramItems>
+                        <socialItems jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                network="facebook"
+                                link="#facebook"
+                                label="Follow us on Facebook"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                network="instagram"
+                                link="#instagram"
+                                label="Follow us on Instagram"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                network="twitter"
+                                link="#twitter"
+                                label="Follow us on Twitter"/>
+                        </socialItems>
+                    </footer>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

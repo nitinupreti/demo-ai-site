@@ -1,0 +1,106 @@
+/* Services — Inspiration Collection block. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:237. */
+
+.cmp-services {
+    background: var(--furn-color-page);
+    padding: 80px 0;
+}
+
+.cmp-services__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+}
+
+.cmp-services__head {
+    text-align: center;
+    margin: 0 0 48px 0;
+}
+
+.cmp-services__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.2;
+    color: var(--furn-color-body);
+    margin: 0 0 16px 0;
+}
+
+.cmp-services__subheading {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--furn-color-muted);
+    margin: 0;
+}
+
+.cmp-services__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+}
+
+.cmp-services__item {
+    min-width: 0;
+}
+
+.cmp-services__figure {
+    margin: 0;
+    display: block;
+}
+
+.cmp-services__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 355 / 434;
+    object-fit: cover;
+    border-radius: var(--furn-radius-image-md);
+    background: var(--furn-color-tint);
+}
+
+.cmp-services__label {
+    font-family: var(--furn-font-sans);
+    font-weight: 600;
+    font-size: 20px;
+    color: var(--furn-color-body);
+    text-align: center;
+    margin: 16px 0 0 0;
+}
+
+@media (max-width: 1024px) {
+    .cmp-services__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+    }
+    .cmp-services__list {
+        gap: 24px;
+    }
+    .cmp-services__heading {
+        font-size: 28px;
+    }
+    .cmp-services__subheading {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-services {
+        padding: 48px 0;
+    }
+    .cmp-services__inner {
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-services__list {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+    .cmp-services__heading {
+        font-size: 24px;
+    }
+    .cmp-services__subheading {
+        font-size: 16px;
+    }
+}

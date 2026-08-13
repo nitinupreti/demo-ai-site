@@ -1,0 +1,56 @@
+<!--/*
+    Rating Strip — 3-up feature strip with icon + title + short description.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.RatingStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.rating-strip'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-rating-strip cmp-rating-strip--style-${model.style @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="rating-strip">
+        <div class="cmp-rating-strip__inner">
+            <ul class="cmp-rating-strip__list" data-sly-list.item="${model.items}">
+                <li class="cmp-rating-strip__item" data-index="${itemList.index}">
+                    <span class="cmp-rating-strip__icon" aria-hidden="true" data-sly-test="${item.icon == 'truck'}">
+                        <svg viewBox="0 0 55 55" xmlns="http://www.w3.org/2000/svg" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 15 h30 v22 h-30 z" fill="currentColor" opacity="0.08"/>
+                            <path d="M3 15 h30 v22 h-30 z"/>
+                            <path d="M33 22 h11 l7 8 v7 h-18 z"/>
+                            <circle cx="14" cy="41" r="4" fill="#fff"/>
+                            <circle cx="14" cy="41" r="4"/>
+                            <circle cx="41" cy="41" r="4" fill="#fff"/>
+                            <circle cx="41" cy="41" r="4"/>
+                        </svg>
+                    </span>
+                    <span class="cmp-rating-strip__icon" aria-hidden="true" data-sly-test="${item.icon == 'support'}">
+                        <svg viewBox="0 0 55 55" xmlns="http://www.w3.org/2000/svg" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M27.5 6 a21.5 21.5 0 0 1 21 25.5"/>
+                            <path d="M6.5 31.5 a21.5 21.5 0 0 0 21 17.5"/>
+                            <polyline points="8,26 3,32 10,34"/>
+                            <polyline points="47,29 52,23 45,21"/>
+                            <text x="27.5" y="33" font-family="Montserrat, sans-serif" font-weight="700" font-size="14" fill="currentColor" text-anchor="middle">24/7</text>
+                        </svg>
+                    </span>
+                    <span class="cmp-rating-strip__icon" aria-hidden="true" data-sly-test="${item.icon == 'shield'}">
+                        <svg viewBox="0 0 55 55" xmlns="http://www.w3.org/2000/svg" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M27.5 5 L47 12 v13 c0 12 -8 21 -19.5 25 C16 46 8 37 8 25 V12 z" fill="currentColor" opacity="0.08"/>
+                            <path d="M27.5 5 L47 12 v13 c0 12 -8 21 -19.5 25 C16 46 8 37 8 25 V12 z"/>
+                            <polyline points="19,27 25,33 37,20"/>
+                        </svg>
+                    </span>
+                    <div class="cmp-rating-strip__body">
+                        <p class="cmp-rating-strip__title">${item.title}</p>
+                        <p class="cmp-rating-strip__desc" data-sly-test="${item.description}">${item.description}</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-rating-strip__placeholder"
+         data-emptytext="${'Rating Strip — add at least one feature item' @ i18n}"></div>
+</sly>

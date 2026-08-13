@@ -1,0 +1,157 @@
+/* Footer — dark navy footer. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, nodes 16:113-16:127. */
+
+.cmp-footer {
+    background: var(--furn-color-footer-bg);
+    color: var(--furn-color-page);
+    padding: 56px 0 40px 0;
+}
+
+.cmp-footer__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 48px;
+    align-items: start;
+}
+
+.cmp-footer__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--furn-color-page);
+    margin: 0 0 16px 0;
+}
+
+.cmp-footer__heading--follow {
+    margin-top: 32px;
+}
+
+.cmp-footer__body {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.72);
+    margin: 0 0 8px 0;
+    max-width: 400px;
+}
+
+.cmp-footer__body p {
+    margin: 0 0 8px 0;
+}
+
+.cmp-footer__body p:last-child {
+    margin-bottom: 0;
+}
+
+/* Instagram grid: 4 tiles in a row */
+.cmp-footer__ig-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    max-width: 763px;
+}
+
+.cmp-footer__ig-item {
+    min-width: 0;
+}
+
+.cmp-footer__ig-link {
+    display: block;
+    border-radius: var(--furn-radius-image-md);
+    overflow: hidden;
+}
+
+.cmp-footer__ig-link:focus-visible {
+    outline: var(--das-focus-ring);
+    outline-offset: var(--das-focus-offset);
+}
+
+.cmp-footer__ig-image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 175 / 185;
+    object-fit: cover;
+    border-radius: var(--furn-radius-image-md);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Follow-us social row */
+.cmp-footer__social {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.cmp-footer__social-item {
+    display: block;
+}
+
+.cmp-footer__social-link {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--furn-color-page);
+    text-decoration: none;
+    transition: background 0.15s ease;
+}
+
+.cmp-footer__social-link:hover,
+.cmp-footer__social-link:focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.cmp-footer__social-link:focus-visible {
+    outline: var(--das-focus-ring);
+    outline-offset: var(--das-focus-offset);
+}
+
+.cmp-footer__social-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
+.cmp-footer__social-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 1024px) {
+    .cmp-footer__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+        gap: 32px;
+    }
+    .cmp-footer__ig-list {
+        gap: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-footer {
+        padding: 40px 0 32px 0;
+    }
+    .cmp-footer__inner {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 0 var(--furn-page-gutter-mobile);
+        gap: 32px;
+    }
+    .cmp-footer__ig-list {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+}

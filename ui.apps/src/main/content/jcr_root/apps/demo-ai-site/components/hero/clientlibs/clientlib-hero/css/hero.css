@@ -1,0 +1,653 @@
+/* Hero component — travel landing section. Values traced to Figma node 108:63. */
+
+.cmp-hero {
+    position: relative;
+    background: var(--das-color-white);
+    overflow: hidden;
+    padding: 47px 0 96px 0;
+    isolation: isolate;
+}
+
+.cmp-hero--style-default {
+    background: var(--das-color-white);
+}
+
+/* -- Background decorations (cream blob + purple ellipse) ------------------ */
+.cmp-hero__decorations {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.cmp-hero__blob {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: auto;
+    max-width: none;
+}
+
+/* -- Layout ---------------------------------------------------------------- */
+.cmp-hero__inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 630fr) minmax(0, 570fr);
+    gap: 40px;
+    align-items: center;
+    max-width: var(--das-container-max);
+    padding: 0 var(--das-page-gutter);
+    box-sizing: content-box;
+    margin: 0 auto;
+    min-height: 764px;
+}
+
+/* -- Copy column ----------------------------------------------------------- */
+.cmp-hero__copy {
+    max-width: 630px;
+    padding-top: 60px;
+}
+
+.cmp-hero__tagline {
+    font-family: var(--das-font-sans);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--das-color-tagline);
+    text-transform: uppercase;
+    margin: 0 0 24px 0;
+}
+
+.cmp-hero__heading {
+    font-family: var(--das-font-display);
+    font-weight: 700;
+    font-size: 84px;
+    line-height: 89px;
+    letter-spacing: -3.36px;
+    color: var(--das-color-navy);
+    margin: 0 0 32px 0;
+    position: relative;
+}
+
+.cmp-hero__heading p {
+    margin: 0;
+}
+
+/* Highlighted word — orange scribble underline (SVG-derived path) */
+.cmp-hero__heading-highlight {
+    position: relative;
+    display: inline-block;
+    padding: 0 4px;
+}
+
+.cmp-hero__heading-highlight::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: -8px;
+    height: 18px;
+    background: url("/etc.clientlibs/demo-ai-site/components/hero/clientlibs/clientlib-hero/resources/scribble.svg") no-repeat center / 100% 100%;
+    pointer-events: none;
+}
+
+.cmp-hero__description {
+    font-family: var(--das-font-sans);
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 30px;
+    color: var(--das-color-body);
+    max-width: 477px;
+    margin: 0 0 32px 0;
+}
+
+.cmp-hero__description p {
+    margin: 0;
+}
+
+/* -- CTA row --------------------------------------------------------------- */
+.cmp-hero__cta-row {
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+}
+
+.cmp-hero__cta--primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--das-color-yellow);
+    color: var(--das-color-white);
+    font-family: var(--das-font-ui);
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 1;
+    text-decoration: none;
+    height: 60px;
+    padding: 0 30px;
+    min-width: 170px;
+    border-radius: var(--das-radius-md);
+    box-shadow: var(--das-shadow-cta);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cmp-hero__cta--primary:hover,
+.cmp-hero__cta--primary:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 40px 0 rgba(241, 165, 1, 0.28);
+}
+
+.cmp-hero__cta--play {
+    display: inline-flex;
+    align-items: center;
+    gap: 20px;
+    color: var(--das-color-muted);
+    font-family: var(--das-font-ui);
+    font-weight: 500;
+    font-size: 17px;
+    text-decoration: none;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.cmp-hero__play-button {
+    display: inline-flex;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    box-shadow: var(--das-shadow-play);
+    transition: transform 0.2s ease;
+}
+
+.cmp-hero__play-button svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.cmp-hero__cta--play:hover .cmp-hero__play-button,
+.cmp-hero__cta--play:focus-visible .cmp-hero__play-button {
+    transform: scale(1.06);
+}
+
+.cmp-hero__play-label {
+    display: inline-block;
+}
+
+/* -- Media column ---------------------------------------------------------- */
+.cmp-hero__media {
+    position: relative;
+    align-self: stretch;
+    min-height: 600px;
+}
+
+.cmp-hero__media-frame {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: visible;
+}
+
+.cmp-hero__image {
+    display: block;
+    max-width: 100%;
+    width: auto;
+    height: 100%;
+    max-height: 764px;
+    object-fit: contain;
+    object-position: bottom center;
+    pointer-events: none;
+}
+
+.cmp-hero__plane {
+    position: absolute;
+    width: 167px;
+    height: 153px;
+    pointer-events: none;
+    display: block;
+    transform: rotate(-8deg);
+}
+
+.cmp-hero__plane svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.cmp-hero__plane--top {
+    top: 56px;
+    left: 22%;
+}
+
+.cmp-hero__plane--bottom {
+    top: 175px;
+    right: 0;
+    transform: rotate(-15deg);
+}
+
+/* -- Empty-state placeholder ---------------------------------------------- */
+.cmp-hero__placeholder {
+    padding: 32px;
+    text-align: center;
+    color: var(--das-color-muted);
+    font-family: var(--das-font-sans);
+}
+
+/* -- Focus ring floor ----------------------------------------------------- */
+.cmp-hero a:focus-visible,
+.cmp-hero button:focus-visible {
+    outline: var(--das-focus-ring);
+    outline-offset: var(--das-focus-offset);
+    border-radius: 4px;
+}
+
+/* -- Responsive ----------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .cmp-hero {
+        padding: 32px 0 64px 0;
+    }
+    .cmp-hero__inner {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 0 var(--das-page-gutter-tablet);
+        min-height: 0;
+        gap: 32px;
+    }
+    .cmp-hero__copy {
+        padding-top: 0;
+        margin: 0 auto;
+    }
+    .cmp-hero__heading {
+        font-size: 56px;
+        line-height: 60px;
+        letter-spacing: -2px;
+    }
+    .cmp-hero__description {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .cmp-hero__cta-row {
+        justify-content: center;
+    }
+    .cmp-hero__media {
+        min-height: 480px;
+    }
+    .cmp-hero__blob {
+        opacity: 0.5;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-hero {
+        padding: 24px 0 48px 0;
+    }
+    .cmp-hero__inner {
+        padding: 0 var(--das-page-gutter-mobile);
+    }
+    .cmp-hero__heading {
+        font-size: 40px;
+        line-height: 44px;
+        letter-spacing: -1.2px;
+    }
+    .cmp-hero__tagline {
+        font-size: 16px;
+    }
+    .cmp-hero__cta-row {
+        gap: 24px;
+    }
+    .cmp-hero__cta--primary {
+        min-width: 0;
+        width: 100%;
+    }
+    .cmp-hero__media {
+        min-height: 360px;
+    }
+    .cmp-hero__plane {
+        width: 120px;
+        height: auto;
+    }
+}
+
+/* =================================================================================
+   Furniture style — full-bleed background image + right-aligned overlay card.
+   Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:65 (Home-1).
+   ================================================================================= */
+
+.cmp-hero--style-furniture {
+    position: relative;
+    background: var(--furn-color-page);
+    padding: 0;
+    min-height: 749px;
+    overflow: hidden;
+}
+
+.cmp-hero--style-furniture .cmp-hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.cmp-hero--style-furniture .cmp-hero__bg-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.cmp-hero__inner--furniture {
+    position: relative;
+    z-index: 1;
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 155px var(--furn-page-gutter) 106px var(--furn-page-gutter);
+    box-sizing: content-box;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    min-height: 749px;
+    grid-template-columns: none;
+    gap: 0;
+}
+
+.cmp-hero__card {
+    background: var(--furn-color-card);
+    border-radius: var(--furn-radius-card);
+    width: 643px;
+    max-width: 100%;
+    padding: 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.cmp-hero__eyebrow {
+    font-family: var(--furn-font-sans);
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 3px;
+    color: var(--furn-color-body);
+    margin: 0 0 20px 0;
+    text-transform: none;
+}
+
+.cmp-hero--style-furniture .cmp-hero__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 52px;
+    line-height: 65px;
+    letter-spacing: 0;
+    color: var(--furn-color-primary);
+    margin: 0 0 20px 0;
+}
+
+.cmp-hero--style-furniture .cmp-hero__heading p {
+    margin: 0;
+}
+
+.cmp-hero--style-furniture .cmp-hero__description {
+    font-family: var(--furn-font-sans);
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 30px;
+    color: var(--furn-color-body);
+    margin: 0 0 32px 0;
+    max-width: none;
+}
+
+.cmp-hero--style-furniture .cmp-hero__description p {
+    margin: 0;
+}
+
+.cmp-hero__cta--pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--furn-color-primary);
+    color: #ffffff;
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 20px 56px;
+    border-radius: var(--furn-radius-pill);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.cmp-hero__cta--pill:hover,
+.cmp-hero__cta--pill:focus-visible {
+    background: var(--furn-color-primary-dark);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.cmp-hero__cta--pill:focus-visible {
+    box-shadow: 0 0 0 3px rgba(5, 76, 115, 0.35);
+}
+
+@media (max-width: 1024px) {
+    .cmp-hero__inner--furniture {
+        padding: 100px var(--furn-page-gutter-tablet) 80px var(--furn-page-gutter-tablet);
+        min-height: 600px;
+        justify-content: center;
+    }
+    .cmp-hero__card {
+        width: 100%;
+        max-width: 560px;
+    }
+    .cmp-hero--style-furniture .cmp-hero__heading {
+        font-size: 42px;
+        line-height: 52px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-hero__inner--furniture {
+        padding: 60px var(--furn-page-gutter-mobile) 48px var(--furn-page-gutter-mobile);
+    }
+    .cmp-hero__card {
+        padding: 28px;
+    }
+    .cmp-hero--style-furniture .cmp-hero__heading {
+        font-size: 32px;
+        line-height: 40px;
+    }
+    .cmp-hero--style-furniture .cmp-hero__description {
+        font-size: 16px;
+        line-height: 26px;
+    }
+    .cmp-hero__cta--pill {
+        padding: 16px 40px;
+        width: 100%;
+    }
+}
+
+/* =================================================================================
+   Insights style — split hero with left copy column + right isometric illustration.
+   Design source: Figma BgE2ATtqKCnLEUmPWyctc9, node 212:816.
+   ================================================================================= */
+
+.cmp-hero--style-insights {
+    background: var(--insights-color-surface);
+    padding: var(--insights-section-py) 0;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.cmp-hero__inner--insights {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    gap: var(--insights-column-gap);
+    align-items: center;
+    max-width: var(--insights-container-max);
+    padding: 0 var(--insights-page-gutter);
+    box-sizing: content-box;
+    margin: 0 auto;
+    min-height: 0;
+}
+
+.cmp-hero__copy--insights {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 32px;
+    padding-top: 0;
+    max-width: none;
+}
+
+.cmp-hero__copy--insights .cmp-hero__text {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cmp-hero--style-insights .cmp-hero__heading {
+    font-family: var(--insights-font-sans);
+    font-weight: 600;
+    font-size: 64px;
+    line-height: 76px;
+    letter-spacing: 0;
+    color: var(--insights-color-heading);
+    margin: 0;
+}
+
+.cmp-hero--style-insights .cmp-hero__heading p {
+    margin: 0;
+}
+
+/* Highlighted span uses primary green — no underline in this style. */
+.cmp-hero--style-insights .cmp-hero__heading-highlight {
+    color: var(--insights-color-primary);
+    padding: 0;
+    display: inline;
+}
+
+.cmp-hero--style-insights .cmp-hero__heading-highlight::after {
+    content: none;
+}
+
+.cmp-hero--style-insights .cmp-hero__description {
+    font-family: var(--insights-font-sans);
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--insights-color-body);
+    max-width: 640px;
+    margin: 0;
+}
+
+.cmp-hero--style-insights .cmp-hero__description p {
+    margin: 0;
+}
+
+.cmp-hero__cta--insights {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--insights-color-primary);
+    color: var(--insights-color-white);
+    font-family: var(--insights-font-sans);
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0;
+    text-decoration: none;
+    padding: 14px 32px;
+    border-radius: var(--insights-radius-button);
+    transition: background 0.2s ease, transform 0.2s ease;
+    min-height: 44px;
+    box-sizing: border-box;
+}
+
+.cmp-hero__cta--insights:hover,
+.cmp-hero__cta--insights:focus-visible {
+    background: var(--insights-color-primary-hover);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.cmp-hero__cta--insights:focus-visible {
+    box-shadow: 0 0 0 3px rgba(76, 175, 79, 0.35);
+}
+
+.cmp-hero__media--insights {
+    position: relative;
+    align-self: center;
+    min-height: 0;
+    width: 100%;
+    max-width: var(--insights-illustration-max);
+    justify-self: end;
+}
+
+.cmp-hero__illustration {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 130.5 / 135.9;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+    .cmp-hero--style-insights {
+        padding: 64px 0;
+    }
+    .cmp-hero__inner--insights {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        padding: 0 var(--insights-page-gutter-tablet);
+        text-align: center;
+    }
+    .cmp-hero__copy--insights {
+        align-items: center;
+    }
+    .cmp-hero--style-insights .cmp-hero__heading {
+        font-size: 48px;
+        line-height: 56px;
+    }
+    .cmp-hero__media--insights {
+        justify-self: center;
+        max-width: 320px;
+        order: 2;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-hero--style-insights {
+        padding: 48px 0;
+    }
+    .cmp-hero__inner--insights {
+        padding: 0 var(--insights-page-gutter-mobile);
+        gap: 32px;
+    }
+    .cmp-hero--style-insights .cmp-hero__heading {
+        font-size: 32px;
+        line-height: 40px;
+    }
+    .cmp-hero--style-insights .cmp-hero__description {
+        font-size: 15px;
+        line-height: 22px;
+    }
+    .cmp-hero__cta--insights {
+        width: 100%;
+    }
+    .cmp-hero__media--insights {
+        max-width: 240px;
+    }
+}

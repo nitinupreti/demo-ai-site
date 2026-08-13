@@ -1,0 +1,18 @@
+//== Page-level overrides applied when the custom hero component is present.
+//   Uses :has() to scope: hides the sample AEM XF header/footer and template title
+//   so the landing page renders edge-to-edge.
+
+body:has(.cmp-hero) header.experiencefragment,
+body:has(.cmp-hero) footer.experiencefragment,
+body:has(.cmp-hero) main.container .cmp-title,
+body:has(.cmp-hero) main.container > .cmp-container > .aem-Grid > .title,
+body:has(.cmp-hero) main.container > .cmp-container > .aem-Grid > .cmp-title {
+    display: none;
+}
+
+body:has(.cmp-hero) {
+    background: #ffffff;
+    color: #5e6282;
+    font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+

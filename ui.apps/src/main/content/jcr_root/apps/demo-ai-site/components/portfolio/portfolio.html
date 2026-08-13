@@ -1,0 +1,37 @@
+<!--/*
+    Portfolio — Browse The Range block. Centered heading + subtext + row of labeled category cards.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.PortfolioModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.portfolio'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-portfolio cmp-portfolio--style-${model.style @ context='attribute'}"
+             data-cmp-is="portfolio">
+        <div class="cmp-portfolio__inner">
+            <header class="cmp-portfolio__head">
+                <h2 class="cmp-portfolio__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+                <p class="cmp-portfolio__subheading" data-sly-test="${model.subheading}">${model.subheading}</p>
+            </header>
+            <ul class="cmp-portfolio__list" data-sly-list.item="${model.items}">
+                <li class="cmp-portfolio__item" data-index="${itemList.index}">
+                    <a class="cmp-portfolio__link" href="${item.link @ context='uri'}">
+                        <span class="cmp-portfolio__image-wrap">
+                            <img class="cmp-portfolio__image"
+                                 src="${item.image @ context='uri'}"
+                                 alt="${item.imageAlt @ context='attribute'}"
+                                 loading="lazy"/>
+                        </span>
+                        <span class="cmp-portfolio__label">${item.label}</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-portfolio__placeholder"
+         data-emptytext="${'Portfolio — configure heading and category cards' @ i18n}"></div>
+</sly>

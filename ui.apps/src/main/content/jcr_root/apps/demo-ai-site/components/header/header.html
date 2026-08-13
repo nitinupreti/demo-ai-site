@@ -1,0 +1,65 @@
+<!--/*
+    Header component — transparent site nav rendered inside a hero-adjacent surface.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.HeaderModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.header'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <header class="cmp-header cmp-header--style-${model.style @ context='attribute'}"
+            data-cmp-is="header">
+        <div class="cmp-header__inner">
+            <a class="cmp-header__brand"
+               href="${model.brandLink @ context='uri'}"
+               aria-label="${model.brandAlt @ context='attribute'}">
+                <img class="cmp-header__brand-logo"
+                     data-sly-test="${model.brandLogo}"
+                     src="${model.brandLogo @ context='uri'}"
+                     alt="${model.brandAlt @ context='attribute'}"/>
+                <sly data-sly-test="${!model.brandLogo && model.brandText}">
+                    <span class="cmp-header__brand-text">${model.brandText}</span>
+                </sly>
+                <sly data-sly-test="${!model.brandLogo && !model.brandText}">
+                    <svg class="cmp-header__brand-logo cmp-header__brand-logo--fallback"
+                         viewBox="0 0 115 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path d="M74.08 28.3l9.5 3 8-8 10 7 10.5-2-4.5-14.5-16 5-9-5-9.5 1.5 1 13z" fill="#F1A501"/>
+                        <text x="0" y="26" font-family="Volkhov, serif" font-weight="700" font-size="28" fill="#000">Jadoo</text>
+                    </svg>
+                </sly>
+            </a>
+
+            <nav class="cmp-header__nav" aria-label="Primary">
+                <ul class="cmp-header__nav-list" data-sly-list.item="${model.navItems}">
+                    <li class="cmp-header__nav-item cmp-header__nav-item--${item.active ? 'active' : 'inactive'}"
+                        data-index="${itemList.index}">
+                        <a class="cmp-header__nav-link"
+                           href="${item.link @ context='uri'}">${item.label}</a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="cmp-header__actions">
+                <a class="cmp-header__signup"
+                   data-sly-test="${model.signupLabel}"
+                   href="${model.signupLink @ context='uri'}">${model.signupLabel}</a>
+
+                <a class="cmp-header__language"
+                   data-sly-test="${model.languageLabel}"
+                   href="${model.languageLink @ context='uri'}">
+                    <span class="cmp-header__language-label">${model.languageLabel}</span>
+                    <span class="cmp-header__language-caret" aria-hidden="true">
+                        <svg viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                            <path d="M0.35 0.35 L4.85 4.85 L9.35 0.35" stroke="currentColor" stroke-width="1" fill="none"/>
+                        </svg>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </header>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-header__placeholder"
+         data-emptytext="${'Header — configure brand logo, nav items and sign-up button' @ i18n}"></div>
+</sly>

@@ -1,0 +1,157 @@
+/* Feature CTA — Beautify Your Space split block. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:96. */
+
+.cmp-feature-cta {
+    background: var(--furn-color-tint);
+    padding: 100px 0;
+    overflow: hidden;
+}
+
+.cmp-feature-cta__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "copy media";
+    gap: 60px;
+    align-items: center;
+}
+
+.cmp-feature-cta--image-left .cmp-feature-cta__inner {
+    grid-template-areas: "media copy";
+}
+
+.cmp-feature-cta__copy {
+    grid-area: copy;
+    max-width: 514px;
+}
+
+.cmp-feature-cta__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.2;
+    color: var(--furn-color-body);
+    margin: 0 0 20px 0;
+}
+
+.cmp-feature-cta__description {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 30px;
+    color: var(--furn-color-muted);
+    margin: 0 0 32px 0;
+}
+
+.cmp-feature-cta__description p {
+    margin: 0 0 16px 0;
+}
+
+.cmp-feature-cta__description p:last-child {
+    margin-bottom: 0;
+}
+
+.cmp-feature-cta__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--furn-color-primary);
+    color: #ffffff;
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 20px 48px;
+    border-radius: var(--furn-radius-pill);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.cmp-feature-cta__cta:hover,
+.cmp-feature-cta__cta:focus-visible {
+    background: var(--furn-color-primary-dark);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.cmp-feature-cta__media {
+    grid-area: media;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 500px;
+}
+
+.cmp-feature-cta__decoration {
+    position: absolute;
+    width: 372px;
+    height: 374px;
+    right: -80px;
+    top: 50%;
+    transform: translateY(-40%);
+    background: var(--furn-color-accent);
+    border-radius: 50%;
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.cmp-feature-cta--image-left .cmp-feature-cta__decoration {
+    right: auto;
+    left: -80px;
+}
+
+.cmp-feature-cta__image {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 500 / 754;
+    object-fit: cover;
+    border-radius: var(--furn-radius-image-md);
+    background: var(--furn-color-card);
+}
+
+@media (max-width: 1024px) {
+    .cmp-feature-cta {
+        padding: 64px 0;
+    }
+    .cmp-feature-cta__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+        gap: 32px;
+    }
+    .cmp-feature-cta__decoration {
+        width: 280px;
+        height: 280px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-feature-cta {
+        padding: 40px 0;
+    }
+    .cmp-feature-cta__inner {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "copy" "media";
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-feature-cta--image-left .cmp-feature-cta__inner {
+        grid-template-areas: "copy" "media";
+    }
+    .cmp-feature-cta__media {
+        min-height: 400px;
+    }
+    .cmp-feature-cta__heading {
+        font-size: 24px;
+    }
+    .cmp-feature-cta__description {
+        font-size: 16px;
+        line-height: 26px;
+    }
+}

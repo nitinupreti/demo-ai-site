@@ -1,0 +1,161 @@
+/* Steps — How It Works block. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, nodes 27:0/27:1/27:2 + 16:185. */
+
+.cmp-steps {
+    background: var(--furn-color-page);
+    padding: 80px 0 96px 0;
+    border-top: 1px solid var(--furn-color-divider);
+}
+
+.cmp-steps__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+}
+
+.cmp-steps__head {
+    text-align: center;
+    margin: 0 0 48px 0;
+}
+
+.cmp-steps__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.2;
+    color: var(--furn-color-body);
+    margin: 0 0 16px 0;
+}
+
+.cmp-steps__subheading {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--furn-color-muted);
+    margin: 0;
+}
+
+.cmp-steps__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 40px;
+    row-gap: 24px;
+}
+
+.cmp-steps__item {
+    min-width: 0;
+    text-align: center;
+}
+
+.cmp-steps__figure {
+    position: relative;
+    display: block;
+    margin: 0 0 40px 0;
+}
+
+.cmp-steps__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 381 / 400;
+    object-fit: cover;
+    border-radius: var(--furn-radius-image-md);
+    background: var(--furn-color-tint);
+}
+
+.cmp-steps__badge {
+    position: absolute;
+    bottom: -45px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: var(--furn-color-page);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.cmp-steps__badge-inner {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--furn-color-primary);
+    color: var(--furn-color-page);
+    display: grid;
+    place-items: center;
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.cmp-steps__title {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--furn-color-body);
+    margin: 0 0 12px 0;
+}
+
+.cmp-steps__desc {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--furn-color-muted);
+    margin: 0;
+}
+
+.cmp-steps__desc p {
+    margin: 0;
+}
+
+@media (max-width: 1024px) {
+    .cmp-steps__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+    }
+    .cmp-steps__list {
+        column-gap: 24px;
+    }
+    .cmp-steps__heading {
+        font-size: 28px;
+    }
+    .cmp-steps__subheading {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-steps {
+        padding: 48px 0 64px 0;
+    }
+    .cmp-steps__inner {
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-steps__list {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 40px;
+    }
+    .cmp-steps__heading {
+        font-size: 24px;
+    }
+    .cmp-steps__subheading {
+        font-size: 16px;
+    }
+    .cmp-steps__badge {
+        bottom: -40px;
+        width: 80px;
+        height: 80px;
+    }
+    .cmp-steps__badge-inner {
+        width: 54px;
+        height: 54px;
+        font-size: 18px;
+    }
+}

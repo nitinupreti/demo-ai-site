@@ -1,0 +1,121 @@
+/* Portfolio — Browse The Range. Design source: Figma 5wehBB1QeU0h1NhcGG2AUL, node 16:182. */
+
+.cmp-portfolio {
+    background: var(--furn-color-page);
+    padding: 80px 0;
+}
+
+.cmp-portfolio__inner {
+    max-width: var(--furn-container-max);
+    margin: 0 auto;
+    padding: 0 var(--furn-page-gutter);
+    box-sizing: content-box;
+}
+
+.cmp-portfolio__head {
+    text-align: center;
+    margin: 0 0 48px 0;
+}
+
+.cmp-portfolio__heading {
+    font-family: var(--furn-font-sans);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1.2;
+    color: var(--furn-color-body);
+    margin: 0 0 16px 0;
+}
+
+.cmp-portfolio__subheading {
+    font-family: var(--furn-font-sans);
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 1.4;
+    color: var(--furn-color-muted);
+    margin: 0;
+}
+
+.cmp-portfolio__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px;
+}
+
+.cmp-portfolio__item {
+    min-width: 0;
+}
+
+.cmp-portfolio__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.cmp-portfolio__image-wrap {
+    display: block;
+    overflow: hidden;
+    border-radius: var(--furn-radius-image-md);
+    background: var(--furn-color-card);
+}
+
+.cmp-portfolio__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 381 / 480;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.cmp-portfolio__link:hover .cmp-portfolio__image,
+.cmp-portfolio__link:focus-visible .cmp-portfolio__image {
+    transform: scale(1.03);
+}
+
+.cmp-portfolio__label {
+    display: block;
+    font-family: var(--furn-font-sans);
+    font-weight: 600;
+    font-size: 24px;
+    color: var(--furn-color-body);
+    text-align: center;
+    margin: 20px 0 0 0;
+}
+
+@media (max-width: 1024px) {
+    .cmp-portfolio__inner {
+        padding: 0 var(--furn-page-gutter-tablet);
+    }
+    .cmp-portfolio__list {
+        gap: 24px;
+    }
+    .cmp-portfolio__heading {
+        font-size: 28px;
+    }
+    .cmp-portfolio__label {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 640px) {
+    .cmp-portfolio {
+        padding: 48px 0;
+    }
+    .cmp-portfolio__inner {
+        padding: 0 var(--furn-page-gutter-mobile);
+    }
+    .cmp-portfolio__list {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .cmp-portfolio__heading {
+        font-size: 24px;
+    }
+    .cmp-portfolio__subheading {
+        font-size: 16px;
+    }
+    .cmp-portfolio__label {
+        font-size: 18px;
+    }
+}

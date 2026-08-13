@@ -1,0 +1,36 @@
+<!--/*
+    Services — centered heading + subtext + row of image cards. Used for the Inspiration Collection block.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.ServicesModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.services'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-services cmp-services--style-${model.style @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="services">
+        <div class="cmp-services__inner">
+            <header class="cmp-services__head">
+                <h2 class="cmp-services__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+                <p class="cmp-services__subheading" data-sly-test="${model.subheading}">${model.subheading}</p>
+            </header>
+            <ul class="cmp-services__list" data-sly-list.item="${model.items}">
+                <li class="cmp-services__item" data-index="${itemList.index}">
+                    <figure class="cmp-services__figure">
+                        <img class="cmp-services__image"
+                             src="${item.image @ context='uri'}"
+                             alt="${item.imageAlt @ context='attribute'}"
+                             loading="lazy"/>
+                        <figcaption class="cmp-services__label" data-sly-test="${item.label}">${item.label}</figcaption>
+                    </figure>
+                </li>
+            </ul>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-services__placeholder"
+         data-emptytext="${'Services — configure heading + card items' @ i18n}"></div>
+</sly>

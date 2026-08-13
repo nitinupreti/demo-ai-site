@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Rating Strip"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured"
+             sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured"
+                  sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                  maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured"
+                                jcr:title="Properties"
+                                sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
+                                margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <items
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                        composite="{Boolean}true"
+                                        fieldLabel="Feature Items">
+                                        <field jcr:primaryType="nt:unstructured"
+                                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                                               name="./items">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <icon
+                                                    jcr:primaryType="nt:unstructured"
+                                                    sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                                    fieldLabel="Icon"
+                                                    name="./icon">
+                                                    <items jcr:primaryType="nt:unstructured">
+                                                        <truck jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Truck (Delivery)" value="truck"/>
+                                                        <support jcr:primaryType="nt:unstructured" text="Support 24/7" value="support"/>
+                                                        <shield jcr:primaryType="nt:unstructured" text="Shield (Authentic)" value="shield"/>
+                                                    </items>
+                                                </icon>
+                                                <title
+                                                    jcr:primaryType="nt:unstructured"
+                                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                    fieldLabel="Title"
+                                                    required="{Boolean}true"
+                                                    name="./title"/>
+                                                <description
+                                                    jcr:primaryType="nt:unstructured"
+                                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                    fieldLabel="Description"
+                                                    name="./description"/>
+                                            </items>
+                                        </field>
+                                    </items>
+                                </items>
+                            </column>
+                        </items>
+                    </properties>
+                    <style jcr:primaryType="nt:unstructured"
+                           jcr:title="Style"
+                           sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
+                           margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <column jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <style
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                        fieldLabel="Design Style"
+                                        name="./style">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <furniture jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Furniture" value="furniture"/>
+                                        </items>
+                                    </style>
+                                    <background
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                        fieldLabel="Background Color"
+                                        name="./background">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <default jcr:primaryType="nt:unstructured" selected="{Boolean}true" text="Default (tint)" value=""/>
+                                            <white jcr:primaryType="nt:unstructured" text="White" value="white"/>
+                                            <other jcr:primaryType="nt:unstructured" text="Other (custom hex)" value="other"/>
+                                        </items>
+                                        <granite:data jcr:primaryType="nt:unstructured" cq-dialog-dropdown-showhide-target=".cmp-rating-strip__bg-other-showhide"/>
+                                    </background>
+                                    <backgroundOther
+                                        granite:class="cmp-rating-strip__bg-other-showhide foundation-layout-util-vmargin"
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <granite:data jcr:primaryType="nt:unstructured" showhidetargetvalue="other"/>
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <backgroundHex
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Custom Background Hex"
+                                                fieldDescription="e.g. #F2F5FF"
+                                                name="./backgroundHex"/>
+                                        </items>
+                                    </backgroundOther>
+                                </items>
+                            </column>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

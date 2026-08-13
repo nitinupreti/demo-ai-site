@@ -1,0 +1,97 @@
+/* Web fonts: Poppins (UI/body) + Volkhov (display serif) + Montserrat (furniture design) + Inter (insights design). */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Volkhov:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+    /* Colors — sourced from Figma variables + observed hex values on node 108:63 */
+    --das-color-navy: #181e4b;
+    --das-color-yellow: #f1a501;
+    --das-color-tagline: #df6951;
+    --das-color-play: #df6951;
+    --das-color-body: #5e6282;
+    --das-color-muted: #686d77;
+    --das-color-nav: #212832;
+    --das-color-white: #ffffff;
+    --das-color-black: #000000;
+    --das-color-cream: #fff1da;
+    --das-color-ellipse: #d5aee4;
+
+    /* Typography */
+    --das-font-display: "Volkhov", Georgia, "Times New Roman", serif;
+    --das-font-sans: "Poppins", "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --das-font-ui: "Poppins", "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* Spacing */
+    --das-space-xxs: 4px;
+    --das-space-xs: 8px;
+    --das-space-sm: 16px;
+    --das-space-md: 24px;
+    --das-space-lg: 32px;
+    --das-space-xl: 48px;
+    --das-space-2xl: 64px;
+    --das-space-3xl: 96px;
+
+    /* Layout */
+    --das-container-max: 1200px;
+    --das-page-gutter: 148px;
+    --das-page-gutter-tablet: 48px;
+    --das-page-gutter-mobile: 20px;
+
+    /* Radii + shadows */
+    --das-radius-sm: 5px;
+    --das-radius-md: 10px;
+    --das-shadow-cta: 0 20px 35px 0 rgba(241, 165, 1, 0.15);
+    --das-shadow-play: 0 15px 30px 0 rgba(223, 105, 81, 0.30);
+
+    /* Focus */
+    --das-focus-ring: 2px solid #2020e0;
+    --das-focus-offset: 2px;
+
+    /* ------------------------------------------------------------------ */
+    /* Furniture design tokens (scope: .cmp-*--style-furniture)            */
+    /* Sourced from Figma file 5wehBB1QeU0h1NhcGG2AUL, page Home-1.        */
+    /* ------------------------------------------------------------------ */
+    --furn-font-sans: "Montserrat", "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --furn-color-primary: #054c73;
+    --furn-color-primary-dark: #011c42;
+    --furn-color-footer-bg: #03344f;
+    --furn-color-body: #333333;
+    --furn-color-muted: #666666;
+    --furn-color-page: #fcfcfc;
+    --furn-color-tint: #f2f5ff;
+    --furn-color-card: #dfe9f4;
+    --furn-color-divider: #d7d6d6;
+    --furn-color-accent: #b0d3b0;
+    --furn-radius-card: 10px;
+    --furn-radius-image-sm: 2px;
+    --furn-radius-image-md: 4px;
+    --furn-radius-input: 3px;
+    --furn-radius-pill: 50px;
+    --furn-container-max: 1200px;
+    --furn-page-gutter: 120px;
+    --furn-page-gutter-tablet: 48px;
+    --furn-page-gutter-mobile: 20px;
+    --furn-section-py: 96px;
+
+    /* ------------------------------------------------------------------ */
+    /* Insights design tokens (scope: .cmp-*--style-insights)             */
+    /* Sourced from Figma file BgE2ATtqKCnLEUmPWyctc9, node 212:816.      */
+    /* ------------------------------------------------------------------ */
+    --insights-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --insights-color-primary: #4CAF4F;
+    --insights-color-primary-hover: #388E3B;
+    --insights-color-primary-dark: #103E13;
+    --insights-color-heading: #4D4D4D;
+    --insights-color-body: #717171;
+    --insights-color-surface: #F5F7FA;
+    --insights-color-tint: #C8E6C9;
+    --insights-color-tint-light: #E8F5E9;
+    --insights-color-white: #FFFFFF;
+    --insights-radius-button: 12px;
+    --insights-container-max: 1200px;
+    --insights-page-gutter: 144px;
+    --insights-page-gutter-tablet: 48px;
+    --insights-page-gutter-mobile: 20px;
+    --insights-section-py: 96px;
+    --insights-column-gap: 104px;
+    --insights-illustration-max: 400px;
+}

@@ -1,0 +1,113 @@
+<!--/*
+    Hero component. Renders one of two style variants:
+      style="default"   — travel landing hero (tagline, dual CTA, decorations, side image)
+      style="furniture" — full-bleed background image with overlay card (eyebrow, heading, description, single CTA)
+*/-->
+<sly data-sly-use.model="com.demo.core.models.HeroModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.hero'}"/>
+<sly data-sly-call="${clientlib.js @ categories='demo-ai-site.hero'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-hero cmp-hero--style-${model.style @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="hero">
+
+        <sly data-sly-test="${model.style == 'default'}">
+            <div class="cmp-hero__decorations" data-sly-test="${model.showDecorations}" aria-hidden="true">
+                <svg class="cmp-hero__blob" viewBox="0 0 2072.31 933.42" preserveAspectRatio="xMaxYMid slice" xmlns="http://www.w3.org/2000/svg">
+                    <g opacity="0.3" filter="url(#hero-blur)">
+                        <ellipse cx="389.472" cy="398.432" rx="239.472" ry="248.432" fill="#D5AEE4"/>
+                    </g>
+                    <path d="M1328.31 431.836C1287.91 363.036 1311.47 223.169 1328.31 161.836L2007.81 60.8355L2072.31 332.336L2033.81 933.336C1955.14 934.336 1779.71 926.836 1707.31 888.836C1616.81 841.336 1657.81 764.836 1582.81 724.836C1507.81 684.836 1550.81 579.336 1524.81 539.336C1498.81 499.336 1378.81 517.836 1328.31 431.836Z" fill="#FFF1DA"/>
+                    <defs>
+                        <filter id="hero-blur" x="0" y="0" width="778.945" height="796.864" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                            <feGaussianBlur stdDeviation="75"/>
+                        </filter>
+                    </defs>
+                </svg>
+            </div>
+
+            <div class="cmp-hero__inner">
+                <div class="cmp-hero__copy">
+                    <p class="cmp-hero__tagline" data-sly-test="${model.tagline}">${model.tagline}</p>
+                    <h1 class="cmp-hero__heading" data-sly-test="${model.heading}">${model.heading @ context='html'}</h1>
+                    <div class="cmp-hero__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+
+                    <div class="cmp-hero__cta-row">
+                        <a class="cmp-hero__cta cmp-hero__cta--primary"
+                           data-sly-test="${model.ctaLabel}"
+                           href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+
+                        <a class="cmp-hero__cta cmp-hero__cta--play"
+                           data-sly-test="${model.playLabel}"
+                           href="${model.playLink @ context='uri'}">
+                            <span class="cmp-hero__play-button" aria-hidden="true">
+                                <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                                    <circle cx="26" cy="26" r="26" fill="#DF6951"/>
+                                    <path d="M34 27 L23 33.5 L23 20.5 Z" fill="#FFFFFF"/>
+                                </svg>
+                            </span>
+                            <span class="cmp-hero__play-label">${model.playLabel}</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="cmp-hero__media">
+                    <div class="cmp-hero__media-frame">
+                        <img class="cmp-hero__image"
+                             data-sly-test="${model.image}"
+                             src="${model.image @ context='uri'}"
+                             alt="${model.imageAlt @ context='attribute'}"
+                             loading="eager"/>
+                    </div>
+                </div>
+            </div>
+        </sly>
+
+        <sly data-sly-test="${model.style == 'furniture'}">
+            <div class="cmp-hero__bg" aria-hidden="true" data-sly-test="${model.backgroundImage}">
+                <img class="cmp-hero__bg-image"
+                     src="${model.backgroundImage @ context='uri'}"
+                     alt="${model.backgroundImageAlt @ context='attribute'}"
+                     loading="eager"/>
+            </div>
+            <div class="cmp-hero__inner cmp-hero__inner--furniture">
+                <div class="cmp-hero__card">
+                    <p class="cmp-hero__eyebrow" data-sly-test="${model.tagline}">${model.tagline}</p>
+                    <h1 class="cmp-hero__heading" data-sly-test="${model.heading}">${model.heading @ context='html'}</h1>
+                    <div class="cmp-hero__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+                    <a class="cmp-hero__cta cmp-hero__cta--pill"
+                       data-sly-test="${model.ctaLabel}"
+                       href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+                </div>
+            </div>
+        </sly>
+
+        <sly data-sly-test="${model.style == 'insights'}">
+            <div class="cmp-hero__inner cmp-hero__inner--insights">
+                <div class="cmp-hero__copy cmp-hero__copy--insights">
+                    <div class="cmp-hero__text">
+                        <h1 class="cmp-hero__heading" data-sly-test="${model.heading}">${model.heading @ context='html'}</h1>
+                        <div class="cmp-hero__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+                    </div>
+                    <a class="cmp-hero__cta cmp-hero__cta--insights"
+                       data-sly-test="${model.ctaLabel}"
+                       href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+                </div>
+                <div class="cmp-hero__media cmp-hero__media--insights" data-sly-test="${model.image}">
+                    <img class="cmp-hero__illustration"
+                         src="${model.image @ context='uri'}"
+                         alt="${model.imageAlt @ context='attribute'}"
+                         loading="eager"/>
+                </div>
+            </div>
+        </sly>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-hero__placeholder"
+         data-emptytext="${'Hero — configure tagline, heading, description, CTA and image' @ i18n}"></div>
+</sly>

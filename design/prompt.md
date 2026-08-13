@@ -1,5 +1,5 @@
 # DESIGN_SOURCE
-FIGMA_URL:   "https://www.figma.com/design/BgE2ATtqKCnLEUmPWyctc9/Minimal-Landing-Page-Design-%7C-Website-Home-Page-Design-%7C-Agency-Website-UI-Design--Community---Copy-?node-id=212-816&t=oQ9zb8JNr1wrmZDI-0"
+FIGMA_URL:   ""
 DESIGN_FILE: <path to .pdf or .fig — optional>
 # Optional companions: DESIGN_SCREENSHOTS_DIR, DESIGN_SVG_DIR, DESIGN_TOKENS_JSON 
 # If neither FIGMA_URL nor DESIGN_FILE is set, STOP and ask.

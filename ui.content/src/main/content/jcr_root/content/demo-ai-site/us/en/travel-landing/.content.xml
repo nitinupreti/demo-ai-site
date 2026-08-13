@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Travel Landing"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <header
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/header"
+                        style="default"
+                        brandLogo="/content/dam/demo-ai-site/design/logo.svg"
+                        brandAlt="Jadoo"
+                        brandLink="/content/demo-ai-site/us/en.html"
+                        signupLabel="Sign up"
+                        signupLink="/content/demo-ai-site/us/en/travel-landing.html"
+                        languageLabel="EN"
+                        languageLink="#">
+                        <navItems jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                label="Desitnations"
+                                link="/content/demo-ai-site/us/en/travel-landing.html"
+                                active="{Boolean}false"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                label="Hotels"
+                                link="/content/demo-ai-site/us/en/travel-landing.html"
+                                active="{Boolean}false"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                label="Flights"
+                                link="/content/demo-ai-site/us/en/travel-landing.html"
+                                active="{Boolean}false"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                label="Bookings"
+                                link="/content/demo-ai-site/us/en/travel-landing.html"
+                                active="{Boolean}false"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                label="Login"
+                                link="/content/demo-ai-site/us/en/travel-landing.html"
+                                active="{Boolean}false"/>
+                        </navItems>
+                    </header>
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero"
+                        style="default"
+                        tagline="Best Destinations around the world"
+                        heading="&lt;p&gt;Travel, &lt;span class=&quot;cmp-hero__heading-highlight&quot;&gt;enjoy&lt;/span&gt;&lt;/p&gt;&lt;p&gt;and live a new&lt;/p&gt;&lt;p&gt;and full life&lt;/p&gt;"
+                        description="&lt;p&gt;Built Wicket longer admire do barton vanity itself do in it. Preferred to sportsmen it engrossed listening. Park gate sell they west hard for the.&lt;/p&gt;"
+                        ctaLabel="Find out more"
+                        ctaLink="/content/demo-ai-site/us/en/travel-landing.html"
+                        playLabel="Play Demo"
+                        playLink="/content/demo-ai-site/us/en/travel-landing.html"
+                        image="/content/dam/demo-ai-site/design/hero-woman.png"
+                        imageAlt="Traveler with backpack sitting on suitcase"
+                        showDecorations="{Boolean}true"/>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

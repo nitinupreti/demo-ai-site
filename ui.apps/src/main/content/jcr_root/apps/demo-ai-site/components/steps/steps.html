@@ -1,0 +1,40 @@
+<!--/*
+    Steps — How It Works block. Row of image cards with numbered badge + title + description.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.StepsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.steps'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-steps cmp-steps--style-${model.style @ context='attribute'}"
+             style="${model.backgroundStyle @ context='styleString'}"
+             data-cmp-is="steps">
+        <div class="cmp-steps__inner">
+            <header class="cmp-steps__head">
+                <h2 class="cmp-steps__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+                <p class="cmp-steps__subheading" data-sly-test="${model.subheading}">${model.subheading}</p>
+            </header>
+            <ul class="cmp-steps__list" data-sly-list.item="${model.items}">
+                <li class="cmp-steps__item" data-index="${itemList.index}">
+                    <div class="cmp-steps__figure">
+                        <img class="cmp-steps__image"
+                             src="${item.image @ context='uri'}"
+                             alt="${item.imageAlt @ context='attribute'}"
+                             loading="lazy"/>
+                        <span class="cmp-steps__badge" data-sly-test="${item.badge}">
+                            <span class="cmp-steps__badge-inner">${item.badge}</span>
+                        </span>
+                    </div>
+                    <h3 class="cmp-steps__title">${item.title}</h3>
+                    <div class="cmp-steps__desc" data-sly-test="${item.description}">${item.description @ context='html'}</div>
+                </li>
+            </ul>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-steps__placeholder"
+         data-emptytext="${'Steps — configure heading and numbered step items' @ i18n}"></div>
+</sly>
