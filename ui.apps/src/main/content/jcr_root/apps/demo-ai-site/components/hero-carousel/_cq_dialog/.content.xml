@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Hero Carousel"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/tabs"
+        maximized="{Boolean}true">
+        <items jcr:primaryType="nt:unstructured">
+            <properties
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Properties"
+                sling:resourceType="granite/ui/components/coral/foundation/container"
+                margin="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <slides
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                        composite="{Boolean}true"
+                        fieldLabel="Slides">
+                        <field
+                            jcr:primaryType="nt:unstructured"
+                            sling:resourceType="granite/ui/components/coral/foundation/container"
+                            name="./slides">
+                            <items jcr:primaryType="nt:unstructured">
+                                <eyebrow
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Eyebrow"
+                                    name="./eyebrow"/>
+                                <title
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Title"
+                                    name="./title"
+                                    required="{Boolean}true"/>
+                                <description
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="cq/gui/components/authoring/dialog/richtext"
+                                    fieldLabel="Description"
+                                    name="./description"
+                                    useFixedInlineToolbar="{Boolean}true">
+                                    <rtePlugins jcr:primaryType="nt:unstructured">
+                                        <format
+                                            jcr:primaryType="nt:unstructured"
+                                            features="[bold,italic]"/>
+                                        <links
+                                            jcr:primaryType="nt:unstructured"
+                                            features="[modifylink,unlink]"/>
+                                    </rtePlugins>
+                                </description>
+                                <ctaLabel
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="CTA Label"
+                                    name="./ctaLabel"/>
+                                <ctaLink
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="CTA Link"
+                                    name="./ctaLink"
+                                    rootPath="/content"/>
+                                <image
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="Background Image"
+                                    name="./image"
+                                    rootPath="/content/dam"/>
+                                <imageAlt
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                    fieldLabel="Image Alt Text"
+                                    name="./imageAlt"/>
+                                <bgVideo
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="Background Video (intro)"
+                                    fieldDescription="MP4 played once when the slide activates."
+                                    name="./bgVideo"
+                                    rootPath="/content/dam"/>
+                                <bgVideoLoop
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                    fieldLabel="Background Video (loop)"
+                                    fieldDescription="MP4 that loops after the intro ends. If only one is set, it plays alone."
+                                    name="./bgVideoLoop"
+                                    rootPath="/content/dam"/>
+                            </items>
+                        </field>
+                    </slides>
+                </items>
+            </properties>
+            <style
+                jcr:primaryType="nt:unstructured"
+                jcr:title="Style"
+                sling:resourceType="granite/ui/components/coral/foundation/container"
+                margin="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <autoRotate
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                        fieldDescription="Rotate slides automatically every 6 seconds."
+                        name="./autoRotate"
+                        text="Auto-rotate slides"
+                        value="{Boolean}true"
+                        uncheckedValue="{Boolean}false"
+                        checked="{Boolean}true"/>
+                    <theme
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                        fieldLabel="Theme"
+                        name="./theme">
+                        <items jcr:primaryType="nt:unstructured">
+                            <dark jcr:primaryType="nt:unstructured" text="Dark (navy)" value="dark" selected="{Boolean}true"/>
+                            <light jcr:primaryType="nt:unstructured" text="Light" value="light"/>
+                        </items>
+                    </theme>
+                </items>
+            </style>
+        </items>
+    </content>
+</jcr:root>

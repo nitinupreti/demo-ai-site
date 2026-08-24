@@ -1,0 +1,73 @@
+.cmp-newsletter-signup {
+    padding: var(--das-space-8) 0 var(--das-space-6);
+    background: var(--das-color-surface);
+}
+
+.cmp-newsletter-signup--bg-light { background: var(--das-color-surface); }
+.cmp-newsletter-signup--bg-alt   { background: var(--das-color-surface); }
+.cmp-newsletter-signup--bg-dark  { background: var(--das-color-brand-dark); color: var(--das-color-text-inverse); }
+
+.cmp-newsletter-signup__inner {
+    max-width: var(--das-container-narrow);
+    margin: 0 auto;
+    padding: 0 var(--das-gutter);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--das-space-3);
+}
+
+.cmp-newsletter-signup__icon {
+    display: inline-flex;
+    height: 22px;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: var(--das-space-3);
+}
+
+.cmp-newsletter-signup__icon img { height: 100%; max-height: 22px; width: auto; display: block; }
+
+.cmp-newsletter-signup__eyebrow {
+    font-family: var(--das-font-display);
+    font-size: 1.375rem;
+    font-weight: var(--das-fw-semibold);
+    line-height: var(--das-lh-snug);
+    margin: 0;
+    color: var(--das-color-text);
+}
+
+.cmp-newsletter-signup--bg-dark .cmp-newsletter-signup__eyebrow { color: var(--das-color-text-inverse); }
+
+.cmp-newsletter-signup__desc {
+    font-family: var(--das-font-sans);
+    font-size: var(--das-fs-body);
+    color: var(--das-color-text);
+    margin: 0;
+    max-width: 620px;
+}
+
+.cmp-newsletter-signup--bg-dark .cmp-newsletter-signup__desc { color: rgba(255, 255, 255, 0.9); }
+
+.cmp-newsletter-signup__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--das-space-2);
+    font-family: var(--das-font-display);
+    font-size: 0.8125rem;
+    font-weight: var(--das-fw-bold);
+    letter-spacing: 0.1em;
+    color: var(--das-color-brand);
+    text-transform: uppercase;
+    text-decoration: none;
+    margin-top: var(--das-space-3);
+}
+
+.cmp-newsletter-signup__cta:hover,
+.cmp-newsletter-signup__cta:focus-visible { text-decoration: underline; }
+
+.cmp-newsletter-signup--empty {
+    padding: var(--das-space-6);
+    border: 1px dashed var(--das-color-border);
+    text-align: center;
+    color: var(--das-color-text-muted);
+}

@@ -65,7 +65,18 @@ module.exports = {
       ...libsBaseConfig,
       name: 'clientlib-site',
       categories: ['demo-ai-site.site'],
-      dependencies: ['demo-ai-site.dependencies'],
+      dependencies: ['demo-ai-site.dependencies', 'demo-ai-site.tokens'],
+      embed: [
+        'demo-ai-site.cmp.hero-carousel',
+        'demo-ai-site.cmp.card-strip',
+        'demo-ai-site.cmp.section-heading',
+        'demo-ai-site.cmp.product-cards',
+        'demo-ai-site.cmp.impact-strip',
+        'demo-ai-site.cmp.quote-carousel',
+        'demo-ai-site.cmp.article-carousel',
+        'demo-ai-site.cmp.newsletter-signup',
+        'demo-ai-site.cmp.partner-logos'
+      ],
       assets: {
         // Copy entrypoint scripts and stylesheets into the respective ClientLib
         // directories

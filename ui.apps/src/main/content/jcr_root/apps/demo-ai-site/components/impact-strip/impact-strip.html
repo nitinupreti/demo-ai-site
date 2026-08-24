@@ -1,0 +1,31 @@
+<!--/*
+    Impact Strip — full-bleed background image + eyebrow + large heading + stat pills.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.ImpactStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.impact-strip'}"/>
+
+<section class="cmp-impact-strip cmp-impact-strip--image-${model.imageSide @ context='attribute'}"
+         style="${model.backgroundStyle @ context='styleString'}"
+         data-sly-test="${model.hasContent}">
+    <div class="cmp-impact-strip__overlay"></div>
+    <div class="cmp-impact-strip__inner">
+        <div class="cmp-impact-strip__body">
+            <p class="cmp-impact-strip__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+            <h2 class="cmp-impact-strip__title">${model.title}</h2>
+        </div>
+        <ul class="cmp-impact-strip__stats" data-sly-test="${model.stats.size > 0}">
+            <li class="cmp-impact-strip__stat"
+                data-sly-repeat.stat="${model.stats}"
+                data-index="${statList.index}">
+                <span class="cmp-impact-strip__stat-value">${stat.value}</span>
+                <span class="cmp-impact-strip__stat-label" data-sly-test="${stat.label}">${stat.label}</span>
+            </li>
+        </ul>
+    </div>
+</section>
+
+<div class="cmp-impact-strip cmp-impact-strip--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Impact Strip is empty. Set at least a title.' @ i18n}</p>
+</div>

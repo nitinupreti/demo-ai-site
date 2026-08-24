@@ -1,0 +1,36 @@
+<!--/*
+    Card Strip — horizontal row of cards (What's New).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.CardStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.card-strip'}"/>
+
+<section class="cmp-card-strip cmp-card-strip--bg-${model.background @ context='attribute'}"
+         data-sly-test="${model.hasContent}">
+    <div class="cmp-card-strip__inner">
+        <p class="cmp-card-strip__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+        <ul class="cmp-card-strip__list">
+            <li class="cmp-card-strip__item"
+                data-sly-repeat.card="${model.cards}"
+                data-index="${cardList.index}">
+                <article class="cmp-card-strip__card">
+                    <div class="cmp-card-strip__card-image" data-sly-test="${card.image}">
+                        <img src="${card.image @ context='uri'}" alt="${card.imageAlt @ context='attribute'}" loading="lazy"/>
+                    </div>
+                    <h3 class="cmp-card-strip__title">${card.title}</h3>
+                    <p class="cmp-card-strip__desc" data-sly-test="${card.description}">${card.description}</p>
+                    <a class="cmp-card-strip__cta"
+                       data-sly-test="${card.ctaLabel}"
+                       href="${card.ctaLink @ context='uri'}">
+                        <span>${card.ctaLabel}</span>
+                    </a>
+                </article>
+            </li>
+        </ul>
+    </div>
+</section>
+
+<div class="cmp-card-strip cmp-card-strip--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Card strip is empty. Add at least one card.' @ i18n}</p>
+</div>

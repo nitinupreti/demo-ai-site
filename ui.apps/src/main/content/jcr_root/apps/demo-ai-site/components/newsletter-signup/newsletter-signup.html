@@ -1,0 +1,28 @@
+<!--/*
+    Newsletter Signup — subscribe CTA strip.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.NewsletterSignupModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.newsletter-signup'}"/>
+
+<section class="cmp-newsletter-signup cmp-newsletter-signup--bg-${model.background @ context='attribute'}"
+         data-sly-test="${model.hasContent}">
+    <div class="cmp-newsletter-signup__inner">
+        <div class="cmp-newsletter-signup__icon" data-sly-test="${model.icon}">
+            <img src="${model.icon @ context='uri'}" alt="${model.iconAlt @ context='attribute'}"/>
+        </div>
+        <div class="cmp-newsletter-signup__body">
+            <h3 class="cmp-newsletter-signup__eyebrow">${model.eyebrow}</h3>
+            <p class="cmp-newsletter-signup__desc" data-sly-test="${model.description}">${model.description}</p>
+        </div>
+        <a class="cmp-newsletter-signup__cta" data-sly-test="${model.ctaLabel}" href="${model.ctaLink @ context='uri'}">
+            <span>${model.ctaLabel}</span>
+            <svg width="18" height="12" viewBox="0 0 18 12" fill="none" aria-hidden="true"><path d="M12 1l5 5-5 5M1 6h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+    </div>
+</section>
+
+<div class="cmp-newsletter-signup cmp-newsletter-signup--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Newsletter Signup is empty. Set the heading.' @ i18n}</p>
+</div>

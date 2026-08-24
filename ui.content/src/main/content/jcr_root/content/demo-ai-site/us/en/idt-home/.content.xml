@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        cq:deviceGroups="[mobile/groups/responsive]"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="IDT Home"
+        pageTitle="Discover what's possible"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <experiencefragment-header
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/header/master"/>
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero-carousel"
+                        autoRotate="{Boolean}true"
+                        theme="dark">
+                        <slides jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Discover what's possible"
+                                description="&lt;p&gt;Longer, more complex gene constructs&amp;mdash;built reliably through IDT + Ansa.&lt;/p&gt;"
+                                ctaLabel="START HERE"
+                                ctaLink="#"
+                                bgVideo="/content/dam/demo-ai-site/design/Hero-Animation-Start.mp4"
+                                bgVideoLoop="/content/dam/demo-ai-site/design/Hero-Animation-Repeat.mp4"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                eyebrow="Driving precision oncology discovery"
+                                title="Powering MRD assessment and multi-cancer detection research"
+                                description="&lt;p&gt;Learn how IDT powers MRD and multi-cancer detection research.&lt;/p&gt;"
+                                ctaLabel="READ NOW"
+                                ctaLink="#"
+                                bgVideo="/content/dam/demo-ai-site/design/Hero-Animation-Start.mp4"
+                                bgVideoLoop="/content/dam/demo-ai-site/design/Hero-Animation-Repeat.mp4"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                eyebrow="Upcoming webinar"
+                                title="Leveraging PrimeTime&#8482; Research Panels for Enhanced Lab Workflows"
+                                description="&lt;p&gt;Secure your spot.&lt;/p&gt;"
+                                ctaLabel="REGISTER"
+                                ctaLink="#"
+                                bgVideo="/content/dam/demo-ai-site/design/Hero-Animation-Start.mp4"
+                                bgVideoLoop="/content/dam/demo-ai-site/design/Hero-Animation-Repeat.mp4"/>
+                        </slides>
+                    </hero>
+                    <whatsnew
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-strip"
+                        eyebrow="WHAT'S NEW"
+                        background="alt">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Driving precision oncology discovery"
+                                description="Learn how IDT powers MRD and multi-cancer detection research"
+                                ctaLabel="Read now &#187;"
+                                ctaLink="#"
+                                image="/content/dam/demo-ai-site/design/whatsnew-oncology.jpg"
+                                imageAlt="Precision oncology research"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                title="Viral Epidemiology with Amplicon Sequencing"
+                                description="Discover amplicon sequencing strategies for detailed viral surveillance and epidemiology"
+                                ctaLabel="Watch now &#187;"
+                                ctaLink="#"
+                                image="/content/dam/demo-ai-site/design/whatsnew-viral.jpg"
+                                imageAlt="Viral epidemiology"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                title="Leveraging PrimeTime&#8482; Research Panels"
+                                description="Secure your spot for enhanced lab workflows"
+                                ctaLabel="Register &#187;"
+                                ctaLink="#"
+                                image="/content/dam/demo-ai-site/design/whatsnew-webinar.jpg"
+                                imageAlt="PrimeTime webinar"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                title="New! The xGen Exome v2 Hyb Spike-in Panel"
+                                description="Best in class coverage of genes included in most important databases."
+                                ctaLabel="Order now &#187;"
+                                ctaLink="#"
+                                image="/content/dam/demo-ai-site/design/whatsnew-exome.jpg"
+                                imageAlt="xGen Exome v2"/>
+                        </cards>
+                    </whatsnew>
+                    <products_heading
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/section-heading"
+                        heading="Push boundaries with unmatched customization options"
+                        align="center"
+                        level="h2"/>
+                    <products
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/product-cards"
+                        columns="3">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Oligos"
+                                description="Get custom DNA and RNA products faster with over 1000 modifications and rapid turnaround times."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/oligos-icon.svg"
+                                iconAlt="Oligos icon"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                title="CRISPR Gene Editing"
+                                description="Edit with confidence with our market-leading Alt-R&#8482; CRISPR Reagents that have you covered from design to analysis."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/crispr-icon.svg"
+                                iconAlt="CRISPR icon"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                title="Gene Synthesis &amp; Fragments"
+                                description="Accelerate your research with sequence-perfect gBlocks&#8482; HiFi fragments and NEW Rapid Genes delivered in as little as 5 days."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/gene-synthesis-icon.svg"
+                                iconAlt="Gene synthesis icon"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                title="Next Generation Sequencing"
+                                description="Rely on our comprehensive portfolio of custom xGEN&#8482; and Archer NGS research products."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/ngs-icon.svg"
+                                iconAlt="NGS icon"/>
+                            <item4
+                                jcr:primaryType="nt:unstructured"
+                                title="PCR / qPCR / dPCR"
+                                description="Experience fast, flexible solutions with quick turnaround times and over 18 dye and quencher combinations."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/pcr-icon.svg"
+                                iconAlt="PCR icon"/>
+                            <item5
+                                jcr:primaryType="nt:unstructured"
+                                title="CGMP CRISPR Manufacturing"
+                                description="Customized products and services to meet rigorous quality requirements for CRISPR therapeutic applications."
+                                ctaLabel="EXPLORE MORE"
+                                ctaLink="#"
+                                icon="/content/dam/demo-ai-site/design/cgmp-icon.svg"
+                                iconAlt="cGMP manufacturing icon"/>
+                        </cards>
+                    </products>
+                    <impact
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/impact-strip"
+                        eyebrow="SUSTAINABILITY IN ACTION"
+                        title="Our impact"
+                        image="/content/dam/demo-ai-site/design/impact-bg.jpg"
+                        imageAlt="Sustainability in action"
+                        imageSide="left">
+                        <stats jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" value="121,000+" label="customer publications"/>
+                            <item1 jcr:primaryType="nt:unstructured" value="100+" label="countries where researchers use our products"/>
+                            <item2 jcr:primaryType="nt:unstructured" value="130,000+" label="researchers served per year"/>
+                            <item3 jcr:primaryType="nt:unstructured" value="325+" label="engineers and PhD scientists work at IDT"/>
+                        </stats>
+                    </impact>
+                    <articles
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/article-carousel"
+                        headingEmphasis="Webinars, articles,"
+                        heading="and customer stories">
+                        <featured
+                            jcr:primaryType="nt:unstructured"
+                            title="Aldevron and Integrated DNA Technologies Manufacture World&#8217;s First mRNA-based Personalized CRISPR Therapy"
+                            quote="The impact of this work extends beyond this particular patient and category of clinical indications&#8212;it suggests a potential roadmap for transforming CRISPR therapies..."
+                            attribution="Dr. Kiran Musunuru"
+                            ctaLabel="READ MORE"
+                            ctaLink="https://sg.idtdna.com/pages/about/news/2025/05/15/aldevron-and-integrated-dna-technologies-manufacture-world-s-first-mrna-based-personalized-crispr-therapy"
+                            image="/content/dam/demo-ai-site/design/article-featured.webp"
+                            imageAlt="IDT and Aldevron personalized CRISPR therapy"/>
+                        <articles jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Infectious disease solutions"
+                                description="With a legacy of customization, agility and expertise, turn to IDT to ensure your qPCR/NGS workflows are ready-built for current and emerging global health threats."
+                                ctaLabel="LEARN MORE"
+                                ctaLink="https://www.idtdna.com/page/solutions/applications/infectious-disease-research-solutions"
+                                image="/content/dam/demo-ai-site/design/article-infectious-source.jpg"
+                                imageAlt="Infectious disease research"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                title="Oligo quantification: Getting it right"
+                                description="Learn the importance of using the right molar extinction coefficient in calculations of oligonucleotide concentration."
+                                ctaLabel="READ THE ARTICLE"
+                                ctaLink="https://sg.idtdna.com/page/support-and-education/decoded-plus/oligo-quantification-getting-it-right/"
+                                image="/content/dam/demo-ai-site/design/article-oligo-source.jpg"
+                                imageAlt="Oligo quantification"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                title="Turn PCR basics into better results."
+                                description="Learn the principles, best practices, and troubleshooting tips that help take PCR experiments from setup to success."
+                                ctaLabel="DOWNLOAD FREE HANDBOOK"
+                                ctaLink="https://go.idtdna.com/qPCR-handbook.html"
+                                image="/content/dam/demo-ai-site/design/article-pcr-source.jpg"
+                                imageAlt="PCR handbook"/>
+                        </articles>
+                    </articles>
+                    <newsletter
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/newsletter-signup"
+                        eyebrow="Stay up to date with IDT newsletter"
+                        description="Get access to expert webinars, latest product updates, and promotions."
+                        ctaLabel="SIGN ME UP"
+                        ctaLink="#"
+                        icon="/content/dam/demo-ai-site/design/newsletter-logo.svg"
+                        iconAlt="IDT Insider newsletter"
+                        background="light"/>
+                    <partners
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/partner-logos">
+                        <logos jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" name="Abcam" link="https://www.abcam.com/" image="/content/dam/demo-ai-site/design/partner-abcam.svg"/>
+                            <item1 jcr:primaryType="nt:unstructured" name="Aldevron" link="https://www.aldevron.com/" image="/content/dam/demo-ai-site/design/partner-aldevron.svg"/>
+                            <item2 jcr:primaryType="nt:unstructured" name="Beckman" link="https://www.beckman.com/" image="/content/dam/demo-ai-site/design/partner-beckman.svg"/>
+                            <item3 jcr:primaryType="nt:unstructured" name="Genedata" link="https://www.genedata.com/" image="/content/dam/demo-ai-site/design/partner-genedata.svg"/>
+                            <item4 jcr:primaryType="nt:unstructured" name="IDBS" link="https://www.idbs.com/" image="/content/dam/demo-ai-site/design/partner-idbs.svg"/>
+                            <item5 jcr:primaryType="nt:unstructured" name="Leica" link="https://www.leica-microsystems.com/" image="/content/dam/demo-ai-site/design/partner-leica.svg"/>
+                            <item6 jcr:primaryType="nt:unstructured" name="Molecular Devices" link="https://www.moleculardevices.com/" image="/content/dam/demo-ai-site/design/partner-moledev.svg"/>
+                            <item7 jcr:primaryType="nt:unstructured" name="Phenomenex" link="https://www.phenomenex.com/" image="/content/dam/demo-ai-site/design/partner-phenomenex.svg"/>
+                            <item8 jcr:primaryType="nt:unstructured" name="Sciex" link="https://sciex.com/" image="/content/dam/demo-ai-site/design/partner-sciex.svg"/>
+                        </logos>
+                    </partners>
+                </container>
+            </container>
+            <experiencefragment-footer
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/footer/master"/>
+        </root>
+        <cq:responsive jcr:primaryType="nt:unstructured">
+            <breakpoints jcr:primaryType="nt:unstructured">
+                <phone jcr:primaryType="nt:unstructured" title="Smaller Screen" width="{Long}768"/>
+                <tablet jcr:primaryType="nt:unstructured" title="Tablet" width="{Long}1200"/>
+            </breakpoints>
+        </cq:responsive>
+    </jcr:content>
+</jcr:root>

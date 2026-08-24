@@ -1,0 +1,74 @@
+<!--/*
+    Hero Carousel — rotating banner (title/description/CTA per slide).
+*/-->
+<sly data-sly-use.model="com.demo.core.models.HeroCarouselModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.hero-carousel'}"/>
+
+<section class="cmp-hero-carousel cmp-hero-carousel--theme-${model.theme @ context='attribute'} ${model.hasBgVideo ? 'cmp-hero-carousel--has-bg-video' : ''}"
+         data-cmp-is="hero-carousel"
+         data-cmp-auto-rotate="${model.autoRotate @ context='attribute'}"
+         data-sly-test.hasContent="${model.hasContent}">
+    <div class="cmp-hero-carousel__bg-video-wrap" data-sly-test="${model.hasBgVideo}">
+        <video class="cmp-hero-carousel__bg-video"
+               data-cmp-hook-hero-carousel="bg-video"
+               data-src-intro="${model.firstSlide.bgVideo @ context='uri'}"
+               data-src-loop="${model.firstSlide.bgVideoLoop @ context='uri'}"
+               autoplay muted playsinline preload="auto"></video>
+    </div>
+    <div class="cmp-hero-carousel__track" role="region" aria-roledescription="carousel" aria-label="${'Hero carousel' @ i18n}">
+        <sly data-sly-list.slide="${model.slides}">
+            <article class="cmp-hero-carousel__slide ${slideList.first ? 'cmp-hero-carousel__slide--active' : ''}"
+                     data-index="${slideList.index}"
+                     aria-hidden="${slideList.first ? 'false' : 'true'}"
+                     role="group"
+                     aria-roledescription="slide"
+                     aria-label="${'Slide {0} of {1}' @ i18n, format=[slideList.count, model.slides.size]}">
+                <div class="cmp-hero-carousel__media" data-sly-test="${slide.image}">
+                    <img class="cmp-hero-carousel__image"
+                         src="${slide.image @ context='uri'}"
+                         alt="${slide.imageAlt @ context='attribute'}"
+                         loading="${slideList.first ? 'eager' : 'lazy'}"/>
+                </div>
+                <div class="cmp-hero-carousel__content">
+                    <p class="cmp-hero-carousel__eyebrow" data-sly-test="${slide.eyebrow}">${slide.eyebrow}</p>
+                    <h1 class="cmp-hero-carousel__title">${slide.title}</h1>
+                    <div class="cmp-hero-carousel__description" data-sly-test="${slide.description}">${slide.description @ context='html'}</div>
+                    <a class="cmp-hero-carousel__cta"
+                       data-sly-test="${slide.ctaLabel}"
+                       href="${slide.ctaLink @ context='uri'}">
+                        <span>${slide.ctaLabel}</span>
+                        <span class="cmp-hero-carousel__cta-arrow" aria-hidden="true">
+                            <svg width="20" height="12" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 1l5 5-5 5M1 6h17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </span>
+                    </a>
+                </div>
+            </article>
+        </sly>
+    </div>
+
+    <div class="cmp-hero-carousel__controls" data-sly-test="${model.slides.size > 1}">
+        <button type="button"
+                class="cmp-hero-carousel__control cmp-hero-carousel__control--prev"
+                data-cmp-hook-hero-carousel="prev"
+                aria-label="${'Previous slide' @ i18n}">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l-5-5 5-5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>${'Prev' @ i18n}</span>
+        </button>
+        <span class="cmp-hero-carousel__counter" data-cmp-hook-hero-carousel="counter"
+              data-cmp-total="${model.slides.size}"
+              aria-live="polite">01&nbsp;/&nbsp;01</span>
+        <button type="button"
+                class="cmp-hero-carousel__control cmp-hero-carousel__control--next"
+                data-cmp-hook-hero-carousel="next"
+                aria-label="${'Next slide' @ i18n}">
+            <span>${'Next' @ i18n}</span>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12l5-5-5-5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+    </div>
+</section>
+
+<div class="cmp-hero-carousel cmp-hero-carousel--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Hero carousel is empty. Add at least one slide.' @ i18n}</p>
+</div>

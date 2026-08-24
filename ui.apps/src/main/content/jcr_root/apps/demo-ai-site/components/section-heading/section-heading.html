@@ -1,0 +1,25 @@
+<!--/*
+    Section Heading — big section title with optional eyebrow / subheading.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.SectionHeadingModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.section-heading'}"/>
+
+<header class="cmp-section-heading cmp-section-heading--align-${model.align @ context='attribute'}"
+        data-sly-test="${model.hasContent}">
+    <div class="cmp-section-heading__inner">
+        <p class="cmp-section-heading__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+        <sly data-sly-test="${model.level == 'h3'}">
+            <h3 class="cmp-section-heading__heading">${model.heading}</h3>
+        </sly>
+        <sly data-sly-test="${model.level != 'h3'}">
+            <h2 class="cmp-section-heading__heading">${model.heading}</h2>
+        </sly>
+        <p class="cmp-section-heading__subheading" data-sly-test="${model.subheading}">${model.subheading}</p>
+    </div>
+</header>
+
+<div class="cmp-section-heading cmp-section-heading--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Section heading is empty. Set the heading text.' @ i18n}</p>
+</div>

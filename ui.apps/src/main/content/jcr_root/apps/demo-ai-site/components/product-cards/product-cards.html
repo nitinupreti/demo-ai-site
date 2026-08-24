@@ -1,0 +1,32 @@
+<!--/*
+    Product Cards — link cards with SVG icon + title + description + text-link CTA.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.ProductCardsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.product-cards'}"/>
+
+<section class="cmp-product-cards cmp-product-cards--cols-${model.columns @ context='attribute'}"
+         data-sly-test="${model.hasContent}">
+    <ul class="cmp-product-cards__grid">
+        <li class="cmp-product-cards__item"
+            data-sly-repeat.card="${model.cards}"
+            data-index="${cardList.index}">
+            <a class="cmp-product-cards__card" href="${card.ctaLink @ context='uri'}">
+                <span class="cmp-product-cards__icon" data-sly-test="${card.icon}">
+                    <img src="${card.icon @ context='uri'}" alt="${card.iconAlt @ context='attribute'}" loading="lazy"/>
+                </span>
+                <h3 class="cmp-product-cards__title">${card.title}</h3>
+                <p class="cmp-product-cards__desc" data-sly-test="${card.description}">${card.description}</p>
+                <span class="cmp-product-cards__cta" data-sly-test="${card.ctaLabel}">
+                    ${card.ctaLabel}
+                    <svg width="12" height="10" viewBox="0 0 12 10" fill="none" aria-hidden="true"><path d="M7 1l4 4-4 4M1 5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+            </a>
+        </li>
+    </ul>
+</section>
+
+<div class="cmp-product-cards cmp-product-cards--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Product Cards is empty. Add at least one card.' @ i18n}</p>
+</div>

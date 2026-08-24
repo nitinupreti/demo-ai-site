@@ -1,0 +1,46 @@
+<!--/*
+    Quote Carousel — testimonial slider.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.QuoteCarouselModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.quote-carousel'}"/>
+
+<section class="cmp-quote-carousel"
+         data-cmp-is="quote-carousel"
+         data-sly-test="${model.hasContent}">
+    <div class="cmp-quote-carousel__track">
+        <sly data-sly-list.q="${model.quotes}">
+            <figure class="cmp-quote-carousel__slide ${qList.first ? 'cmp-quote-carousel__slide--active' : ''}"
+                    data-index="${qList.index}"
+                    aria-hidden="${qList.first ? 'false' : 'true'}">
+                <div class="cmp-quote-carousel__media" data-sly-test="${q.image}">
+                    <img class="cmp-quote-carousel__image" src="${q.image @ context='uri'}" alt="${q.imageAlt @ context='attribute'}" loading="lazy"/>
+                </div>
+                <div class="cmp-quote-carousel__body">
+                    <h3 class="cmp-quote-carousel__title" data-sly-test="${q.title}">${q.title}</h3>
+                    <blockquote class="cmp-quote-carousel__quote">
+                        <span class="cmp-quote-carousel__mark" aria-hidden="true">&ldquo;</span>
+                        <span class="cmp-quote-carousel__text">${q.quote}</span>
+                    </blockquote>
+                    <figcaption class="cmp-quote-carousel__attribution" data-sly-test="${q.attribution}">${q.attribution}</figcaption>
+                    <a class="cmp-quote-carousel__cta" data-sly-test="${q.ctaLabel}" href="${q.ctaLink @ context='uri'}">
+                        <span>${q.ctaLabel}</span>
+                        <svg width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden="true"><path d="M10.5 1l4 4-4 4M1 5h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </a>
+                </div>
+            </figure>
+        </sly>
+    </div>
+    <div class="cmp-quote-carousel__nav" data-sly-test="${model.quotes.size > 1}">
+        <button type="button" class="cmp-quote-carousel__dot" data-cmp-hook-quote-carousel="dot"
+                data-sly-repeat.dot="${model.quotes}"
+                data-index="${dotList.index}"
+                aria-label="${'Go to slide' @ i18n}"
+                aria-current="${dotList.first ? 'true' : 'false'}"></button>
+    </div>
+</section>
+
+<div class="cmp-quote-carousel cmp-quote-carousel--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Quote Carousel is empty. Add at least one quote.' @ i18n}</p>
+</div>

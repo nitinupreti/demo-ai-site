@@ -1,0 +1,53 @@
+<!--/* Article collection with an optional featured story. */-->
+<sly data-sly-use.model="com.demo.core.models.ArticleCarouselModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.article-carousel'}"/>
+
+<section class="cmp-article-carousel ${model.hasFeatured ? 'cmp-article-carousel--featured' : ''}"
+         data-sly-test="${model.hasContent}">
+    <div class="cmp-article-carousel__inner">
+        <h2 class="cmp-article-carousel__heading" data-sly-test="${model.heading || model.headingEmphasis}"><span class="cmp-article-carousel__heading-emphasis" data-sly-test="${model.headingEmphasis}">${model.headingEmphasis}</span><br data-sly-test="${model.headingEmphasis && model.heading}"/>${model.heading}</h2>
+        <div class="cmp-article-carousel__layout">
+            <a class="cmp-article-carousel__featured"
+               data-sly-test="${model.hasFeatured}"
+               href="${model.featured.ctaLink @ context='uri'}">
+                <div class="cmp-article-carousel__featured-media" data-sly-test="${model.featured.image}">
+                    <img class="cmp-article-carousel__featured-image"
+                         src="${model.featured.image @ context='uri'}"
+                         alt="${model.featured.imageAlt @ context='attribute'}"
+                         loading="lazy"/>
+                </div>
+                <div class="cmp-article-carousel__featured-body">
+                    <h3 class="cmp-article-carousel__featured-title" data-sly-test="${model.featured.title}">${model.featured.title}</h3>
+                    <blockquote class="cmp-article-carousel__featured-quote">&ldquo;${model.featured.quote}&rdquo;</blockquote>
+                    <div class="cmp-article-carousel__featured-attribution" data-sly-test="${model.featured.attribution}">${model.featured.attribution}</div>
+                    <span class="cmp-article-carousel__cta" data-sly-test="${model.featured.ctaLabel}">${model.featured.ctaLabel}</span>
+                </div>
+            </a>
+            <ul class="cmp-article-carousel__list">
+                <li class="cmp-article-carousel__item"
+                    data-sly-repeat.article="${model.articles}"
+                    data-index="${articleList.index}">
+                    <a class="cmp-article-carousel__card" href="${article.ctaLink @ context='uri'}">
+                        <div class="cmp-article-carousel__media" data-sly-test="${article.image}">
+                            <img class="cmp-article-carousel__image"
+                                 src="${article.image @ context='uri'}"
+                                 alt="${article.imageAlt @ context='attribute'}"
+                                 loading="lazy"/>
+                        </div>
+                        <div class="cmp-article-carousel__body">
+                            <h3 class="cmp-article-carousel__title">${article.title}</h3>
+                            <p class="cmp-article-carousel__desc" data-sly-test="${article.description}">${article.description}</p>
+                            <span class="cmp-article-carousel__cta" data-sly-test="${article.ctaLabel}">${article.ctaLabel}</span>
+                        </div>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<div class="cmp-article-carousel cmp-article-carousel--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Article Carousel is empty. Add at least one article.' @ i18n}</p>
+</div>

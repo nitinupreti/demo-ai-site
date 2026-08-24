@@ -1,16 +1,16 @@
 
 //== Font
 
-$font-family:           "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-family:           "Source Sans 3", "Source Sans Pro", Arial, Helvetica, sans-serif;
 $font-size:             16px;
-$font-height:           1.5;
+$font-height:           1.55;
 
 //== Color
 
 // Normal mode
-$color-foreground:      #202020;
-$color-background:      #ECECEC;
-$color-link:            #2020E0;
+$color-foreground:      #333333;
+$color-background:      #FFFFFF;
+$color-link:            #336F9F;
 
 // Dark mode
 $color-foreground-dark: invert($color-foreground);

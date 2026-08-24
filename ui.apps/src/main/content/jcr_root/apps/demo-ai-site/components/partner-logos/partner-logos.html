@@ -1,0 +1,38 @@
+<!--/*
+    Partner Logos — logo strip.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.PartnerLogosModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.partner-logos'}"/>
+
+<section class="cmp-partner-logos" data-sly-test="${model.hasContent}">
+    <div class="cmp-partner-logos__inner">
+        <h4 class="cmp-partner-logos__heading" data-sly-test="${model.heading}">${model.heading}</h4>
+        <ul class="cmp-partner-logos__list">
+            <li class="cmp-partner-logos__item"
+                data-sly-repeat.logo="${model.logos}"
+                data-index="${logoList.index}">
+                <sly data-sly-test="${logo.link}">
+                    <a class="cmp-partner-logos__link"
+                       href="${logo.link @ context='uri'}"
+                       aria-label="${logo.name @ context='attribute'}"
+                       rel="noopener">
+                        <img data-sly-test="${logo.image}" class="cmp-partner-logos__image" src="${logo.image @ context='uri'}" alt="${logo.name @ context='attribute'}" loading="lazy"/>
+                        <span data-sly-test="${!logo.image}" class="cmp-partner-logos__name">${logo.name}</span>
+                    </a>
+                </sly>
+                <sly data-sly-test="${!logo.link}">
+                    <span class="cmp-partner-logos__link cmp-partner-logos__link--static">
+                        <img data-sly-test="${logo.image}" class="cmp-partner-logos__image" src="${logo.image @ context='uri'}" alt="${logo.name @ context='attribute'}" loading="lazy"/>
+                        <span data-sly-test="${!logo.image}" class="cmp-partner-logos__name">${logo.name}</span>
+                    </span>
+                </sly>
+            </li>
+        </ul>
+    </div>
+</section>
+
+<div class="cmp-partner-logos cmp-partner-logos--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Partner Logos is empty. Add at least one logo.' @ i18n}</p>
+</div>
