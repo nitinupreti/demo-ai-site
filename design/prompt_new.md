@@ -1,8 +1,11 @@
 # DESIGN_SOURCE
 FIGMA_URL:   ""
+SITE_URL:    "https://american.edu/"                                    # public URL of a live page to reverse-engineer
 DESIGN_FILE: <path to .pdf or .fig — optional>
-# Optional companions: DESIGN_SCREENSHOTS_DIR, DESIGN_SVG_DIR, DESIGN_TOKENS_JSON 
-# If neither FIGMA_URL nor DESIGN_FILE is set, STOP and ask.
+# Optional companions: DESIGN_SCREENSHOTS_DIR, DESIGN_SVG_DIR, DESIGN_TOKENS_JSON
+# Exactly one of FIGMA_URL or SITE_URL must be set (DESIGN_FILE is optional in both).
+# If both FIGMA_URL and SITE_URL are set, FIGMA_URL wins (design intent) and SITE_URL is the safety net.
+# If none of FIGMA_URL, SITE_URL, or DESIGN_FILE is set, STOP and ask.
 
 # Build every AEM component required to author the page defined in DESIGN_SOURCE
 
@@ -19,13 +22,110 @@ Rendered output MUST match DESIGN_SOURCE for typography (family, weight, size, l
 
 **Iteration on mismatch:** fix at token layer → component CSS layer → redesign component (change HTL/dialog/split) → redeploy → re-verify BOTH modes. Green build + wrong colors/font/background = NOT DONE.
 
+## VISUAL PARITY GATE — MANDATORY, NON-SKIPPABLE, HARD-FAIL
+Visual parity verification (Step 10.5 + 10.6) is a **completion-blocking gate**. The run is NOT complete — regardless of any other success signal — until every check in this gate is executed and PASSES. This gate overrides every other exit condition below.
+
+**Quantified pass threshold — MANDATORY ≥ 85% composite match.** The gate is PASSED only when the weighted composite similarity score against DESIGN_SOURCE is **≥ 85%** at every design-defined breakpoint. Anything below 85% is a **hard fail** and the iteration loop MUST run again (token → component CSS → component structure → redeploy → re-measure). Do NOT declare PASSED on "looks close" — compute the score.
+
+**Composite formula (P0 axes, weights sum to 100%):**
+- Content parity (headings + section presence + copy) — **25%**
+- Typography parity (family / size / weight / line-height / letter-spacing per element) — **25%**
+- Color parity (backgrounds / text / accents / borders; ΔE ≤ 3 counts as full match) — **20%**
+- Layout geometry (per-block bounding-box within 8% or 8px; per-instance spatial deltas) — **15%**
+- Section order (reading order vs source) — **10%**
+- Media / interactive fidelity (video vs poster, autoplay, hover / focus states) — **5%**
+
+**Per-axis measurement rules:**
+- Score each axis 0 – 100 based on the count of matched vs total observed properties on the source (e.g. typography = matched-heading-properties ÷ total-heading-properties × 100).
+- Compute per-block score = weighted sum across the 6 axes. Every Tier-2 / Tier-3 / Tier-4 block MUST reach ≥ 85% individually — a high average with one block at 40% is a **fail**.
+- The overall composite is the average of per-block scores across every reusable block on the rendered page.
+- Emit the per-block table AND the composite score at the top of the Final summary. A summary without both is a defect.
+
+**Report the score explicitly.** The gate status line MUST include the composite: `VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — composite <score>% (threshold 85%)`. A "PASSED" line without a numeric score is a defect.
+
+**The following are NOT valid substitutes for the visual parity gate and MUST NOT be treated as "done":**
+- Zero `SightlyException` in the rendered HTML
+- Every BEM `cmp-*` class appears in the rendered HTML
+- `mvn install` reports BUILD SUCCESS
+- All unit tests pass
+- The bundle is Active
+- The user answered a scoping question that did not explicitly waive visual parity
+- Missing DAM assets, missing licensed fonts, or any other "the images/fonts aren't uploaded yet" excuse
+- Author mode "looks right"
+- Any subset of the checks above in combination
+
+**Every one of these gate checks MUST be executed, in order, before writing the Final summary:**
+1. **Open both pages in a real browser** (headless or headed Playwright/Chromium) at every design-defined breakpoint (default 375, 768, 1440; add any wider frame observed). Loading DESIGN_SOURCE and the rendered demo page in the same session is mandatory — no "based on the HTML I can guess it looks like…" substitutes.
+2. **Screenshot pair per breakpoint** — target + rendered, saved side-by-side. Screenshots are evidence artefacts, not decoration.
+3. **Computed-style diff per breakpoint** for every component's root + at least 2 nested elements: `font-family`, `font-weight`, `font-size`, `line-height`, `letter-spacing`, `color`, `background-color`, `background-image`, `padding`, `margin`, `border`, `border-radius`, `box-shadow`, `gap`. Any delta > 1px or > 1 hex digit is a **hard fail** and MUST be iterated (Step 10.7).
+4. **Token audit** — read every `--au-*` (project prefix) custom property from the running page's `:root` and confirm the resolved value matches the token declared in `clientlib-tokens/css/tokens.css`. Mismatch = stale-clientlib defect: purge and reinstall.
+5. **Stale-clientlib check** — for every category the page loads, fetch the deployed `.css` file and grep for any BEM class matching this component's namespace that is NOT in the local source. Any hit is a leaked pre-existing rule and MUST be deleted from AEM before continuing (see "Content-package gotcha").
+6. **Cascade origin check** — for each component's root heading + CTA element, use `getMatchedCSSRules` / DevTools inspection (`element.matches` + full stylesheet enumeration) to enumerate every rule contributing to the computed `color`, `font-family`, and `background`. If any rule origin is a stale clientlib, a Core Component override, or an unexpected embed, resolve at source before continuing.
+7. **Iteration loop.** Fix at token → component CSS → component structure. Redeploy. Re-run checks 1–6. Max 3 iterations per component per gate; after 3, STOP CSS-tweaking, re-read design source, and if unresolvable escalate with the exact screenshot pair + computed-style delta + specific A/B question.
+
+**Explicit blockers — the gate is NOT PASSED and the run is NOT DONE if any of the following is true:**
+- No screenshot pair was captured in this run
+- Any computed style differs from the design by more than the tolerance in check 3
+- Any token custom property in the running page differs from the source
+- Any deployed clientlib contains BEM rules that aren't in the source
+- The browser was not opened (Playwright/Chromium never launched)
+- The DESIGN_SOURCE URL was never actually fetched into a browser session in this run
+- The user did not receive at least one side-by-side screenshot in the response
+
+**"User waived deploy" is NOT a waiver of visual parity.** Deploy skipping only defers checks 1–6 until a running AEM is available; it does NOT delete them. On the very next turn where a running AEM exists, the gate MUST be executed before any other work continues. Report gate status explicitly at the top of every Final summary: `VISUAL PARITY GATE: PASSED at 375/768/1440 with N iterations` OR `VISUAL PARITY GATE: DEFERRED (reason: no running AEM) — MUST RUN on next turn`. Anything else is a defect.
+
+**"Missing DAM assets" is NOT a waiver of visual parity.** Text-only, layout-only, token-only, and interactive-state parity checks (typography, color, spacing, radii, shadows, cascade origin, hover/focus states, initial states) MUST still run and pass; missing assets only excuse the per-image pixel diff, not the surrounding chrome. If assets are missing, download them from DESIGN_SOURCE (Mode D/E/F) or from the Figma export (Mode A/C/F) and upload to the DAM as part of this run — do NOT defer.
+
+## Structural parity contract — MANDATORY (per-block DOM + geometry + role mapping)
+Computed-style matching on your own selectors is NOT enough. You can pass every hex / font / spacing check while still shipping a component whose block-level composition looks nothing like DESIGN_SOURCE — because you compared your selectors against themselves, not against what the source actually rendered. This class of miss is a **hard fail**.
+
+**Per-block, before writing HTL/CSS:**
+- **Enumerate the source's rendered DOM for THIS block.** In the parity-gate browser session, walk the DOM tree of the corresponding region on DESIGN_SOURCE and record every visible element: `tagName`, `textContent` (first 60 chars), `className`, `getBoundingClientRect` (x, y, width, height), and the full computed style set (Media-fidelity + typography + color + geometry). Save this as the **source-DOM manifest** for the block. Do NOT skip this step because "I saw the screenshot".
+- **Role map every source element to a target element.** Every visible node in the source-DOM manifest MUST map to an element you plan to render, playing the **same visual role**: a heading is a heading, a stat sentence is one sentence node, a fixed-width rectangular button is a fixed-width rectangular button. If the source has one italic-serif 38px sentence integrating "91%" and the body copy, do NOT split it into a small colored number + separate small body copy. If the source has full-width white rectangular buttons stacked vertically, do NOT ship small oval rounded pills in a row.
+- **Copy geometry, not just palette.** For each mapped element record the SOURCE's `width`, `height`, `padding`, `margin`, `border-radius`, `display`, `flex-direction`, `grid-template-*`, `gap` and set them (via token OR literal in a scoped modifier) on the target. Byte-for-byte per A19. A `172px` fixed-width button is `172px`, not "roughly pill-shaped".
+- **Zone/band composition.** If the source paints two adjacent full-bleed bands with different backgrounds (e.g. cloud stat zone + navy schools zone), the target MUST also render two adjacent full-bleed bands with the same two backgrounds. Squashing both zones into one flat block on a single background is a defect even if every hex matches.
+- **Typography hierarchy per element.** The heading, stat, prompt, label, and pill each have a distinct role. Their font (family, size, weight, style — including `font-style: italic`, `font-variant`, `text-transform`), letter-spacing, and line-height MUST be copied per-element from the source, not "derived from a general typography scale". A stat rendered as a 38px italic navy serif-scale sentence and a stat rendered as a 40px bright red bold display number are two different components.
+
+**Structural-parity gate checks (add to Step 10.5 as checks 11 / 12 / 13):**
+- **Check 11 — source-DOM manifest exists.** For every Tier-4 (new) or Tier-2/3 (extended) component in the run, a source-DOM manifest MUST be captured and attached inline in the parity-gate output (or the reasoning trail). No manifest = gate FAIL.
+- **Check 12 — role-map completeness.** Every element in the manifest MUST have exactly one corresponding element in the demo page's rendered DOM for that block. Missing roles (e.g. "AU has an italic navy stat sentence, mine has none") and orphan roles (e.g. "mine has a decorative red left-border card, AU has no such thing") are both FAIL.
+- **Check 13 — bounding-box parity.** For each mapped element, `Math.abs(sourceRect.width - targetRect.width)` MUST be within 8% (or 8px, whichever is larger) at the same breakpoint, AND the flex/grid axis MUST match (row vs column, wrap vs no-wrap). Larger delta = FAIL and MUST iterate (change HTL structure OR CSS layout OR container width, not just tweak font-size).
+
+**Anti-pattern list — call these out by name if they appear in your review:**
+- "The tokens match" ≠ "the layout matches". Token parity is necessary but insufficient.
+- "The BEM classes are all present" ≠ "the block structure matches". Presence of a class is not proof of role match.
+- "The section background hex matches" ≠ "the section composition matches". Two zones vs one zone is a structural difference.
+- Substituting a semantically similar but visually different pattern (rounded oval pills ↔ rectangular buttons, colored callout number ↔ integrated italic sentence, split image+card ↔ full-width text link) without an explicit callout in the reuse decision is a defect.
+
+## Media-fidelity contract — MANDATORY (video, audio, motion, animation)
+If a block in DESIGN_SOURCE renders **video**, **audio**, **inline motion** (looping MP4/WebM, animated WebP/GIF, Lottie/JSON animation, autoplaying `<canvas>` demo, live embed like Vimeo/YouTube/Wistia, live SVG animation, or any element with `autoplay` / `loop` / `<source type="video/…">` / `<video>` / `<audio>`), the built demo page's matching block MUST render the SAME class of media — NOT a static image substitute.
+
+**Non-negotiable rules:**
+- **Same media class.** Video block → `<video>` with a real playable source. Audio block → `<audio>`. Lottie/JSON motion → the actual `.lottie` / `.json` payload driving a real player. Live embed → the same embed URL (or a locally hosted copy of the underlying video). Substituting a still image, poster-only, first-frame screenshot, or "we'll add it later" placeholder is a **defect**.
+- **Fetch and host the real asset.** Download the actual media file from DESIGN_SOURCE (the `<source>` `src`, `data-src`, `poster` companion `.mp4`, or the CDN URL the embed loads) using `curl.exe --ssl-no-revoke` or Playwright network capture. Upload to `/content/dam/<project>/design/` via `curl -F "file=@<path>;type=<mime>" .../<folder>.createasset.html`. Verify with a `HEAD` request that `Content-Type: video/mp4` (or matching MIME) and `Content-Length` is non-zero before proceeding.
+- **Author the DAM path, not the CDN.** The demo page's `videoSrc` / `audioSrc` / motion property MUST point at `/content/dam/<project>/design/<file>`. Remote CDN URLs, `about:blank`, and empty strings are all defects.
+- **Autoplay + loop + muted, cross-browser.** For background video the component MUST render `<video autoplay muted loop playsinline>` AND the accompanying JS MUST explicitly call `video.play()` on `loadeddata` (with a `.catch()` that flips the paused-state ARIA + class). Chromium's autoplay policy silently pauses `<video autoplay muted>` in a non-trivial number of contexts — the JS fallback is required.
+- **Poster stays a companion, never the substitute.** A `poster="…"` fallback image is allowed IN ADDITION to the video, never INSTEAD of it. Poster URL points at a DAM asset too.
+- **Interactive controls preserved.** If the source shows a Pause / Play / Mute / caption control, the built component MUST expose the same control with the same visual affordance and the same keyboard/screen-reader semantics. A Pause button that never actually pauses (because the video never starts) is a defect.
+- **Reduced-motion respected.** Component CSS MUST include a `@media (prefers-reduced-motion: reduce)` rule that pauses looping video / hides autoplay motion / falls back to the poster. Verify at least one breakpoint of the visual parity gate under this preference.
+
+**Visual parity gate — media check (adds to Step 10.5 checks 1–6):**
+- **Check 8 — media reachability.** For every media-carrying block, `HEAD` the deployed asset URL. `HTTP 200` + non-zero `Content-Length` + correct MIME. Missing or 404 = gate FAIL.
+- **Check 9 — media playback probe.** In the parity-gate browser session, for every `<video>` on the rendered page, evaluate `{ paused, currentTime, readyState, duration, error }`. Required: `paused === false`, `currentTime > 0` after 3 s, `readyState >= 3`, `error === null`. Any failure = gate FAIL and MUST iterate (autoplay policy fix, MIME fix, DAM path fix, dispatcher/proxy fix).
+- **Check 10 — video-vs-poster confusion.** If DESIGN_SOURCE has a video and the demo page renders only an `<img>` (or a `<video>` whose `currentSrc` is empty/404), that is a **hard fail** even if every other computed style matches — this is the exact class of defect the media-fidelity contract exists to prevent. Fix by downloading + hosting the real media, not by ignoring the check.
+
 ## Input modes
-| Set                                    | Mode | Source of truth                                    |
-| -------------------------------------- | ---- | -------------------------------------------------- |
-| FIGMA_URL only                         | A    | Figma MCP tools                                    |
-| DESIGN_FILE only (PDF; not `.fig`)     | B    | Local parser (PDF text/geometry/images)            |
-| Both                                   | C    | Figma MCP wins; PDF is safety net                  |
-| Neither / `.fig` without URL / no PDF  | —    | STOP and ask                                       |
+| Set                                        | Mode | Source of truth                                                    |
+| ------------------------------------------ | ---- | ------------------------------------------------------------------ |
+| FIGMA_URL only                             | A    | Figma MCP tools                                                    |
+| DESIGN_FILE only (PDF; not `.fig`)         | B    | Local parser (PDF text/geometry/images)                            |
+| FIGMA_URL + DESIGN_FILE                    | C    | Figma MCP wins; PDF is safety net                                  |
+| SITE_URL only                              | D    | Live-page scrape: rendered DOM + computed styles + screenshots     |
+| SITE_URL + DESIGN_FILE                     | E    | SITE_URL wins; PDF is safety net                                   |
+| SITE_URL + FIGMA_URL (± DESIGN_FILE)       | F    | FIGMA_URL wins (design intent); SITE_URL/PDF are safety nets       |
+| Neither / `.fig` without URL / no PDF/site | —    | STOP and ask                                                       |
+
+All modes feed the SAME downstream pipeline (Steps 1 → 10). Every rule below that says "DESIGN_SOURCE" applies to whichever mode is active — the source of truth just swaps.
 
 ## Mandatory skills / tools
 Read `.agents/skills/` first and follow each SKILL.md whose stated domain overlaps the task. In particular:
@@ -34,10 +134,22 @@ Read `.agents/skills/` first and follow each SKILL.md whose stated domain overla
 - **`code-assessment`** — invoke on all generated Java/OSGi/Maven before declaring done.
 - **`migration`, `dispatcher`, `aem-workflow`, `content-distribution`, `aem-rde`** — load on-demand when relevant.
 
-**Figma MCP (Mode A/C)** — load `/figma-design-to-code` skill, then call in order per top-level frame:
+**Figma MCP (Mode A/C/F)** — load `/figma-design-to-code` skill, then call in order per top-level frame:
 `get_metadata` → `get_design_context` → `get_variable_defs` → `get_screenshot` → `download_assets`. Treat responses as a REFERENCE to adapt to the project's tokens/components, not final code.
 
 **Figma URL parsing:** `figma.com/design/:fileKey/:fileName?node-id=1-2` → fileKey=`:fileKey`, nodeId=`1:2` (dash→colon). `branch/:branchKey/…` → use branchKey as fileKey. `/board/` = FigJam (use `get_figjam`); `/slides/` = Slides (STOP and ask); `/make/` = Make.
+
+**Live-site scrape (Mode D/E/F)** — treat the rendered page as the design brief. Only fetch `SITE_URL` and its same-origin sub-resources; do NOT crawl to other pages, submit forms, exfiltrate cookies/analytics IDs, or scrape third-party embeds unless the design explicitly relies on them. Per target page:
+- Open with a headless browser (Playwright: `open_browser_page`, `screenshot_page`, `read_page`, `run_playwright_code`).
+- Capture full-page screenshots at every design-defined breakpoint (default: mobile 375, tablet 768, desktop 1440; add any wider frame observed).
+- Extract the rendered DOM per candidate block and its computed styles: `font-family`, `font-weight`, `font-size`, `line-height`, `letter-spacing`, `color`, `background-color`/`background-image`, `padding`, `margin`, `border`, `border-radius`, `box-shadow`, `gap`, `grid-template-*`, `flex-*`, `aspect-ratio`, `object-fit`. Record raw values byte-for-byte (A19 — no rounding).
+- Enumerate media assets (`<img>`, `<picture>`, `<video>`, CSS `background-image`, inline/symbol SVG). Download to a local scratch folder for later DAM upload (Rules).
+- **Video / audio / motion enumeration (Media-fidelity contract).** For every `<video>` on DESIGN_SOURCE also capture: every `<source>` `src`, `type`, `data-src`, the parent element's `autoplay` / `loop` / `muted` / `playsinline` / `poster` attributes, and the CDN URL of the actual video file (from `video.currentSrc` after the video decides which source to load). For live embeds (Vimeo/YouTube/Wistia) capture the underlying video URL when the embed exposes it; when it doesn't, download the highest-quality poster + the embed URL and record both. For Lottie/JSON motion capture the payload URL. Download all of these to the local scratch folder in the same discovery pass — they are Step 9 DAM uploads, not "future work".
+- Extract page metadata (`<title>`, meta description, canonical, OG tags) for the demo page's page properties.
+- Record copy verbatim per section for `instance_authoring_map`.
+- Derive design tokens (Step 3) from the set of UNIQUE values across the captured computed styles — repeated color/font/spacing values become tokens; one-off values do not.
+
+**Site URL parsing:** any `http(s)://` URL is valid. Only same-origin sub-resources may be fetched. If `SITE_URL` returns a login wall, geo-block, JS-only shell that never resolves, or robots-disallowed path, STOP and ask.
 
 ## Rules
 - **DESIGN_SOURCE is source of truth.** When design and existing code disagree, design wins. No assumed styling, no invented variants (A3).
@@ -49,6 +161,7 @@ Read `.agents/skills/` first and follow each SKILL.md whose stated domain overla
 - **No hardcoded literals** in component CSS — reference tokens. Add a shared token if the design needs a new value.
 - **BEM:** `.cmp-<name>__<el>--<mod>`. Vanilla CSS in existing clientlib structure. No new build tooling.
 - **Assets on DAM** — upload every extracted image to `/content/dam/<project>/design/`. No remote/temporary URLs.
+- **Media assets = full class.** Every `<video>`, `<audio>`, `.lottie`, `.json` motion payload, and animated `.webp` / `.gif` observed in DESIGN_SOURCE MUST be downloaded and uploaded to `/content/dam/<project>/design/` alongside the images (see the **Media-fidelity contract**). Static-image substitutes are defects.
 - **Icons = inline SVG with `currentColor` (A7/A21).** Never substitute Unicode/emoji (`→`, `★`, `✓`, etc.) for a designed glyph.
 - **No image `filter:` effects** (grayscale, opacity, blend) unless the design shows them (A16).
 - **i18n static labels** via `${'…' @ i18n}`.
@@ -62,7 +175,8 @@ Where work is independent, issue it in a SINGLE tool-call block (agent) or a SIN
 **Discovery (Step 0)** — one tool block containing all of:
 - `AGENTS.md`, `CLAUDE.md`, `README.md`, `.aem-skills-config.yaml` reads.
 - `list_dir` for `.agents/skills/`, `apps/<project>/components/`, `conf/<project>/settings/wcm/templates/`, `conf/<project>/settings/wcm/policies/`.
-- Figma calls for the target node: `get_metadata`, `get_design_context`, `get_variable_defs`, `get_screenshot`, `download_assets`.
+- Mode A/C/F: Figma calls for the target node — `get_metadata`, `get_design_context`, `get_variable_defs`, `get_screenshot`, `download_assets`.
+- Mode D/E/F: browser open + full-page screenshots at every breakpoint + DOM/computed-style capture + asset enumeration for `SITE_URL`.
 
 **Scaffolding (Step 4)** — one batched call emits every file for EVERY Tier-4 / Tier-2 / Tier-3 component AND the shared tokens clientlib together. Do not scaffold components one at a time — each is independent of the others.
 
@@ -220,7 +334,10 @@ Run `mvn -pl core test -Dtest=<ModelName>Test` before deploying.
 - List `.agents/skills/` and record each SKILL.md `name` + `description`.
 - Inventory `ui.apps/.../apps/<project>/components/`: for each, capture folder, `jcr:title`, `componentGroup`, `sling:resourceSuperType`, top-level dialog tabs/fields. Note Core Components already in use.
 - Inventory `conf/<project>/settings/wcm/templates/` and `.../policies/`.
-- Determine mode (A/B/C). Mode A/C: parse URL → fetch Figma via the tool sequence above and pull assets to a local scratch folder. Mode B/C: parse DESIGN_FILE (page count, per-page text/fonts/colors/geometry/embedded images).
+- Determine mode (A/B/C/D/E/F).
+  - Mode A/C/F: parse Figma URL → fetch Figma via the tool sequence above and pull assets to a local scratch folder.
+  - Mode B/C/E: parse DESIGN_FILE (page count, per-page text/fonts/colors/geometry/embedded images).
+  - Mode D/E/F: parse SITE_URL → open in headless browser, capture per-breakpoint screenshots, rendered DOM, computed styles, and download every same-origin media asset to a local scratch folder.
 - Record raw values; do not paraphrase.
 
 ## Step 1 — Decompose the design
@@ -255,19 +372,19 @@ policy_decisions:
   - policy_path: "<existing-policy-path>"
     additions: ["<resource-type added to allowedComponents>"]
 instance_authoring_map:
-  - figma_instance: "<frame or short label>"
+  - design_instance: "<Figma frame label OR site DOM selector / section heading>"
     resource_type: "<project>/components/<name>"
     parent_path: "<content path under the template's editable region>"
     node_name: "<unique node name — e.g. teaser_hero>"
     dialog_values:
       style: "hero"
-      title: "<exact copy from Figma>"
+      title: "<exact copy from Figma or SITE_URL>"
       # ...every non-default field from that instance
 ```
-Rules: one row per Figma instance in reading order; `resource_type` MUST match `reuse_target` or a Tier-4 new component (no orphans); same resource_type + different dialog values = correct outcome for "same component, different look"; `node_name` hints at the variant, never `_1` / `_2`.
+Rules: one row per source instance in reading order (Figma frame in Mode A/C/F; rendered section in Mode D/E); `resource_type` MUST match `reuse_target` or a Tier-4 new component (no orphans); same resource_type + different dialog values = correct outcome for "same component, different look"; `node_name` hints at the variant, never `_1` / `_2`.
 
 ## Step 2 — Extract design facts
-Per component: outer container width, page gutter (per instance), section padding, internal gaps, per-element padding/margin, radius/border/shadow, per-text-style font (family/weight/size/line-height/letter-spacing/color), background/text/border/accent color hex, icon dimensions, image aspect ratios, hover/focus/active states, responsive intent. Cross-check ambiguous PDF geometry against the matching PNG. **Per-instance spatial deltas** across N sibling instances = dialog fields (per the spatial-authoring rule).
+Per component: outer container width, page gutter (per instance), section padding, internal gaps, per-element padding/margin, radius/border/shadow, per-text-style font (family/weight/size/line-height/letter-spacing/color), background/text/border/accent color hex, icon dimensions, image aspect ratios, hover/focus/active states, responsive intent. Cross-check ambiguous geometry against the matching artefact: Mode A/C/F → Figma PNG; Mode B/C/E → DESIGN_FILE embedded image; Mode D/E → the per-breakpoint SITE_URL screenshot + computed-style capture (the computed style is authoritative when Figma is absent). **Per-instance spatial deltas** across N sibling instances = dialog fields (per the spatial-authoring rule).
 
 ## Step 3 — Shared design tokens
 Create or update the shared tokens clientlib. If DESIGN_TOKENS_JSON exists, map 1:1 to CSS custom properties. Otherwise derive tokens from Step 2 repeated values. Add tokens for every unique value including spatial-offset tokens.
@@ -303,9 +420,14 @@ Under the project's content root, create a sample page. Reuse the best-matching 
    - `other`+hex color instances emit inline `style="background-color: #…"` on the root.
    - Zero `SightlyException`.
 4. **Fetch deployed clientlib CSS** for each per-component clientlib and confirm modifier rules are present (defends against stale-cache).
-5. **Visual parity (A4/A11).** Side-by-side against the design at native width and every design-defined breakpoint. If browser tooling exists, automate the diff.
+5. **Visual parity (A4/A11) — RUN THE VISUAL PARITY GATE.** This is not optional and not a "when you have time" step. Execute every check in the *VISUAL PARITY GATE — MANDATORY, NON-SKIPPABLE, HARD-FAIL* section above, in order, at every design-defined breakpoint. Side-by-side screenshots + computed-style diff + token audit + stale-clientlib check + cascade-origin check + **media reachability (check 8) + media playback probe (check 9) + video-vs-poster confusion (check 10) per the Media-fidelity contract** + **source-DOM manifest (check 11) + role-map completeness (check 12) + bounding-box parity (check 13) per the Structural-parity contract**. Passing checks 1–4 above does NOT release you from this step.
 6. **Author-mode parity (A17).** Load `/editor.html<demo-page-path>.html` and verify computed `font-family`, `background-color`, `color`, gradients / shadows / borders / radii match the design at every breakpoint. Ignore only editor chrome and empty-state placeholders.
 7. Iterate on any mismatch: token → CSS → dialog option → component redesign. Cap at 3 attempts per gap (A23); after that STOP CSS-tweaking, re-read Steps 1–2, and if unresolvable escalate to the user with a screenshot pair and a specific A/B question — never spin silently.
+8. **Gate status line — MANDATORY.** Before writing the Final summary, emit exactly one of:
+   - `VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations`
+   - `VISUAL PARITY GATE: FAILED — <specific delta> — iterating`
+   - `VISUAL PARITY GATE: DEFERRED (reason: <exact reason>) — MUST RUN on next turn`
+   Any Final summary written without one of these three lines is a defect.
 
 ## Deliverables per block
 | Tier | Files                                                                                                                                |

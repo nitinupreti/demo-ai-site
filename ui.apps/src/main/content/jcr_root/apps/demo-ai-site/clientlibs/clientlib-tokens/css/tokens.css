@@ -1,0 +1,89 @@
+/* Design tokens — American University (au) style */
+/* GT Walsheim is AU's paid brand font; Manrope is the closest OFL free substitute. */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+    /* Brand color palette */
+    --au-navy: #182449;
+    --au-navy-deep: #0f1734;
+    --au-red: #e41748;
+    --au-eagle-red: #a20e29;
+    --au-red-grad-end: #4918cd;
+    --au-gold: #d69e2e;
+    --au-blue-link: #004fa3;
+    --au-charcoal: #1a1a1a;
+    --au-slate: #5a6274;
+    --au-cloud: #eef0f3;
+    --au-stripe: #d4d6d9;
+    --au-line: #d9dbdd;
+    --au-white: #ffffff;
+    --au-focus: #0a58ca;
+
+    /* Typography — heading font kept under legacy --au-font-serif key */
+    --au-font-heading: 'Manrope', 'GT Walsheim', 'Helvetica Neue', Arial, sans-serif;
+    --au-font-serif: var(--au-font-heading);
+    --au-font-sans: 'Manrope', 'GT Walsheim', 'Helvetica Neue', Arial, sans-serif;
+    --au-fs-eyebrow: 0.875rem;
+    --au-fs-body: 1rem;
+    --au-fs-lede: 1.125rem;
+    --au-fs-h3: 1.5rem;
+    --au-fs-h2: 2.25rem;
+    --au-fs-h1: 3rem;
+    --au-fs-display: 4rem;
+    --au-lh-tight: 1.05;
+    --au-lh-body: 1.55;
+    --au-ls-eyebrow: 0.08em;
+    --au-ls-display: -0.02em;
+
+    /* Layout */
+    --au-container-max: 1200px;
+    --au-container-narrow: 960px;
+    --au-gutter: clamp(1rem, 4vw, 2rem);
+    --au-space-xs: 0.5rem;
+    --au-space-sm: 1rem;
+    --au-space-md: 2rem;
+    --au-space-lg: 3rem;
+    --au-space-xl: 5rem;
+
+    /* Radii + shadows */
+    --au-radius-sm: 4px;
+    --au-radius-md: 8px;
+    --au-shadow-card: 0 2px 6px rgba(0, 0, 0, 0.08);
+    --au-shadow-lift: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+body,
+html {
+    background: var(--au-cloud);
+    color: var(--au-charcoal);
+    font-family: var(--au-font-sans);
+    font-size: var(--au-fs-body);
+    line-height: var(--au-lh-body);
+}
+
+/* --style-au theme scope — used when the page opts into AU branding */
+.au-page,
+body:has(.cmp-hero--style-au),
+body:has(.cmp-programs-search) {
+    background: var(--au-cloud);
+    color: var(--au-charcoal);
+    font-family: var(--au-font-sans);
+    font-size: var(--au-fs-body);
+    line-height: var(--au-lh-body);
+}
+
+.au-page :focus-visible,
+body:has(.cmp-hero--style-au) :focus-visible {
+    outline: 3px solid var(--au-focus);
+    outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+    :root {
+        --au-fs-h1: 2.25rem;
+        --au-fs-h2: 1.75rem;
+        --au-fs-display: 2.5rem;
+        --au-space-xl: 3rem;
+        --au-space-lg: 2rem;
+    }
+}

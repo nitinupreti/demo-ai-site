@@ -104,3 +104,9 @@ reports/
 
 # Others
 dispatcher/src/conf.d/variables/default.vars
+
+# Local scratch assets — exclude large media
+scratch/**/*.mp4
+scratch/**/*.mov
+scratch/**/*.webm
+scratch/**/*.mkv

@@ -1,0 +1,123 @@
+/* News Cards — matches AU home page:
+   Flat cards (no bg, no radius, no shadow) on the page's cloud bg.
+   3-column grid; image / navy title / navy description / Embassy-blue Read More.
+*/
+
+.cmp-news-cards {
+    background: transparent;
+    padding: var(--au-space-xl) var(--au-gutter);
+}
+
+.cmp-news-cards__inner {
+    max-width: var(--au-container-max);
+    margin: 0 auto;
+}
+
+.cmp-news-cards__heading {
+    font-family: var(--au-font-heading);
+    font-size: 36px;
+    line-height: 1.15;
+    letter-spacing: -0.4px;
+    font-weight: 700;
+    color: var(--au-navy);
+    text-align: center;
+    margin: 0 0 var(--au-space-lg) 0;
+}
+
+.cmp-news-cards__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+}
+
+.cmp-news-cards__item {
+    margin: 0;
+}
+
+.cmp-news-cards__card {
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    height: 100%;
+}
+
+.cmp-news-cards__media {
+    aspect-ratio: 458 / 241;
+    overflow: hidden;
+}
+
+.cmp-news-cards__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cmp-news-cards__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--au-space-sm);
+    padding: 14.4px 30px 14.4px 40px;
+    flex: 1;
+}
+
+.cmp-news-cards__title {
+    font-family: var(--au-font-heading);
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--au-navy);
+    margin: 0;
+}
+
+.cmp-news-cards__title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.cmp-news-cards__title a:hover,
+.cmp-news-cards__title a:focus-visible {
+    color: var(--au-blue-link);
+    text-decoration: underline;
+}
+
+.cmp-news-cards__desc {
+    color: var(--au-navy);
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.5;
+    font-family: var(--au-font-sans);
+    font-weight: 400;
+}
+
+.cmp-news-cards__link {
+    align-self: flex-start;
+    margin-top: auto;
+    color: var(--au-blue-link);
+    font-weight: 700;
+    text-decoration: none;
+    text-transform: uppercase;
+    font-family: var(--au-font-heading);
+    font-size: 16px;
+    letter-spacing: normal;
+}
+
+.cmp-news-cards__link:hover,
+.cmp-news-cards__link:focus-visible {
+    color: var(--au-navy);
+    text-decoration: underline;
+}
+
+@media (max-width: 1024px) {
+    .cmp-news-cards__list { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+    .cmp-news-cards__list { grid-template-columns: 1fr; }
+    .cmp-news-cards__body { padding: 14.4px 20px 14.4px 24px; }
+}

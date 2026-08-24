@@ -1,0 +1,43 @@
+<sly data-sly-use.model="com.demo.core.models.ProgramsSearchModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.programs-search'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Programs Search: configure heading, stat, browse pills, and schools.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-programs-search">
+    <div class="cmp-programs-search__band cmp-programs-search__band--cloud">
+        <div class="cmp-programs-search__inner">
+            <h2 data-sly-test="${model.heading}" class="cmp-programs-search__heading">${model.heading}</h2>
+            <p data-sly-test="${model.statNumber || model.statLabel}" class="cmp-programs-search__stat">
+                <em><span data-sly-test="${model.statNumber}" class="cmp-programs-search__stat-number">${model.statNumber}</span> ${model.statLabel}</em>
+            </p>
+            <form class="cmp-programs-search__search" role="search" data-sly-test="${model.searchLabel || model.searchPlaceholder}">
+                <label data-sly-test="${model.searchLabel}" class="cmp-programs-search__search-label" for="programs-search-input">${model.searchLabel}</label>
+                <div class="cmp-programs-search__search-row">
+                    <input id="programs-search-input"
+                           class="cmp-programs-search__search-input"
+                           type="search"
+                           placeholder="${model.searchPlaceholder @ context='attribute'}"/>
+                    <button type="submit" class="cmp-programs-search__search-btn">${'Search' @ i18n}</button>
+                </div>
+            </form>
+            <div class="cmp-programs-search__browse" data-sly-test="${model.browseHeading || model.pills}">
+                <h3 data-sly-test="${model.browseHeading}" class="cmp-programs-search__browse-heading">${model.browseHeading}</h3>
+                <ul class="cmp-programs-search__pills" data-sly-list.pill="${model.pills}">
+                    <li class="cmp-programs-search__pill-item">
+                        <a class="cmp-programs-search__pill" href="${pill.link @ context='uri'}">${pill.label}</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="cmp-programs-search__band cmp-programs-search__band--navy" data-sly-test="${model.schools}">
+        <div class="cmp-programs-search__inner">
+            <ul class="cmp-programs-search__schools" data-sly-list.school="${model.schools}">
+                <li class="cmp-programs-search__school">
+                    <a class="cmp-programs-search__school-link" href="${school.link @ context='uri'}">${school.name}</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</section>

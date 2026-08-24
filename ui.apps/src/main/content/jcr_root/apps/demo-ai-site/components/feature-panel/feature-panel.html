@@ -1,0 +1,22 @@
+<sly data-sly-use.model="com.demo.core.models.FeaturePanelModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.feature-panel'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Feature Panel: configure heading, body, image, video CTA.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-feature-panel"
+         style="${model.backgroundStyle @ context='styleString'}">
+    <div class="cmp-feature-panel__overlay" aria-hidden="true"></div>
+    <div class="cmp-feature-panel__inner">
+        <span data-sly-test="${model.eyebrow}" class="cmp-feature-panel__eyebrow">${model.eyebrow}</span>
+        <h2 data-sly-test="${model.heading}" class="cmp-feature-panel__heading">${model.heading}</h2>
+        <div data-sly-test="${model.body}" class="cmp-feature-panel__body">${model.body @ context='html'}</div>
+        <a data-sly-test="${model.videoLabel && model.videoLink}"
+           class="cmp-feature-panel__video-cta"
+           href="${model.videoLink @ context='uri'}"
+           target="_blank" rel="noopener">
+            <span class="cmp-feature-panel__play-icon" aria-hidden="true"></span>
+            <span>${model.videoLabel}</span>
+        </a>
+    </div>
+</section>

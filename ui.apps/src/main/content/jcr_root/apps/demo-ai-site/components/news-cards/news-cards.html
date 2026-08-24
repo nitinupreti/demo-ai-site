@@ -1,0 +1,32 @@
+<sly data-sly-use.model="com.demo.core.models.NewsCardsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.news-cards'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'News Cards: add cards.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-news-cards">
+    <div class="cmp-news-cards__inner">
+        <h2 data-sly-test="${model.heading}" class="cmp-news-cards__heading">${model.heading}</h2>
+        <ul class="cmp-news-cards__list" data-sly-list.card="${model.cards}">
+            <li class="cmp-news-cards__item">
+                <article class="cmp-news-cards__card">
+                    <div class="cmp-news-cards__media" data-sly-test="${card.image}">
+                        <img class="cmp-news-cards__image"
+                             src="${card.image @ context='uri'}"
+                             alt="${card.imageAlt @ context='attribute'}"/>
+                    </div>
+                    <div class="cmp-news-cards__body">
+                        <h3 data-sly-test="${card.headline}" class="cmp-news-cards__title">
+                            <a data-sly-test="${card.link}" href="${card.link @ context='uri'}">${card.headline}</a>
+                            <sly data-sly-test="${!card.link}">${card.headline}</sly>
+                        </h3>
+                        <p data-sly-test="${card.description}" class="cmp-news-cards__desc">${card.description}</p>
+                        <a data-sly-test="${card.link && card.linkLabel}"
+                           class="cmp-news-cards__link"
+                           href="${card.link @ context='uri'}">${card.linkLabel}</a>
+                    </div>
+                </article>
+            </li>
+        </ul>
+    </div>
+</section>

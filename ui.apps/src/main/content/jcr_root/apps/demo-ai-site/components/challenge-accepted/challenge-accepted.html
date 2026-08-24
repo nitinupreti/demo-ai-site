@@ -1,0 +1,24 @@
+<sly data-sly-use.model="com.demo.core.models.ChallengeAcceptedModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.challenge-accepted'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Challenge Accepted: configure heading, CTAs, audience.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-challenge-accepted">
+    <div class="cmp-challenge-accepted__inner">
+        <h1 data-sly-test="${model.heading}" class="cmp-challenge-accepted__heading">${model.heading @ context='html'}</h1>
+        <ul class="cmp-challenge-accepted__ctas" data-sly-list.cta="${model.ctas}">
+            <li class="cmp-challenge-accepted__cta-item">
+                <a class="cmp-challenge-accepted__cta" href="${cta.link @ context='uri'}">${cta.label}</a>
+            </li>
+        </ul>
+        <div class="cmp-challenge-accepted__audience" data-sly-test="${model.audienceHeading || model.audiences}">
+            <p data-sly-test="${model.audienceHeading}" class="cmp-challenge-accepted__audience-heading">${model.audienceHeading}</p>
+            <ul class="cmp-challenge-accepted__audience-list" data-sly-list.aud="${model.audiences}">
+                <li class="cmp-challenge-accepted__audience-item">
+                    <a class="cmp-challenge-accepted__audience-link" href="${aud.link @ context='uri'}">${aud.label}</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</section>

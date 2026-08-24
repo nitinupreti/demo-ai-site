@@ -1,0 +1,28 @@
+<sly data-sly-use.model="com.demo.core.models.DcRotatingModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.dc-rotating'}"/>
+<sly data-sly-call="${clientlib.js @ categories='demo-ai-site.dc-rotating'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Rotating Prompt: configure prefix and items.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-dc-rotating" data-cmp-is="dc-rotating">
+    <div class="cmp-dc-rotating__images" aria-hidden="true">
+        <img data-sly-list.item="${model.items}"
+             data-sly-test.hasImage="${item.image}"
+             class="cmp-dc-rotating__image${itemList.first ? ' cmp-dc-rotating__image--active' : ''}"
+             data-index="${itemList.index}"
+             src="${item.image @ context='uri'}"
+             alt="${item.imageAlt @ context='attribute'}"/>
+    </div>
+    <div class="cmp-dc-rotating__inner">
+        <p class="cmp-dc-rotating__prefix" data-sly-test="${model.prefix}">${model.prefix}</p>
+        <ul class="cmp-dc-rotating__list" data-sly-list.item="${model.items}">
+            <li class="cmp-dc-rotating__item${itemList.first ? ' cmp-dc-rotating__item--active' : ''}"
+                data-index="${itemList.index}">
+                <a class="cmp-dc-rotating__link"
+                   href="${item.link @ context='uri'}"
+                   data-cmp-hook-dc-rotating="link">${item.word}<span aria-hidden="true">.</span></a>
+            </li>
+        </ul>
+    </div>
+</section>

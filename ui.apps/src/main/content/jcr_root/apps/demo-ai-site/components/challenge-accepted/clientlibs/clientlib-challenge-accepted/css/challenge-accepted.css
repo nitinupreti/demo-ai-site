@@ -1,0 +1,143 @@
+/* Challenge Accepted — matches AU div.cta-row:
+   Full-bleed navy band, centered composition, UPPERCASE heading,
+   3 white-outlined transparent CTA buttons, small audience picker below. */
+
+.cmp-challenge-accepted {
+    display: block;
+    background: var(--au-navy);
+    color: var(--au-white);
+    padding: 25px var(--au-gutter);
+    text-align: center;
+}
+
+.cmp-challenge-accepted__inner {
+    max-width: var(--au-container-max);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--au-space-md);
+}
+
+/* Heading — AU: GT Walsheim 44.64px, outer weight 400, inner <strong> weight 900,
+   WHITE, UPPERCASE, centered. Rich text: p and strong come through as-is. */
+.cmp-challenge-accepted__heading {
+    font-family: var(--au-font-heading);
+    font-size: 44.64px;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+    font-weight: 400;
+    text-transform: uppercase;
+    color: var(--au-white);
+    margin: 0;
+}
+
+.cmp-challenge-accepted__heading p {
+    margin: 0;
+    display: inline;
+}
+
+.cmp-challenge-accepted__heading strong {
+    font-weight: 900;
+}
+
+/* CTAs — AU: 4.8px white border, transparent bg, GT Walsheim 20/700, WHITE, 249x72,
+   letter-spacing 0.9px, centered horizontal row. */
+.cmp-challenge-accepted__ctas {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--au-space-md);
+}
+
+.cmp-challenge-accepted__cta-item {
+    margin: 0;
+}
+
+.cmp-challenge-accepted__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 249px;
+    min-height: 72px;
+    padding: 20px;
+    background: transparent;
+    color: var(--au-white);
+    border: 5px solid var(--au-white);
+    border-radius: 0;
+    text-decoration: none;
+    font-family: var(--au-font-heading);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-align: center;
+}
+
+.cmp-challenge-accepted__cta:hover,
+.cmp-challenge-accepted__cta:focus-visible {
+    background: var(--au-white);
+    color: var(--au-navy);
+}
+
+/* Audience picker — kept always-visible (AU collapses under Request Info);
+   small centered row. */
+.cmp-challenge-accepted__audience {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--au-space-xs);
+    margin-top: var(--au-space-sm);
+}
+
+.cmp-challenge-accepted__audience-heading {
+    font-family: var(--au-font-heading);
+    font-size: var(--au-fs-body);
+    color: var(--au-white);
+    margin: 0;
+    font-style: italic;
+    opacity: 0.85;
+}
+
+.cmp-challenge-accepted__audience-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    gap: var(--au-space-md);
+    flex-wrap: wrap;
+}
+
+.cmp-challenge-accepted__audience-item {
+    margin: 0;
+}
+
+.cmp-challenge-accepted__audience-link {
+    color: var(--au-white);
+    font-family: var(--au-font-heading);
+    font-size: 15px;
+    font-weight: 400;
+    text-transform: uppercase;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    letter-spacing: 0.05em;
+}
+
+.cmp-challenge-accepted__audience-link:hover,
+.cmp-challenge-accepted__audience-link:focus-visible {
+    color: var(--au-gold);
+}
+
+@media (max-width: 1024px) {
+    .cmp-challenge-accepted__heading { font-size: 32px; }
+    .cmp-challenge-accepted__cta { min-width: 220px; font-size: 18px; }
+}
+
+@media (max-width: 640px) {
+    .cmp-challenge-accepted__heading { font-size: 24px; }
+    .cmp-challenge-accepted__ctas { flex-direction: column; align-items: stretch; }
+    .cmp-challenge-accepted__cta { min-width: 0; width: 100%; }
+}

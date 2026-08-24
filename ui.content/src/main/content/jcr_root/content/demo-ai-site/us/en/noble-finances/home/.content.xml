@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="American University Home"
+        jcr:description="Reverse-engineered american.edu home page authored with the AU-branded custom components."
+        sling:resourceType="demo-ai-site/components/page">
+        <root jcr:primaryType="nt:unstructured"
+              sling:resourceType="demo-ai-site/components/container"
+              layout="responsiveGrid">
+            <experiencefragment-header
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/header/master"/>
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero"
+                        heading="Start your journey at AU in Washington, DC."
+                        ctaLabel="Join Us"
+                        ctaLink="https://american.edu/admissions/"
+                        wordmark="/content/dam/demo-ai-site/design/your-purpose-wordmark.png"
+                        videoSrc="/content/dam/demo-ai-site/design/hero-loop.mp4"
+                        fallbackImage="/content/dam/demo-ai-site/design/mobile-hero.jpg"
+                        videoDescription="Video contains no sound or narration. AU's spirit is captured through the people, places, and events on campus and in DC."
+                        style="au"
+                        align="left"/>
+                    <programs-search
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/programs-search"
+                        heading="Discover Your Future with AU"
+                        statNumber="91%"
+                        statLabel="of undergraduates are working, in graduate school, or both within six months of graduation"
+                        searchLabel="Explore AU's academic offerings"
+                        searchPlaceholder="I want to study..."
+                        browseHeading="Or browse by:">
+                        <pills jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   label="Undergraduate"
+                                   link="https://american.edu/programs/undergraduate/"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   label="Graduate"
+                                   link="https://american.edu/programs/graduate/"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   label="Professional Learning"
+                                   link="https://american.edu/programs/"/>
+                        </pills>
+                        <schools jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   name="College of Arts &amp; Sciences"
+                                   link="https://american.edu/cas"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   name="Kogod School of Business"
+                                   link="https://american.edu/kogod"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   name="Professional Studies and Executive Education"
+                                   link="https://american.edu/provost/ogps/"/>
+                            <item3 jcr:primaryType="nt:unstructured"
+                                   name="School of Communication"
+                                   link="https://american.edu/soc"/>
+                            <item4 jcr:primaryType="nt:unstructured"
+                                   name="School of Education"
+                                   link="https://american.edu/soe"/>
+                            <item5 jcr:primaryType="nt:unstructured"
+                                   name="School of International Service"
+                                   link="https://american.edu/sis"/>
+                            <item6 jcr:primaryType="nt:unstructured"
+                                   name="School of Public Affairs"
+                                   link="https://american.edu/spa"/>
+                            <item7 jcr:primaryType="nt:unstructured"
+                                   name="Washington College of Law"
+                                   link="https://american.edu/wcl"/>
+                        </schools>
+                    </programs-search>
+                    <rankings-strip
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/rankings-strip"
+                        heading="AU by the numbers">
+                        <rankings jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   rank="#5" description="for Study Abroad programs"
+                                   source="U.S. News &amp; World Report 2026"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   rank="#2" description="for Green Colleges"
+                                   source="Princeton Review 2026"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   rank="#15" description="for Co-ops/Internships"
+                                   source="U.S. News &amp; World Report 2026"/>
+                            <item3 jcr:primaryType="nt:unstructured"
+                                   rank="#7" description="for undergraduate international business program (Kogod)"
+                                   source="U.S. News &amp; World Report 2026"/>
+                            <item4 jcr:primaryType="nt:unstructured"
+                                   rank="#8" description="for undergraduate and master's programs in international relations (SIS)"
+                                   source="Foreign Policy Magazine 2024"/>
+                            <item5 jcr:primaryType="nt:unstructured"
+                                   rank="#12" description="for Schools of Public Affairs (SPA), with three programs rated in the top 10"
+                                   source="U.S. News &amp; World Report 2026"/>
+                        </rankings>
+                    </rankings-strip>
+                    <experience-au
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/cta-panel"
+                        eyebrow="Explore"
+                        heading="Experience AU"
+                        description="&lt;p&gt;We are here to help you soar. As you navigate your journey, explore the amazing opportunities AU and Washington, DC, have to offer.&lt;/p&gt;"
+                        image="/content/dam/demo-ai-site/design/experience-au.jpg"
+                        imageAlt="Students on the AU campus"
+                        ctaLabel="Experience AU"
+                        ctaLink="https://american.edu/admissions/experience-au/index.cfm"
+                        style="split"
+                        mediaSide="left"/>
+                    <campus-map
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/cta-panel"
+                        eyebrow="Campus"
+                        heading="Explore the AU campus"
+                        description="&lt;p&gt;Use our interactive campus map to learn why AU is a bustling community for inquiry, discovery, service, and fun.&lt;/p&gt;"
+                        image="/content/dam/demo-ai-site/design/campus-map.png"
+                        imageAlt="AU campus aerial view"
+                        ctaLabel="Virtual Tour"
+                        ctaLink="https://www.youvisit.com/tour/139567"
+                        secondaryCtaLabel="AU Campus Map"
+                        secondaryCtaLink="https://map-american.university-tour.com/au-main-campus"
+                        style="dual-cta"/>
+                    <student-life
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/cta-panel"
+                        eyebrow="Community"
+                        heading="Student Life"
+                        description="&lt;p&gt;AU students engage, connect, and innovate. They build skills in the classroom, across DC, and around the world. And they have fun doing it.&lt;/p&gt;"
+                        image="/content/dam/demo-ai-site/design/student-life.jpg"
+                        imageAlt="Students engaging on campus"
+                        ctaLabel="Student Life"
+                        ctaLink="https://american.edu/universitylife/index.cfm"
+                        style="split"
+                        mediaSide="right"/>
+                    <challenge-accepted
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/challenge-accepted"
+                        heading="&lt;p&gt;Find your AU opportunity. &lt;strong&gt;Challenge accepted.&lt;/strong&gt;&lt;/p&gt;"
+                        audienceHeading="Are you interested in..."
+                        image="/content/dam/demo-ai-site/design/clawed.jpg"
+                        imageAlt="AU Clawed the Eagle mascot">
+                        <ctas jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   label="Apply" link="https://american.edu/admissions/apply"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   label="Request Info" link="#request-info"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   label="Visit" link="https://american.edu/admissions/experience-au"/>
+                        </ctas>
+                        <audiences jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   label="Undergraduate"
+                                   link="https://americanuniversity2.my.site.com/AUApplicantPortal/s/request-information"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   label="Graduate"
+                                   link="https://www.american.edu/admissions/graduate-admissions/"/>
+                        </audiences>
+                    </challenge-accepted>
+                    <feature-panel
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/feature-panel"
+                        eyebrow="Now Open"
+                        heading="Meltzer Center for Athletic Performance"
+                        body="&lt;p&gt;It's a game changer. The Meltzer Center, AU's newly opened athletics and recreational facility, features innovative sustainability design, expanded student support spaces, and championship-grade athletic venues.&lt;/p&gt;&lt;p&gt;Located in the heart of campus, the building represents the culmination of AU's historic $109 million investment in student thriving. AU's first net-zero and LEED Platinum–certified building, the Meltzer Center uses onsite renewable energy, advanced water conservation, and eco-friendly materials to produce 100 percent of its annual energy needs.&lt;/p&gt;"
+                        backgroundImage="/content/dam/demo-ai-site/design/meltzer-center.jpg"
+                        videoLabel="Play Video"
+                        videoLink="https://vimeo.com/1156881103"/>
+                    <news-cards
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/news-cards"
+                        heading="AU News">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   image="/content/dam/demo-ai-site/design/news-capitol-hill.jpg"
+                                   imageAlt="AU on the Hill gathering"
+                                   headline="AU on Capitol Hill: Where Washington Connections Become Careers"
+                                   description="At the inaugural AU on the Hill Day, alumni, students, staffers, and lawmakers reflected on the university's deep roots in public service."
+                                   link="https://american.edu/news/au-on-capitol-hill-washington-connections-careers.cfm"
+                                   linkLabel="Read More"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   image="/content/dam/demo-ai-site/design/news-jacknowitz.jpg"
+                                   imageAlt="Alison Jacknowitz portrait"
+                                   headline="Alison Jacknowitz Named Dean of AU's Top-Ranked School of Public Affairs"
+                                   description="The interim leader and long-serving public administration and policy professor will step into the permanent role on June 1."
+                                   link="https://american.edu/news/Alison-Jacknowitz-Named-Dean-of-AU-s-Top-Ranked-School-of-Public-Affairs.cfm"
+                                   linkLabel="Read More"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   image="/content/dam/demo-ai-site/design/news-commencement.jpg"
+                                   imageAlt="Class of 2026 commencement"
+                                   headline="Ambition, Empathy, and Authenticity: Distinguished Speakers Inspire Class of 2026"
+                                   description="Nearly 2,700 graduates embraced the charge to lead with curiosity and find meaning in service during AU's 151st commencement in Bender Arena."
+                                   link="https://american.edu/news/Ambition-Empathy-and-Authenticity-Distinguished-Speakers-Inspire-Class-of-2026.cfm"
+                                   linkLabel="Read More"/>
+                        </cards>
+                    </news-cards>
+                    <dc-rotating
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/dc-rotating"
+                        prefix="Washington, DC is our">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured"
+                                   word="laboratory"
+                                   link="https://american.edu/research/students.cfm"
+                                   image="/content/dam/demo-ai-site/design/dc-lab.jpg"
+                                   imageAlt="AU research laboratory"/>
+                            <item1 jcr:primaryType="nt:unstructured"
+                                   word="classroom"
+                                   link="https://american.edu/learning-communities/universitycollege/au-cornerstone/dc/index.cfm"
+                                   image="/content/dam/demo-ai-site/design/dc-classroom.jpg"
+                                   imageAlt="AU classroom in DC"/>
+                            <item2 jcr:primaryType="nt:unstructured"
+                                   word="home"
+                                   link="https://www.american.edu/"
+                                   image="/content/dam/demo-ai-site/design/dc-home.jpg"
+                                   imageAlt="AU dorm life"/>
+                            <item3 jcr:primaryType="nt:unstructured"
+                                   word="community"
+                                   link="https://american.edu/ocl/housing/"
+                                   image="/content/dam/demo-ai-site/design/dc-community.jpg"
+                                   imageAlt="AU student community"/>
+                            <item4 jcr:primaryType="nt:unstructured"
+                                   word="playground"
+                                   link="https://washington.org/"
+                                   image="/content/dam/demo-ai-site/design/dc-playground.jpg"
+                                   imageAlt="Washington DC monuments"/>
+                        </items>
+                    </dc-rotating>
+                </container>
+            </container>
+            <experiencefragment-footer
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/footer/master"/>
+        </root>
+    </jcr:content>
+</jcr:root>

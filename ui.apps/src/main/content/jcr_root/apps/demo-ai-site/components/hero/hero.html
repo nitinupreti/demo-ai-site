@@ -1,0 +1,42 @@
+<sly data-sly-use.model="com.demo.core.models.HeroModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.hero'}"/>
+<sly data-sly-call="${clientlib.js @ categories='demo-ai-site.hero'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Hero: configure heading, wordmark, video, and CTA.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}"
+         class="cmp-hero cmp-hero--style-${model.style @ context='attribute'} cmp-hero--align-${model.align @ context='attribute'}"
+         data-cmp-is="hero">
+    <div class="cmp-hero__media">
+        <sly data-sly-test="${model.videoSrc}">
+            <video class="cmp-hero__video"
+                   src="${model.videoSrc @ context='uri'}"
+                   poster="${model.fallbackImage @ context='uri'}"
+                   autoplay="autoplay" muted="muted" loop="loop" playsinline="playsinline"
+                   aria-hidden="true"></video>
+        </sly>
+        <img data-sly-test="${!model.videoSrc && model.fallbackImage}"
+             class="cmp-hero__image"
+             src="${model.fallbackImage @ context='uri'}"
+             alt=""/>
+        <div class="cmp-hero__overlay" aria-hidden="true"></div>
+    </div>
+    <div class="cmp-hero__content">
+        <img data-sly-test="${model.wordmark}"
+             class="cmp-hero__wordmark"
+             src="${model.wordmark @ context='uri'}"
+             alt=""/>
+        <h1 data-sly-test="${model.heading}" class="cmp-hero__heading">${model.heading}</h1>
+        <a data-sly-test="${model.ctaLabel && model.ctaLink}"
+           class="cmp-hero__cta"
+           href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+    </div>
+    <div class="cmp-hero__controls" data-sly-test="${model.videoSrc}">
+        <button type="button" class="cmp-hero__pause" data-cmp-hook-hero="pause" aria-label="${'Pause background video' @ i18n}">
+            <span class="cmp-hero__pause-icon" aria-hidden="true"></span>
+            <span class="cmp-hero__pause-label">${'Pause' @ i18n}</span>
+        </button>
+        <p data-sly-test="${model.videoDescription}" class="cmp-hero__video-desc">${model.videoDescription}</p>
+    </div>
+</section>

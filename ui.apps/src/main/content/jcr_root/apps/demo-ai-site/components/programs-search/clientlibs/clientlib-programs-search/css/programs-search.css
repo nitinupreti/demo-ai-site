@@ -1,0 +1,205 @@
+/* Programs Search — matches AU home page composition:
+   band 1 (cloud): heading + italic navy stat + search + browse pills
+   band 2 (navy):  schools list, white text
+*/
+
+.cmp-programs-search {
+    display: block;
+}
+
+.cmp-programs-search__band {
+    padding: var(--au-space-xl) var(--au-gutter);
+}
+
+.cmp-programs-search__band--cloud {
+    background: var(--au-cloud);
+    color: var(--au-charcoal);
+}
+
+.cmp-programs-search__band--navy {
+    background: var(--au-navy);
+    color: var(--au-white);
+}
+
+.cmp-programs-search__inner {
+    max-width: var(--au-container-max);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--au-space-lg);
+}
+
+/* Heading — AU: GT Walsheim 60/700, near-black, tight tracking */
+.cmp-programs-search__heading {
+    font-family: var(--au-font-heading);
+    font-size: 60px;
+    line-height: 1.05;
+    letter-spacing: -0.96px;
+    font-weight: 700;
+    color: var(--au-charcoal);
+    margin: 0;
+}
+
+/* Stat — AU: GT Walsheim 38px italic 500, navy, integrated single sentence */
+.cmp-programs-search__stat {
+    font-family: var(--au-font-heading);
+    font-size: 38px;
+    line-height: 1.25;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--au-navy);
+    margin: 0;
+    max-width: 60ch;
+}
+
+.cmp-programs-search__stat em {
+    font-style: italic;
+}
+
+.cmp-programs-search__stat-number {
+    font-weight: 700;
+}
+
+.cmp-programs-search__search {
+    display: flex;
+    flex-direction: column;
+    gap: var(--au-space-sm);
+    max-width: 720px;
+}
+
+.cmp-programs-search__search-label {
+    font-family: var(--au-font-heading);
+    font-size: var(--au-fs-h3);
+    font-weight: 700;
+    color: var(--au-charcoal);
+}
+
+.cmp-programs-search__search-row {
+    display: flex;
+    gap: 0;
+    border: 2px solid var(--au-navy);
+    border-radius: 0;
+    background: var(--au-white);
+}
+
+.cmp-programs-search__search-input {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    border: 0;
+    font-family: inherit;
+    font-size: var(--au-fs-body);
+    min-height: 52px;
+    background: transparent;
+    outline: none;
+}
+
+.cmp-programs-search__search-btn {
+    padding: 1rem 2rem;
+    background: var(--au-navy);
+    color: var(--au-white);
+    border: 0;
+    font-family: var(--au-font-heading);
+    font-weight: 700;
+    font-size: var(--au-fs-body);
+    text-transform: uppercase;
+    letter-spacing: var(--au-ls-eyebrow);
+    cursor: pointer;
+    min-height: 52px;
+}
+
+.cmp-programs-search__browse-heading {
+    font-family: var(--au-font-heading);
+    font-size: var(--au-fs-h3);
+    font-weight: 700;
+    color: var(--au-charcoal);
+    margin: 0 0 var(--au-space-sm) 0;
+}
+
+/* Pills — AU: fixed 172-196px width, WHITE bg, navy text, RECTANGULAR (no radius), no border */
+.cmp-programs-search__pills {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.cmp-programs-search__pill-item {
+    margin: 0;
+}
+
+.cmp-programs-search__pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 196px;
+    min-height: 60px;
+    padding: 1rem;
+    background: var(--au-white);
+    color: var(--au-navy);
+    border: 0;
+    border-radius: 0;
+    font-family: var(--au-font-heading);
+    font-size: 18px;
+    font-weight: 400;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: var(--au-shadow-card);
+}
+
+.cmp-programs-search__pill:hover,
+.cmp-programs-search__pill:focus-visible {
+    background: var(--au-navy);
+    color: var(--au-white);
+    box-shadow: var(--au-shadow-lift);
+}
+
+/* Schools — AU: navy bg band, white text links, plain (no card treatment) */
+.cmp-programs-search__schools {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--au-space-sm) var(--au-space-md);
+}
+
+.cmp-programs-search__school {
+    margin: 0;
+}
+
+.cmp-programs-search__school-link {
+    display: block;
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    color: var(--au-white);
+    font-family: var(--au-font-heading);
+    font-size: 14px;
+    font-weight: 400;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.cmp-programs-search__school-link:hover,
+.cmp-programs-search__school-link:focus-visible {
+    color: var(--au-gold);
+    border-bottom-color: var(--au-gold);
+}
+
+@media (max-width: 1024px) {
+    .cmp-programs-search__heading { font-size: 44px; letter-spacing: -0.5px; }
+    .cmp-programs-search__stat { font-size: 28px; }
+    .cmp-programs-search__schools { grid-template-columns: repeat(2, 1fr); }
+    .cmp-programs-search__pill { width: 172px; }
+}
+
+@media (max-width: 640px) {
+    .cmp-programs-search__heading { font-size: 32px; letter-spacing: -0.3px; }
+    .cmp-programs-search__stat { font-size: 22px; }
+    .cmp-programs-search__schools { grid-template-columns: 1fr; }
+    .cmp-programs-search__pills { flex-direction: column; }
+    .cmp-programs-search__pill { width: 100%; }
+    .cmp-programs-search__search-row { flex-direction: column; border: 0; }
+    .cmp-programs-search__search-input { border: 2px solid var(--au-navy); }
+    .cmp-programs-search__search-btn { margin-top: 0.5rem; }
+}

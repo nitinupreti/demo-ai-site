@@ -1,0 +1,29 @@
+<sly data-sly-use.model="com.demo.core.models.CtaPanelModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cta-panel'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'CTA Panel: configure heading, description, image, CTA.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}"
+         class="cmp-cta-panel cmp-cta-panel--style-${model.style @ context='attribute'} cmp-cta-panel--media-${model.mediaSide @ context='attribute'}">
+    <div class="cmp-cta-panel__inner">
+        <div class="cmp-cta-panel__media" data-sly-test="${model.image}">
+            <img class="cmp-cta-panel__image"
+                 src="${model.image @ context='uri'}"
+                 alt="${model.imageAlt @ context='attribute'}"/>
+        </div>
+        <div class="cmp-cta-panel__body">
+            <span data-sly-test="${model.eyebrow}" class="cmp-cta-panel__eyebrow">${model.eyebrow}</span>
+            <h2 data-sly-test="${model.heading}" class="cmp-cta-panel__heading">${model.heading}</h2>
+            <div data-sly-test="${model.description}" class="cmp-cta-panel__desc">${model.description @ context='html'}</div>
+            <div class="cmp-cta-panel__actions" data-sly-test="${model.ctaLabel || model.secondaryCtaLabel}">
+                <a data-sly-test="${model.ctaLabel && model.ctaLink}"
+                   class="cmp-cta-panel__cta cmp-cta-panel__cta--primary"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+                <a data-sly-test="${model.style == 'dual-cta' && model.secondaryCtaLabel && model.secondaryCtaLink}"
+                   class="cmp-cta-panel__cta cmp-cta-panel__cta--secondary"
+                   href="${model.secondaryCtaLink @ context='uri'}">${model.secondaryCtaLabel}</a>
+            </div>
+        </div>
+    </div>
+</section>

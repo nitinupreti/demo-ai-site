@@ -1,0 +1,81 @@
+.cmp-dc-rotating {
+    position: relative;
+    min-height: 520px;
+    color: var(--au-white);
+    padding: var(--au-space-xl) var(--au-gutter);
+    overflow: hidden;
+    isolation: isolate;
+    background: var(--au-charcoal);
+}
+
+.cmp-dc-rotating__images {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.cmp-dc-rotating__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 500ms ease-in-out;
+}
+
+.cmp-dc-rotating__image--active {
+    opacity: 1;
+}
+
+.cmp-dc-rotating__inner {
+    position: relative;
+    z-index: 1;
+    max-width: var(--au-container-max);
+    margin: 0 auto;
+    padding: var(--au-space-xl) 0;
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.15) 100%);
+    border-left: 6px solid var(--au-red);
+    padding-left: var(--au-space-lg);
+}
+
+.cmp-dc-rotating__prefix {
+    font-family: var(--au-font-serif);
+    font-size: var(--au-fs-h2);
+    margin: 0 0 var(--au-space-sm) 0;
+    line-height: var(--au-lh-tight);
+}
+
+.cmp-dc-rotating__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--au-space-xs);
+}
+
+.cmp-dc-rotating__item { opacity: 0.55; transition: opacity 200ms ease; }
+.cmp-dc-rotating__item--active { opacity: 1; }
+
+.cmp-dc-rotating__link {
+    font-family: var(--au-font-serif);
+    font-size: var(--au-fs-h1);
+    color: var(--au-white);
+    text-decoration: none;
+    line-height: var(--au-lh-tight);
+    border-bottom: 3px solid transparent;
+}
+
+.cmp-dc-rotating__item--active .cmp-dc-rotating__link,
+.cmp-dc-rotating__link:hover,
+.cmp-dc-rotating__link:focus-visible {
+    color: var(--au-gold);
+    border-bottom-color: var(--au-red);
+}
+
+@media (max-width: 640px) {
+    .cmp-dc-rotating__prefix { font-size: var(--au-fs-h3); }
+    .cmp-dc-rotating__link { font-size: var(--au-fs-h2); }
+    .cmp-dc-rotating__inner { padding-left: var(--au-space-md); }
+}

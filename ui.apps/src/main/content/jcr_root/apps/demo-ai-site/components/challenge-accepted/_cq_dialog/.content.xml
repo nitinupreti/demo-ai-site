@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Challenge Accepted"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured"
+             sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <col jcr:primaryType="nt:unstructured"
+                 sling:resourceType="granite/ui/components/coral/foundation/container">
+                <items jcr:primaryType="nt:unstructured">
+                    <heading jcr:primaryType="nt:unstructured"
+                             sling:resourceType="cq/gui/components/authoring/dialog/richtext"
+                             fieldLabel="Heading (rich text)" name="./heading"
+                             useFixedInlineToolbar="{Boolean}true"/>
+                    <ctas jcr:primaryType="nt:unstructured"
+                          sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                          composite="{Boolean}true"
+                          fieldLabel="Primary CTAs">
+                        <field jcr:primaryType="nt:unstructured"
+                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                               name="./ctas">
+                            <items jcr:primaryType="nt:unstructured">
+                                <label jcr:primaryType="nt:unstructured"
+                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                       fieldLabel="Label" name="./label"/>
+                                <link jcr:primaryType="nt:unstructured"
+                                      sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                      fieldLabel="Link" name="./link" rootPath="/content"/>
+                            </items>
+                        </field>
+                    </ctas>
+                    <audienceHeading jcr:primaryType="nt:unstructured"
+                                     sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                     fieldLabel="Audience picker heading" name="./audienceHeading"/>
+                    <audiences jcr:primaryType="nt:unstructured"
+                               sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                               composite="{Boolean}true"
+                               fieldLabel="Audience options">
+                        <field jcr:primaryType="nt:unstructured"
+                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                               name="./audiences">
+                            <items jcr:primaryType="nt:unstructured">
+                                <label jcr:primaryType="nt:unstructured"
+                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                       fieldLabel="Label" name="./label"/>
+                                <link jcr:primaryType="nt:unstructured"
+                                      sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                      fieldLabel="Link" name="./link" rootPath="/content"/>
+                            </items>
+                        </field>
+                    </audiences>
+                    <image jcr:primaryType="nt:unstructured"
+                           sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                           fieldLabel="Side image" name="./image" rootPath="/content/dam"/>
+                    <imageAlt jcr:primaryType="nt:unstructured"
+                              sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                              fieldLabel="Image alt text" name="./imageAlt"/>
+                </items>
+            </col>
+        </items>
+    </content>
+</jcr:root>

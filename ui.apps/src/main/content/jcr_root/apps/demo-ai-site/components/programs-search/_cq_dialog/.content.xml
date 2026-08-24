@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Programs Search"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Properties"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <col jcr:primaryType="nt:unstructured"
+                                 sling:resourceType="granite/ui/components/coral/foundation/container">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <heading jcr:primaryType="nt:unstructured"
+                                             sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                             fieldLabel="Section heading" name="./heading"/>
+                                    <statNumber jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Stat highlight (e.g. 91%)" name="./statNumber"/>
+                                    <statLabel jcr:primaryType="nt:unstructured"
+                                               sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                               fieldLabel="Stat description" name="./statLabel"/>
+                                    <searchLabel jcr:primaryType="nt:unstructured"
+                                                 sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                 fieldLabel="Search field label" name="./searchLabel"/>
+                                    <searchPlaceholder jcr:primaryType="nt:unstructured"
+                                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                       fieldLabel="Search placeholder" name="./searchPlaceholder"/>
+                                    <browseHeading jcr:primaryType="nt:unstructured"
+                                                   sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                   fieldLabel="Browse-by heading" name="./browseHeading"/>
+                                    <pills jcr:primaryType="nt:unstructured"
+                                           sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                           composite="{Boolean}true"
+                                           fieldLabel="Browse-by pills">
+                                        <field jcr:primaryType="nt:unstructured"
+                                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                                               name="./pills">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <label jcr:primaryType="nt:unstructured"
+                                                       sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                       fieldLabel="Label" name="./label"/>
+                                                <link jcr:primaryType="nt:unstructured"
+                                                      sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                      fieldLabel="Link" name="./link" rootPath="/content"/>
+                                            </items>
+                                        </field>
+                                    </pills>
+                                    <schools jcr:primaryType="nt:unstructured"
+                                             sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                             composite="{Boolean}true"
+                                             fieldLabel="Schools">
+                                        <field jcr:primaryType="nt:unstructured"
+                                               sling:resourceType="granite/ui/components/coral/foundation/container"
+                                               name="./schools">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <name jcr:primaryType="nt:unstructured"
+                                                      sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                      fieldLabel="School name" name="./name"/>
+                                                <link jcr:primaryType="nt:unstructured"
+                                                      sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                      fieldLabel="School link" name="./link" rootPath="/content"/>
+                                            </items>
+                                        </field>
+                                    </schools>
+                                </items>
+                            </col>
+                        </items>
+                    </properties>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Component"
+    jcr:title="News Cards"
+    jcr:description="3-column news teaser grid with image, headline, description, and Read More link."
+    componentGroup="Demo AI Site - Content"/>

@@ -1,0 +1,18 @@
+<sly data-sly-use.model="com.demo.core.models.RankingsStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.rankings-strip'}"/>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="${'Rankings Strip: add rankings.' @ i18n}"></div>
+</sly>
+<section data-sly-test="${model.hasContent}" class="cmp-rankings-strip">
+    <div class="cmp-rankings-strip__inner">
+        <h2 data-sly-test="${model.heading}" class="cmp-rankings-strip__heading">${model.heading}</h2>
+        <ul class="cmp-rankings-strip__list" data-sly-list.item="${model.rankings}">
+            <li class="cmp-rankings-strip__item">
+                <div class="cmp-rankings-strip__rank" data-sly-test="${item.rank}">${item.rank}</div>
+                <div class="cmp-rankings-strip__description" data-sly-test="${item.description}">${item.description}</div>
+                <div class="cmp-rankings-strip__source" data-sly-test="${item.source}">${item.source}</div>
+            </li>
+        </ul>
+    </div>
+</section>

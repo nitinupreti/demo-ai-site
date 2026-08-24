@@ -1,0 +1,73 @@
+.cmp-rankings-strip {
+    background: repeating-linear-gradient(
+        36deg,
+        var(--au-cloud),
+        var(--au-cloud) 15px,
+        var(--au-stripe) 17px,
+        var(--au-stripe) 18px
+    );
+    color: var(--au-navy);
+    padding: var(--au-space-xl) var(--au-gutter);
+}
+
+.cmp-rankings-strip__inner {
+    max-width: var(--au-container-max);
+    margin: 0 auto;
+}
+
+.cmp-rankings-strip__heading {
+    font-family: var(--au-font-heading);
+    font-size: var(--au-fs-h2);
+    font-weight: 800;
+    color: var(--au-navy);
+    text-align: center;
+    margin: 0 0 var(--au-space-lg) 0;
+}
+
+.cmp-rankings-strip__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--au-space-lg);
+}
+
+.cmp-rankings-strip__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--au-space-xs);
+    padding: var(--au-space-md);
+    background: var(--au-cloud);
+    border-top: 3px solid var(--au-red);
+    box-shadow: var(--au-shadow-card);
+}
+
+.cmp-rankings-strip__rank {
+    font-family: var(--au-font-heading);
+    font-size: var(--au-fs-display);
+    font-weight: 800;
+    letter-spacing: var(--au-ls-display);
+    color: var(--au-navy);
+    line-height: 1;
+}
+
+.cmp-rankings-strip__description {
+    font-size: var(--au-fs-body);
+    color: var(--au-charcoal);
+    line-height: var(--au-lh-body);
+}
+
+.cmp-rankings-strip__source {
+    font-size: var(--au-fs-eyebrow);
+    text-transform: uppercase;
+    letter-spacing: var(--au-ls-eyebrow);
+    color: var(--au-slate);
+}
+
+@media (max-width: 1024px) {
+    .cmp-rankings-strip__list { grid-template-columns: repeat(2, 1fr); gap: var(--au-space-md); }
+}
+@media (max-width: 640px) {
+    .cmp-rankings-strip__list { grid-template-columns: 1fr; }
+}
