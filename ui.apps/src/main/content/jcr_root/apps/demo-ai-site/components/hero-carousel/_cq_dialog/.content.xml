@@ -116,6 +116,17 @@
                             <light jcr:primaryType="nt:unstructured" text="Light" value="light"/>
                         </items>
                     </theme>
+                    <style
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                        fieldLabel="Layout style"
+                        fieldDescription="Full-bleed treats the first slide image as an edge-to-edge background with overlay text."
+                        name="./style">
+                        <items jcr:primaryType="nt:unstructured">
+                            <default jcr:primaryType="nt:unstructured" text="Default (image beside content)" value="default" selected="{Boolean}true"/>
+                            <fullBleed jcr:primaryType="nt:unstructured" text="Full-bleed (image as background)" value="full-bleed"/>
+                        </items>
+                    </style>
                 </items>
             </style>
         </items>

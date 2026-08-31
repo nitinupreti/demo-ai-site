@@ -11,8 +11,11 @@
     <div class="cmp-impact-strip__overlay"></div>
     <div class="cmp-impact-strip__inner">
         <div class="cmp-impact-strip__body">
-            <p class="cmp-impact-strip__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
             <h2 class="cmp-impact-strip__title">${model.title}</h2>
+            <a class="cmp-impact-strip__cta" data-sly-test="${model.eyebrow}" href="#">
+                <span>${model.eyebrow}</span>
+                <svg width="20" height="12" viewBox="0 0 20 12" fill="none" aria-hidden="true"><path d="M13.5 1l5 5-5 5M1 6h17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
         </div>
         <ul class="cmp-impact-strip__stats" data-sly-test="${model.stats.size > 0}">
             <li class="cmp-impact-strip__stat"

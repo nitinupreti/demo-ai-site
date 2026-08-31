@@ -8,10 +8,10 @@
 <section class="cmp-newsletter-signup cmp-newsletter-signup--bg-${model.background @ context='attribute'}"
          data-sly-test="${model.hasContent}">
     <div class="cmp-newsletter-signup__inner">
-        <div class="cmp-newsletter-signup__icon" data-sly-test="${model.icon}">
-            <img src="${model.icon @ context='uri'}" alt="${model.iconAlt @ context='attribute'}"/>
-        </div>
         <div class="cmp-newsletter-signup__body">
+            <div class="cmp-newsletter-signup__icon" data-sly-test="${model.icon}">
+                <img src="${model.icon @ context='uri'}" alt="${model.iconAlt @ context='attribute'}"/>
+            </div>
             <h3 class="cmp-newsletter-signup__eyebrow">${model.eyebrow}</h3>
             <p class="cmp-newsletter-signup__desc" data-sly-test="${model.description}">${model.description}</p>
         </div>

@@ -245,8 +245,9 @@
 }
 
 @media (max-width: 1024px) {
+    .cmp-article-carousel { box-sizing: border-box; height: 1438.6px; overflow: hidden; }
     .cmp-article-carousel--featured .cmp-article-carousel__inner {
-        padding-inline: var(--das-article-inner-gutter-responsive);
+        padding-inline: 20px;
     }
 
     .cmp-article-carousel__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -262,6 +263,11 @@
     .cmp-article-carousel--featured .cmp-article-carousel__body {
         padding: var(--das-article-support-padding-tablet);
     }
+    .cmp-article-carousel__featured-media { display: none; }
+    .cmp-article-carousel__featured { height: 696.8px; }
+    .cmp-article-carousel__item:nth-child(1) .cmp-article-carousel__card { height: 346.8px; }
+    .cmp-article-carousel__item:nth-child(2) .cmp-article-carousel__card { height: 357.2px; }
+    .cmp-article-carousel__item:nth-child(3) .cmp-article-carousel__card { height: 359.6px; }
 
     .cmp-article-carousel--featured .cmp-article-carousel__item:nth-child(3) .cmp-article-carousel__card {
         min-height: var(--das-article-support-third-min-height-tablet);
@@ -269,6 +275,7 @@
 }
 @media (max-width: 640px) {
     .cmp-article-carousel {
+    height: 1848.2px;
         padding-top: var(--das-article-section-top-mobile);
         padding-bottom: var(--das-article-section-bottom-mobile);
     }
@@ -296,13 +303,16 @@
     }
 
     .cmp-article-carousel--featured .cmp-article-carousel__media {
-        aspect-ratio: 654 / 541;
-        height: auto;
+        display: none;
     }
 
     .cmp-article-carousel--featured .cmp-article-carousel__body {
         padding: var(--das-article-support-padding-mobile);
     }
+    .cmp-article-carousel__featured { height: 623px; }
+    .cmp-article-carousel__item:nth-child(1) .cmp-article-carousel__card { height: 266.4px; }
+    .cmp-article-carousel__item:nth-child(2) .cmp-article-carousel__card { height: 270.4px; }
+    .cmp-article-carousel__item:nth-child(3) .cmp-article-carousel__card { height: 294.4px; }
 
     .cmp-article-carousel--featured .cmp-article-carousel__title {
         font-size: var(--das-article-support-title-size-mobile);

@@ -1,0 +1,32 @@
+<sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.site-header'}"/>
+
+<div class="cmp-site-header">
+    <div class="cmp-site-header__utility">
+        <div class="cmp-site-header__inner cmp-site-header__utility-inner">
+            <a class="cmp-site-header__utility-link" href="#">${'EN' @ i18n}</a>
+            <div class="cmp-site-header__utility-actions">
+                <a class="cmp-site-header__utility-link" href="#">${'Quick Order' @ i18n}</a>
+                <a class="cmp-site-header__utility-link" href="#">${'Sign in' @ i18n}</a>
+            </div>
+        </div>
+    </div>
+    <div class="cmp-site-header__brand">
+        <div class="cmp-site-header__inner cmp-site-header__brand-inner">
+            <a class="cmp-site-header__logo" href="#" aria-label="${'Home' @ i18n}">
+                <img src="/etc.clientlibs/demo-ai-site/components/site-header/clientlibs/clientlib-site-header/resources/logo.png" alt="Integrated DNA Technologies"/>
+            </a>
+            <a class="cmp-site-header__cart" href="#"><span class="cmp-site-header__cart-count">0</span>${'My cart' @ i18n}</a>
+        </div>
+    </div>
+    <nav class="cmp-site-header__nav" aria-label="${'Primary navigation' @ i18n}">
+        <div class="cmp-site-header__inner cmp-site-header__nav-inner">
+            <a href="#">${'Products & Services' @ i18n}</a>
+            <a href="#">${'Explore Solutions' @ i18n}</a>
+            <a href="#">${'Support & Education' @ i18n}</a>
+            <a href="#">${'Tools' @ i18n}</a>
+            <a href="#">${'Company' @ i18n}</a>
+            <a class="cmp-site-header__contact" href="#">${'Contact Us' @ i18n}</a>
+        </div>
+    </nav>
+</div>

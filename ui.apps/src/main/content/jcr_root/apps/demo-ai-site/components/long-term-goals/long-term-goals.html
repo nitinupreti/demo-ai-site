@@ -1,0 +1,36 @@
+<!--/*
+    Long-term Goals - dark gradient panel with eyebrow, two goal cards, heading, body copy, and image.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.LongTermGoalsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.long-term-goals'}"/>
+
+<section class="cmp-long-term-goals" data-sly-test="${model.hasContent}">
+    <div class="cmp-long-term-goals__inner">
+        <p class="cmp-long-term-goals__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+
+        <ul class="cmp-long-term-goals__goals" data-sly-test="${model.goals.size}">
+            <li class="cmp-long-term-goals__goal" data-sly-repeat.goal="${model.goals}" data-index="${goalList.index}">
+                <span class="cmp-long-term-goals__check" aria-hidden="true">
+                    <img data-sly-test="${model.checkIcon}" src="${model.checkIcon @ context='uri'}" alt=""/>
+                    <svg data-sly-test="${!model.checkIcon}" width="60" height="58" viewBox="0 0 60 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 32 L22 46 L54 12" stroke="#37B34A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <p class="cmp-long-term-goals__goal-text">${goal.text}</p>
+            </li>
+        </ul>
+
+        <h2 class="cmp-long-term-goals__heading" data-sly-test="${model.heading}">${model.heading}</h2>
+        <div class="cmp-long-term-goals__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+
+        <figure class="cmp-long-term-goals__media" data-sly-test="${model.image}">
+            <img src="${model.image @ context='uri'}" alt="${model.imageAlt @ context='attribute'}" loading="lazy"/>
+        </figure>
+    </div>
+</section>
+
+<div class="cmp-long-term-goals cmp-long-term-goals--empty"
+     data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <p>${'Long-term Goals is empty. Add an eyebrow, at least one goal, or a heading.' @ i18n}</p>
+</div>

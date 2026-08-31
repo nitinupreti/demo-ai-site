@@ -1,0 +1,120 @@
+header.experiencefragment:has(.cmp-site-header) {
+    padding: 0;
+    border: 0;
+}
+
+.cmp-site-header {
+    width: 100%;
+    height: 225.85px;
+    font-family: var(--das-font-display);
+    color: var(--das-color-brand-darker);
+}
+
+.cmp-site-header__inner {
+    box-sizing: border-box;
+    width: min(1360px, calc(100% - 40px));
+    height: 100%;
+    margin: 0 auto;
+}
+
+.cmp-site-header__utility {
+    height: 38px;
+    background: var(--das-color-brand-darker);
+    color: var(--das-color-text-inverse);
+}
+
+.cmp-site-header__utility-inner,
+.cmp-site-header__utility-actions,
+.cmp-site-header__brand-inner,
+.cmp-site-header__nav-inner {
+    display: flex;
+    align-items: center;
+}
+
+.cmp-site-header__utility-inner,
+.cmp-site-header__brand-inner {
+    justify-content: space-between;
+}
+
+.cmp-site-header__utility-actions {
+    gap: 40px;
+}
+
+.cmp-site-header__utility-link {
+    color: inherit;
+    font-size: 15px;
+    line-height: 22px;
+    text-decoration: none;
+}
+
+.cmp-site-header__brand {
+    height: 131.45px;
+    background: var(--das-color-surface);
+}
+
+.cmp-site-header__logo {
+    width: 208px;
+    height: 58.65px;
+}
+
+.cmp-site-header__logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.cmp-site-header__cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 173px;
+    height: 56px;
+    color: var(--das-color-brand-darker);
+    font-size: 16px;
+    text-decoration: none;
+}
+
+.cmp-site-header__cart-count {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--das-color-brand);
+    color: var(--das-color-text-inverse);
+}
+
+.cmp-site-header__nav {
+    box-sizing: border-box;
+    height: 56.4px;
+    background: var(--das-color-surface);
+    border-top: 1px solid var(--das-color-border);
+}
+
+.cmp-site-header__nav-inner {
+    justify-content: space-between;
+}
+
+.cmp-site-header__nav a {
+    color: var(--das-color-brand-darker);
+    font-size: 16px;
+    font-weight: var(--das-fw-semibold);
+    text-decoration: none;
+}
+
+.cmp-site-header__contact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 118px;
+    height: 40px;
+    border: 1px solid var(--das-color-brand-darker);
+}
+
+@media (max-width: 1024px) {
+    .cmp-site-header { height: 153.5875px; }
+    .cmp-site-header__utility { height: 38px; }
+    .cmp-site-header__brand { height: 115.5875px; }
+    .cmp-site-header__nav { display: none; }
+    .cmp-site-header__utility-actions a:last-child { display: none; }
+}

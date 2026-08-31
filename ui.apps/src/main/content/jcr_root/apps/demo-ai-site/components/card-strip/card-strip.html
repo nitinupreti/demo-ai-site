@@ -6,6 +6,7 @@
 <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.card-strip'}"/>
 
 <section class="cmp-card-strip cmp-card-strip--bg-${model.background @ context='attribute'}"
+         data-cmp-is="card-strip"
          data-sly-test="${model.hasContent}">
     <div class="cmp-card-strip__inner">
         <p class="cmp-card-strip__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
@@ -27,6 +28,11 @@
                 </article>
             </li>
         </ul>
+        <div class="cmp-card-strip__nav" data-sly-test="${model.cards.size > 1}">
+            <button class="cmp-card-strip__nav-button" type="button" data-cmp-hook-card-strip="prev" aria-label="${'Previous item' @ i18n}">&#8249;</button>
+            <button class="cmp-card-strip__nav-button" type="button" data-cmp-hook-card-strip="next" aria-label="${'Next item' @ i18n}">&#8250;</button>
+            <span class="cmp-card-strip__counter" data-cmp-hook-card-strip="counter">1 / ${model.cards.size}</span>
+        </div>
     </div>
 </section>
 

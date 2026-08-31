@@ -1,5 +1,7 @@
 .cmp-newsletter-signup {
-    padding: var(--das-space-8) 0 var(--das-space-6);
+    box-sizing: border-box;
+    height: 458.6px;
+    padding: 30px 0 100px;
     background: var(--das-color-surface);
 }
 
@@ -8,31 +10,38 @@
 .cmp-newsletter-signup--bg-dark  { background: var(--das-color-brand-dark); color: var(--das-color-text-inverse); }
 
 .cmp-newsletter-signup__inner {
-    max-width: var(--das-container-narrow);
+    box-sizing: border-box;
+    width: min(1360px, calc(100% - 40px));
+    max-width: none;
+    height: 328.6px;
     margin: 0 auto;
-    padding: 0 var(--das-gutter);
+    padding: 74px 120px 72px;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--das-space-3);
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--das-color-brand-darker);
 }
+
+.cmp-newsletter-signup__body { width: 728px; }
 
 .cmp-newsletter-signup__icon {
     display: inline-flex;
-    height: 22px;
+    width: 179px;
+    height: 16px;
     align-items: center;
     justify-content: flex-start;
-    margin-bottom: var(--das-space-3);
+    margin-bottom: 18px;
 }
 
-.cmp-newsletter-signup__icon img { height: 100%; max-height: 22px; width: auto; display: block; }
+.cmp-newsletter-signup__icon img { width: 100%; height: 100%; display: block; object-fit: contain; }
 
 .cmp-newsletter-signup__eyebrow {
     font-family: var(--das-font-display);
-    font-size: 1.375rem;
+    font-size: 48px;
     font-weight: var(--das-fw-semibold);
-    line-height: var(--das-lh-snug);
-    margin: 0;
+    line-height: normal;
+    margin: 0 0 11px;
     color: var(--das-color-text);
 }
 
@@ -42,6 +51,7 @@
     font-family: var(--das-font-sans);
     font-size: var(--das-fs-body);
     color: var(--das-color-text);
+    line-height: 25.6px;
     margin: 0;
     max-width: 620px;
 }
@@ -51,19 +61,38 @@
 .cmp-newsletter-signup__cta {
     display: inline-flex;
     align-items: center;
-    gap: var(--das-space-2);
+    box-sizing: border-box;
+    justify-content: space-between;
+    width: 170.225px;
+    height: 64px;
+    gap: 8px;
+    padding: 17px 25px;
+    background: linear-gradient(94deg, var(--das-color-cta-grad-start) 7%, var(--das-color-cta-grad-end) 102%);
     font-family: var(--das-font-display);
-    font-size: 0.8125rem;
-    font-weight: var(--das-fw-bold);
-    letter-spacing: 0.1em;
-    color: var(--das-color-brand);
+    font-size: 15px;
+    font-weight: var(--das-fw-semibold);
+    line-height: 30px;
+    letter-spacing: 1.05px;
+    color: var(--das-color-cta-text);
     text-transform: uppercase;
     text-decoration: none;
-    margin-top: var(--das-space-3);
+    margin-top: 0;
+    border-radius: var(--das-radius-sm);
 }
 
 .cmp-newsletter-signup__cta:hover,
 .cmp-newsletter-signup__cta:focus-visible { text-decoration: underline; }
+
+@media (max-width: 1024px) {
+    .cmp-newsletter-signup { height: 460.2px; padding: 48px 0; }
+    .cmp-newsletter-signup__inner { width: calc(100% - 40px); height: auto; padding: 48px 32px; flex-direction: column; align-items: flex-start; gap: 32px; }
+    .cmp-newsletter-signup__body { width: 100%; }
+    .cmp-newsletter-signup__eyebrow { font-size: 32px; }
+}
+
+@media (max-width: 640px) {
+    .cmp-newsletter-signup { height: 490.2px; }
+}
 
 .cmp-newsletter-signup--empty {
     padding: var(--das-space-6);

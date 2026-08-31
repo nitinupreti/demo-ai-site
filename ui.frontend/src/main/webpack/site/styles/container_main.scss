@@ -4,3 +4,16 @@
 main.container {
     padding: .5em 1em;
 }
+
+main.container:has(.cmp-hero-carousel--has-bg-video) {
+    padding: 0;
+
+    > .cmp-container > .aem-Grid > .title:first-child {
+        display: none;
+    }
+}
+
+body:has(main .cmp-site-header) header.experiencefragment:not(:has(.cmp-site-header)),
+body:has(main .cmp-site-footer) footer.experiencefragment:not(:has(.cmp-site-footer)) {
+    display: none;
+}

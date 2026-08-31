@@ -5,7 +5,7 @@
      data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
 <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.cmp.hero-carousel'}"/>
 
-<section class="cmp-hero-carousel cmp-hero-carousel--theme-${model.theme @ context='attribute'} ${model.hasBgVideo ? 'cmp-hero-carousel--has-bg-video' : ''}"
+<section class="cmp-hero-carousel cmp-hero-carousel--theme-${model.theme @ context='attribute'} cmp-hero-carousel--style-${model.style @ context='attribute'} ${model.hasBgVideo ? 'cmp-hero-carousel--has-bg-video' : ''}"
          data-cmp-is="hero-carousel"
          data-cmp-auto-rotate="${model.autoRotate @ context='attribute'}"
          data-sly-test.hasContent="${model.hasContent}">

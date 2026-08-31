@@ -74,7 +74,7 @@
     --das-article-inner-gutter: 16px;
     --das-article-inner-gutter-responsive: 4px;
     --das-article-section-top: 90px;
-    --das-article-section-bottom: 80px;
+    --das-article-section-bottom: 78.8px;
     --das-article-section-top-mobile: 60px;
     --das-article-section-bottom-mobile: 30px;
     --das-article-featured-padding: 20px 0 40px 35px;
@@ -84,6 +84,43 @@
     --das-article-support-min-height: 266px;
     --das-article-support-third-min-height-tablet: 359.6px;
     --das-article-link-border: 1px solid #01B3FF;
+
+    /* Hero and news rail */
+    --das-hero-height: 639.05px;
+    --das-hero-content-top: 125px;
+    --das-hero-content-width: 660px;
+    --das-hero-title-line-height: 91.52px;
+    --das-hero-title-gap: 30px;
+    --das-hero-lead-size: 30px;
+    --das-hero-lead-line-height: 36px;
+    --das-hero-lead-gap: 45px;
+    --das-news-height: 268.2px;
+    --das-news-item-width: 559px;
+    --das-news-item-step: 560px;
+    --das-news-title-size: 22px;
+    --das-news-title-line-height: 25.6px;
+
+    /* Product section */
+    --das-products-heading-top: 104px;
+    --das-products-heading-bottom: 30px;
+    --das-products-heading-line-height: 72.08px;
+    --das-products-grid-width: 1224px;
+    --das-products-card-width: 388px;
+    --das-products-row-gap: 20px;
+    --das-products-column-gap: 30px;
+    --das-products-card-padding: 53px 15px 15px;
+    --das-products-title-size: 27px;
+    --das-products-title-line-height: 33.008px;
+    --das-products-bottom: 120px;
+
+    /* Impact section */
+    --das-impact-height: 750.8px;
+    --das-impact-inner-height: 590.8px;
+    --das-impact-top: 85px;
+    --das-impact-left-column: 520.8px;
+    --das-impact-column-gap: 64px;
+    --das-impact-title-width: 320.025px;
+    --das-impact-stat-step: 161.2px;
 
     --das-lh-tight: 1.05;
     --das-lh-snug: 1.25;

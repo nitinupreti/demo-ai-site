@@ -31,6 +31,10 @@ public class HeroCarouselModel {
     @Default(values = "dark")
     private String theme;
 
+    @ValueMapValue
+    @Default(values = "default")
+    private String style;
+
     @ChildResource
     private List<HeroCarouselSlideModel> slides;
 
@@ -51,6 +55,10 @@ public class HeroCarouselModel {
 
     public String getTheme() {
         return theme;
+    }
+
+    public String getStyle() {
+        return style;
     }
 
     public List<HeroCarouselSlideModel> getSlides() {

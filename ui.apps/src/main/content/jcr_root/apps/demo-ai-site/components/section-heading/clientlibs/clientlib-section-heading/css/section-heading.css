@@ -1,5 +1,5 @@
 .cmp-section-heading {
-    padding: var(--das-space-9) 0 var(--das-space-6);
+    padding: var(--das-products-heading-top) 0 var(--das-products-heading-bottom);
     background: var(--das-color-surface);
 }
 
@@ -26,11 +26,13 @@
     font-family: var(--das-font-display);
     font-size: var(--das-fs-h2);
     font-weight: var(--das-fw-medium);
-    line-height: var(--das-lh-tight);
+    line-height: var(--das-products-heading-line-height);
     color: var(--das-color-text);
     margin: 0;
-    letter-spacing: -0.01em;
-    max-width: 1180px;
+    letter-spacing: 0;
+    box-sizing: border-box;
+    max-width: var(--das-container-max);
+    padding-inline: 136px;
     margin-inline: auto;
 }
 
@@ -54,3 +56,12 @@
 }
 
 @media (max-width: 640px) { .cmp-section-heading { padding: var(--das-space-7) 0 var(--das-space-4); } }
+
+@media (max-width: 1024px) {
+    .cmp-section-heading { box-sizing: border-box; height: 299px; padding: 104px 0 30px; }
+    .cmp-section-heading__heading { padding-inline: 0; }
+}
+
+@media (max-width: 640px) {
+    .cmp-section-heading { height: 191.9125px; padding: 55px 0 0; }
+}

@@ -1,13 +1,15 @@
 .cmp-impact-strip {
     position: relative;
-    padding: var(--das-space-9) 0;
+    box-sizing: border-box;
+    height: var(--das-impact-height);
+    padding: var(--das-impact-top) 0 75px;
     background-color: var(--das-color-brand-dark);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     color: var(--das-color-text-inverse);
     overflow: hidden;
-    min-height: 700px;
+    min-height: 0;
     display: flex;
     align-items: center;
 }
@@ -22,21 +24,26 @@
 .cmp-impact-strip__inner {
     position: relative;
     z-index: 2;
-    max-width: var(--das-container-max);
+    box-sizing: border-box;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 0 var(--das-gutter);
+    padding: 0 20px;
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: var(--das-space-8);
-    align-items: center;
+    grid-template-columns: var(--das-impact-left-column) 1fr;
+    gap: var(--das-impact-column-gap);
+    align-items: start;
+    height: var(--das-impact-inner-height);
 }
 
 .cmp-impact-strip--image-right .cmp-impact-strip__inner {
     grid-template-columns: 1.2fr 1fr;
 }
 
-.cmp-impact-strip__body { max-width: 420px; }
+.cmp-impact-strip__body {
+    max-width: var(--das-impact-left-column);
+    padding-top: 6px;
+}
 
 .cmp-impact-strip__eyebrow {
     font-family: var(--das-font-display);
@@ -55,8 +62,9 @@
     font-weight: var(--das-fw-regular);
     line-height: 1;
     color: var(--das-color-text-inverse);
-    margin: 0;
-    letter-spacing: -0.02em;
+    width: var(--das-impact-title-width);
+    margin: 0 0 60px;
+    letter-spacing: 0;
     word-break: break-word;
 }
 
@@ -64,25 +72,26 @@
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--das-space-8);
-    row-gap: var(--das-space-6);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .cmp-impact-strip__stat {
     display: flex;
     flex-direction: column;
-    gap: var(--das-space-1);
-    padding: var(--das-space-3) 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.25);
+    box-sizing: border-box;
+    gap: 0;
+    height: var(--das-impact-stat-step);
+    padding: 0;
+    border: 0;
 }
 
 .cmp-impact-strip__stat-value {
     font-family: var(--das-font-display);
     font-size: var(--das-fs-stat);
     font-weight: var(--das-fw-regular);
-    line-height: 1;
+    line-height: normal;
     color: var(--das-color-text-inverse);
     white-space: nowrap;
     letter-spacing: -0.01em;
@@ -93,7 +102,25 @@
     font-size: var(--das-fs-body);
     color: var(--das-color-text-inverse);
     opacity: 0.9;
-    line-height: var(--das-lh-snug);
+    line-height: 25.6px;
+}
+
+.cmp-impact-strip__cta {
+    box-sizing: border-box;
+    width: 302.625px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 17px 25px;
+    background: linear-gradient(94deg, var(--das-color-cta-grad-start) 7%, var(--das-color-cta-grad-end) 102%);
+    color: var(--das-color-cta-text);
+    font-family: var(--das-font-display);
+    font-size: 15px;
+    font-weight: var(--das-fw-semibold);
+    line-height: 30px;
+    letter-spacing: 1.05px;
+    text-decoration: none;
+    border-radius: var(--das-radius-sm);
 }
 
 .cmp-impact-strip--empty {
@@ -110,10 +137,20 @@
     .cmp-impact-strip--image-right .cmp-impact-strip__inner {
         grid-template-columns: 1fr;
     }
-    .cmp-impact-strip { padding: var(--das-space-7) 0; min-height: 0; }
+    .cmp-impact-strip { height: 1084.8px; padding: 85px 0 75px; min-height: 0; }
+    .cmp-impact-strip__inner { display: block; height: 924.8px; padding-inline: 20px; }
     .cmp-impact-strip__body { max-width: none; }
+    .cmp-impact-strip__stats { position: absolute; top: 375.6px; left: 20px; }
+    .cmp-impact-strip__stat { height: 150.8px; }
+    .cmp-impact-strip__stat { align-items: flex-start; }
+    .cmp-impact-strip__stat-value { font-size: 80px; line-height: 96.8px; }
 }
 
 @media (max-width: 640px) {
-    .cmp-impact-strip__stats { grid-template-columns: 1fr; gap: var(--das-space-4); }
+    .cmp-impact-strip { height: 1058.6px; padding: 55px 0 80px; }
+    .cmp-impact-strip__inner { height: 923.6px; }
+    .cmp-impact-strip__stats { top: 257.4px; }
+    .cmp-impact-strip__stat { height: 157.8px; }
+    .cmp-impact-strip__stat-value { font-size: 60px; line-height: 72.8px; }
+    .cmp-impact-strip__stat:nth-child(2) { margin-bottom: 30px; }
 }
