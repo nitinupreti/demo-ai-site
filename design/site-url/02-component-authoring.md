@@ -2,6 +2,22 @@
 
 This file owns block decomposition, reuse tiers, component contracts, author experience, and authored content.
 
+## Stage Execution Contract
+
+- Inputs: accepted Stage 1 result, frozen manifests/denominators, project instructions, and the same `run_id`.
+- Execute reuse decisions and implement/author every Stage 1 block. A block absent from the component matrix is a failure.
+- Required outputs: current `design-facts`, reuse decisions, component-file matrix, authorability/color matrices, created/modified file inventory, demo content order, and policy/template changes.
+- Exit gate: every source block has exactly one Tier 1/2/3/4 decision and one complete implementation/authoring row; focused tests for the touched implementation pass.
+
+## Component File Matrix
+
+For every source block, record applicable files or verified reuse:
+
+| Block/instance | Tier | Metadata | Dialog | HTL | Model/children | Clientlib/CSS/JS | Tests | Demo content | Policy | Status |
+|---|---:|---|---|---|---|---|---|---|---|---|
+
+Tier 1 cites reused resources. Tier 2/3 cites inherited resources plus every delta. Tier 4 requires all applicable columns. Headless blocks such as promo marquees are not exempt. `COMPLETE` requires existing files/resources and a deployed-intent mapping for every column.
+
 ## Reuse Decision
 
 Use generic semantic kebab-case names. Brand, campaign, project, version, and Figma-slug names are forbidden. Different appearances of the same concept are variants, not separate components.
@@ -71,3 +87,31 @@ Ignore stored custom hex when the select is not `other`. Verify field visibility
 Place every instance in frozen source order in the best existing editable container. Populate exact content, variants, assets, metadata, and child order; update the existing policy.
 
 Treat create/update/delete/reorder explicitly. After deployment, read live repository JSON and verify resource types, properties, child names/count/order, and runtime DOM order. Do not assume merge-mode packages removed stale values.
+
+## Required Stage Result
+
+Return the orchestrator's required `stage_result` envelope with:
+
+```yaml
+stage_result:
+	stage: 02-component-authoring
+	run_id: <same run_id>
+	status: PASS|FAIL|BLOCKED
+	inputs_consumed: [01-source-discovery:<result-id>]
+	outputs:
+		design_facts: <artifact>
+		reuse_decisions: <artifact>
+		component_file_matrix: <artifact>
+		authorability_matrices: <artifact>
+		changed_files: [<paths>]
+		demo_content_and_policy_map: <artifact>
+	checks:
+		- {name: every_source_block_has_decision, status: PASS|FAIL, evidence: <artifact>}
+		- {name: every_block_file_row_complete, status: PASS|FAIL, evidence: <artifact>}
+		- {name: every_business_value_authorable, status: PASS|FAIL, evidence: <artifact>}
+		- {name: focused_implementation_tests, status: PASS|FAIL, evidence: <command/output>}
+	failures: []
+	next_stage: 03-assets-runtime
+```
+
+Do not return `PASS` when any coverage block lacks a component row, any applicable file is absent, content order differs, or authoring evidence is incomplete.

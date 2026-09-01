@@ -2,6 +2,13 @@
 
 This file owns source readiness, exhaustive block discovery, manifests, and frozen scoring denominators. Complete it before inspecting the target.
 
+## Stage Execution Contract
+
+- Input: `SITE_URL`, breakpoints, evidence directory, and the orchestrator `run_id`.
+- Execute every requirement in this file against the live source. Do not inspect the AEM target during this stage.
+- Required outputs: readiness report, full-page screenshots, `score_manifest`, `coverage_report`, ownership map, source-DOM manifests, responsive/state matrix, media manifest, metadata, and frozen scoring denominators.
+- Exit gate: every breakpoint is ready, every discovery signal ran, every visible candidate is claimed exactly once, and no `UNCLAIMED` gap is 20 CSS px or more.
+
 ## Readiness At Every Breakpoint
 
 1. Set the viewport and assert `window.innerWidth` exactly. Record DPR and `visualViewport.scale`.
@@ -68,3 +75,31 @@ Computed-style capture includes typography, all color properties, background ima
 - Media/interaction 5%: media class, asset, fit/aspect, controls, initial state, transitions.
 
 N/A is permitted only when source evidence proves the role/property absent.
+
+## Required Stage Result
+
+Return the orchestrator's required `stage_result` envelope with:
+
+```yaml
+stage_result:
+	stage: 01-source-discovery
+	run_id: <run_id>
+	status: PASS|FAIL|BLOCKED
+	inputs_consumed: [SITE_URL, breakpoints]
+	outputs:
+		readiness_report: <artifact>
+		score_manifest: <artifact>
+		coverage_report: <artifact>
+		ownership_map: <artifact>
+		dom_state_media_manifests: <artifacts>
+		frozen_denominators: <artifact>
+	checks:
+		- {name: all_breakpoints_ready, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_discovery_signals_executed, status: PASS|FAIL, evidence: <artifact>}
+		- {name: exactly_once_coverage, status: PASS|FAIL, evidence: <artifact>}
+		- {name: no_unclaimed_gap_20px, status: PASS|FAIL, evidence: <artifact>}
+	failures: []
+	next_stage: 02-component-authoring
+```
+
+Do not return `PASS` if an output or check is missing. A user-reported omission invalidates this result and all downstream results.

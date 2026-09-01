@@ -2,6 +2,13 @@
 
 This file owns asset reproducibility, build/deployment order, and deployed runtime validation.
 
+## Stage Execution Contract
+
+- Inputs: accepted Stage 1 and Stage 2 results, file/content matrices, asset URLs, and the same `run_id`.
+- Execute acquisition, focused tests, build, deployment, and live AEM runtime assertions. Reading commands without running them is not execution.
+- Required outputs: asset manifest, command results, deployed package/bundle status, HTTP assertion sweep, repository reconciliation, clientlib evidence, and media decode report.
+- Exit gate: assets are reproducible and decoded; required tests/build/deploy succeed; disabled/author pages, repository data, and clientlibs match Stage 2 intent.
+
 ## Assets And Motion
 
 - Enumerate every visible raster image, SVG/data URI/symbol, icon, logo, CSS background, video/audio/poster, animated image, Lottie/JSON, canvas, font, and embed from source evidence.
@@ -45,3 +52,31 @@ Assert:
 - live authored values equal checked-in intent.
 
 Checked-in files, a successful build, and class-name presence are not deployed evidence.
+
+## Required Stage Result
+
+Return the orchestrator's required `stage_result` envelope with:
+
+```yaml
+stage_result:
+	stage: 03-assets-runtime
+	run_id: <same run_id>
+	status: PASS|FAIL|BLOCKED
+	inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>]
+	outputs:
+		asset_manifest: <artifact>
+		test_build_deploy_results: <artifact>
+		runtime_assertion_sweep: <artifact>
+		repository_reconciliation: <artifact>
+		clientlib_and_media_report: <artifact>
+	checks:
+		- {name: assets_reachable_and_decoded, status: PASS|FAIL, evidence: <artifact>}
+		- {name: focused_tests_and_reactor_build, status: PASS|FAIL, evidence: <commands/output>}
+		- {name: packages_and_bundles_active, status: PASS|FAIL, evidence: <artifact>}
+		- {name: disabled_and_author_runtime_valid, status: PASS|FAIL, evidence: <artifact>}
+		- {name: live_repository_matches_intent, status: PASS|FAIL, evidence: <artifact>}
+	failures: []
+	next_stage: 04-visual-parity
+```
+
+Return `FAIL` and remediate when any command, HTTP assertion, asset, bundle, content row, or runtime check fails. Use `BLOCKED` only for an external prerequisite that cannot be repaired in the run.

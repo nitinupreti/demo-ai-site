@@ -2,6 +2,13 @@
 
 This file owns component scoring, exact checks, screenshots, interaction comparison, anti-gaming rules, and remediation. Run it in the same turn as every appearance/behavior deploy.
 
+## Stage Execution Contract
+
+- Inputs: accepted Stages 1-3 results, frozen denominators, deployed target URLs, and the same `run_id`.
+- Execute the full Playwright comparison at every breakpoint for every block/instance. Do not substitute CSS declarations or selected properties for rendered evidence.
+- Required outputs: readiness matrix, per-instance geometry/property/interaction tables, full and component screenshots, side-by-side/diff artifacts, scores, remediation history, and final minima/composites.
+- Exit gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 95% at every breakpoint.
+
 ## Readiness And Scope
 
 Use real Playwright/Chromium for the frozen source, disabled target, and author target at every required breakpoint. Assert identical CSS viewport, DPR/scale, font readiness, media decode, motion state, and stable geometry before capture. Invalid readiness blocks scoring.
@@ -33,13 +40,24 @@ Section and CTA background/foreground/border/radius mismatches are hard failures
 
 At every breakpoint:
 
-1. In source and target, clear hover, trigger lazy loading, freeze animation for static capture, and scroll the homologous component root into view.
-2. Save full-page source and target screenshots.
-3. Save source and target region screenshots for every component instance at identical CSS dimensions and native DPR.
-4. Produce labeled side-by-side images and pixel-diff masks.
-5. Record matched pixels, differing pixels, total pixels, and `visualMatchPercent`.
+1. Use Playwright to navigate one page to the exact live `SITE_URL` and a second page to the deployed AEM disabled URL. Record both final URLs after redirects. A local copy, cached historical image, CSS preview, or authored mock is not a source substitute.
+2. In source and target, assert the requested `window.innerWidth`, DPR, `visualViewport.scale`, font/media readiness, and stable homologous component roots; clear hover, trigger lazy loading, freeze animation for static capture, and scroll the roots into equivalent positions.
+3. Save full-page source and target screenshots from Playwright in the current run.
+4. Save source and target region screenshots for every component instance at identical CSS dimensions and native DPR. Source crop is always the live-site instance; target crop is always the corresponding deployed AEM instance.
+5. Produce a labeled side-by-side image with `LIVE SITE` on the left and `AEM` on the right, plus a pixel-diff mask derived from those exact two files.
+6. Validate both crops before scoring: non-empty, not mostly uniform/blank, expected component text/media present, matching viewport/DPR, matching homologous instance IDs, and comparable dimensions. Emit URL, timestamp, viewport, DPR, file path, byte size, and content-validation result for each crop.
+7. Only after Step 6 passes, record matched pixels, differing pixels, total pixels, and `visualMatchPercent`.
 
 Pixel comparison must use homologous non-blank crops. Reject wrong viewport, empty/mostly background crops, mismatched DPR, stale screenshots, different animation frames, and comparisons dominated by whitespace. Property equality never overrides screenshot failure.
+
+### Score Issuance Gate
+
+- Do not calculate, print, estimate, round, or publish a component score until all required live-site and AEM screenshot artifacts for that component and breakpoint pass screenshot validation.
+- Before validation, report `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`, never a percentage.
+- A component score row must cite the live-site image, AEM image, labeled side-by-side image, diff mask, source/target URLs, viewport, DPR, and pixel counts. Missing any field makes the score invalid and withheld.
+- `visualMatchPercent` reflects rendered pixels only after crop validation. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
+- A valid score `<=95%` is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
+- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly `>95%` and all prerequisite checks pass.
 
 ## Interaction Gate
 
@@ -72,3 +90,33 @@ For each failed component:
 - Missing/broken/un-authored assets, semantic-role substitutions, wrong full-bleed zones, incorrect body font, and missing interactions apply their prescribed hard failures/caps.
 - Do not score a hand-picked subset of properties, blank crops, whitespace, authored CSS declarations without computed evidence, or stale captures.
 - User rejection invalidates prior affected scores and evidence.
+
+## Required Stage Result
+
+Return the orchestrator's required `stage_result` envelope with:
+
+```yaml
+stage_result:
+	stage: 04-visual-parity
+	run_id: <same run_id>
+	status: PASS|FAIL|BLOCKED
+	inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>, 03-assets-runtime:<result-id>]
+	outputs:
+		readiness_matrix: <artifact>
+		geometry_property_interaction_tables: <artifacts>
+		screenshot_and_diff_index: <artifact>
+		per_instance_scores: <artifact>
+		component_minima_and_page_composites: <artifact>
+		remediation_history: <artifact>
+	checks:
+		- {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_screenshot_scores_above_95, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_final_minima_and_composites_above_95, status: PASS|FAIL, evidence: <artifact>}
+	failures: []
+	next_stage: 05-completion-output
+```
+
+Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 95%, or averaged-away failures. Remediate and rerun this stage until it passes.
