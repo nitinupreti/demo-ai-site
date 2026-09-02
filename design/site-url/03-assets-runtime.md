@@ -13,13 +13,15 @@ This file owns asset reproducibility, build/deployment order, and deployed runti
 
 - Enumerate every visible raster image, SVG/data URI/symbol, icon, logo, CSS background, video/audio/poster, animated image, Lottie/JSON, canvas, font, and embed from source evidence.
 - Fetch only exact URLs observed in source DOM, CSS, or network traffic.
-- Store assets reproducibly under project-owned source and deploy them under `/content/dam/<project>/design/` (or the project-specific migration folder consistently).
-- Author DAM paths; never ship remote URLs, data URIs, placeholders, or one substituted asset reused for distinct source slots.
-- Record source URL, local path, DAM path, MIME, bytes, and deployment method.
-- Verify source HEAD (GET fallback), target GET 200, MIME, non-zero bytes, and browser decode.
+- Store assets reproducibly under project-owned source and deploy them under `/content/dam/<site>/<locale>/<role-folder>/<meaningful-name>.<ext>` (never under `apps/.../clientlibs/.../resources/**`; see [02-component-authoring.md](02-component-authoring.md) → "Assets: DAM Placement Rules"). Role-folder convention: `brand/`, `hero/`, `case-studies/`, `insights/`, `partners/`, `industries/`, `video/`, `documents/`, `og/`, `favicons/`.
+- Every authored asset must be referenced from the authored node via a `fileReference` / DAM pathfield in the component dialog, not a hardcoded path in HTL, CSS, or a Sling-model default.
+- Never ship remote URLs, data URIs, placeholder art, or one substituted asset reused for distinct source slots.
+- Record source URL, DAM path, dialog property that points at it (`./<name>Image`, `./<name>Video`, `./<name>Poster`, `./<name>Icon`), MIME, bytes, and deployment method.
+- Verify source HEAD (GET fallback), target GET 200 on the DAM URL, MIME, non-zero bytes, browser decode, and — for images consumed by Core `image` v3 — that the `.coreimg.<width>.<hash>.<ext>` rendition selector returns 200.
 - Preserve media class and source controls. Background video uses playable muted looping inline video when observed. Reduced motion pauses/hides autoplay and exposes its real poster.
+- Structural design-system atoms (grid dividers, decorative geometry, `currentColor`-only icon-system SVGs whose choice authors control via a token/select field) MAY remain under a component clientlib. Their inventory row MUST cite the Stage 1 evidence proving that value is invariant on the live site.
 
-Missing or undecoded media gives Media 0 and caps Content at 80 for the affected instance; remediate before scoring.
+Missing or undecoded media gives Media 0 and caps Content at 80 for the affected instance; remediate before scoring. An authored asset that lives in a component clientlib instead of DAM is a Stage 2 authorability failure, not a Stage 3 remediation option — move it to DAM and re-author, do not paper over it here.
 
 ## Build Order
 
@@ -71,6 +73,7 @@ stage_result:
 		clientlib_and_media_report: <artifact>
 	checks:
 		- {name: assets_reachable_and_decoded, status: PASS|FAIL, evidence: <artifact>}
+		- {name: authored_assets_under_dam_and_bound_via_pathfield, status: PASS|FAIL, evidence: <inventory: source URL → DAM path → dialog property; violations = any authored image/video/logo/poster served from apps/.../clientlibs/.../resources>}
 		- {name: focused_tests_and_reactor_build, status: PASS|FAIL, evidence: <commands/output>}
 		- {name: packages_and_bundles_active, status: PASS|FAIL, evidence: <artifact>}
 		- {name: disabled_and_author_runtime_valid, status: PASS|FAIL, evidence: <artifact>}

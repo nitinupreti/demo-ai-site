@@ -34,6 +34,16 @@ Create one stable `instance_id` per visible block in reading order. Build the ca
 
 If a reviewer identifies an omitted block, invalidate discovery, add it, rerun all signals, and refresh downstream evidence.
 
+### Header And Footer Are Mandatory Blocks
+
+The global site header and the global site footer are **never optional** during discovery. Even when they are visually similar across breakpoints or appear "obvious", they MUST be captured as discrete top-level blocks in the source manifest, coverage report, and score denominators:
+
+- The header is the topmost `header`/`role="banner"` region (or the topmost navigation-family block if no explicit landmark exists) and is the block at `y = 0` of the source coverage report.
+- The footer is the bottommost `footer`/`role="contentinfo"` region (or the bottommost site-info-family block if no explicit landmark exists) and is the block that closes the source coverage report.
+- If either is absent from `SITE_URL`, record `header=absent` or `footer=absent` explicitly with the exact evidence (landmark search, DOM snapshot, screenshot band). Do not silently drop them.
+
+Both regions are subject to the same responsive/state matrix, computed-style capture, media manifest, and screenshot capture as any other block. Any coverage report that finishes with an unclaimed gap at `y = 0` or at `y = document.documentElement.scrollHeight` and has no header/footer row is a hard failure of this stage.
+
 ## Coverage Proof
 
 Emit a `coverage_report` at every breakpoint:
@@ -61,9 +71,18 @@ Before target inspection, retain per breakpoint:
 - responsive/state matrix: layout class, visible order/count, overflow, clipping, controls, pagination, and initial/hover/focus/active states;
 - one complete carousel transition or marquee/ticker animation cycle where applicable;
 - media manifest including resolved network URLs and all relevant media attributes;
-- source metadata: title, description, canonical, and OG values.
+- source metadata: title, description, canonical, and OG values.Computed-style capture includes typography, all color properties, background image, opacity, borders, radius, shadow, display/position, spacing, flex/grid properties, aspect ratio, object fit, overflow, and raw rect geometry. Do not round raw evidence.
 
-Computed-style capture includes typography, all color properties, background image, opacity, borders, radius, shadow, display/position, spacing, flex/grid properties, aspect ratio, object fit, overflow, and raw rect geometry. Do not round raw evidence.
+## Interactive-States Manifest
+
+Hover, focus-visible, active, and any transition-driven state change is first-class evidence, not optional polish. For every visible interactive role — links, buttons, form controls, cards/tiles/list-rows with pointer affordance, media posters with play triggers, floating utilities, disclosure controls, sticky navigation and CTAs — capture, per breakpoint and per state, an `interactive_states_manifest`:
+
+| Role/instance | Selector | Breakpoint | Initial (computed styles + rect) | Hover (computed styles + rect + nested icon/child deltas) | Focus-visible | Active | Transition (property/duration/easing) | Screenshot before/after | Notes |
+|---|---|---:|---|---|---|---|---|---|---|
+
+Use real pointer/keyboard events (`page.hover`, `element.focus()`, `page.keyboard.press('Tab')`) with animations disabled for measurement only after the initial-state snapshot. For any role whose source explicitly opts out of hover on coarse pointers (`@media (hover: none)`), record the opt-out and the alternative treatment (e.g. `:focus-visible` only, tap-triggered class); do not fabricate a hover treatment where source has none. If a role has no state change, record `none` explicitly — silence is a discovery failure, not a pass.
+
+Missing hover/focus/active/transition evidence for any interactive role invalidates the stage; the downstream Interaction Gate in Stage 04 requires each row here to pair 1:1 with a target measurement.
 
 ## Frozen Score Denominators
 
@@ -98,6 +117,8 @@ stage_result:
 		- {name: all_discovery_signals_executed, status: PASS|FAIL, evidence: <artifact>}
 		- {name: exactly_once_coverage, status: PASS|FAIL, evidence: <artifact>}
 		- {name: no_unclaimed_gap_20px, status: PASS|FAIL, evidence: <artifact>}
+		- {name: header_and_footer_captured_or_absent_with_evidence, status: PASS|FAIL, evidence: <landmark search, y=0 and y=documentHeight coverage rows, screenshot bands>}
+		- {name: interactive_states_manifest_complete, status: PASS|FAIL, evidence: <one row per interactive role covering initial/hover/focus/active/transition or explicit `none`>}
 	failures: []
 	next_stage: 02-component-authoring
 ```
