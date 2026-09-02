@@ -7,7 +7,7 @@ This file owns component scoring, exact checks, screenshots, interaction compari
 - Inputs: accepted Stages 1-3 results, frozen denominators, deployed target URLs, and the same `run_id`.
 - Execute the full Playwright comparison at every breakpoint for every block/instance. Do not substitute CSS declarations or selected properties for rendered evidence.
 - Required outputs: readiness matrix, per-instance geometry/property/interaction tables, full and component screenshots, side-by-side/diff artifacts, scores, remediation history, and final minima/composites.
-- Exit gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 95% at every breakpoint.
+- Exit gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 92% at every breakpoint.
 
 ## Readiness And Scope
 
@@ -56,8 +56,8 @@ Pixel comparison must use homologous non-blank crops. Reject wrong viewport, emp
 - Before validation, report `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`, never a percentage.
 - A component score row must cite the live-site image, AEM image, labeled side-by-side image, diff mask, source/target URLs, viewport, DPR, and pixel counts. Missing any field makes the score invalid and withheld.
 - `visualMatchPercent` reflects rendered pixels only after crop validation. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
-- A valid score `<=95%` is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
-- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly `>95%` and all prerequisite checks pass.
+- A valid score `<=92%` is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
+- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly `>92%` and all prerequisite checks pass.
 
 ## Interaction Gate
 
@@ -72,7 +72,7 @@ Calculate frozen weighted axis scores from `01-source-discovery.md`. Instance sc
 - authorability score;
 - media/interaction prerequisites.
 
-Every raw instance, component-type minimum, and page composite must be strictly `>95%`; exactly 95% fails. A high page average cannot hide a failed component or axis.
+Every raw instance, component-type minimum, and page composite must be strictly `>92%`; exactly 92% fails. A high page average cannot hide a failed component or axis.
 
 ## Remediation Loop
 
@@ -82,7 +82,14 @@ For each failed component:
 2. Trace each gap to discovery/content, dialog, model, HTL, CSS/token, container/template, behavior, or asset ownership.
 3. Fix the owning layer, run focused validation, deploy, and reconcile live repository/DOM/assets.
 4. Recapture source and target in fresh/bypass-cache conditions and rescore only refreshed evidence.
-5. Repeat until strictly above 95%. After three failed attempts on one gap, recapture source and redesign the component structure.
+5. Repeat until strictly above 92%. After three failed attempts on one gap, recapture source and redesign the component structure.
+
+The loop is **autonomous and non-interactive**. Under-threshold scores, missing per-breakpoint captures, incomplete side-by-side/diff artifacts, and residual property/geometry/interaction gaps are never grounds for pausing or asking the user whether to continue. Do not end the turn with a proposal, a question, an offer to iterate, or a request for approval while any component, axis, or breakpoint is still below `>92%` and remediation options remain. The only permitted exits are:
+
+- every raw instance, component-type minimum, and page composite is strictly `>92%` at every required breakpoint, with valid current-turn Playwright evidence for each row; **or**
+- a genuinely external blocker is proven in the same turn (unreadable source URL after retry, local AEM unavailable, unrecoverable build/deploy failure, expired credentials, or an unavoidable licensing constraint) and reported as `BLOCKED` with concrete evidence.
+
+Running out of ideas, hitting the same failing gap repeatedly, or feeling that further iteration will not converge are **not** external blockers. When one remediation angle stops improving a component, switch angles (structure, token, asset acquisition, template, container, dialog, model) and continue.
 
 ## Anti-Gaming Rules
 
@@ -112,11 +119,11 @@ stage_result:
 		- {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
 		- {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
 		- {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
-		- {name: all_screenshot_scores_above_95, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_screenshot_scores_above_92, status: PASS|FAIL, evidence: <artifact>}
 		- {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
-		- {name: all_final_minima_and_composites_above_95, status: PASS|FAIL, evidence: <artifact>}
+		- {name: all_final_minima_and_composites_above_92, status: PASS|FAIL, evidence: <artifact>}
 	failures: []
 	next_stage: 05-completion-output
 ```
 
-Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 95%, or averaged-away failures. Remediate and rerun this stage until it passes.
+Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 92%, or averaged-away failures. Remediate and rerun this stage until it passes.

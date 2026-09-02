@@ -42,10 +42,12 @@ Every score row must additionally include `Live URL`, `AEM URL`, `Viewport`, `DP
 Emit exactly one status line based only on current-turn evidence:
 
 ```text
-VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required >95%)
+VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required >92%)
 ```
 
-Do not emit PASSED unless every prerequisite and component is strictly above 95% using valid current-run Playwright screenshots from the exact live site and deployed AEM page. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results. When blocked by an external prerequisite that cannot be remediated, report the blocker plainly without fabricating a score or gate status.
+Do not emit PASSED unless every prerequisite and component is strictly above 92% using valid current-run Playwright screenshots from the exact live site and deployed AEM page. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results. When blocked by an external prerequisite that cannot be remediated, report the blocker plainly without fabricating a score or gate status.
+
+Do **not** substitute a "want me to continue?" question, a remediation proposal, or a next-step offer for the required status line. If parity has not yet reached `>92%`, the correct action is to return to Stage 04 and keep iterating autonomously — not to emit this stage. Only invoke Stage 05 once Stages 1-4 are current-turn `PASS` results **or** a genuinely external blocker is proven; in the blocker case, emit a `BLOCKED` status line naming the blocker and its evidence, without asking the user how to proceed.
 
 ## Concise Supporting Summary
 

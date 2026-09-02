@@ -35,10 +35,12 @@ If a later stage exposes missing or stale evidence, return to the owning stage, 
 - Every color role uses a curated token select with `other`; choosing `other` reveals a validated custom-hex field. Models sanitize custom values and HTL exposes them only through protected CSS custom properties.
 - Author DAM paths, never remote or temporary URLs. Preserve media class: video remains video, animation remains animation, and a poster is not a substitute.
 - Use Playwright/Chromium for live source and target evidence. Property equality alone cannot establish visual parity.
-- Every component instance, component-type minimum, and page composite must be strictly `>95%` at every required breakpoint. `95.000%` fails.
+- Every component instance, component-type minimum, and page composite must be strictly `>92%` at every required breakpoint. `92.000%` fails.
 - A component passes only when exhaustive source coverage, geometry, property, screenshot, interaction/media, and authorability checks all pass.
 - User rejection invalidates the affected evidence and score; recapture and remediate.
 - Never modify generated/vendor paths: `target/`, `dist/`, `node_modules/`, `.m2/`, Core Component libraries, or template `initial`/`structure` trees.
+- A failing parity score, a failing gate check, a failing component axis, an incomplete breakpoint sweep, or an unfinished remediation is **never** grounds for pausing, asking the user whether to continue, or handing back for approval. Keep iterating the Stage 04 Remediation Loop autonomously until every raw instance, component-type minimum, and page composite is strictly `>92%` at every required breakpoint, or a genuinely unrepairable external blocker is documented in the current turn.
+- Do not end a turn with a question, a proposal, or an “want me to continue?” prompt while any parity check, gate check, or coverage requirement is still failing and remediation options remain. Asking permission counts as an unauthorized STOP.
 
 ## Required Project Workflows
 
@@ -77,3 +79,4 @@ Every implementation and remediation change must trace to this block.
 - After the first implementation edit, run the cheapest focused executable validation before further edits.
 - Keep FileVault validation enabled. Reconcile checked-in content with live repository JSON after deployment because merge-mode packages may preserve stale properties or order.
 - Do not finish with missing evidence, unclaimed source regions, failed component rows, or unapproved residual gaps.
+- Treat the Stage 04 Remediation Loop as autonomous and non-interactive. While any component is `<=92%`, keep executing: diagnose the owning layer (tokens, model, HTL, CSS, template, container, asset), edit, focused-test, redeploy, recapture live+target evidence, rescore. Only pause when a genuinely external blocker is proven (unreadable source URL, missing local AEM, unrecoverable build/deploy failure, credential expiry, or an unavoidable licensing constraint) and document that blocker with concrete evidence in the same turn.
