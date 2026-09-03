@@ -5,7 +5,7 @@ This file owns component scoring, exact checks, screenshots, interaction compari
 ## Stage Execution Contract
 
 - Inputs: accepted Stages 1-3 results, frozen denominators, deployed target URLs, and the same `run_id`.
-- Mandatory runner: `evidence/component_parity.py`. It owns full-page capture, dynamic component discovery, source-to-target pairing, per-component crops, geometry score, pixel score, final score, side-by-side images, diff masks, and strict `>92%` screenshot status.
+- Mandatory runner: `design/site-url/component_parity.py`. It owns full-page capture, dynamic component discovery, source-to-target pairing, per-component crops, geometry score, pixel score, final score, side-by-side images, diff masks, and strict `>92%` screenshot status.
 - Execute the full Playwright comparison at every breakpoint for every block/instance. Do not substitute CSS declarations or selected properties for rendered evidence.
 - Required outputs: readiness matrix, per-instance geometry/property/interaction tables, full and component screenshots, side-by-side/diff artifacts, scores, remediation history, and final minima/composites.
 - Exit gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 92% at every breakpoint.
@@ -55,7 +55,7 @@ Execute these steps in order at the start of every Stage 04 session. Each step i
     # From repo root. Safe to re-run.
     if (-not (Test-Path .venv\Scripts\python.exe)) { python -m venv .venv }
     .\.venv\Scripts\python.exe -m pip install --upgrade pip
-    .\.venv\Scripts\python.exe -m pip install -r evidence\requirements.txt
+    .\.venv\Scripts\python.exe -m pip install -r design\site-url\requirements.txt
     .\.venv\Scripts\python.exe -m playwright install chromium
     ```
 
@@ -63,7 +63,7 @@ Execute these steps in order at the start of every Stage 04 session. Each step i
     # macOS / Linux equivalent
     [ -x .venv/bin/python ] || python3 -m venv .venv
     ./.venv/bin/python -m pip install --upgrade pip
-    ./.venv/bin/python -m pip install -r evidence/requirements.txt
+    ./.venv/bin/python -m pip install -r design/site-url/requirements.txt
     ./.venv/bin/python -m playwright install chromium
     ```
 
@@ -96,7 +96,7 @@ Missing Python is never a valid reason to skip Stage 04 or to fall back to visua
 Run from the repository root after Stage 3 deploys the target, with the parity venv activated (see Prerequisites above):
 
 ```powershell
-python evidence/component_parity.py `
+python design/site-url/component_parity.py `
 	--source "<SITE_URL>" `
 	--target "<AEM_DISABLED_URL>" `
 	--target-auth "<user>:<password>" `
