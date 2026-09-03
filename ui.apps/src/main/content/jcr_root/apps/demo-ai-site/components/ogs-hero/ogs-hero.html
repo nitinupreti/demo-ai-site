@@ -1,0 +1,33 @@
+<!--/*
+    OGS hero: heading + rich-text body + right-side looping video.
+    All values authored; DAM path required for the video.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsHeroModel"
+     data-sly-use.tpl="template.html"/>
+<section class="cmp-ogs-hero"
+         data-sly-test.hasContent="${model.heading || model.body || model.videoPath}">
+    <div class="cmp-ogs-hero__inner">
+        <div class="cmp-ogs-hero__text">
+            <h1 class="cmp-ogs-hero__heading"
+                data-sly-test="${model.heading}">${model.heading}</h1>
+            <div class="cmp-ogs-hero__body"
+                 data-sly-test="${model.body}">${model.body @ context='html'}</div>
+        </div>
+        <div class="cmp-ogs-hero__media"
+             data-sly-test="${model.videoPath}">
+            <video class="cmp-ogs-hero__video"
+                   src="${model.videoPath}"
+                   aria-label="${model.videoLabel || 'Visual overview'}"
+                   autoplay="autoplay"
+                   muted="muted"
+                   loop="loop"
+                   playsinline="playsinline"
+                   preload="metadata"></video>
+        </div>
+        <div class="cmp-ogs-hero__media cmp-ogs-hero__media--empty"
+             data-sly-test="${!model.videoPath && wcmmode.edit}">
+            <p>Author a video asset from DAM.</p>
+        </div>
+    </div>
+</section>
+<sly data-sly-call="${tpl.placeholder @ isEmpty=!hasContent}"/>

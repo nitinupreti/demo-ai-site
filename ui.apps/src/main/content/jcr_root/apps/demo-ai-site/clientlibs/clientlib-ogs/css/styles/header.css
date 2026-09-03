@@ -1,0 +1,64 @@
+.cmp-ogs-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--ogs-bg-header);
+  padding: 1.25rem var(--ogs-page-x);
+  font-family: var(--ogs-font-body);
+  color: var(--ogs-color-ink);
+}
+.cmp-ogs-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cmp-ogs-header__logo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ogs-color-ink);
+  text-decoration: none;
+}
+.cmp-ogs-header__logo svg { height: 42px; width: auto; }
+.cmp-ogs-header__nav { display: flex; gap: 2.25rem; align-items: center; }
+.cmp-ogs-header__link {
+  color: var(--ogs-color-ink);
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+.cmp-ogs-header__link--active,
+.cmp-ogs-header__link:hover,
+.cmp-ogs-header__link:focus-visible { text-decoration: underline; text-underline-offset: 6px; }
+.cmp-ogs-header__link:hover,
+.cmp-ogs-header__link:focus-visible { color: var(--ogs-color-accent); outline: none; }
+.cmp-ogs-header__cta {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ogs-color-ink);
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+.cmp-ogs-header__cta:hover,
+.cmp-ogs-header__cta:focus-visible {
+  color: var(--ogs-color-accent);
+  outline: none;
+}
+.cmp-ogs-header__toggle { display: none; background: transparent; border: 0; color: var(--ogs-color-ink); cursor: pointer; }
+.cmp-ogs-header__toggle:hover,
+.cmp-ogs-header__toggle:focus-visible { color: var(--ogs-color-accent); outline: none; }
+.cmp-ogs-header__toggle svg { width: 28px; height: 28px; }
+
+@media (max-width: 900px) {
+  .cmp-ogs-header { padding: 1rem var(--ogs-page-x-md); }
+  .cmp-ogs-header__logo svg { height: 34px; }
+  .cmp-ogs-header__nav { display: none; }
+  .cmp-ogs-header__toggle { display: inline-flex; }
+}
+@media (max-width: 480px) {
+  .cmp-ogs-header { padding: 0.875rem var(--ogs-page-x-sm); }
+  .cmp-ogs-header__logo svg { height: 28px; }
+}

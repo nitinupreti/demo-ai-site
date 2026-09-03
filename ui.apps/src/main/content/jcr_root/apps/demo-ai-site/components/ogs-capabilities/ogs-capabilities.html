@@ -1,0 +1,35 @@
+<!--/*
+    OGS capabilities: heading + grid of authored image tiles.
+    Each tile has a DAM image, optional hover image, and a label.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsCapabilitiesModel"/>
+<section class="cmp-ogs-capabilities">
+    <div class="cmp-ogs-capabilities__inner">
+        <h2 class="cmp-ogs-capabilities__heading"
+            data-sly-test="${model.heading}">${model.heading @ context='html'}</h2>
+        <div class="cmp-ogs-capabilities__grid"
+             data-sly-list.tile="${model.tiles}">
+            <div class="cmp-ogs-capabilities__tile">
+                <div class="cmp-ogs-capabilities__thumb"
+                     data-sly-test="${tile.image}">
+                    <img class="cmp-ogs-capabilities__img cmp-ogs-capabilities__img--default"
+                         src="${tile.image}"
+                         alt="${tile.label}"
+                         loading="lazy"/>
+                    <img class="cmp-ogs-capabilities__img cmp-ogs-capabilities__img--hover"
+                         data-sly-test="${tile.hoverImage}"
+                         src="${tile.hoverImage}"
+                         alt=""
+                         aria-hidden="true"
+                         loading="lazy"/>
+                </div>
+                <div class="cmp-ogs-capabilities__label"
+                     data-sly-test="${tile.label}">${tile.label}</div>
+            </div>
+        </div>
+    </div>
+</section>
+<sly data-sly-test="${!model.tiles && !model.heading && wcmmode.edit}">
+    <div class="cq-placeholder cmp-ogs-placeholder"
+         data-emptytext="OGS Capabilities — author tiles"></div>
+</sly>

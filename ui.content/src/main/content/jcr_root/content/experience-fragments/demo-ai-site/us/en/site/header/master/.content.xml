@@ -13,22 +13,25 @@
             jcr:primaryType="nt:unstructured"
             sling:resourceType="demo-ai-site/components/container"
             layout="simple">
-            <navigation
+            <ogsheader
                 jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/navigation"
-                collectAllPages="false"
-                navigationRoot="/content/demo-ai-site/us/en"
-                skipNavigationRoot="false"
-                structureDepth="1"/>
-            <languagenavigation
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/languagenavigation"
-                navigationRoot="/content/demo-ai-site/us"
-                structureDepth="2"/>
-            <search
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/search"
-                searchRoot="/content/demo-ai-site/us"/>
+                sling:resourceType="demo-ai-site/components/ogs-site-header"
+                logoLink="/content/demo-ai-site/us/en/ogs.html"
+                ctaLabel="Careers"
+                ctaLink="https://careers.omnicomglobalsolutions.com">
+                <navItems jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        label="Home"
+                        link="/content/demo-ai-site/us/en/ogs.html"
+                        active="true"/>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        label="About OGS"
+                        link="/content/demo-ai-site/us/en/ogs/life-at-ogs.html"/>
+                </navItems>
+            </ogsheader>
         </root>
     </jcr:content>
 </jcr:root>
+

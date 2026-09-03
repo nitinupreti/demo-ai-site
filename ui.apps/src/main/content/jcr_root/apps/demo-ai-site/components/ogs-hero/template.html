@@ -1,0 +1,9 @@
+<!--/*
+    Reusable edit-mode placeholder used by ogs-* components.
+*/-->
+<template data-sly-template.placeholder="${@ isEmpty}">
+    <sly data-sly-test="${wcmmode.edit && isEmpty}">
+        <div class="cq-placeholder cmp-ogs-placeholder"
+             data-emptytext="${resource.resourceType @ i18n}"></div>
+    </sly>
+</template>

@@ -1,0 +1,27 @@
+<!--/*
+    OGS media band: full-bleed background image with centered play CTA.
+    The overlay title (e.g. "NEXT") is baked into the source background image;
+    do not render authored text on top or it will appear twice.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsMediaBandModel"/>
+<section class="cmp-ogs-media-band"
+         data-sly-test="${model.imagePath || model.overlayTitle}">
+    <div class="cmp-ogs-media-band__inner">
+        <img class="cmp-ogs-media-band__bg"
+             data-sly-test="${model.imagePath}"
+             src="${model.imagePath}"
+             alt="${model.imageAlt}"
+             loading="lazy"/>
+        <a class="cmp-ogs-media-band__play"
+           href="${model.ctaLink || '#'}"
+           aria-label="${model.ctaLabel || 'Play video'}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7z" fill="currentColor"/>
+            </svg>
+        </a>
+    </div>
+</section>
+<sly data-sly-test="${!(model.imagePath || model.overlayTitle) && wcmmode.edit}">
+    <div class="cq-placeholder cmp-ogs-placeholder"
+         data-emptytext="OGS Media Band — author image + overlay"></div>
+</sly>

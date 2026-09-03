@@ -211,7 +211,7 @@
                     jcr:primaryType="nt:unstructured"
                     jcr:title="Page Root"
                     sling:resourceType="wcm/core/components/policy/policy"
-                    components="[group:Demo AI Site - Content,/apps/demo-ai-site/components/form/container,group:Demo AI Site - Structure]">
+                    components="[group:Demo AI Site - Content,group:Demo AI Site - OGS,/apps/demo-ai-site/components/form/container,group:Demo AI Site - Structure]">
                     <jcr:content jcr:primaryType="nt:unstructured"/>
                     <cq:authoring jcr:primaryType="nt:unstructured">
                         <assetToComponentMapping jcr:primaryType="nt:unstructured">
@@ -241,7 +241,7 @@
                     jcr:primaryType="nt:unstructured"
                     jcr:title="Page Content"
                     sling:resourceType="wcm/core/components/policy/policy"
-                    components="[group:Demo AI Site - Content,/apps/demo-ai-site/components/form/container]">
+                    components="[group:Demo AI Site - Content,group:Demo AI Site - OGS,/apps/demo-ai-site/components/form/container]">
                     <jcr:content jcr:primaryType="nt:unstructured"/>
                     <cq:authoring jcr:primaryType="nt:unstructured">
                         <assetToComponentMapping jcr:primaryType="nt:unstructured">
@@ -279,7 +279,7 @@
                     jcr:primaryType="nt:unstructured"
                     jcr:title="XF Root"
                     sling:resourceType="wcm/core/components/policy/policy"
-                    components="[group:Demo AI Site - Content,/apps/demo-ai-site/components/form/container]">
+                    components="[group:Demo AI Site - Content,group:Demo AI Site - OGS,/apps/demo-ai-site/components/form/container]">
                     <jcr:content jcr:primaryType="nt:unstructured"/>
                     <cq:authoring jcr:primaryType="nt:unstructured">
                         <assetToComponentMapping jcr:primaryType="nt:unstructured">

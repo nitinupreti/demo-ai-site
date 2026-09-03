@@ -1,0 +1,37 @@
+/* OGS design tokens sampled from source (omnicomglobalsolutions.com) */
+:root {
+  --ogs-bg-header: #eee6f6;            /* pale lavender header backdrop */
+  --ogs-bg-hero: #ffffff;              /* white hero backdrop */
+  --ogs-bg-tile: #e5dbf5;              /* lavender card behind capability tiles */
+  --ogs-bg-lime: #ecf5b3;              /* infographic/stats band */
+  --ogs-bg-white: #ffffff;
+  --ogs-bg-navy: #221540;
+  --ogs-color-ink: #221540;
+  --ogs-color-mute: #4b4467;
+  --ogs-color-accent: #ff8a2b;
+  --ogs-color-lavender-ink: #6d5cad;
+  --ogs-color-opposite: #ffffff;
+  --ogs-radius: 0;
+  --ogs-max-width: 1240px;
+  --ogs-page-x: 4.5rem;
+  --ogs-page-x-md: 2.5rem;
+  --ogs-page-x-sm: 1.25rem;
+  --ogs-font-heading: 'Inter Tight', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --ogs-font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Hide the template's fixed Title component that mirrors the page title. */
+.root .title { display: none; }
+
+/* Core Components applies 16px padding on <main>; strip it so OGS sections go edge-to-edge. */
+main.container.responsivegrid { padding: 0 !important; }
+body.page { margin: 0; padding: 0; }
+
+.cmp-ogs-placeholder {
+  display: block;
+  min-height: 80px;
+  padding: 1rem;
+  border: 1px dashed #ccc;
+  color: #666;
+  font-family: var(--ogs-font-body);
+}

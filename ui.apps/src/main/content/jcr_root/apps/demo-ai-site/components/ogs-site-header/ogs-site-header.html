@@ -1,0 +1,35 @@
+<!--/*
+    OGS site header used inside the Header experience fragment.
+    Logo is a brand-invariant inline SVG per Stage 1 evidence; nav + CTA are authored.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsSiteHeaderModel"
+     data-sly-use.brand="brand.html"/>
+<header class="cmp-ogs-header">
+    <div class="cmp-ogs-header__inner">
+        <a class="cmp-ogs-header__logo"
+           href="${model.logoLink || '/'}"
+           aria-label="Go to home">
+            <sly data-sly-call="${brand.logo}"/>
+        </a>
+        <button class="cmp-ogs-header__toggle"
+                type="button"
+                aria-label="Open navigation menu"
+                aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <nav class="cmp-ogs-header__nav"
+             aria-label="Primary"
+             data-sly-test="${model.navItems || model.ctaLabel}">
+            <sly data-sly-list.item="${model.navItems}">
+                <a class="cmp-ogs-header__link ${item.active ? 'cmp-ogs-header__link--active' : ''}"
+                   href="${item.link || '#'}">${item.label}</a>
+            </sly>
+            <button class="cmp-ogs-header__cta"
+                    data-sly-test="${model.ctaLabel}"
+                    type="button"
+                    data-href="${model.ctaLink}">${model.ctaLabel}</button>
+        </nav>
+    </div>
+</header>

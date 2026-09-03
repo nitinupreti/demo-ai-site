@@ -55,6 +55,29 @@ Report invoked skills; sources; discovery and coverage; current `design-facts`; 
 
 Residual gaps must be empty unless the user explicitly approved them in the same turn.
 
+## Evidence Cleanup
+
+Every accepted Stage 04 run leaves behind tens of megabytes of raster crops, side-by-side composites, diff masks, downloaded source assets, per-block screenshots, and full-page captures under `evidence/`, plus a set of pipeline-scratch runner scripts under `scripts/` (`stage1_discovery.py`, `stage2_download_assets.py`, `stage2_place_dam.py`, `stage3_author_xfs.py`) and root-level `build.log` files that each `mvn install` emits. Once Stage 04 reports `PASS` in this turn and the completion report has been emitted, wipe both the `evidence/` tree and the pipeline scratch. The reasoning trail lives in git history and the report; everything else is disposable.
+
+Run the shipped cleanup runner from the repo root in **full** mode as the last action of Stage 05:
+
+```powershell
+python design/site-url/cleanup_evidence.py --full        # MANDATORY at completion — wipes evidence/ AND pipeline scratch scripts + build.logs
+python design/site-url/cleanup_evidence.py --dry-run     # preview only
+python design/site-url/cleanup_evidence.py               # safe prune — only for mid-pipeline size relief, never at completion
+```
+
+Cleanup rules:
+
+- **After a `PASS` status line, ALWAYS invoke `--full`.** Safe-prune is not sufficient at completion. `--full` removes:
+    - Everything under `evidence/` (per-block source/target/mask/side-by-side crops, full-page captures, source/target manifests, downloaded raw asset copies, `evidence/node_modules`), leaving a single `.gitkeep`.
+    - Every entry listed in `PIPELINE_SCRATCH` inside `design/site-url/cleanup_evidence.py` — the discovery/download/DAM-placement/XF-authoring runner scripts and any `build.log` files at the repo root and per-module. These are one-shot scaffolding written during the migration; they belong in git history, not the working tree at completion.
+    - `design/site-url/cleanup_evidence.py` itself and `design/site-url/component_parity.py` (the mandatory shipped runner) are NOT in the scratch list and are preserved.
+- **Never invoke `--full` while Stage 04 is still iterating** — the raster crops are the executable remediation queue and the runner scripts drive that queue. Only run at the very end of Stage 05 once the completion report has been emitted.
+- **Never leave cleanup to a future turn.** The wipe happens in the same turn that emits `VISUAL PARITY GATE: PASSED`. Leaving `evidence/` or pipeline scratch scripts populated for the user to clean up later is non-compliant.
+- **Cite the pre-/post-cleanup footprint** (`files`, `MB`) for both `evidence/` and the pipeline-scratch list in the completion summary so the deletion is auditable.
+- If Stage 04 exits `BLOCKED` rather than `PASS`, do NOT wipe — the crops and runner scripts are the blocker's proof and the reproduction path; leave them in place.
+
 ## Required Final Stage Result
 
 Return the orchestrator's required envelope after the human-readable report:
@@ -73,6 +96,7 @@ stage_result:
 		- {name: dependencies_same_run_and_current, status: PASS|FAIL, evidence: <run ledger>}
 		- {name: coverage_files_assets_scores_reconcile, status: PASS|FAIL, evidence: <tables>}
 		- {name: residual_gaps_empty_or_approved, status: PASS|FAIL, evidence: <report section>}
+		- {name: evidence_cleanup_executed, status: PASS|FAIL, evidence: <pre-cleanup footprint (files, MB) for BOTH evidence/ AND the pipeline-scratch list, post-cleanup MUST be evidence/ = 0 files ex `.gitkeep` AND every `PIPELINE_SCRATCH` entry absent, invocation `python design/site-url/cleanup_evidence.py --full`>}
 	failures: []
 	next_stage: null
 ```

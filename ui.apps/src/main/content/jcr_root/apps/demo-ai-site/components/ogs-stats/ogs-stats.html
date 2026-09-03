@@ -1,0 +1,18 @@
+<!--/*
+    OGS stats band: authored grid of {value, label} items on lime background.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsStatsModel"/>
+<section class="cmp-ogs-stats"
+         data-sly-test="${model.items}">
+    <div class="cmp-ogs-stats__grid"
+         data-sly-list.item="${model.items}">
+        <div class="cmp-ogs-stats__item">
+            <div class="cmp-ogs-stats__value">${item.value}</div>
+            <div class="cmp-ogs-stats__label">${item.label}</div>
+        </div>
+    </div>
+</section>
+<sly data-sly-test="${!model.items && wcmmode.edit}">
+    <div class="cq-placeholder cmp-ogs-placeholder"
+         data-emptytext="OGS Stats — author stat rows"></div>
+</sly>

@@ -274,14 +274,27 @@ For each queued component:
 4. Recapture source and target in fresh/bypass-cache conditions and rescore only refreshed evidence.
 5. Repeat until strictly above 92%. After three failed attempts on one gap, recapture source and redesign the component structure.
 
-Do not stop after producing the report, summarize failures as a future backlog, or ask whether remediation should begin. A report containing any missing/unpaired/invalid/failed row must be followed immediately by implementation and another validation/deploy/capture/score iteration in the same run. After all affected rows pass, execute a full-page, all-component regression sweep at every required breakpoint.
+### Per-Component Iteration Cap
+
+To prevent a single hard-to-close row from starving the rest of the queue, apply a **hard cap of 5 remediation iterations per component per breakpoint**. An iteration is one complete cycle: (edit → build → deploy → reconcile → rescore). After 5 iterations on the same component/breakpoint pair without the row clearing the pass threshold:
+
+1. Mark the row `PARKED — iteration cap reached` in the current-run report with: the sequence of scores across the 5 iterations, the owning layers touched, the specific gap type (pixel-content, layout-geometry, interactive-state, motion), and the best-observed score.
+2. **Do not** attempt a sixth iteration on that row in the same turn. Move immediately to the next-highest-priority failing row.
+3. Continue draining the queue: process every other failing row (missing/unpaired first, invalid evidence next, then valid FAIL sorted by lowest score) with its own independent 5-iteration budget.
+4. Only after every other failing row has either PASSED or hit its own cap may parked rows be revisited — and only if a shared-layer fix landed since parking might have moved them (e.g. a global token change, template-structure change, or asset re-acquisition).
+5. If Stage 04's final composite still contains any PARKED row after the queue is fully drained, Stage 04 exits with `status: PARTIAL` (not `PASS`, not `BLOCKED`): report every parked row with its 5-iteration score history, the observed ceiling, the likely cause class (image-byte divergence, cross-framework font, source-manifest boundary overlap, etc.), and the concrete external precondition that would be needed to break through (byte-identical asset copy, custom font file, refreshed source manifest, etc.). This is the only permitted exit besides `PASS` and `BLOCKED`.
+
+The cap exists so no single component can consume more than ~5 build cycles worth of remediation budget while other failing rows sit untouched. Do not raise the cap for "just one more try"; do not lower it either (5 gives every gap type at least one attempt per owning layer: structure, token, HTL/model, asset, container/template).
+
+Do not stop after producing the report, summarize failures as a future backlog, or ask whether remediation should begin. A report containing any missing/unpaired/invalid/failed row must be followed immediately by implementation and another validation/deploy/capture/score iteration in the same run. After all affected rows pass or hit the cap, execute a full-page, all-component regression sweep at every required breakpoint.
 
 The loop is **autonomous and non-interactive**. Under-threshold scores, missing per-breakpoint captures, incomplete side-by-side/diff artifacts, and residual property/geometry/interaction gaps are never grounds for pausing or asking the user whether to continue. Do not end the turn with a proposal, a question, an offer to iterate, or a request for approval while any component, axis, or breakpoint is still below `>92%` and remediation options remain. The only permitted exits are:
 
 - every raw instance, component-type minimum, and page composite is strictly `>92%` at every required breakpoint, with valid current-turn Playwright evidence for each row; **or**
+- every failing row has either PASSED or reached the per-component iteration cap, reported as `PARTIAL` with the score history for every parked row; **or**
 - a genuinely external blocker is proven in the same turn (unreadable source URL after retry, local AEM unavailable, unrecoverable build/deploy failure, expired credentials, or an unavoidable licensing constraint) and reported as `BLOCKED` with concrete evidence.
 
-Running out of ideas, hitting the same failing gap repeatedly, or feeling that further iteration will not converge are **not** external blockers. When one remediation angle stops improving a component, switch angles (structure, token, asset acquisition, template, container, dialog, model) and continue.
+Running out of ideas, hitting the same failing gap repeatedly, or feeling that further iteration will not converge are **not** external blockers. When one remediation angle stops improving a component, switch angles (structure, token, asset acquisition, template, container, dialog, model) and continue — but the 5-iteration cap still applies per component/breakpoint regardless of how many angles were tried.
 
 ## Anti-Gaming Rules
 
@@ -300,7 +313,7 @@ Return the orchestrator's required `stage_result` envelope with:
 stage_result:
 	stage: 04-visual-parity
 	run_id: <same run_id>
-	status: PASS|FAIL|BLOCKED
+	status: PASS|PARTIAL|FAIL|BLOCKED
 	inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>, 03-assets-runtime:<result-id>]
 	outputs:
 		readiness_matrix: <artifact>
@@ -309,6 +322,7 @@ stage_result:
 		per_instance_scores: <artifact>
 		component_minima_and_page_composites: <artifact>
 		remediation_history: <artifact>
+		parked_rows: <artifact: per parked component/breakpoint pair — score history across 5 iterations, best-observed score, owning layers tried, likely cause class, external precondition to unblock>
 	checks:
 		- {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
 		- {name: source_checkedin_jcr_disabled_author_order_equal, status: PASS|FAIL, evidence: <ordered instance/resource-type lists>}
@@ -318,8 +332,9 @@ stage_result:
 		- {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <per-role source vs target hover/focus/active/transition computed-style deltas + side-by-side screenshots under evidence/component-parity/interaction/>}
 		- {name: all_motion_rows_pass, status: PASS|FAIL, evidence: <per-instance source vs target enabled+reduced-motion clips, animation-*/transition-* longhand diffs, trigger-geometry offsets, and two-frame pixel-change proof for always-on/loop rows under evidence/component-parity/motion/>}
 		- {name: all_final_minima_and_composites_above_92, status: PASS|FAIL, evidence: <artifact>}
+		- {name: per_component_iteration_cap_respected, status: PASS|FAIL, evidence: <artifact: per-component iteration counter proving no row consumed more than 5 iterations before being parked>}
 	failures: []
 	next_stage: 05-completion-output
 ```
 
-Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 92%, or averaged-away failures. Remediate and rerun this stage until it passes.
+Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 92%, or averaged-away failures. Return `PARTIAL` only when every failing row has either PASSED or reached its 5-iteration cap and been parked with full score history and cause analysis; a `PARTIAL` result MUST enumerate every parked row and its precondition to unblock. Remediate and rerun this stage until it clears one of the three permitted exits (`PASS`, `PARTIAL`, `BLOCKED`).

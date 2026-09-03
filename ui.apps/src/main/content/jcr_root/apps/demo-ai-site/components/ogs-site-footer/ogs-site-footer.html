@@ -1,0 +1,42 @@
+<!--/*
+    OGS site footer used inside the Footer experience fragment.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsSiteFooterModel"
+     data-sly-use.brand="brand.html"/>
+<footer class="cmp-ogs-footer">
+    <div class="cmp-ogs-footer__inner">
+        <div class="cmp-ogs-footer__brand">
+            <sly data-sly-call="${brand.logo}"/>
+            <span class="cmp-ogs-footer__brand-note"
+                  data-sly-test="${model.brandTagline}">${model.brandTagline}</span>
+        </div>
+        <div class="cmp-ogs-footer__col"
+             data-sly-test="${model.quickLinksTitle || model.quickLinks}">
+            <div class="cmp-ogs-footer__col-title">${model.quickLinksTitle}</div>
+            <ul class="cmp-ogs-footer__list"
+                data-sly-list.link="${model.quickLinks}">
+                <li><a href="${link.link || '#'}">${link.label}</a></li>
+            </ul>
+        </div>
+        <div class="cmp-ogs-footer__col"
+             data-sly-test="${model.socialTitle || model.socials}">
+            <div class="cmp-ogs-footer__col-title">${model.socialTitle}</div>
+            <div class="cmp-ogs-footer__socials"
+                 data-sly-list.social="${model.socials}">
+                <a href="${social.link || '#'}"
+                   aria-label="${social.label}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    <img src="${social.icon}" alt="${social.label}"/>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="cmp-ogs-footer__legal">
+        <span class="cmp-ogs-footer__copyright">${model.copyrightText}</span>
+        <div class="cmp-ogs-footer__legal-links"
+             data-sly-list.link="${model.legalLinks}">
+            <a href="${link.link || '#'}">${link.label}</a>
+        </div>
+    </div>
+</footer>

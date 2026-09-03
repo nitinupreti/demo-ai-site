@@ -1,0 +1,53 @@
+.cmp-ogs-media-band {
+  position: relative;
+  overflow: hidden;
+  background: #a9c4e6;
+  aspect-ratio: 16 / 9;
+  min-height: 260px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .cmp-ogs-media-band { aspect-ratio: auto; min-height: 500px; }
+}
+.cmp-ogs-media-band__inner {
+  position: absolute;
+  inset: 0;
+}
+.cmp-ogs-media-band__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.cmp-ogs-media-band__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ogs-bg-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: transform 200ms ease, background 200ms ease;
+  text-decoration: none;
+}
+.cmp-ogs-media-band__play:hover,
+.cmp-ogs-media-band__play:focus-visible {
+  background: #fff;
+  transform: translate(-50%, -50%) scale(1.06);
+}
+.cmp-ogs-media-band__play svg {
+  width: 40px;
+  height: 40px;
+  margin-left: 4px;
+}

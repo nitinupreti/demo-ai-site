@@ -1,0 +1,59 @@
+<!--/*
+    OGS news carousel: heading, prev/next arrows, and a horizontally-scrolling
+    strip of authored article cards {image, description, link}.
+*/-->
+<sly data-sly-use.model="com.demo.core.models.OgsNewsCarouselModel"/>
+<section class="cmp-ogs-news"
+         data-cmp-is="ogs-news-carousel"
+         data-sly-test="${model.slides || model.heading}">
+    <div class="cmp-ogs-news__inner">
+        <div class="cmp-ogs-news__topbar">
+            <h2 class="cmp-ogs-news__heading"
+                data-sly-test="${model.heading}">${model.heading}</h2>
+            <div class="cmp-ogs-news__arrows"
+                 aria-hidden="true"
+                 data-sly-test="${model.slides}">
+                <button class="cmp-ogs-news__arrow cmp-ogs-news__arrow--prev"
+                        type="button"
+                        aria-label="Previous slide">
+                    <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="cmp-ogs-news__arrow cmp-ogs-news__arrow--next"
+                        type="button"
+                        aria-label="Next slide">
+                    <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="cmp-ogs-news__track"
+             role="region"
+             aria-label="${model.heading || 'News carousel'}"
+             data-sly-list.slide="${model.slides}">
+            <article class="cmp-ogs-news__card">
+                <div class="cmp-ogs-news__thumb"
+                     data-sly-test="${slide.image || slide.title}">
+                    <img class="cmp-ogs-news__img"
+                         data-sly-test="${slide.image}"
+                         src="${slide.image}"
+                         alt="${slide.title}"
+                         loading="lazy"/>
+                    <h3 class="cmp-ogs-news__title"
+                        data-sly-test="${slide.title}">${slide.title}</h3>
+                </div>
+                <div class="cmp-ogs-news__body">
+                    <p class="cmp-ogs-news__desc">${slide.description}
+                        <a class="cmp-ogs-news__more"
+                           data-sly-test="${slide.link}"
+                           href="${slide.link}"
+                           target="_blank"
+                           rel="noopener noreferrer">see more</a>
+                    </p>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+<sly data-sly-test="${!(model.slides || model.heading) && wcmmode.edit}">
+    <div class="cq-placeholder cmp-ogs-placeholder"
+         data-emptytext="OGS News Carousel — author slides"></div>
+</sly>

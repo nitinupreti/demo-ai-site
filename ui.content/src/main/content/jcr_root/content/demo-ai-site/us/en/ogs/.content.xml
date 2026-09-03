@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        pageTitle="Home — OGS"
+        jcr:description="Bringing together a global talent community and connected capabilities to build adaptive, future-ready solutions."
+        jcr:primaryType="cq:PageContent"
+        jcr:title="OGS Home"
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <experiencefragment-header
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/header/master"/>
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <ogshero
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/ogs-hero"
+                    heading="Omnicom's Integrated Solutions Engine"
+                    body="&lt;p>Bringing together a &lt;strong>global talent community&lt;/strong> and &lt;strong>connected capabilities&lt;/strong> to build adaptive, future-ready solutions.&lt;/p>&lt;p>OGS is the place where the future is tested, built, and scaled for the world's most ambitious agencies and clients.&lt;/p>"
+                    videoPath="/content/dam/demo-ai-site/en/hero/info-graphic.mp4"
+                    videoLabel="What we do visual overview"/>
+                <ogsstats
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/ogs-stats">
+                    <items jcr:primaryType="nt:unstructured">
+                        <item0 jcr:primaryType="nt:unstructured" value="13+" label="Years in vogue"/>
+                        <item1 jcr:primaryType="nt:unstructured" value="7000+" label="Employees"/>
+                        <item2 jcr:primaryType="nt:unstructured" value="150+" label="Omnicom agencies"/>
+                        <item3 jcr:primaryType="nt:unstructured" value="10" label="Business functions"/>
+                        <item4 jcr:primaryType="nt:unstructured" value="9" label="Cities in India, Colombia &amp; Philippines"/>
+                        <item5 jcr:primaryType="nt:unstructured" value="1500+" label="Brands served"/>
+                    </items>
+                </ogsstats>
+                <ogscapabilities
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/ogs-capabilities"
+                    heading="&lt;p>Breadth of&lt;br/>Functional Expertise&lt;/p>">
+                    <tiles jcr:primaryType="nt:unstructured">
+                        <tile0 jcr:primaryType="nt:unstructured" label="Advertising Solutions" image="/content/dam/demo-ai-site/en/capabilities/advertising.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/advertising-hover.png"/>
+                        <tile1 jcr:primaryType="nt:unstructured" label="Media Solutions" image="/content/dam/demo-ai-site/en/capabilities/media.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/media-hover.png"/>
+                        <tile2 jcr:primaryType="nt:unstructured" label="Data Solutions" image="/content/dam/demo-ai-site/en/capabilities/data.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/data-hover.png"/>
+                        <tile3 jcr:primaryType="nt:unstructured" label="Strategy &amp; Insights" image="/content/dam/demo-ai-site/en/capabilities/strategy.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/strategy-hover.png"/>
+                        <tile4 jcr:primaryType="nt:unstructured" label="Technology Solutions" image="/content/dam/demo-ai-site/en/capabilities/technology.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/technology-hover.png"/>
+                        <tile5 jcr:primaryType="nt:unstructured" label="Creative Production" image="/content/dam/demo-ai-site/en/capabilities/production.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/production-hover.png"/>
+                        <tile6 jcr:primaryType="nt:unstructured" label="MarTech Solutions" image="/content/dam/demo-ai-site/en/capabilities/martech.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/martech-hover.png"/>
+                        <tile7 jcr:primaryType="nt:unstructured" label="Healthcare Solutions" image="/content/dam/demo-ai-site/en/capabilities/health.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/health-hover.png"/>
+                        <tile8 jcr:primaryType="nt:unstructured" label="Commerce Solutions" image="/content/dam/demo-ai-site/en/capabilities/commerce.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/commerce-hover.png"/>
+                        <tile9 jcr:primaryType="nt:unstructured" label="Business Support Solutions" image="/content/dam/demo-ai-site/en/capabilities/ops.png" hoverImage="/content/dam/demo-ai-site/en/capabilities/ops-hover.png"/>
+                    </tiles>
+                </ogscapabilities>
+                <ogsmediaband
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/ogs-media-band"
+                    imagePath="/content/dam/demo-ai-site/en/hero/hero-grid-bg.png"
+                    imageAlt="Where people build"
+                    overlayTitle="NEXT"
+                    ctaLabel="Play the OGS story"/>
+                <ogsnews
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/ogs-news-carousel"
+                    heading="OGS in Action">
+                    <slides jcr:primaryType="nt:unstructured">
+                        <slide0
+                            jcr:primaryType="nt:unstructured"
+                            title="Omnicom GCC employee count to touch 8,000 post Interpublic deal"
+                            image="/content/dam/demo-ai-site/en/news/news-1.png"
+                            description="Omnicom Global Solutions (OGS) India, the global capability centre (GCC) of the Omnicom Group, plans to increase its headcount to up to 8,000 this year, even as the New York-based marketing and corporate communications conglomerate integrates operations with the Interpublic Group following their $13.5 billion merger..."
+                            link="https://economictimes.indiatimes.com/industry/media/entertainment/media/omnicom-gcc-employee-count-to-touch-8000-post-interpublic-deal/articleshow/130095511.cms"/>
+                        <slide1
+                            jcr:primaryType="nt:unstructured"
+                            title="The real win for our agencies is the removal of friction"
+                            image="/content/dam/demo-ai-site/en/news/news-2.png"
+                            description="Omnicom Global Solutions (OGS) India is Omnicom's integrated solutions engine, uniting nearly 7,000 professionals and delivering comprehensive solutions across media, data, technology, martech, business support, advertising, healthcare, commerce, creative production, and strategy &amp; insights for Omnicom agencies and their clients globally..."
+                            link="https://www.medianews4u.com/the-real-win-for-our-agencies-is-the-removal-of-friction-vishal-srivastava-omnicom-global-solutions-ogs-india/"/>
+                        <slide2
+                            jcr:primaryType="nt:unstructured"
+                            title="Scale is a by-product of delivering great work"
+                            image="/content/dam/demo-ai-site/en/news/news-3.png"
+                            description="India's GCC story is no longer about cheaper execution. It's about who controls the operating system of modern advertising. After integrating IPG Mediabrands' GCCs, Omnicom Global Solutions refreshed under the 'Doing What's Next' banner with a 7,000-strong India network. Beneath this rebrand lies a larger industry pivot..."
+                            link="https://www.campaignindia.in/article/scale-is-a-by-product-of-delivering-great-work-vishal-srivastava/4gvp0zt6rw0zb1zgz54htnq241"/>
+                        <slide3
+                            jcr:primaryType="nt:unstructured"
+                            title="How OGS helps brands move faster"
+                            image="/content/dam/demo-ai-site/en/news/news-4.png"
+                            description="From a powerful beginning at SPECTRUM to conversations that came closer home, The Tribe Circle kept the dialogue going. Across our offices in Mohali, Pune, Mumbai, Hyderabad, Bengaluru, Gurugram, Chennai, and Coimbatore, OGSians came together for what we love most – honest conversations with the OGS India Executive Leadership..."
+                            link="https://www.linkedin.com/posts/the-tribe-circle-ugcPost-7453346555656376321-QV-4/"/>
+                        <slide4
+                            jcr:primaryType="nt:unstructured"
+                            title="Scaling always-on content operations"
+                            image="/content/dam/demo-ai-site/en/news/news-5.png"
+                            description="What began as a CSR initiative soon became something more. Thoughtful conversations, safe spaces for dialogue, shared learning, and relationships built on trust turned this mentorship cycle into a two-way journey of growth and reflection..."
+                            link="https://www.linkedin.com/posts/omnicomglobalsolutions_ogs-x-ffe-activity-7439238352907886592-Y-Fo/"/>
+                        <slide5
+                            jcr:primaryType="nt:unstructured"
+                            title="Connecting data across teams"
+                            image="/content/dam/demo-ai-site/en/news/news-6.png"
+                            description="At OGS, giving back is a mindset powered by our people. Building on last year's blood donation drives across Hyderabad and Bengaluru, OGSians in Gurugram proudly carried the initiative forward with another impactful camp..."
+                            link="https://www.linkedin.com/posts/omnicomglobalsolutions_ogs-gurugramblood-donation-camp-activity-7422189035013431296-L83L/"/>
+                        <slide6
+                            jcr:primaryType="nt:unstructured"
+                            title="Empowering the next generation"
+                            image="/content/dam/demo-ai-site/en/news/news-7.png"
+                            description="Our enduring partnership with Prayoga is a testament to this belief, focused on equipping young minds with scientific knowledge, global perspectives, and collaborative opportunities for a brighter future..."
+                            link="https://www.linkedin.com/posts/omnicomglobalsolutions_ogs-x-prayoga-activity-7447161930466852864-Nhuu/"/>
+                    </slides>
+                </ogsnews>
+            </container>
+            </container>
+            <experiencefragment-footer
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/experiencefragment"
+                fragmentVariationPath="/content/experience-fragments/demo-ai-site/us/en/site/footer/master"/>
+        </root>
+    </jcr:content>
+</jcr:root>
