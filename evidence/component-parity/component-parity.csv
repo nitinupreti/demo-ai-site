@@ -1,0 +1,13 @@
+breakpoint,label,sourceIndex,targetIndex,matchConfidence,pixelScore,geometryScore,finalScore,status,reason
+1440,00-header,0,0,68.326,94.875,100.0,94.875,PASS,
+1440,01-powering-growth-across-marketing-and-tech-and-where-they-meet,1,1,94.388,92.048,95.343,92.048,PASS,
+1440,02-video,2,2,70.946,24.758,99.965,24.758,FAIL,
+1440,03-marketing-advertising-enablement,3,3,92.677,90.698,99.821,90.698,FAIL,
+1440,04-ticker,4,4,67.725,89.515,100.0,89.515,FAIL,
+1440,05-transforming-information-access-and-efficiency-with-ai-for-astra,5,5,89.406,29.131,98.976,29.131,FAIL,
+1440,06-slashing-time-to-market-with-rapid-high-quality-global-launches,6,6,94.359,94.835,97.351,94.835,PASS,
+1440,07-adobe,7,7,92.749,86.038,97.897,86.038,FAIL,
+1440,08-industr,8,8,67.914,93.365,99.904,93.365,PASS,
+1440,09-omnicom-s-transformation-consultancy-strengthens-capabilities-wi,9,9,94.695,89.147,99.934,89.147,FAIL,
+1440,10-let-s-talk,10,10,96.451,94.157,99.215,94.157,PASS,
+1440,11-footer,11,11,68.225,87.274,96.237,87.274,FAIL,

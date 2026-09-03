@@ -15,6 +15,9 @@
 */-->
 <sly data-sly-use.clientlib="core/wcm/components/commons/v1/templates/clientlib.html">
     <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.base'}"/>
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.site-header'}"/>
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.site-footer'}"/>
+    <sly data-sly-call="${clientlib.css @ categories='demo-ai-site.components.video-casestudy'}"/>
 </sly>
 
 <sly data-sly-resource="${'contexthub' @ resourceType='granite/contexthub/components/contexthub'}"/>

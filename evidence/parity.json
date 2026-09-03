@@ -1,0 +1,284 @@
+[
+  {
+    "index": 0,
+    "label": "00-div-hero-section__TitleWrapper-sc-3sq6vd-3-d",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "hero-section__TitleWrapper-sc-3sq6vd-3.dsaCgR",
+      "y": 268,
+      "h": 214.5,
+      "w": 1280,
+      "sidx": 0
+    },
+    "target": {
+      "tag": "H1",
+      "cls": "cmp-hero__heading",
+      "y": 243.875,
+      "h": 216,
+      "w": 1280,
+      "tidx": 0
+    },
+    "w": 1280,
+    "h": 214,
+    "matched": 239033,
+    "differing": 34887,
+    "total": 273920,
+    "visualMatchPercent": 87.264
+  },
+  {
+    "index": 1,
+    "label": "01-div-hero-section__ContentWrapper-sc-3sq6vd-6",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "hero-section__ContentWrapper-sc-3sq6vd-6.bzKBhv",
+      "y": 530.5,
+      "h": 220,
+      "w": 1280,
+      "sidx": 1
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "service-list.aem-GridColumn.aem-GridColumn--default--12",
+      "y": 872.875,
+      "h": 556,
+      "w": 1408,
+      "tidx": 1
+    },
+    "w": 1280,
+    "h": 220,
+    "matched": 27388,
+    "differing": 254212,
+    "total": 281600,
+    "visualMatchPercent": 9.726
+  },
+  {
+    "index": 2,
+    "label": "02-div-animate-in__Fade-sc-16x0191-0-djnsbX",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "animate-in__Fade-sc-16x0191-0.djnsbX",
+      "y": 826.5,
+      "h": 534.375,
+      "w": 1440,
+      "sidx": 2
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "marquee-ticker.aem-GridColumn.aem-GridColumn--default--12",
+      "y": 1428.875,
+      "h": 244,
+      "w": 1408,
+      "tidx": 2
+    },
+    "w": 1440,
+    "h": 244,
+    "matched": 10041,
+    "differing": 341319,
+    "total": 351360,
+    "visualMatchPercent": 2.858
+  },
+  {
+    "index": 3,
+    "label": "03-div-animate-in__Fade-sc-16x0191-0-djnsbX",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "animate-in__Fade-sc-16x0191-0.djnsbX",
+      "y": 1360.875,
+      "h": 558,
+      "w": 1440,
+      "sidx": 3
+    },
+    "target": {
+      "tag": "A",
+      "cls": "cmp-featured-case-study__poster",
+      "y": 1832.875,
+      "h": 620,
+      "w": 1280,
+      "tidx": 3
+    },
+    "w": 1440,
+    "h": 558,
+    "matched": 6609,
+    "differing": 796911,
+    "total": 803520,
+    "visualMatchPercent": 0.823
+  },
+  {
+    "index": 4,
+    "label": "04-div-animate-in__Fade-sc-16x0191-0-djnsbX",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "animate-in__Fade-sc-16x0191-0.djnsbX",
+      "y": 1918.875,
+      "h": 244,
+      "w": 1440,
+      "sidx": 4
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-featured-case-study__body",
+      "y": 2484.875,
+      "h": 161,
+      "w": 900,
+      "tidx": 4
+    },
+    "w": 1440,
+    "h": 161,
+    "matched": 188266,
+    "differing": 43574,
+    "total": 231840,
+    "visualMatchPercent": 81.205
+  },
+  {
+    "index": 5,
+    "label": "05-div-video-background__VideoSectionWrapper-sc",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "video-background__VideoSectionWrapper-sc-2dfmhx-1.kWCRSs",
+      "y": 2296.875,
+      "h": 810,
+      "w": 1440,
+      "sidx": 5
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-case-study-grid__grid",
+      "y": 2781.875,
+      "h": 567,
+      "w": 1440,
+      "tidx": 5
+    },
+    "w": 1440,
+    "h": 567,
+    "matched": 94041,
+    "differing": 722439,
+    "total": 816480,
+    "visualMatchPercent": 11.518
+  },
+  {
+    "index": 6,
+    "label": "06-div-partner-section__PartnerSectionWrapper-s",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "partner-section__PartnerSectionWrapper-sc-gmccoy-2.idaYMy",
+      "y": 3955.8125,
+      "h": 502,
+      "w": 1440,
+      "sidx": 7
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-partners__grid",
+      "y": 3536.875,
+      "h": 600,
+      "w": 1440,
+      "tidx": 6
+    },
+    "w": 1440,
+    "h": 502,
+    "matched": 665502,
+    "differing": 57378,
+    "total": 722880,
+    "visualMatchPercent": 92.063
+  },
+  {
+    "index": 7,
+    "label": "07-div-industry-section__IndustrySectionWrapper",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "industry-section__IndustrySectionWrapper-sc-zjmgb9-2.iorHei",
+      "y": 4585.8125,
+      "h": 914,
+      "w": 1440,
+      "sidx": 8
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-industries__grid",
+      "y": 4224.875,
+      "h": 284,
+      "w": 1440,
+      "tidx": 7
+    },
+    "w": 1440,
+    "h": 284,
+    "matched": 384392,
+    "differing": 24568,
+    "total": 408960,
+    "visualMatchPercent": 93.993
+  },
+  {
+    "index": 8,
+    "label": "08-div-scroll-bar-carousel__Scroller-sc-vup9tl",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "scroll-bar-carousel__Scroller-sc-vup9tl-2.eHjNiO.indiana-scroll-container",
+      "y": 5683.90625,
+      "h": 704.5,
+      "w": 1440,
+      "sidx": 9
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-insights-list__grid",
+      "y": 4704.875,
+      "h": 793,
+      "w": 1440,
+      "tidx": 8
+    },
+    "w": 1440,
+    "h": 704,
+    "matched": 659302,
+    "differing": 354458,
+    "total": 1013760,
+    "visualMatchPercent": 65.035
+  },
+  {
+    "index": 9,
+    "label": "09-div-footer-cta__FooterCtaWrapper-sc-1dcaamq",
+    "breakpoint": 1440,
+    "source": {
+      "tag": "DIV",
+      "cls": "footer-cta__FooterCtaWrapper-sc-1dcaamq-0.dvHExX",
+      "y": 6569.40625,
+      "h": 382,
+      "w": 1440,
+      "sidx": 10
+    },
+    "target": {
+      "tag": "DIV",
+      "cls": "cmp-footer-cta__inner",
+      "y": 5747.875,
+      "h": 140,
+      "w": 1440,
+      "tidx": 9
+    },
+    "w": 1440,
+    "h": 140,
+    "matched": 182002,
+    "differing": 19598,
+    "total": 201600,
+    "visualMatchPercent": 90.279
+  },
+  {
+    "index": null,
+    "label": "06-div-case-study-section__CaseStudySectionCont",
+    "breakpoint": 1440,
+    "unpaired": "source",
+    "source": {
+      "tag": "DIV",
+      "cls": "case-study-section__CaseStudySectionContainer-sc-khm5cf-1.cFIRXR",
+      "y": 3254.875,
+      "h": 534.84375
+    }
+  }
+]

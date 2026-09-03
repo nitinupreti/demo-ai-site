@@ -1,0 +1,30 @@
+<!--/* Case Study Grid component */-->
+<sly data-sly-use.model="com.demo.core.models.CaseStudyGridModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-case-study-grid" data-cmp-is="case-study-grid">
+        <div class="cmp-case-study-grid__grid" data-sly-list.card="${model.cards}">
+            <a class="cmp-case-study-grid__card" href="${card.href @ context='uri'}">
+                <div class="cmp-case-study-grid__card-media">
+                    <img data-sly-test="${card.imagePath}"
+                         class="cmp-case-study-grid__card-image"
+                         src="${card.imagePath @ context='uri'}"
+                         alt="${card.imageAlt @ context='attribute'}"/>
+                    <div data-sly-test="${!card.imagePath}" class="cmp-case-study-grid__card-image cmp-case-study-grid__card-image--placeholder" aria-hidden="true"></div>
+                </div>
+                <div class="cmp-case-study-grid__card-body">
+                    <h3 class="cmp-case-study-grid__card-heading">${card.heading}</h3>
+                    <div class="cmp-case-study-grid__card-meta">
+                        <span class="cmp-case-study-grid__card-category" data-sly-test="${card.category}">${card.category}</span>
+                        <span class="cmp-case-study-grid__card-cta">Read on <span aria-hidden="true">&#8594;</span></span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <a class="cmp-case-study-grid__view-all"
+           data-sly-test="${model.viewAllLabel && model.viewAllHref}"
+           href="${model.viewAllHref @ context='uri'}">${model.viewAllLabel}</a>
+    </section>
+</sly>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-case-study-grid cmp-case-study-grid--empty">Please configure the Case Study Grid component.</div>
+</sly>

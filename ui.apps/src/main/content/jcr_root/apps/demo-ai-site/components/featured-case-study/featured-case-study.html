@@ -1,0 +1,49 @@
+<!--/* Featured Case Study component */-->
+<sly data-sly-use.model="com.demo.core.models.FeaturedCaseStudyModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-featured-case-study" data-cmp-is="featured-case-study">
+        <div class="cmp-featured-case-study__inner">
+            <div class="cmp-featured-case-study__header">
+                <p class="cmp-featured-case-study__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+                <a class="cmp-featured-case-study__view-all"
+                   data-sly-test="${model.viewAllLabel && model.viewAllHref}"
+                   href="${model.viewAllHref @ context='uri'}">${model.viewAllLabel}</a>
+            </div>
+            <a class="cmp-featured-case-study__poster"
+               href="${model.href @ context='uri'}"
+               data-sly-test="${model.href}"
+               aria-label="${model.heading}">
+                <img data-sly-test="${model.posterImage}"
+                     class="cmp-featured-case-study__poster-img cmp-featured-case-study__poster-img--photo"
+                     src="${model.posterImage @ context='uri'}"
+                     alt="${model.posterAlt @ context='attribute'}"/>
+                <div data-sly-test="${!model.posterImage}" class="cmp-featured-case-study__poster-img" role="img" aria-label="${model.posterAlt}"></div>
+                <span class="cmp-featured-case-study__play" aria-hidden="true">
+                    <span class="cmp-featured-case-study__play-circle">
+                        <span class="cmp-featured-case-study__play-label">PLAY VIDEO</span>
+                    </span>
+                </span>
+            </a>
+            <div class="cmp-featured-case-study__body">
+                <a class="cmp-featured-case-study__heading-link"
+                   href="${model.href @ context='uri'}"
+                   data-sly-test="${model.href}">
+                    <h3 class="cmp-featured-case-study__heading">${model.heading}</h3>
+                </a>
+                <h3 class="cmp-featured-case-study__heading" data-sly-test="${!model.href}">${model.heading}</h3>
+                <div class="cmp-featured-case-study__meta">
+                    <span class="cmp-featured-case-study__category" data-sly-test="${model.category}">${model.category}</span>
+                    <a class="cmp-featured-case-study__cta"
+                       href="${model.href @ context='uri'}"
+                       data-sly-test="${model.href}">
+                        <span>${model.readOnLabel}</span>
+                        <span class="cmp-featured-case-study__cta-arrow" aria-hidden="true">&#8594;</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+</sly>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-featured-case-study cmp-featured-case-study--empty">Please configure the Featured Case Study component.</div>
+</sly>

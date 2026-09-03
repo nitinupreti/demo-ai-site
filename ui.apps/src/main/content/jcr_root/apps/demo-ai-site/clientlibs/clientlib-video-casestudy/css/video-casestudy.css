@@ -1,0 +1,59 @@
+/**
+ * Component: video-casestudy
+ * BEM prefix: cmp-video-casestudy
+ * Visual target: Credera India full-bleed hero-adjacent video with transformation sticker @ 1440.
+ */
+
+.cmp-video-casestudy {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    max-width: 100vw;
+    height: 534px;
+    overflow: hidden;
+    background: #131313;
+}
+
+.cmp-video-casestudy__video-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.cmp-video-casestudy__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+.cmp-video-casestudy__sticker-container {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    width: 167px;
+    height: 167px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cmp-video-casestudy__sticker {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+@media (max-width: 1024px) {
+    .cmp-video-casestudy { height: 400px; }
+    .cmp-video-casestudy__sticker-container { width: 120px; height: 120px; top: 24px; right: 24px; }
+}
+
+@media (max-width: 640px) {
+    .cmp-video-casestudy { height: 260px; }
+    .cmp-video-casestudy__sticker-container { width: 90px; height: 90px; top: 16px; right: 16px; }
+}

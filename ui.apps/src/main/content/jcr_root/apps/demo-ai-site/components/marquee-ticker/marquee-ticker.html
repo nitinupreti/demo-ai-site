@@ -1,0 +1,28 @@
+<!--/* Marquee Ticker component */-->
+<sly data-sly-use.model="com.demo.core.models.MarqueeTickerModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-marquee-ticker" data-cmp-is="marquee-ticker" aria-label="${model.phrase}">
+        <div class="cmp-marquee-ticker__track">
+            <sly data-sly-list.item="${model.items}">
+                <div class="cmp-marquee-ticker__item">
+                    <img class="cmp-marquee-ticker__icon"
+                         data-sly-test="${model.iconPath}"
+                         src="${model.iconPath @ context='uri'}"
+                         alt="${model.iconAlt @ context='attribute'}"/>
+                    <svg class="cmp-marquee-ticker__icon cmp-marquee-ticker__icon--fallback"
+                         data-sly-test="${!model.iconPath}"
+                         viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
+                         focusable="false">
+                        <path d="M40 6 L45 32 L70 40 L45 48 L40 74 L35 48 L10 40 L35 32 Z" fill="#FF532C"/>
+                    </svg>
+                    <span class="cmp-marquee-ticker__phrase">${model.phrase}</span>
+                </div>
+            </sly>
+        </div>
+    </section>
+</sly>
+
+<!--/* Empty state for authors */-->
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-marquee-ticker cmp-marquee-ticker--empty">Please configure the Marquee Ticker component.</div>
+</sly>

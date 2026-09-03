@@ -1,0 +1,22 @@
+<!--/* Footer CTA component */-->
+<sly data-sly-use.model="com.demo.core.models.FooterCtaModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-footer-cta" data-cmp-is="footer-cta">
+        <div class="cmp-footer-cta__inner">
+            <h2 class="cmp-footer-cta__title"
+                data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-footer-cta__right">
+                <p class="cmp-footer-cta__body"
+                   data-sly-test="${model.body}">${model.body}</p>
+                <a class="cmp-footer-cta__cta"
+                   data-sly-test="${model.ctaLabel && model.ctaHref}"
+                   href="${model.ctaHref @ context='uri'}">${model.ctaLabel}</a>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<!--/* Empty state for authors */-->
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-footer-cta cmp-footer-cta--empty">Please configure the Footer CTA component.</div>
+</sly>

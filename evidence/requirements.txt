@@ -1,0 +1,10 @@
+# Runtime dependencies for evidence/component_parity.py (Stage 04 parity runner).
+# Install into a venv from repo root:
+#   python -m venv .venv
+#   .\.venv\Scripts\Activate.ps1     # Windows
+#   source .venv/bin/activate         # macOS / Linux
+#   python -m pip install -r evidence/requirements.txt
+#   python -m playwright install chromium
+playwright>=1.44
+numpy>=1.26
+Pillow>=10.0

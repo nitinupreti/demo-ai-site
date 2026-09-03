@@ -1,0 +1,162 @@
+/**
+ * Component: insights-list
+ * Visual target: Credera "Our take on what's next" 4 insight cards @ 1440.
+ */
+
+.cmp-insights-list {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    max-width: 100vw;
+    box-sizing: border-box;
+    background: #F2F5F6;
+    color: #131313;
+    font-family: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+    padding: 64px 0 80px;
+    overflow: hidden;
+}
+
+.cmp-insights-list__eyebrow {
+    max-width: 1440px;
+    margin: 36px auto 0;
+    padding: 0 80px 24px;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 32px;
+    color: #131313;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.cmp-insights-list__grid {
+    display: flex;
+    gap: 24px;
+    padding: 40px 0 40px 80px;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.cmp-insights-list__grid::-webkit-scrollbar { display: none; }
+
+.cmp-insights-list__card {
+    flex: 0 0 519px;
+    width: 519px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: #131313;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+.cmp-insights-list__card:hover,
+.cmp-insights-list__card:focus-visible {
+    transform: translateY(-4px);
+    outline: none;
+}
+
+.cmp-insights-list__card-media {
+    width: 519px;
+    height: 581px;
+    overflow: hidden;
+    background: #F2F5F6;
+}
+
+.cmp-insights-list__card-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cmp-insights-list__card-image--placeholder {
+    background: linear-gradient(135deg, #4c6b7a 0%, #7a95a2 55%, #b0c2ca 100%);
+}
+
+.cmp-insights-list__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px 0 0;
+}
+
+.cmp-insights-list__card-heading {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 28px;
+    color: #131313;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.cmp-insights-list__card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 20px;
+    text-transform: uppercase;
+    color: #131313;
+    letter-spacing: 0.03em;
+}
+
+.cmp-insights-list__card-category {
+    letter-spacing: 0.03em;
+}
+
+.cmp-insights-list__card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #131313;
+}
+
+.cmp-insights-list__scrollbar {
+    max-width: 1440px;
+    margin: 40px auto 0;
+    padding: 0 80px;
+}
+
+.cmp-insights-list__scrollbar-track {
+    position: relative;
+    width: 100%;
+    height: 2px;
+    background: rgba(19, 19, 19, 0.15);
+    border-radius: 1px;
+}
+
+.cmp-insights-list__scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 25%;
+    height: 2px;
+    background: #FF532C;
+    border-radius: 1px;
+}
+
+.cmp-insights-list--empty {
+    padding: 24px;
+    border: 1px dashed rgba(0, 0, 0, 0.35);
+    color: rgba(0, 0, 0, 0.55);
+    background: #f5f5f5;
+}
+
+@media (max-width: 1024px) {
+    .cmp-insights-list__card { flex: 0 0 380px; width: 380px; }
+    .cmp-insights-list__card-media { width: 380px; height: 425px; }
+}
+@media (max-width: 640px) {
+    .cmp-insights-list__grid { padding-left: 24px; }
+    .cmp-insights-list__card { flex: 0 0 280px; width: 280px; }
+    .cmp-insights-list__card-media { width: 280px; height: 314px; }
+}

@@ -335,7 +335,7 @@
                     jcr:primaryType="nt:unstructured"
                     jcr:title="Generic Page"
                     sling:resourceType="wcm/core/components/policy/policy"
-                    clientlibs="[demo-ai-site.dependencies,demo-ai-site.site]"
+                    clientlibs="[demo-ai-site.dependencies,demo-ai-site.site,demo-ai-site.components.hero,demo-ai-site.components.service-list,demo-ai-site.components.marquee-ticker,demo-ai-site.components.featured-case-study,demo-ai-site.components.case-study-grid,demo-ai-site.components.partners,demo-ai-site.components.industries,demo-ai-site.components.insights-list,demo-ai-site.components.footer-cta]"
                     clientlibsJsHead="demo-ai-site.dependencies">
                     <jcr:content jcr:primaryType="nt:unstructured"/>
                 </policy>

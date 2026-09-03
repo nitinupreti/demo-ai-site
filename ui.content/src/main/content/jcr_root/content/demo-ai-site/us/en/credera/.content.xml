@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Credera"
+        pageTitle="Home | Credera"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container">
+                <title
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/title"/>
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero"
+                        eyebrow="Omnicom's Transformation Consultancy"
+                        heading="Powering Growth Across Marketing and Tech ... and where They Meet"
+                        body="We help leading brands navigate complexity and achieve the mission-critical objectives that drive success."
+                        ctaLabel="What we do"
+                        ctaLink="/content/demo-ai-site/us/en/credera"/>
+                    <video-casestudy
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/video-casestudy"/>
+                    <service-list
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/service-list">
+                        <services jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Marketing &amp; advertising enablement"
+                                linkPath="/content/demo-ai-site/us/en/credera">
+                                <links jcr:primaryType="nt:unstructured">
+                                    <item0 jcr:primaryType="nt:unstructured" label="MarTech" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item1 jcr:primaryType="nt:unstructured" label="AdTech" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item2 jcr:primaryType="nt:unstructured" label="Marketing operations" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item3 jcr:primaryType="nt:unstructured" label="Personalization" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item4 jcr:primaryType="nt:unstructured" label="Marketing analytics" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item5 jcr:primaryType="nt:unstructured" label="Commerce" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item6 jcr:primaryType="nt:unstructured" label="Content automation" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item7 jcr:primaryType="nt:unstructured" label="Content supply chain" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                </links>
+                            </item0>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                title="Technology &amp; data excellence"
+                                linkPath="/content/demo-ai-site/us/en/credera">
+                                <links jcr:primaryType="nt:unstructured">
+                                    <item0 jcr:primaryType="nt:unstructured" label="Enterprise data" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item1 jcr:primaryType="nt:unstructured" label="Digital products" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item2 jcr:primaryType="nt:unstructured" label="Scaled delivery" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item3 jcr:primaryType="nt:unstructured" label="AI strategy" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item4 jcr:primaryType="nt:unstructured" label="Agentic workflows" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item5 jcr:primaryType="nt:unstructured" label="Tech modernization" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                    <item6 jcr:primaryType="nt:unstructured" label="Service model innovation" linkPath="/content/demo-ai-site/us/en/credera"/>
+                                </links>
+                            </item1>
+                        </services>
+                    </service-list>
+                    <marquee-ticker
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/marquee-ticker"
+                        phrase="AI-driven solutions for measurable outcomes"
+                        iconAlt="Sparks Icon"
+                        count="{Long}12"/>
+                    <featured-case-study
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/featured-case-study"
+                        eyebrow="Meaningful Results"
+                        heading="Transforming information access and efficiency with AI for AstraZeneca"
+                        category="Pharmaceuticals / Artificial Intelligence"
+                        posterAlt="Doctor reviewing information on a tablet"
+                        posterImage="/apps/demo-ai-site/clientlibs/clientlib-featured-case-study/resources/img/astra-poster.jpg"
+                        readOnLabel="Read on"
+                        viewAllLabel="See all case studies"
+                        viewAllLink="/content/demo-ai-site/us/en/credera"
+                        linkPath="/content/demo-ai-site/us/en/credera"/>
+                    <case-study-grid
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/case-study-grid">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                heading="Slashing time-to-market with rapid, high-quality global launches"
+                                category="Restaurants / Martech / commerce / UX Design"
+                                imageAlt="Woman taking bite of cheeseburger"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                heading="Scaling marketing initiatives internationally with a personalized approach"
+                                category="Pharmaceuticals / Data / Martech"
+                                imageAlt="Close up of medical equipment"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </cards>
+                    </case-study-grid>
+                    <partners
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/partners"
+                        eyebrow="Partners in Performance">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                title="Adobe"
+                                body="Our Adobe teams orchestrate data, decisioning, and experience across every touchpoint of the customer journey, no matter how complex or unpredictable."
+                                linkPath="/content/demo-ai-site/us/en/credera"
+                                bgColor="#632F3C"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                title="AWS"
+                                body="Our AWS teams sit at the intersection of business strategy and industry expertise, cutting through complexity to accelerate what matters most to our clients' growth."
+                                linkPath="/content/demo-ai-site/us/en/credera"
+                                bgColor="#3B6FFF"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                title="Salesforce"
+                                body="Our Salesforce teams make sure your customers get the experiences they want and need by prioritizing innovation, expertise, and a deep understanding of your business."
+                                linkPath="/content/demo-ai-site/us/en/credera"
+                                bgColor="#062650"/>
+                        </cards>
+                    </partners>
+                    <industries
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/industries"
+                        eyebrow="Industry-Specific Expertise">
+                        <tiles jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Consumer" iconAlt="Consumer icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Energy &amp; resources" iconAlt="Energy &amp; resources icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item2 jcr:primaryType="nt:unstructured" label="Financial services" iconAlt="Financial services icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item3 jcr:primaryType="nt:unstructured" label="Healthcare &amp; life sciences" iconAlt="Healthcare icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item4 jcr:primaryType="nt:unstructured" label="Tech, media, &amp; telecom" iconAlt="Tech icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item5 jcr:primaryType="nt:unstructured" label="Public sector" iconAlt="Public sector icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item6 jcr:primaryType="nt:unstructured" label="Business &amp; industrial markets" iconAlt="Business icon" linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </tiles>
+                    </industries>
+                    <insights-list
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/insights-list"
+                        eyebrow="Our take on what's next">
+                        <cards jcr:primaryType="nt:unstructured">
+                            <item0
+                                jcr:primaryType="nt:unstructured"
+                                heading="Omnicom's transformation consultancy strengthens capabilities with the launch of unified Adobe practice"
+                                category="Article / News"
+                                imageAlt="Credera launches a comprehensive Adobe practice"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1
+                                jcr:primaryType="nt:unstructured"
+                                heading="Is your business ready for agentic commerce?"
+                                category="Article / Commerce"
+                                imageAlt="The next major shift in commerce"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item2
+                                jcr:primaryType="nt:unstructured"
+                                heading="The blueprint for AI-ready personalization: From scattered signals to smart experiences"
+                                category="Article / Artificial Intelligence"
+                                imageAlt="Streamline your path to hyper-personalized journeys"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item3
+                                jcr:primaryType="nt:unstructured"
+                                heading="Turning fragmented healthcare data into a secure, connected ecosystem"
+                                category="Article / Healthcare"
+                                imageAlt="Healthcare data ecosystem"
+                                linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </cards>
+                    </insights-list>
+                    <footer-cta
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/footer-cta"
+                        title="Let's talk!"
+                        body="We're ready to help turn your biggest challenges into your biggest advantages."
+                        ctaLabel="GET IN TOUCH"
+                        ctaLink="/content/demo-ai-site/us/en/credera"/>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

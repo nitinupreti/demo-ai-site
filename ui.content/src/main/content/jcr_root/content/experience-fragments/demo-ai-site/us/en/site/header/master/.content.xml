@@ -12,23 +12,35 @@
         <root
             jcr:primaryType="nt:unstructured"
             sling:resourceType="demo-ai-site/components/container"
-            layout="simple">
-            <navigation
+            layout="responsiveGrid">
+            <site-header
                 jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/navigation"
-                collectAllPages="false"
-                navigationRoot="/content/demo-ai-site/us/en"
-                skipNavigationRoot="false"
-                structureDepth="1"/>
-            <languagenavigation
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/languagenavigation"
-                navigationRoot="/content/demo-ai-site/us"
-                structureDepth="2"/>
-            <search
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/search"
-                searchRoot="/content/demo-ai-site/us"/>
+                sling:resourceType="demo-ai-site/components/site-header"
+                brandLabel="Credera Logo"
+                brandHref="/content/demo-ai-site/us/en/credera"
+                regionLabel="India">
+                <utility jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        label="SEARCH"
+                        href="#search"
+                        icon="search"
+                        ariaLabel="Search"/>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        label="CONTACT"
+                        href="/content/demo-ai-site/us/en/credera"
+                        icon="none"/>
+                </utility>
+                <mainNav jcr:primaryType="nt:unstructured">
+                    <item0 jcr:primaryType="nt:unstructured" label="OFFERINGS" href="/content/demo-ai-site/us/en/credera"/>
+                    <item1 jcr:primaryType="nt:unstructured" label="INDUSTRIES" href="/content/demo-ai-site/us/en/credera"/>
+                    <item2 jcr:primaryType="nt:unstructured" label="PARTNERSHIPS" href="/content/demo-ai-site/us/en/credera"/>
+                    <item3 jcr:primaryType="nt:unstructured" label="INSIGHTS" href="/content/demo-ai-site/us/en/credera"/>
+                    <item4 jcr:primaryType="nt:unstructured" label="CAREERS" href="/content/demo-ai-site/us/en/credera"/>
+                    <item5 jcr:primaryType="nt:unstructured" label="ABOUT US" href="/content/demo-ai-site/us/en/credera"/>
+                </mainNav>
+            </site-header>
         </root>
     </jcr:content>
 </jcr:root>

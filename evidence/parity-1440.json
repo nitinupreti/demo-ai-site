@@ -1,0 +1,83 @@
+[
+  {
+    "id": "hero",
+    "w": 1781,
+    "h": 242,
+    "matched": 402536,
+    "differing": 28466,
+    "total": 431002,
+    "visualMatchPercent": 93.395
+  },
+  {
+    "id": "service-list",
+    "w": 1781,
+    "h": 311,
+    "matched": 334729,
+    "differing": 219162,
+    "total": 553891,
+    "visualMatchPercent": 60.432
+  },
+  {
+    "id": "marquee",
+    "w": 1781,
+    "h": 69,
+    "matched": 70611,
+    "differing": 52278,
+    "total": 122889,
+    "visualMatchPercent": 57.459
+  },
+  {
+    "id": "featured-case-study",
+    "w": 1781,
+    "h": 276,
+    "matched": 194905,
+    "differing": 296651,
+    "total": 491556,
+    "visualMatchPercent": 39.651
+  },
+  {
+    "id": "case-study-grid",
+    "w": 1781,
+    "h": 479,
+    "matched": 61321,
+    "differing": 791778,
+    "total": 853099,
+    "visualMatchPercent": 7.188
+  },
+  {
+    "id": "partners",
+    "w": 1781,
+    "h": 543,
+    "matched": 381926,
+    "differing": 585157,
+    "total": 967083,
+    "visualMatchPercent": 39.493
+  },
+  {
+    "id": "industries",
+    "w": 1781,
+    "h": 560,
+    "matched": 430905,
+    "differing": 566455,
+    "total": 997360,
+    "visualMatchPercent": 43.205
+  },
+  {
+    "id": "insights",
+    "w": 1781,
+    "h": 355,
+    "matched": 456171,
+    "differing": 176084,
+    "total": 632255,
+    "visualMatchPercent": 72.15
+  },
+  {
+    "id": "footer-cta",
+    "w": 1781,
+    "h": 174,
+    "matched": 57608,
+    "differing": 252286,
+    "total": 309894,
+    "visualMatchPercent": 18.59
+  }
+]

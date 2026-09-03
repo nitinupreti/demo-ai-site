@@ -1,0 +1,17 @@
+<!--/* Industries component */-->
+<sly data-sly-use.model="com.demo.core.models.IndustriesModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <section class="cmp-industries" data-cmp-is="industries">
+        <p class="cmp-industries__eyebrow" data-sly-test="${model.eyebrow}">${model.eyebrow}</p>
+        <ul class="cmp-industries__list" data-sly-list.tile="${model.tiles}">
+            <li class="cmp-industries__row">
+                <a class="cmp-industries__row-link" href="${tile.href @ context='uri'}">
+                    <span class="cmp-industries__row-label">${tile.label}</span>
+                </a>
+            </li>
+        </ul>
+    </section>
+</sly>
+<sly data-sly-test="${!model.hasContent && wcmmode.edit}">
+    <div class="cmp-industries cmp-industries--empty">Please configure the Industries component.</div>
+</sly>

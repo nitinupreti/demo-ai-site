@@ -1,16 +1,7 @@
-
-//== XF Footer style, used on page template
+//== XF Footer wrapper — minimal reset, layout is owned by the site-footer component
 
 footer.experiencefragment {
-    padding: .5em 1em;
-    border-top: 1px solid $color-foreground;
-
-    @media (prefers-color-scheme: dark) {
-        border-color: $color-foreground-dark;
-    }
-
-    .cmp-separator__horizontal-rule {
-        margin: 0;
-        border: 0;
-    }
+    padding: 0;
+    border: 0;
+    background: transparent;
 }

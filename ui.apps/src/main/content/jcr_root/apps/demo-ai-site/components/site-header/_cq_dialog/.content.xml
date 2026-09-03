@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Site Header"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <brand
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Brand"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <columns
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/fixedcolumns"
+                                margin="{Boolean}true">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <column
+                                        jcr:primaryType="nt:unstructured"
+                                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                                        <items jcr:primaryType="nt:unstructured">
+                                            <brandLabel
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Brand Label (aria-label / title)"
+                                                fieldDescription="Accessible name used on the logo link and inside the SVG title."
+                                                name="./brandLabel"
+                                                value="Credera Logo"/>
+                                            <brandHref
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Brand Link"
+                                                fieldDescription="Target of the logo link. Leave blank to hide the link."
+                                                name="./brandHref"
+                                                rootPath="/content"/>
+                                            <regionLabel
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Region Label"
+                                                fieldDescription="Text of the region badge on the far right of the utility row (e.g. India). Leave blank to hide."
+                                                name="./regionLabel"/>
+                                        </items>
+                                    </column>
+                                </items>
+                            </columns>
+                        </items>
+                    </brand>
+                    <utility
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Utility Items"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <utility
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                composite="{Boolean}true"
+                                fieldLabel="Utility Items"
+                                fieldDescription="Left-of-region utility links (SEARCH, CONTACT, etc.). Rendered in order.">
+                                <field
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container"
+                                    name="./utility">
+                                    <items jcr:primaryType="nt:unstructured">
+                                        <label
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="Label"
+                                            name="./label"/>
+                                        <href
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                            fieldLabel="Link"
+                                            name="./href"
+                                            rootPath="/content"/>
+                                        <ariaLabel
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="ARIA Label (optional)"
+                                            name="./ariaLabel"/>
+                                        <icon
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                            fieldLabel="Icon"
+                                            name="./icon"
+                                            value="none">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <none
+                                                    jcr:primaryType="nt:unstructured"
+                                                    text="None"
+                                                    value="none"/>
+                                                <search
+                                                    jcr:primaryType="nt:unstructured"
+                                                    text="Search"
+                                                    value="search"/>
+                                            </items>
+                                        </icon>
+                                    </items>
+                                </field>
+                            </utility>
+                        </items>
+                    </utility>
+                    <mainNav
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Main Navigation"
+                        sling:resourceType="granite/ui/components/coral/foundation/container">
+                        <items jcr:primaryType="nt:unstructured">
+                            <mainNav
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/multifield"
+                                composite="{Boolean}true"
+                                fieldLabel="Main Navigation Items"
+                                fieldDescription="Primary top-level navigation entries, in order.">
+                                <field
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/container"
+                                    name="./mainNav">
+                                    <items jcr:primaryType="nt:unstructured">
+                                        <label
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                            fieldLabel="Label"
+                                            name="./label"/>
+                                        <href
+                                            jcr:primaryType="nt:unstructured"
+                                            sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                            fieldLabel="Link"
+                                            name="./href"
+                                            rootPath="/content"/>
+                                    </items>
+                                </field>
+                            </mainNav>
+                        </items>
+                    </mainNav>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

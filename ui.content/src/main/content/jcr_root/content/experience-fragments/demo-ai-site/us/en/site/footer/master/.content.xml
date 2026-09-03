@@ -12,15 +12,60 @@
         <root
             jcr:primaryType="nt:unstructured"
             sling:resourceType="demo-ai-site/components/container"
-            layout="responsiveGrid">
-            <separator
+            layout="simple">
+            <site-footer
                 jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/separator"/>
-            <text
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/text"
-                text="&lt;p>Copyright 2026, Demo AI Site.&amp;nbsp;All rights reserved.&lt;/p>&#xd;&#xa;&lt;p>345 Park Avenue,&amp;nbsp;San Jose, CA 95110-2704, USA&lt;/p>&#xd;&#xa;"
-                textIsRich="true"/>
+                sling:resourceType="demo-ai-site/components/site-footer"
+                brandLabel="Credera Logo"
+                brandHref="/content/demo-ai-site/us/en/credera"
+                brandBlurb="Credera empowers the world&#8217;s leading brands to navigate the complexities of data, technology, and marketing. As the global consultancy embedded within Omnicom&#8217;s creative and media scale, we bridge marketing ambition and technical execution to accelerate growth and build transformations that last."
+                copyright="Copyright &#169; 2026 Credera. All rights reserved.">
+                <columns jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        heading="Explore">
+                        <links jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Industries" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Partners" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item2 jcr:primaryType="nt:unstructured" label="Insights" linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </links>
+                    </item0>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        heading="About Us">
+                        <links jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Leadership" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Careers" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item2 jcr:primaryType="nt:unstructured" label="Contact Us" linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </links>
+                    </item1>
+                    <item2
+                        jcr:primaryType="nt:unstructured"
+                        heading="Legal">
+                        <links jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" label="Europe | Asia-Pacific Privacy Notice" linkPath="/content/demo-ai-site/us/en/credera"/>
+                            <item1 jcr:primaryType="nt:unstructured" label="Cookie Settings" linkPath="/content/demo-ai-site/us/en/credera"/>
+                        </links>
+                    </item2>
+                </columns>
+                <socials jcr:primaryType="nt:unstructured">
+                    <item0
+                        jcr:primaryType="nt:unstructured"
+                        label="LinkedIn"
+                        icon="linkedin"
+                        href="https://www.linkedin.com/company/credera"/>
+                    <item1
+                        jcr:primaryType="nt:unstructured"
+                        label="Instagram"
+                        icon="instagram"
+                        href="https://www.instagram.com/lifeatcredera/"/>
+                    <item2
+                        jcr:primaryType="nt:unstructured"
+                        label="YouTube"
+                        icon="youtube"
+                        href="https://www.youtube.com/@CrederaVideo"/>
+                </socials>
+            </site-footer>
         </root>
     </jcr:content>
 </jcr:root>

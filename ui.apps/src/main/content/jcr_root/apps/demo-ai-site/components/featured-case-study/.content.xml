@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Component"
+    jcr:title="Featured Case Study"
+    jcr:description="Single-item featured case study card with video poster, heading, category, and CTA."
+    componentGroup="Demo AI Site - Content"/>
