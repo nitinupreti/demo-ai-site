@@ -27,10 +27,10 @@ Create one stable `instance_id` per visible block in reading order. Build the ca
 2. Heading anchors: `h1` through `h6` and their nearest visual owners.
 3. Class-family signals: visible elements wider than 200 px and taller than 8 px whose classes match `/(section|wrapper|container|block|panel|band|strip|bar|marquee|ticker|scroller|carousel|slider|announce|promo|cta|hero|footer|header|feature|nav|banner|consent|cookie|toast|snackbar|modal|drawer|sticky|float)/i`.
 4. Vertical-band scan: sample the full page in 20 px y-steps and associate every distinct painted band with the smallest owner at least 60% of page width. This must catch headless decorative regions.
-5. Interaction/media signals: video, audio, canvas, iframe, embed, object, component/tracking data attributes, non-`none` animation names, and changing transforms.
+5. Interaction/media signals: video, audio, canvas, iframe, embed, object, WebGL contexts, inline `<svg>` with `<animate*>`/`<set>` children, component/tracking data attributes, non-`none` animation names (`getComputedStyle(el).animationName !== 'none'`), non-empty `will-change`, and changing transforms between two 500 ms samples.
 6. Floating/overlay signals: visible `fixed` or `sticky` elements and positive-z-index elements overlapping the viewport.
 7. Repetition signals: parents with two or more visually equivalent direct children. Record the parent as a block and each child as an instance row.
-8. Missable-pattern catalog: explicitly search classes/IDs/data attributes for `promo`, `marquee`, `ticker`, `announcement`, `cookie`, `consent`, `back-to-top`, `breadcrumb`, `logo-strip`, `stats`, `quote`, `divider`, `pinned`, `newsletter`, `region-selector`, `search-overlay`, `mega-menu`, `skip-link`, `preloader`, `progress`, and `chat`.
+8. Missable-pattern catalog: explicitly search classes/IDs/data attributes for `promo`, `marquee`, `ticker`, `announcement`, `cookie`, `consent`, `back-to-top`, `breadcrumb`, `logo-strip`, `stats`, `quote`, `divider`, `pinned`, `newsletter`, `region-selector`, `search-overlay`, `mega-menu`, `skip-link`, `preloader`, `progress`, `chat`, `animate`, `animation`, `fade`, `reveal`, `in-view`, `intersect`, `parallax`, `scroll`, `sticky`, `pinned`, `gsap`, `lottie`, `rive`, `webgl`, `three`, `canvas`, `motion`, `blob`, and `orb`.
 
 If a reviewer identifies an omitted block, invalidate discovery, add it, rerun all signals, and refresh downstream evidence.
 
@@ -84,6 +84,23 @@ Use real pointer/keyboard events (`page.hover`, `element.focus()`, `page.keyboar
 
 Missing hover/focus/active/transition evidence for any interactive role invalidates the stage; the downstream Interaction Gate in Stage 04 requires each row here to pair 1:1 with a target measurement.
 
+## Motion And Animation Manifest
+
+Entrance animations, ambient loops, scroll-linked effects, keyframe cycles, and JS-driven motion (canvas/WebGL/GSAP/Lottie/Rive) are first-class evidence, not decoration. Many hero-class blocks (for example `omc.com`'s animated blurred-helix wordmark background) have NO hover trigger and would slip past the Interactive-States Manifest. Every animated instance MUST be captured, per breakpoint, in a `motion_manifest`:
+
+| Instance | Selector | Trigger (`on-load` / `on-enter` / `on-scroll` / `always-on` / `on-hover` / `on-click`) | Technology (`css-keyframes` / `css-transition` / `web-animations` / `canvas-2d` / `webgl` / `lottie` / `rive` / `svg-smil` / `video-loop` / `gif-loop`) | Timing (duration, delay, iteration-count, direction, timing-function, per-child stagger) | Trigger geometry (IntersectionObserver root/threshold/rootMargin, scroll-offset window, or `null`) | Playback state (autoplay, loop, muted, playsinline, currentTime freeze) | `prefers-reduced-motion: reduce` override observed | Full-cycle capture (video/apng path) | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+
+Capture protocol:
+
+1. First pass with animations **enabled**: record `getComputedStyle` `animation-*` and `transition-*` longhands, `<video>`/`<audio>` `HTMLMediaElement` state (`currentTime`, `paused`, `muted`, `loop`, `playbackRate`), inline `<svg>` `<animate*>` attribute values, and any `canvas`/WebGL context (`canvas.getContext('2d' | 'webgl' | 'webgl2') !== null`, program count, texture inventory when reachable).
+2. Record one complete loop or entry as a short MP4/APNG (or a synchronized `requestAnimationFrame` frame series) plus start/mid/end still crops so downstream stages can score both static frames and motion presence.
+3. Toggle Playwright emulation `page.emulateMedia({ reducedMotion: 'reduce' })` and re-capture computed styles + a short clip; record whether the source honors the opt-out (freezes/replaces/hides) or ignores it. Restore `reducedMotion: 'no-preference'` before other captures.
+4. For scroll-triggered animation, script the scroll offset that first satisfies the trigger, wait for the `animation` or `transition` to reach `finished`, then record end state and the transition timeline.
+5. For always-on / autoplay-loop / canvas / WebGL motion that has no discrete start, capture two disjoint one-second windows and confirm pixels change between them; a static crop for such an instance is a discovery failure.
+
+If an instance has no motion, record `motion=none` explicitly with the evidence that proved it (two identical frames 500 ms apart plus `animationName === 'none'`); silence is a discovery failure. Missing or invalid motion evidence invalidates the stage; the downstream Motion Gate in Stage 04 requires each row here to pair 1:1 with a target measurement.
+
 ## Frozen Score Denominators
 
 - Content 25%: every visible role, copy unit, heading, media slot, CTA, and control.
@@ -119,6 +136,7 @@ stage_result:
 		- {name: no_unclaimed_gap_20px, status: PASS|FAIL, evidence: <artifact>}
 		- {name: header_and_footer_captured_or_absent_with_evidence, status: PASS|FAIL, evidence: <landmark search, y=0 and y=documentHeight coverage rows, screenshot bands>}
 		- {name: interactive_states_manifest_complete, status: PASS|FAIL, evidence: <one row per interactive role covering initial/hover/focus/active/transition or explicit `none`>}
+		- {name: motion_manifest_complete, status: PASS|FAIL, evidence: <one row per animated instance covering trigger/technology/timing/trigger-geometry/playback-state/reduced-motion/full-cycle capture, or explicit `motion=none` with two-frame proof>}
 	failures: []
 	next_stage: 02-component-authoring
 ```

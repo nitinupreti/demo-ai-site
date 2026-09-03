@@ -138,6 +138,24 @@ Non-negotiable authoring rules:
 - Transitions declared for measurement disable purposes only. The authored component ships with the source-observed `transition` property/duration/easing.
 - The `interactive_states_target_matrix` row status is `COMPLETE` only when a live Playwright measurement of the deployed target (`page.hover(...)` + computed-style diff before/after) matches the frozen source row within 1 CSS px of geometry delta and matching color/opacity/decoration deltas. A HAND-WRITTEN CSS rule is not evidence.
 
+## Motion And Animation Contract
+
+Every instance in the Stage 1 `motion_manifest` MUST have a corresponding target implementation, cited row-for-row in a `motion_target_matrix`:
+
+| Instance | Trigger (from Stage 1) | Technology chosen for target | Files that implement it (HTL / CSS keyframes / clientlib JS / DAM video / Lottie JSON) | Timing (duration / delay / iteration-count / direction / timing-function / stagger) | Trigger geometry reproduced (IntersectionObserver options, scroll offset window, or `null`) | `@media (prefers-reduced-motion: reduce)` opt-out | Notes |
+|---|---|---|---|---|---|---|---|
+
+Non-negotiable authoring rules:
+
+- **No invented motion, no silently-dropped motion.** Every keyframe, `animation`, `transition`, `IntersectionObserver`, `requestAnimationFrame`, GSAP/Lottie/Rive/canvas/WebGL invocation must cite a Stage 1 row. A block that is animated in source but static in target is a hard failure. A block that is animated in target but static in source is also a hard failure.
+- **Preserve technology class.** CSS keyframe motion stays CSS keyframe motion; canvas/WebGL stays canvas/WebGL; Lottie JSON stays Lottie JSON; a looping background video stays a looping background video (a still poster is not a substitute for animation, exactly as a poster is not a substitute for video). Substituting a static PNG or a lower-fidelity approximation for a source loop is a hard failure regardless of pixel score.
+- **Preserve timing fidelity.** Match observed duration, delay, iteration-count, direction, timing-function, and per-child stagger within 5% or the smallest source-observable step, whichever is larger. Do not round 1200 ms down to 1000 ms because it "feels close."
+- **Preserve trigger geometry.** Scroll-triggered / on-enter animation reproduces the same trigger point (IntersectionObserver `threshold`/`rootMargin` or scroll-offset window). Firing at `threshold: 0` when source fires at `threshold: 0.5` is a hard failure.
+- **Mandatory `prefers-reduced-motion` parity.** Every motion row MUST wrap or gate its motion behind `@media (prefers-reduced-motion: reduce)` (CSS) or `matchMedia('(prefers-reduced-motion: reduce)')` (JS) exactly as source does. If source honors the OS opt-out, target must honor it identically; if source ignores it, target ignores it identically (record the accessibility deviation). Silent absence of a reduced-motion branch when source has one is a WCAG violation and a hard failure.
+- **Assets ship from DAM.** Loop videos, Lottie JSON, APNG/GIF loops, and per-frame sprite sheets follow the same DAM placement and `fileReference`/pathfield binding rules as any other asset — never inlined as data URIs, hardcoded clientlib `resources/**`, or remote URLs. Timing values that a business author may legitimately vary (loop count, cycle speed for a marquee/ticker, autoplay delay) are dialog-driven, not literals in CSS/HTL/JS.
+- **No purely-decorative-in-CSS shortcut.** If source ships a canvas/WebGL/Three.js/Lottie animation, do not replace it with a CSS `@keyframes` approximation to "look similar" — the technology change fails the Motion Gate even if the still frame passes pixel scoring.
+- Row status is `COMPLETE` only when a live Playwright measurement of the deployed target (with animations enabled, then with `reducedMotion: 'reduce'` emulated) matches the frozen source row on trigger, technology, timing, trigger geometry, and reduced-motion behavior. A HAND-WRITTEN CSS `@keyframes` block or a checked-in Lottie JSON file is not evidence on its own.
+
 ## CSS And Responsive Contracts
 
 - Component CSS is BEM-scoped and consumes shared/purpose-specific tokens; no unexplained design literals.
@@ -187,6 +205,7 @@ stage_result:
 		- {name: no_hardcoded_business_content_in_htl_model_or_css, status: PASS|FAIL, evidence: <grep audit for literal copy/URLs/asset paths in *.html, *.java, *.css/*.scss, plus authorability-matrix rows>}
 		- {name: authored_assets_live_in_dam_not_clientlibs, status: PASS|FAIL, evidence: <inventory of images/videos/logos/posters with DAM path + `fileReference`/pathfield binding; violations enumerated>}
 		- {name: interactive_states_target_matrix_complete, status: PASS|FAIL, evidence: <one row per interactive role with source→target hover/focus/active/transition parity measured live via Playwright>}
+		- {name: motion_target_matrix_complete, status: PASS|FAIL, evidence: <one row per Stage-1 motion_manifest instance with source→target trigger/technology/timing/trigger-geometry/prefers-reduced-motion parity measured live via Playwright>}
 		- {name: site_header_and_footer_delivered_via_experience_fragments, status: PASS|FAIL, evidence: <xf paths, template structure node, policy override, disabled/author-mode header-first/footer-last DOM check>}
 		- {name: author_page_order_matches_frozen_source, status: PASS|FAIL, evidence: <checked-in/JCR/disabled/author ordered lists>}
 		- {name: focused_implementation_tests, status: PASS|FAIL, evidence: <command/output>}

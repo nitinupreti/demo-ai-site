@@ -205,6 +205,31 @@ A role fails the gate whenever:
 
 Any failing row must be repaired in the same Stage 04 remediation loop as pixel/geometry failures, at the same priority. A page composite cannot report `PASS` while any Interaction-Gate row is `FAIL`.
 
+## Motion Gate
+
+The pixel-and-geometry loop above freezes animation for measurement stability, so a target that ships a completely static hero would still pass pixel scoring against a still frame of an animated source. The Motion Gate closes that loophole. Run it in the same turn as the pixel/geometry rescore, against every row in the Stage 1 `motion_manifest` / Stage 2 `motion_target_matrix`.
+
+For each animated instance and required breakpoint:
+
+1. **Enable motion.** With the parity runner's animation-freeze stylesheet removed and Playwright emulation `reducedMotion: 'no-preference'`, record on the source page and the target page: `getComputedStyle(el)` `animation-*` and `transition-*` longhands; live JS technology probes (`canvas.getContext('2d'|'webgl'|'webgl2') !== null`, Lottie player state, GSAP timeline `progress()`, `HTMLMediaElement.paused|loop|muted|currentTime|playbackRate`, `IntersectionObserver` registrations reachable via the component's `data-cmp-*` API); and a short synchronized clip (>= one full loop or entrance, or two disjoint one-second windows for always-on motion).
+2. **Prove pixel change on always-on / loop rows.** Sample two frames at least one second apart from the target clip; if `visualMatchPercent(frame_t0, frame_t1) >= 99.5%` the target is effectively static and the row FAILS regardless of the still-frame pixel score.
+3. **Diff timing.** Compare source vs. target `animation-duration`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-timing-function`, per-child stagger, and `transition-duration`/`-delay`/`-timing-function`. Deltas must be within 5% or the smallest source-observable step, whichever is larger.
+4. **Diff trigger geometry.** For scroll-triggered / on-enter rows, script the same scroll offset on source and target and assert both fire (`animationstart` / `transitionstart` / IntersectionObserver `isIntersecting`) at the same offset within 24 CSS px. Firing at the top of the viewport when source fires half-scrolled-in is a hard failure.
+5. **Diff reduced-motion behavior.** Call `page.emulateMedia({ reducedMotion: 'reduce' })` on both pages and re-run steps 1–4. Source-honoring rows must freeze/replace/hide motion on target too; source-ignoring rows must remain animated. A missing target opt-out when source has one is both a WCAG violation and a Motion-Gate failure.
+6. **Persist evidence** for each row and breakpoint under `evidence/component-parity/motion/<breakpoint>/<instance>/{enabled.mp4,enabled-t0.png,enabled-t1.png,reduced.mp4,reduced-t0.png,reduced-t1.png,timings.json,triggers.json,side-by-side.png}`.
+
+A row fails the Motion Gate whenever any of the following are true:
+
+- source has motion and target does not (silent omission);
+- target has motion and source does not (invented motion);
+- technology class differs (source ships canvas/WebGL/Lottie, target ships a CSS-keyframe approximation, or vice versa);
+- timing longhands differ beyond tolerance;
+- trigger geometry differs beyond 24 CSS px;
+- `prefers-reduced-motion` behavior differs;
+- always-on / loop row is proven static by the two-frame test on target.
+
+Any failing row is repaired in the same Stage 04 remediation loop as pixel/geometry failures, at the same priority. A page composite cannot report `PASS` while any Motion-Gate row is `FAIL`.
+
 ## Scores And Threshold
 
 Calculate frozen weighted axis scores from `01-source-discovery.md`. Instance score is the weighted sum; component-type score is its minimum instance, not an average. Final component status is the minimum of:
@@ -264,6 +289,7 @@ Running out of ideas, hitting the same failing gap repeatedly, or feeling that f
 - Missing/broken/un-authored assets, semantic-role substitutions, wrong full-bleed zones, incorrect body font, and missing interactions apply their prescribed hard failures/caps.
 - Do not score a hand-picked subset of properties, blank crops, whitespace, authored CSS declarations without computed evidence, or stale captures.
 - **Hardcoded business content never contributes to a passing row.** If a visible string, URL, image, video, logo, poster, or icon that a business author would legitimately change is served from HTL literals, Sling-model defaults, CSS `url(...)`, `::before content:"..."`, or `apps/.../clientlibs/.../resources/**` instead of a dialog-driven DAM/pathfield binding, the affected instance FAILs regardless of pixel score. Repair via Stage 2 (add the field), Stage 3 (move the asset to `/content/dam/<site>/<locale>/...` and rebuild), and Sling POST reconciliation — not by tuning CSS in Stage 4.
+- **Motion cannot be faked with a still frame.** A still-frame pixel score above 92 does not offset a Motion-Gate `FAIL`. Substituting a poster for a source video loop, a CSS-keyframe approximation for a source canvas/WebGL/Lottie animation, or a static PNG for an on-enter reveal is a hard failure regardless of pixel score. Repair the owning motion layer, do not tune CSS.
 - User rejection invalidates prior affected scores and evidence.
 
 ## Required Stage Result
@@ -290,6 +316,7 @@ stage_result:
 		- {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
 		- {name: all_screenshot_scores_above_92, status: PASS|FAIL, evidence: <artifact>}
 		- {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <per-role source vs target hover/focus/active/transition computed-style deltas + side-by-side screenshots under evidence/component-parity/interaction/>}
+		- {name: all_motion_rows_pass, status: PASS|FAIL, evidence: <per-instance source vs target enabled+reduced-motion clips, animation-*/transition-* longhand diffs, trigger-geometry offsets, and two-frame pixel-change proof for always-on/loop rows under evidence/component-parity/motion/>}
 		- {name: all_final_minima_and_composites_above_92, status: PASS|FAIL, evidence: <artifact>}
 	failures: []
 	next_stage: 05-completion-output

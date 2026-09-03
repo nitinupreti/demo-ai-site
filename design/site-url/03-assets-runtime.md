@@ -19,6 +19,8 @@ This file owns asset reproducibility, build/deployment order, and deployed runti
 - Record source URL, DAM path, dialog property that points at it (`./<name>Image`, `./<name>Video`, `./<name>Poster`, `./<name>Icon`), MIME, bytes, and deployment method.
 - Verify source HEAD (GET fallback), target GET 200 on the DAM URL, MIME, non-zero bytes, browser decode, and — for images consumed by Core `image` v3 — that the `.coreimg.<width>.<hash>.<ext>` rendition selector returns 200.
 - Preserve media class and source controls. Background video uses playable muted looping inline video when observed. Reduced motion pauses/hides autoplay and exposes its real poster.
+- For every Stage 1 `motion_manifest` row, assert on the deployed target: the animated element exists and is visible in the disabled-page DOM; `getComputedStyle(el).animationName !== 'none'` OR the JS technology (`canvas.getContext(...)`, Lottie player instance, GSAP timeline, `HTMLMediaElement.paused === false && loop === true`, `IntersectionObserver` registered) is live; and pixels change between two disjoint one-second samples for always-on / on-load / loop rows. A row that ships checked-in but is dormant at runtime FAILS this stage.
+- Toggle `page.emulateMedia({ reducedMotion: 'reduce' })` and re-assert each motion row: source-honoring rows must freeze/replace/hide motion on target too; source-ignoring rows must remain animated. Record the emulated state, computed styles, and a short screenshot per breakpoint under `evidence/component-parity/motion/<breakpoint>/<instance>-reduced.{png,json}`.
 - Structural design-system atoms (grid dividers, decorative geometry, `currentColor`-only icon-system SVGs whose choice authors control via a token/select field) MAY remain under a component clientlib. Their inventory row MUST cite the Stage 1 evidence proving that value is invariant on the live site.
 
 Missing or undecoded media gives Media 0 and caps Content at 80 for the affected instance; remediate before scoring. An authored asset that lives in a component clientlib instead of DAM is a Stage 2 authorability failure, not a Stage 3 remediation option — move it to DAM and re-author, do not paper over it here.
@@ -74,6 +76,7 @@ stage_result:
 	checks:
 		- {name: assets_reachable_and_decoded, status: PASS|FAIL, evidence: <artifact>}
 		- {name: authored_assets_under_dam_and_bound_via_pathfield, status: PASS|FAIL, evidence: <inventory: source URL → DAM path → dialog property; violations = any authored image/video/logo/poster served from apps/.../clientlibs/.../resources>}
+		- {name: motion_runtime_live_and_reduced_motion_honored, status: PASS|FAIL, evidence: <per-instance: animation-name/canvas-context/media-playback state at runtime + two-frame pixel-change proof for loops + reduced-motion emulated capture>}
 		- {name: focused_tests_and_reactor_build, status: PASS|FAIL, evidence: <commands/output>}
 		- {name: packages_and_bundles_active, status: PASS|FAIL, evidence: <artifact>}
 		- {name: disabled_and_author_runtime_valid, status: PASS|FAIL, evidence: <artifact>}
