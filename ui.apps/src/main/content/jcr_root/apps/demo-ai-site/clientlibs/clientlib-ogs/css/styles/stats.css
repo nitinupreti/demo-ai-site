@@ -1,43 +1,53 @@
 .cmp-ogs-stats {
-  background: var(--ogs-bg-lime);
-  padding: 4.5rem var(--ogs-page-x);
+  background: #f0ffb8;
+  padding: 0;
   font-family: var(--ogs-font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--ogs-color-ink);
 }
 .cmp-ogs-stats__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 3rem 4rem;
+  gap: 0;
+  border-top: 1px solid rgba(38, 34, 80, 0.2);
+  border-left: 1px solid rgba(38, 34, 80, 0.2);
 }
 .cmp-ogs-stats__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 220px;
   text-align: center;
-  padding: 0.5rem 0.5rem;
+  padding: 0 24px;
+  border-right: 1px solid rgba(38, 34, 80, 0.2);
+  border-bottom: 1px solid rgba(38, 34, 80, 0.2);
+  box-sizing: border-box;
 }
 .cmp-ogs-stats__value {
   font-family: var(--ogs-font-heading);
-  font-weight: 800;
-  font-size: clamp(3rem, 5vw, 4.5rem);
+  font-weight: 700;
+  font-size: 44px;
   color: var(--ogs-color-ink);
-  line-height: 1;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
+  line-height: 66px;
+  margin: 0;
+  letter-spacing: -1.32px;
 }
 .cmp-ogs-stats__label {
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
+  font-family: var(--ogs-font-serif);
+  font-size: 13px;
+  line-height: 19.5px;
+  letter-spacing: 1.04px;
   text-transform: uppercase;
-  color: var(--ogs-color-ink);
-  font-weight: 500;
+  color: rgba(38, 34, 80, 0.7);
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
-  .cmp-ogs-stats { padding: 3rem var(--ogs-page-x-md); }
-  .cmp-ogs-stats__grid { grid-template-columns: repeat(2, 1fr); gap: 2rem 2rem; }
-  .cmp-ogs-stats__value { font-size: 3rem; }
+  .cmp-ogs-stats__grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-  .cmp-ogs-stats { padding: 2.5rem var(--ogs-page-x-sm); }
-  .cmp-ogs-stats__grid { grid-template-columns: 1fr; gap: 2rem; }
-  .cmp-ogs-stats__value { font-size: 3.75rem; }
-  .cmp-ogs-stats__label { font-size: 0.8125rem; }
+  .cmp-ogs-stats__grid { grid-template-columns: 1fr; }
 }

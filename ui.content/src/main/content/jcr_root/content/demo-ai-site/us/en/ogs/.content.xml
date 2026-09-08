@@ -66,6 +66,7 @@
                     imagePath="/content/dam/demo-ai-site/en/hero/hero-grid-bg.png"
                     imageAlt="Where people build"
                     overlayTitle="NEXT"
+                    ctaLink="/content/dam/demo-ai-site/en/hero/hero.mp4"
                     ctaLabel="Play the OGS story"/>
                 <ogsnews
                     jcr:primaryType="nt:unstructured"

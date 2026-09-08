@@ -5,6 +5,7 @@
 */-->
 <sly data-sly-use.model="com.demo.core.models.OgsMediaBandModel"/>
 <section class="cmp-ogs-media-band"
+         data-cmp-is="ogs-media-band"
          data-sly-test="${model.imagePath || model.overlayTitle}">
     <div class="cmp-ogs-media-band__inner">
         <img class="cmp-ogs-media-band__bg"
@@ -12,13 +13,36 @@
              src="${model.imagePath}"
              alt="${model.imageAlt}"
              loading="lazy"/>
-        <a class="cmp-ogs-media-band__play"
-           href="${model.ctaLink || '#'}"
-           aria-label="${model.ctaLabel || 'Play video'}">
+        <button class="cmp-ogs-media-band__play"
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded="false"
+                aria-label="${model.ctaLabel || 'Play video'}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M8 5v14l11-7z" fill="currentColor"/>
             </svg>
-        </a>
+        </button>
+        <div class="cmp-ogs-media-band__modal"
+             role="dialog"
+             aria-modal="true"
+             aria-label="${model.ctaLabel || 'Video player'}"
+             hidden>
+            <button class="cmp-ogs-media-band__close"
+                    type="button"
+                    aria-label="Close video">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <video class="cmp-ogs-media-band__video"
+                   controls
+                   playsinline
+                   loop
+                   preload="metadata"
+                   poster="${model.imagePath}">
+                <source src="${model.ctaLink || '/content/dam/demo-ai-site/en/hero/hero.mp4'}" type="video/mp4"/>
+            </video>
+        </div>
     </div>
 </section>
 <sly data-sly-test="${!(model.imagePath || model.overlayTitle) && wcmmode.edit}">

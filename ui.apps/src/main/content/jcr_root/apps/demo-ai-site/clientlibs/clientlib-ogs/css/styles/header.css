@@ -1,32 +1,49 @@
-.cmp-ogs-header {
+header.experiencefragment {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--ogs-bg-header);
-  padding: 1.25rem var(--ogs-page-x);
+}
+
+.cmp-ogs-header {
+  position: static;
+  background: rgb(235 229 239 / 95%);
+  border-bottom: 0.8px solid color-mix(in oklab, var(--ogs-color-ink) 25%, #fff);
+  padding: 1.8125rem var(--ogs-page-x);
   font-family: var(--ogs-font-body);
   color: var(--ogs-color-ink);
+  backdrop-filter: blur(8px);
 }
 .cmp-ogs-header__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.cmp-ogs-header__logo {
+.cmp-ogs-header .cmp-ogs-header__logo {
   display: inline-flex;
   align-items: center;
   color: var(--ogs-color-ink);
   text-decoration: none;
 }
 .cmp-ogs-header__logo svg { height: 42px; width: auto; }
-.cmp-ogs-header__nav { display: flex; gap: 2.25rem; align-items: center; }
-.cmp-ogs-header__link {
+.cmp-ogs-header__nav {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.42px;
+}
+.cmp-ogs-header .cmp-ogs-header__link {
   color: var(--ogs-color-ink);
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
+  letter-spacing: inherit;
   text-decoration: none;
   transition: color 180ms ease;
 }
+.cmp-ogs-header .cmp-ogs-header__link--active { font-weight: 900; }
 .cmp-ogs-header__link--active,
 .cmp-ogs-header__link:hover,
 .cmp-ogs-header__link:focus-visible { text-decoration: underline; text-underline-offset: 6px; }
@@ -34,11 +51,14 @@
 .cmp-ogs-header__link:focus-visible { color: var(--ogs-color-accent); outline: none; }
 .cmp-ogs-header__cta {
   background: transparent;
-  border: 1px solid transparent;
+  border: 0;
   color: var(--ogs-color-ink);
-  padding: 0.5rem 0;
-  font-size: 1rem;
-  font-weight: 500;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
   transition: color 180ms ease;
 }

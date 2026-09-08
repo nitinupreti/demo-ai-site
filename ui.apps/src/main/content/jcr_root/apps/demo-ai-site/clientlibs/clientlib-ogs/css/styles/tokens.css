@@ -1,14 +1,63 @@
+@font-face {
+  font-family: 'Gotham';
+  src: url('../../resources/fonts/Gotham-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham';
+  src: url('../../resources/fonts/Gotham-Book.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('../../resources/fonts/Lora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('../../resources/fonts/Lora-SemiBold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham';
+  src: url('../../resources/fonts/Gotham-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham';
+  src: url('../../resources/fonts/Gotham-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gotham';
+  src: url('../../resources/fonts/Gotham-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
 /* OGS design tokens sampled from source (omnicomglobalsolutions.com) */
 :root {
-  --ogs-bg-header: #eee6f6;            /* pale lavender header backdrop */
+  --ogs-bg-header: #ebe5ef;            /* pale lavender header backdrop */
   --ogs-bg-hero: #ffffff;              /* white hero backdrop */
   --ogs-bg-tile: #e5dbf5;              /* lavender card behind capability tiles */
   --ogs-bg-lime: #ecf5b3;              /* infographic/stats band */
   --ogs-bg-white: #ffffff;
   --ogs-bg-navy: #221540;
-  --ogs-color-ink: #221540;
+  --ogs-color-ink: #262250;
   --ogs-color-mute: #4b4467;
-  --ogs-color-accent: #ff8a2b;
+  --ogs-color-accent: #ffa300;
   --ogs-color-lavender-ink: #6d5cad;
   --ogs-color-opposite: #ffffff;
   --ogs-radius: 0;
@@ -16,16 +65,26 @@
   --ogs-page-x: 4.5rem;
   --ogs-page-x-md: 2.5rem;
   --ogs-page-x-sm: 1.25rem;
-  --ogs-font-heading: 'Inter Tight', 'Inter', 'Segoe UI', system-ui, sans-serif;
-  --ogs-font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --ogs-font-heading: 'Gotham', 'Segoe UI', system-ui, sans-serif;
+  --ogs-font-body: 'Gotham', 'Segoe UI', system-ui, sans-serif;
+  --ogs-font-serif: 'Lora', Georgia, 'Times New Roman', serif;
 }
 
 /* Hide the template's fixed Title component that mirrors the page title. */
 .root .title { display: none; }
 
-/* Core Components applies 16px padding on <main>; strip it so OGS sections go edge-to-edge. */
-main.container.responsivegrid { padding: 0 !important; }
+/* Core Components applies 16px padding on the AEM XF/main wrappers; strip it so OGS sections go edge-to-edge. */
+main.container.responsivegrid,
+header.experiencefragment,
+footer.experiencefragment { padding: 0 !important; }
+header.experiencefragment { border: 0 !important; }
 body.page { margin: 0; padding: 0; }
+
+/* AEM XF containers default to display:grid which shrinks the header/footer to a single grid cell. */
+.cmp-experiencefragment > .cmp-container,
+.cmp-experiencefragment--header > .cmp-container,
+.cmp-experiencefragment--footer > .cmp-container { display: block !important; }
+.ogs-site-header, .ogs-site-footer { width: 100%; }
 
 .cmp-ogs-placeholder {
   display: block;

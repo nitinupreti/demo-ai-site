@@ -2,6 +2,8 @@
   background: var(--ogs-bg-white);
   padding: 1.5rem var(--ogs-page-x) 2rem;
   font-family: var(--ogs-font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--ogs-color-ink);
 }
 .cmp-ogs-capabilities__inner {
@@ -9,10 +11,10 @@
 }
 .cmp-ogs-capabilities__heading {
   font-family: var(--ogs-font-heading);
-  font-weight: 800;
-  font-size: clamp(2rem, 3.6vw, 3.25rem);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 44px;
+  letter-spacing: -0.88px;
   margin: 0 0 1.5rem;
   color: var(--ogs-color-ink);
 }
@@ -69,13 +71,13 @@
   box-shadow: 0 12px 28px -14px rgba(34, 21, 64, 0.35);
 }
 .cmp-ogs-capabilities__label {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 1.28px;
   text-transform: uppercase;
-  color: var(--ogs-color-lavender-ink);
+  color: #8971ff;
   padding: 0.75rem 1rem 1rem;
-  line-height: 1.25;
+  line-height: 24px;
   min-height: 2.5rem;
   transition: color 200ms ease;
 }
