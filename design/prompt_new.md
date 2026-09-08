@@ -4,8 +4,10 @@
 
 ```yaml
 FIGMA_URL: ""
-SITE_URL: "https://credera.com/en-in"
+SITE_URL: "https://credera.com/en-in/careers/life-at-credera"
 DESIGN_FILE: "" # optional PDF; a local .fig without FIGMA_URL is unsupported
+MAX_PARALLEL_COMPONENT_AGENTS: 0 # 0 = use the largest safe supported concurrency
+MAX_PARALLEL_PARITY_AGENTS: 0 # 0 = auto; reduce only when browser/AEM contention is observed
 # Optional: DESIGN_SCREENSHOTS_DIR, DESIGN_SVG_DIR, DESIGN_TOKENS_JSON
 ```
 
@@ -39,22 +41,131 @@ Otherwise proceed autonomously. Ask only when the source is missing/unreadable, 
 
 1. Read `AGENTS.md`, `CLAUDE.md`, `.aem-skills-config.yaml` when present, and every `.agents/skills/*/SKILL.md` whose description overlaps this task.
 2. If `AGENTS.md` is absent in an AEM Cloud project, run `ensure-agents-md` first.
-3. Use `create-component` as the sole workflow for each Tier 2, Tier 3, or Tier 4 component. Pass the reuse decision and emit all independent component files in one batched edit.
+3. The main-thread coordinator MUST use `create-component` as the sole implementation workflow for every Tier 2, Tier 3, or Tier 4 component by delegating one immutable Component Work Packet to one component-creator subagent. Each subagent MUST load and follow `create-component`; it MUST NOT repeat discovery or change the coordinator's reuse decision.
 4. Run `code-assessment` on generated Java/OSGi/Maven code before completion. Load `migration`, `dispatcher`, `aem-workflow`, `content-distribution`, or `aem-rde` only when their domains apply.
 5. Figma modes: load `/figma-design-to-code`, parse `fileKey` and `nodeId` (`node-id=1-2` -> `1:2`; branch key replaces file key), then call per top-level frame: `get_metadata` -> `get_design_context` -> `get_variable_defs` -> `get_screenshot` -> `download_assets`. `/board/` uses FigJam; `/slides/` requires STOP; `/make/` uses its make key.
-6. Site modes: use Playwright/Chromium to open the exact URL and inspect only that page and same-origin resources. An alternate-origin resource may be fetched only when its exact URL appears in rendered DOM, computed CSS, or captured network traffic. Never crawl linked pages, submit forms, forward cookies, or inspect unrelated embeds.
+6. Site modes: use Node.js Playwright/Chromium to open the exact URL and inspect only that page and same-origin resources. The screenshot comparison pipeline MUST run in Node.js and MUST NOT require Python, Pillow, OpenCV, or a virtual environment. Use `locator.screenshot()` for component captures, `pixelmatch` for pixel comparison, and `pngjs` (preferred) or `sharp` only for lossless PNG decoding, padding, masks, and side-by-side composition. An alternate-origin resource may be fetched only when its exact URL appears in rendered DOM, computed CSS, or captured network traffic. Never crawl linked pages, submit forms, forward cookies, or inspect unrelated embeds.
 
-## Execution Model
+## Multi-Agent Collaboration Execution Model
 
-Parallelize independent operations only:
+The main thread is the coordinator and remains the sole authority for source truth, cross-component decisions, integration, and acceptance. Subagents are implementation workers, not independent planners.
 
-- Discovery wave 1: read project instructions/README/config and inventory skills, components, templates, policies in one parallel call.
-- Discovery wave 2: open the source first; once its page handle exists, capture independent breakpoint facts. Enumerate exact asset URLs before parallel downloads.
-- Scaffolding: generate all Tier 2/3/4 components, shared tokens, and preferably sample content in one batched edit.
-- Build: run the focused core tests first, then one multithreaded reactor build.
-- Verification: use one parallel fetch for rendered pages/clientlibs and one batched assertion sweep.
+### Stage 1: Coordinator-Owned Discovery
 
-Do not parallelize steps with output dependencies.
+- Run both discovery waves, Measurement Readiness, the eight-signal block walker, source freeze, inventories, decomposition, tier selection, `design-facts`, asset enumeration, and coverage proof in the main thread. These tasks MUST NOT be delegated to a subagent.
+- The coordinator may parallelize independent tool calls within the main thread, but source interpretation and final frozen evidence remain coordinator-owned.
+- Resolve every shared decision before fan-out: generic component names, resource types, Java class names, reuse targets, dialog fields, token names, asset paths, template/policy ownership, component dependencies, and exclusive file paths.
+- Create shared tokens and acquire deterministic assets before component fan-out when workers depend on them. The coordinator alone owns shared tokens, fonts, assets, Maven/config files, templates, policies, demo content, and evidence tooling.
+
+### Stage 2: Component Work Packets
+
+After discovery is frozen, emit one immutable Component Work Packet for each Tier 2/3/4 component. Tier 1 components and page authoring remain in the main thread. Every packet MUST contain:
+
+```yaml
+component_work_packet:
+    component: <generic semantic name>
+    tier: 2|3|4
+    reuse_target: <resource type>|null
+    dependencies: [<component packets that must finish first>]
+    owned_paths: [<exclusive component/model/test paths>]
+    forbidden_paths: [<shared tokens/assets/policies/templates/content/config paths>]
+    design_facts: <frozen reuse and instance facts for this component>
+    source_evidence: <DOM/style/responsive/state/hover/rect facts and screenshot paths>
+    authoring_contract: <exact fields, widgets, defaults, validation, and color-role pairs>
+    asset_contract: <approved local and DAM paths>
+    implementation_contract: <required Tier deliverables and existing project patterns>
+    worker_validation: <source-local check that does not write shared build outputs>
+    coordinator_validation_command: <narrow component/model test command>
+```
+
+Packets are immutable during a worker run and their `authoring_contract` is the confirmed dialog specification for `create-component`; workers MUST NOT ask the user to reconfirm it. A worker that finds missing, contradictory, or insufficient facts MUST return `BLOCKED_PACKET` with the exact missing field or conflict; it MUST NOT browse the source, invent authoring fields, alter reuse/tier decisions, or widen its file ownership.
+
+### Stage 3: Parallel Component Creation
+
+- Launch one component-creator subagent per independent packet through the available agent/subagent tool and run independent packets concurrently. Each worker MUST load `create-component`, read only the packet and the minimum project files required by that skill, edit only `owned_paths`, run its `worker_validation`, and return a Component Result Manifest.
+- Serialize packets with output dependencies. A base component MUST complete and pass its narrow validation before launching an extension that depends on it.
+- Workers MUST NOT edit shared tokens, assets, policies, templates, demo pages, parent POMs, global clientlibs, evidence scripts, or another worker's paths. Workers MUST NOT invoke nested component-creator agents.
+- A worker owns the complete component slice: component metadata, dialog, HTL, component clientlib, Sling Model/child models, and focused tests as required by its tier. Do not split one component across multiple concurrent workers.
+- If two packets require the same file, they are not independent. Move that file to coordinator ownership or serialize the packets; never permit concurrent writes to it.
+- Workers MUST NOT run Maven, webpack, FileVault packaging, or any command that writes to a shared `target/`, `dist/`, or generated clientlib path while a component wave is concurrent. The coordinator runs those executable checks after the wave.
+
+Every worker returns:
+
+```yaml
+component_result_manifest:
+    component: <name>
+    status: COMPLETED|BLOCKED_PACKET|VALIDATION_FAILED
+    changed_paths: [<paths actually changed>]
+    worker_validation: {check: <check>, result: PASS|FAIL, evidence: <summary>}
+    contract_deviations: [<none or exact deviation>]
+    coordinator_actions: [<shared integration work still required>]
+```
+
+### Stage 4: Coordinator Integration And Initial Deploy
+
+- Wait for all workers in the current dependency wave, then inspect every manifest and workspace diff. Reject path-boundary violations, conflicting edits, unapproved fields, and changes not traceable to the packet.
+- The coordinator resolves `BLOCKED_PACKET` results by correcting discovery facts or shared contracts, then issues a new immutable packet. Do not let a worker silently reinterpret the old packet.
+- Run all packets' `coordinator_validation_command` checks as one non-conflicting aggregated test command whenever the toolchain permits; use separate commands only when isolation is required by a failure.
+- The coordinator performs shared integration exactly once: tokens/fonts/assets, policy additions, demo-page authoring, metadata, and cross-component wiring.
+- Run focused core tests, the multithreaded reactor build, `code-assessment`, one deployment, and live repository checks. Do not deploy once per component.
+- After each deployment, the coordinator captures each full-page source/target screenshot once per breakpoint and runs page-global checks once: coverage, section order, shared tokens, templates, policies, repository order, global chrome, clientlib reachability, and asset deployment.
+
+### Stage 5: Parallel Visual-Parity Verification
+
+Visual verification is a separate read-only agent cycle. After the initial deployment and after every remediation deployment, emit one immutable Parity Work Packet per component. Each packet covers all instances and all breakpoints for that component so browser setup is amortized rather than repeated per `(component, breakpoint)`.
+
+```yaml
+parity_work_packet:
+    component: <generic semantic name>
+    deployment_id: <package checksum, timestamp, or immutable build identifier>
+    breakpoints: [375, 768, 1440, <observed wider frames>]
+    source_url: <exact source reference>
+    disabled_target_url: <exact disabled AEM URL>
+    author_target_url: <exact author AEM URL>
+    source_selectors: [<one exact selector per instance>]
+    target_selectors: [<one exact selector per instance>]
+    frozen_manifest: <source DOM/style/role/hover/responsive/authorability facts>
+    required_checks: <component-scoped checks 0-19>
+    evidence_paths: <exclusive component evidence directory or filename prefix>
+    attempt_by_breakpoint: {<bp>: <0..3|revisit>}
+```
+
+- Launch one visual-parity verifier subagent per component, up to `MAX_PARALLEL_PARITY_AGENTS`; auto mode uses the highest concurrency supported without browser, memory, source-origin, or AEM contention. Queue excess packets rather than reducing evidence.
+- Each verifier checks every instance and breakpoint in one agent-owned browser run against the same `deployment_id`. Within each breakpoint, source, disabled target, and author target MUST use the required identical browser settings and fresh source/target evidence.
+- Verifiers are strictly read-only: they may browse, measure, capture screenshots, create evidence artifacts, and calculate diffs/scores, but MUST NOT edit implementation/content, build, deploy, change author data, or assign terminal status.
+- Each verifier runs the component-scoped checks in their required order and writes only to its exclusive evidence paths. The coordinator-owned full-page artifacts satisfy the full-page part of the capture protocol; workers MUST NOT duplicate them.
+- A verifier returns all breakpoint results together in one Parity Result Manifest. Missing evidence is a failure, never an assumed match.
+
+```yaml
+parity_result_manifest:
+    component: <name>
+    deployment_id: <identifier actually measured>
+    status: VERIFIED|FAILED_CHECKS|BLOCKED_PREREQUISITE
+    breakpoint_results:
+        - breakpoint: <bp>
+          property_score: <raw percent>
+          visual_match_percent: <raw percent>
+          authorability_score: <raw percent>
+          width_status: PASS|FAIL
+          failed_checks: [<exact frozen entries and evidence paths>]
+    defects:
+        - scope: COMPONENT_LOCAL|SHARED|UNKNOWN
+          owner_layer: DIALOG|MODEL|HTL|CSS|ASSET|CONTENT|TOKEN|CONTAINER|TEMPLATE|POLICY|DEPLOYMENT
+          diagnosis: <falsifiable diagnosis>
+          evidence: [<raw objects and artifact paths>]
+```
+
+### Stage 6: Batched Remediation And Reverification
+
+- Wait for the complete parity wave before editing. The coordinator rejects stale manifests whose `deployment_id` differs from the deployed build and clusters identical or causally related defects before assigning fixes.
+- Shared-token, container, template, policy, content-order, deployment, and cross-component defects remain coordinator-owned and are fixed once. Component-local defects become immutable remediation packets for fresh component-creator subagents; independent packets run concurrently under `MAX_PARALLEL_COMPONENT_AGENTS`.
+- Do not send a local symptom to a creator when evidence points to a shared cause. Local packets unaffected by a shared change may run concurrently with the coordinator's shared fix; hold only packets whose diagnosis could be invalidated by that shared fix.
+- A remediation packet contains the original Component Work Packet, the Parity Result Manifest, exact failed evidence, remaining attempt count, exclusive paths, and one falsifiable expected result. The worker edits only the diagnosed owning layer and performs source-local validation.
+- After the whole remediation wave completes, audit ownership, run one aggregated focused validation, run one build, and deploy once for the entire wave. Then launch a fresh parity wave only for changed components plus any components affected by shared changes. Never redeploy or restart Chromium once per component.
+- Count an attempt for `(component, breakpoint)` only when that work item received a relevant change followed by fresh verification. Batched fixes/deployments do not merge work-item attempt counters, and unchanged reruns do not count.
+- The coordinator alone assigns work-item and whole-run statuses after merging component manifests with page-global checks. Creation and parity workers MUST NOT declare visual parity or completion.
+
+The critical path is therefore: main-thread discovery -> parallel creation -> one integration/build/deploy -> parallel parity -> parallel remediation -> one rebuild/redeploy -> targeted parallel parity. Parallelize independent packets and checks, but keep output dependencies, shared integration, each deployment, manifest merge, and final status assignment behind explicit barriers.
 
 ## 1. Discover And Freeze Source Evidence
 
@@ -189,7 +300,9 @@ Preserve media class: video remains playable video, audio remains audio, Lottie 
 
 ## 4. Implement And Author
 
-Create/update shared tokens and all Tier 2/3/4 files according to the contracts and `create-component` skill. Per Tier 4 deliver: component metadata, Properties/Style dialog, HTL, model/child models, clientlib metadata, CSS, optional JS, and model tests. Tier 2/3 emits delta files only and delegates to its supertype.
+The main-thread coordinator creates shared foundations, emits immutable Component Work Packets, and delegates all Tier 2/3/4 component file creation to component-creator subagents according to the Multi-Agent Collaboration Execution Model. Each worker follows the contracts and `create-component` skill. Per Tier 4 deliver: component metadata, Properties/Style dialog, HTL, model/child models, clientlib metadata, CSS, optional JS, and model tests. Tier 2/3 emits delta files only and delegates to its supertype.
+
+After each dependency wave, the coordinator MUST verify that every changed component path is claimed by exactly one Component Result Manifest and that no worker changed a forbidden or shared path. Only then may the coordinator apply shared integration changes and launch the next wave.
 
 Tests use JUnit 5 and wcm.io AEM Mocks with `AppAemContext.newAemContext()`:
 
@@ -228,11 +341,11 @@ This gate is mandatory in every input mode and **must always run** in the same t
 Apply this policy independently to every failing `(component, breakpoint)`:
 
 1. Capture a fresh baseline and identify the failed frozen entries. The baseline is not a remediation attempt.
-2. Allow at most three targeted remediation attempts. Each attempt MUST record the evidence, state a falsifiable diagnosis, change the layer believed to control the failure, redeploy when required, and rerun the same check with fresh evidence. A rerun without a relevant change is a blind retry and does not count as remediation.
+2. Allow at most three targeted remediation attempts. For each attempt, finish the current read-only parity wave, record the evidence, state a falsifiable diagnosis, change the layer believed to control the failure, include that change in the wave's single aggregated build/deploy, and rerun the same check with fresh evidence. A rerun without a relevant change is a blind retry and does not count as remediation.
 3. Escalate the diagnosis during those attempts when local changes do not work. The third attempt MUST address the controlling structure when evidence points there (for example container/template ownership or the component dialog/model/HTL/CSS/assets); it is not an additional fourth attempt.
-4. If the component still fails after the third attempt's fresh verification, mark that work item `RETRY_QUEUED`, freeze its latest evidence and score, append it to the retry queue, and continue with the next unprocessed component against the live source. Do not omit it from reporting or claim or round it to `PASSED`.
+4. If the component still fails after the third attempt's fresh verification, mark that work item `RETRY_QUEUED`, freeze its latest evidence and score, and append it to the retry queue. Other component verifier and remediation packets continue independently; do not omit the failure from reporting or claim or round it to `PASSED`.
 5. Exhausting the first three attempts for one component MUST NOT stop discovery, implementation, measurement, remediation, or scoring of other components or breakpoints. Complete the first-pass work for every reachable component before revisiting the retry queue.
-6. After all reachable components have completed their first pass, revisit each `RETRY_QUEUED` work item once in source reading order. Refresh both live-source and deployed-target evidence, compare against the frozen post-attempt-three score, make at most one additional evidence-driven remediation change, redeploy when required, and remeasure. Record `scoreBeforeRevisit`, `scoreAfterRevisit`, and `scoreDelta`. Mark the item `PASSED_AFTER_REVISIT` if every gate now passes; otherwise mark it `FAILED_AFTER_RETRY` and continue to the next queued item. The revisit is exactly one additional attempt and never starts another retry cycle.
+6. After all reachable components have completed their first pass, verify queued components in one parallel revisit wave and report them in source reading order. Refresh both live-source and deployed-target evidence, compare against the frozen post-attempt-three score, make at most one additional evidence-driven remediation change per queued work item, batch all independent revisit changes into one build/deploy, and remeasure in parallel. Record `scoreBeforeRevisit`, `scoreAfterRevisit`, and `scoreDelta`. Mark the item `PASSED_AFTER_REVISIT` if every gate now passes; otherwise mark it `FAILED_AFTER_RETRY`. The revisit is exactly one additional attempt and never starts another retry cycle.
 7. For an unavailable external prerequisite such as an unreachable source, AEM instance, required credential, or required asset origin, retry the prerequisite at most twice when retrying is safe. If it affects only one component, mark that work item `BLOCKED_COMPONENT`, add it to the failure ledger, and continue. Terminate the whole run as `BLOCKED` only when the prerequisite prevents meaningful work on every remaining component. Implementation defects are never `BLOCKED`.
 8. A changed diagnosis or failure signature does not reset the attempt limit for that `(component, breakpoint)`.
 
@@ -260,18 +373,18 @@ These overrule any tolerance rule in the axis definitions or comparison rules an
 - **Exhaustive block coverage (no missed component)**: for every breakpoint the `score_manifest` MUST claim every visible source block. Concretely:
     1. The freeze pass MUST run the full union of the eight block-discovery signals defined in Section 1 (semantic landmarks, headings, styled-component/BEM class-name regex, vertical-band pixel scan, interaction signals, floating/pinned/overlay signals, repetition signals, and the "common missable patterns" name catalog including `promo-marquee` / `ticker` / `announcement-bar` / `cookie-consent` / `back-to-top` / `breadcrumb` / `logo-strip` / `stat-row` / `quote-strip` / `divider-with-content` / `pinned-cta` / `newsletter-signup` / `region-selector` / `search-overlay` / `mega-menu-panel` / `skip-link` / `preloader` / `page-progress-bar` / `chat-widget`). Discovery based solely on headings or aria-labels is a defect and hard-fails this rule.
     2. The pipeline MUST emit and publish a `coverage_report` table per breakpoint proving the mathematical coverage identity: sorted, merged block y-ranges MUST cover `[0, document.documentElement.scrollHeight]` with no `UNCLAIMED` gap greater than `20 CSS px`. The table columns are `From y`, `To y`, `Block instance_id` (or `UNCLAIMED`), `Class Chain` (top-3 ancestor class-name families), and `Discovery Signal(s) That Found It`.
-    3. Any `UNCLAIMED` gap `>= 20 CSS px` at any breakpoint is a hard `FAIL`. The pipeline MUST NOT proceed to scaffolding, deploy, or the visual-parity gate until that gap is resolved: identify the DOM element whose rect covers the gap, add it to `score_manifest` as a new component (naming per Section 2's generic-role rules — `promo-marquee`, `announcement-bar`, `logo-strip`, etc. — never brand-specific), scaffold Tier 2/3/4 files for it, author its content, redeploy, and re-run the coverage proof.
-    4. **User-detected omissions carry the same weight as an `UNCLAIMED` gap.** If the user (or any reviewer) names a source component that is not in `score_manifest`, the pipeline MUST re-enter the freeze pass in the same turn, re-run the eight discovery signals (including the vertical-band pixel scan and the class-name regex against every ancestor), add the missing block to the manifest with its rect and DOM manifest, scaffold it, author it, deploy, and re-emit the `coverage_report`. The turn does not end on the omission; it ends on the corrected coverage.
+    3. Any `UNCLAIMED` gap `>= 20 CSS px` at any breakpoint is a hard `FAIL`. The pipeline MUST NOT proceed to the initial component wave, deployment, or visual-parity cycle until that gap is resolved: identify the DOM element whose rect covers the gap, add it to `score_manifest` as a new component (naming per Section 2's generic-role rules — `promo-marquee`, `announcement-bar`, `logo-strip`, etc. — never brand-specific), issue its Component Work Packet in the next creation wave, author its content, include it in the next aggregated deployment, and re-run the coverage proof.
+    4. **User-detected omissions carry the same weight as an `UNCLAIMED` gap.** If the user (or any reviewer) names a source component that is not in `score_manifest`, the coordinator MUST re-enter the freeze pass in the same turn, re-run the eight discovery signals (including the vertical-band pixel scan and the class-name regex against every ancestor), add the missing block to the manifest with its rect and DOM manifest, issue its Component Work Packet, author it, include it in the next aggregated deployment, and re-emit the `coverage_report`. The turn does not end on the omission; it ends on the corrected coverage.
     5. Publish the final `coverage_report` in the Completion Output. A completion report without this table, or with any `UNCLAIMED >= 20 px` row, is invalid.
 - **Section background color** MUST match the source computed `background-color` exactly (RGBA equality, no Delta E allowance) for every component instance at every breakpoint. A mismatch caps that instance's Color axis at `0` and forces remediation.
 - **CTA background color** MUST match the source computed `background-color` exactly for every button/link acting as a call to action. A mismatch caps that instance's Color axis at `0`.
 - **CTA text color, border color, and border radius** MUST match the source computed values exactly. Any mismatch caps that instance's Color axis at `50`.
 - **Component width** MUST match the source computed `width` within `±1 CSS px` at every breakpoint. If the source instance spans the full viewport (`width === innerWidth` ± scrollbar), the target MUST also span the full viewport (no container clamp, no side padding on the section root). A mismatch caps that instance's Layout axis at `0`.
 - **Per-component width parity check (iterate until match)**: for every component instance at every breakpoint, the pipeline MUST explicitly measure width on both the live source page and the deployed AEM target page in the same turn using `element.getBoundingClientRect().width` on the component root (source: the source's semantic section wrapper for that role; target: `.cmp-<component>` on the AEM page). Emit a per-component width table with columns `Component`, `Breakpoint`, `Source Width (CSS px)`, `Target Width (CSS px)`, `Delta (CSS px)`, `Source Full-Bleed? (width === innerWidth ± scrollbar)`, `Target Full-Bleed?`, `Status`. Rules:
-    1. `|Delta| > 1 CSS px` → `Status = FAIL`. The component MUST be reworked in-turn (fix section-root CSS, remove `.credera-container` clamp if the source is full-bleed, remove parent `.aem-Grid` / `.experiencefragment` padding, change grid `max-width`, adjust column span in the containing XF/template) — never patch by adding padding on children.
+    1. `|Delta| > 1 CSS px` → `Status = FAIL`. Route the failure into the current remediation wave and fix the owning layer in-turn (section-root CSS, `.credera-container` clamp when the source is full-bleed, parent `.aem-Grid` / `.experiencefragment` padding, grid `max-width`, or containing XF/template column span) — never patch by adding padding on children.
     2. Source full-bleed with target container-clamped (or vice versa) → `Status = FAIL`, even if `|Delta| <= 1`. Full-bleed technique class must match.
     3. `Status = PASS` requires all three: `|Delta| <= 1`, matching full-bleed flag, and matching horizontal offset (`getBoundingClientRect().left` within `±1 CSS px`).
-    4. On any `FAIL`, follow the Bounded Reflection And Retry Policy: redeploy `ui.apps` (and `ui.content` when the layout is driven by authored container settings), reload the target page in a fresh Playwright context (clear cookies, bypass cache), re-measure both sides, and rescore after each relevant change. Do not proceed to the next component's width scoring while this work item remains eligible for its first three attempts; after its third failed attempt, mark it `RETRY_QUEUED` and continue with the next component. Revisit it once after every reachable component completes its first pass.
+    4. On any `FAIL`, follow the Bounded Reflection And Retry Policy. Finish width scoring for the rest of the read-only parity wave, remediate independent failures concurrently, deploy the aggregated wave once (`ui.apps` and `ui.content` when authored layout requires both), reload affected targets in fresh Playwright contexts with cache bypassed, and remeasure both sides. After a work item's third failed attempt, mark it `RETRY_QUEUED`; revisit it once after every reachable component completes its first pass.
     5. When width evidence requires structural escalation within the three-attempt limit, re-examine the containing template `structure`/`initial` grid, the responsive-grid `max-width` policy, and the experience-fragment column span authored in the parent — a stubborn width mismatch usually means the wrong container is emitting the width, not the component itself.
     6. Publish the final per-component width table in the Completion Output. A completion report without this table is invalid.
 - **Component height** MUST match the source computed `height` within `±8 CSS px` at every breakpoint. A mismatch caps that instance's Layout axis at `40`.
@@ -305,19 +418,22 @@ These overrule any tolerance rule in the axis definitions or comparison rules an
     - **Verification**: for each component instance, emit an authorability matrix — rows are visible source roles, columns are `Source Text/URL/Asset`, `Field Name`, `Field Type`, `Multifield?`, `Default`, `Live Authored Value`, `Rendered From Dialog?` (yes/no). Any `no`, or any role missing from the matrix, hard-fails the component and caps Content axis at `50` and Layout axis at `70`. The dialog must be openable in Author mode and every listed field must accept edits that round-trip to the rendered output in the same turn as evidence.
 - **Side-by-side screenshot visual-parity gate (mandatory, overrides property-only scores)**: property/computed-style equality alone is NEVER sufficient to mark a component `PASSED`. For every component instance at every breakpoint, the pipeline MUST capture real Playwright screenshots on both the live source page and the deployed target page in the same turn, place them side by side, and prove visual match before the component is scored `PASSED`. Concrete rules:
     - **Capture protocol** — at every breakpoint (default `375`, `768`, `1440`, plus any observed wider frame):
-        1. On the source page, `page.setViewportSize`, `page.goto(SOURCE_URL, {waitUntil:'networkidle'})`, wait for `document.fonts.ready`, dismiss cookie/consent overlays if present, `page.mouse.move(0,0)` to clear any hover state, scroll to bottom then back to top to force lazy-load, then `element.scrollIntoView({block:'start'})` for the component root.
-        2. Capture `page.screenshot({fullPage:false, clip: componentRect})` at native DPR (`deviceScaleFactor: 1` — never upscale) and save as `evidence/<component>-<bp>-source.png`.
-        3. Repeat step 1–2 on the deployed target page with matching auth, saving to `evidence/<component>-<bp>-target.png`.
-        4. Additionally capture one full-page source screenshot and one full-page target screenshot per breakpoint (`fullPage: true`) as `evidence/full-<bp>-source.png` and `evidence/full-<bp>-target.png` so section-order and cumulative layout can be inspected as a whole.
-    - **Side-by-side artefact** — for every component × breakpoint, produce a single `evidence/<component>-<bp>-diff.png` that places source (left) and target (right) at identical pixel width, with a labeled band above each. Also emit a pixel-diff overlay (`pixelmatch`, `resemble.js`, or an equivalent library run in-turn) writing the diff mask to `evidence/<component>-<bp>-mask.png` and returning three numbers: `matchedPixels`, `differingPixels`, and `visualMatchPercent = matchedPixels / totalPixels * 100`.
+        1. Create source and target browser contexts with identical viewport dimensions, color scheme, locale, timezone, and `deviceScaleFactor: 1`; assert `window.innerWidth`, `window.devicePixelRatio === 1`, and `visualViewport.scale === 1` on both pages. Never change DPR through image post-processing.
+        2. On each page, navigate with `waitUntil: 'networkidle'`, complete Measurement Readiness, dismiss only unrelated consent UI already excluded from the component manifest, move the pointer to `(0, 0)`, and force observed lazy media to load. Disable animation, transitions, smooth scrolling, and caret rendering for capture; do not hide an overlay or fixed element that belongs to the scored component.
+        3. Resolve the homologous component root as a Playwright `Locator`, assert it matches exactly one visible element, call `locator.scrollIntoViewIfNeeded()`, wait for two stable bounding-box samples, and record the final CSS-pixel box and expected PNG dimensions.
+        4. Capture the component with `locator.screenshot({ animations: 'disabled', caret: 'hide', scale: 'css' })` and save it as `evidence/<component>-<bp>-source.png` or `evidence/<component>-<bp>-target.png`. MUST NOT derive a `componentRect` from `boundingBox()` and pass it to `page.screenshot({ clip })`; mixing viewport-relative locator coordinates with document-relative clipping is forbidden.
+        5. Decode both PNGs and assert their pixel widths equal their recorded CSS widths at DPR 1. Preserve each image's native dimensions: never resize, resample, stretch, crop, or upscale either capture.
+        6. For comparison only, pad source and target onto separate transparent or source-background-colored canvases of `max(sourceWidth, targetWidth)` by `max(sourceHeight, targetHeight)`, using the same top-left alignment and fill. Padding is part of the measured mismatch and MUST NOT conceal width or height differences.
+        7. Additionally capture one full-page source screenshot and one full-page target screenshot per breakpoint with `page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide', scale: 'css' })` as `evidence/full-<bp>-source.png` and `evidence/full-<bp>-target.png` so section order and cumulative layout can be inspected as a whole.
+    - **Side-by-side artefact** — use Node.js `pngjs` (preferred) or `sharp` to produce `evidence/<component>-<bp>-diff.png`, placing the unmodified source capture on the left and unmodified target capture on the right with labels in a separate band outside the captured pixels. Run Node.js `pixelmatch` on the two equally sized padded, unlabeled comparison canvases — never on the labeled side-by-side artefact — and write its mask to `evidence/<component>-<bp>-mask.png`. Return `sourceWidth`, `sourceHeight`, `targetWidth`, `targetHeight`, `comparisonWidth`, `comparisonHeight`, `matchedPixels`, `differingPixels`, and `visualMatchPercent = matchedPixels / totalPixels * 100`.
     - **Threshold** — `visualMatchPercent` MUST be `>= 95%` for the component at that breakpoint. Anything below `95%` hard-fails the component regardless of how many computed-style properties match. A component whose property score is `100%` but whose `visualMatchPercent` is `< 95%` is a defect (gaming the score) and MUST be re-opened.
     - **What the visual gate catches that property scoring cannot** — card background colour on repeated tiles (three coloured partner cards vs one flat band), layout direction (stacked serif headings vs a row of chips), presence/absence of decorative assets (hero badge, background photograph strip), pill vs plain sublinks, image count, image aspect, arrow icon presence, per-brand palettes on multi-card sections, alternating layouts, dividers, spacing rhythm, line-break control, inline emphasis colours in body copy, and any structural difference where two elements have equal `getComputedStyle()` on a chosen node but wildly different rendered pixels.
     - **Rework loop (mandatory, no shortcuts)** — if any component's `visualMatchPercent` is `< 95%` at any breakpoint:
-        1. Do NOT mark the component `PASSED`. Do NOT proceed to the next work item while this component remains eligible for its first three attempts. After its third failed attempt, mark it `RETRY_QUEUED`, preserve its evidence and score, and continue with the next component or breakpoint.
+        1. Do NOT mark the component `PASSED`. Complete the current read-only parity wave so independent failures can be diagnosed together. After the wave, remediate all eligible independent work items concurrently. After a work item's third failed attempt, mark it `RETRY_QUEUED` and preserve its evidence and score while other work continues.
         2. Open the side-by-side + diff mask, enumerate every distinct visual gap (colour, layout, presence, count, aspect, decoration, typography) — one bullet per gap with source pixel/screenshot evidence.
         3. Trace each gap to its source of truth: dialog field (author content missing), Sling model (getter missing/wrong), HTL (wrong tag/class/wrapper), CSS (wrong token/value), assets (missing DAM binary), or content (wrong authored value). Do NOT patch symptoms; fix the layer that produced the gap.
-        4. Redeploy the affected module(s) (`ui.apps`, `ui.content`, or DAM upload), reload the target page in a fresh Playwright context (clear cookies, bypass cache), and recapture BOTH the source and target screenshots (source may drift too — never reuse stale evidence).
-        5. Recompute `visualMatchPercent` after each change. Follow the Bounded Reflection And Retry Policy. When the evidence requires structural escalation, use the third attempt to rebuild the component's structural model (dialog + Sling model + HTL + BEM CSS + assets) from the source screenshots. If it remains below `95%` after that attempt, queue it and continue processing the remaining work items. During the one final revisit, recapture both sides, make at most one evidence-driven change, and report the before/after visual score and delta.
+        4. After all remediation packets in the wave finish, validate and redeploy the union of affected modules once (`ui.apps`, `ui.content`, or DAM assets), reload affected target pages in fresh Playwright contexts with cache bypassed, and recapture BOTH source and target screenshots; source evidence is never reused across attempts.
+        5. Recompute `visualMatchPercent` for every changed or shared-change-affected component in parallel after the deployment. Follow the Bounded Reflection And Retry Policy. When evidence requires structural escalation, use the third attempt to rebuild the component's structural model (dialog + Sling model + HTL + BEM CSS + assets) from the source screenshots. If it remains below `95%` after that attempt, queue it while processing continues. During the one final revisit, recapture both sides, make at most one evidence-driven change, and report the before/after visual score and delta.
     - **No component may be marked `PASSED` on this gate until its per-breakpoint side-by-side visual match is `>= 95%` AND its property-level score is `>= 95%` AND its authorability matrix is complete**. The component-type minimum score is `min(visualMatchPercent, propertyScore, authorabilityScore)` — never an average. A component with `visualMatchPercent = 30%` and `propertyScore = 100%` is `30%`, not `100%`, and remains `FAILED`.
     - **Final report** — the Completion Output MUST include the side-by-side artefact paths and the numeric `visualMatchPercent` per component per breakpoint. A completion output that reports a `PASS` without publishing the side-by-side screenshots + pixel-diff numbers is invalid and MUST be rejected.
     - **This rule applies to every SITE_URL / brand / redesign target.** The pipeline is site-agnostic; the burden of proof is real rendered pixels, not property strings.
@@ -346,29 +462,29 @@ Canonical comparison rules:
 
 ### Ordered Checks
 
-Run all checks in order and retain artifacts:
+Run checks in order while independent verifier agents execute concurrently. `[C]` means coordinator-only and runs once per `deployment_id`; `[V]` means each component verifier; `[C+V]` splits global work to the coordinator and component-specific work to the verifier. Retain all artifacts and do not duplicate coordinator-owned checks in verifier agents:
 
-0. Measurement Readiness on all pages: viewport, DPR/scale, font checks, decoded/failed media, network quiescence, and layout stability.
-1. Open source, disabled target, and author target in real Chromium at every breakpoint. **Exhaustive block-discovery pass**: run the full eight-signal discovery walker (semantic landmarks + headings + styled-component/BEM class-name regex + vertical-band pixel scan + interaction signals + floating/pinned/overlay signals + repetition signals + common-missable-pattern name catalog) on the source at every breakpoint. Emit the `coverage_report` table proving `[0, documentElement.scrollHeight]` is covered with no `UNCLAIMED` gap `>= 20 CSS px`. Any gap is a hard `FAIL` — identify the covering element, add it to `score_manifest`, scaffold and author it, redeploy, and re-run this check before advancing.
-2. Save full-page source/target side-by-side screenshot pairs at every breakpoint. Additionally, for every component instance capture a per-component region screenshot on BOTH source and target, produce a combined side-by-side artefact (`<component>-<bp>-diff.png`) and a pixel-diff mask (`<component>-<bp>-mask.png`), and compute `visualMatchPercent`. A component with `visualMatchPercent < 95%` fails the visual-parity gate for that breakpoint and MUST be reworked in-turn (fix dialog/model/HTL/CSS/assets, redeploy, recapture, rescore) before it can be marked `PASSED`. Property-only equality NEVER overrides the visual-parity check — the component-type minimum is `min(visualMatchPercent, propertyScore, authorabilityScore)`, never an average.
-3. Diff computed styles for every instance root plus heading, primary CTA, primary image/media, and at least one additional nested role.
-4. Enumerate every project-owned token from deployed `:root`; compare resolved deployed value to local declaration.
-5. Fetch every loaded target clientlib and fail on component-namespace BEM rules absent from local source.
-6. Identify rule origins for root/heading/CTA color, family, and background via CDP matched styles or selector/stylesheet enumeration. For cross-origin source CSS, record URL plus final values on `SecurityError`; all project target CSS must be inspectable.
-7. Base gate: checks 0-6 must pass before scoring or domain checks.
-8. Media reachability: HEAD then GET fallback; require status 200, correct MIME, nonzero bytes, and browser decode for images.
-9. Video probe after 3 seconds: `paused === false`, `currentTime > 0`, `readyState >= 3`, `error === null` for source-equivalent autoplay videos.
-10. Media-class parity: video/audio/motion cannot be a poster/static substitute; `currentSrc` must resolve.
-11. Attach source-DOM manifest for every Tier 2/3/4 component.
-12. Verify exactly-one role-map correspondence for every visible source and target node.
-13. Verify section-relative x/y and width/height within 1 CSS px and exact flex/grid axis. Emit and publish the **Per-Component Width Match Table** described in the "Per-component width parity check" mandatory requirement — `Component`, `Breakpoint`, `Source Width`, `Target Width`, `Delta`, `Source Full-Bleed?`, `Target Full-Bleed?`, `Status`. Any component with `|Delta| > 1 CSS px` or a full-bleed mismatch is a `FAIL`; follow the Bounded Reflection And Retry Policy while reworking the component's CSS / container / template / experience-fragment column span, redeploying, re-measuring, and rescoring. After three failed attempts, retain the failed row, queue that work item, and continue width and visual verification for all remaining components. Revisit each queued row once after the first pass, recording its before/after score and delta. A row that still fails after the revisit prevents the whole-run status from being `PASSED` but does not stop collection of other components' evidence.
-14. Verify exactly-once complete source-section ownership coverage using homologous section boundaries.
-15. Verify region count/order, item count, prominence class, and adjacency.
-16. Verify per-breakpoint behavior matrix, overflow, controls, pagination, initial state, and transitions.
-17. Emit authored role -> deployed tag/parent/attributes for every role; verify links, buttons, wrappers, order, and attributes.
-18. Emit expected -> live resource type, properties, child cardinality/order, and runtime DOM order for every authored block.
-19. Emit asset manifest and clean-environment deployment method; verify deployed bytes/MIME/decode.
-20. Compute scores. For each score `<=85%`, refresh the live source and complete manifest, identify failed frozen entries, change tokens -> CSS -> HTL/dialog/model/content/assets as indicated, run focused tests/package validation, redeploy, reconcile repository/DOM/assets, and rerun checks 0-19 at all breakpoints and both modes under the Bounded Reflection And Retry Policy. Do not rescore unchanged evidence. After three failed attempts for a component/breakpoint, record `RETRY_QUEUED` and continue checks 0-19 for every remaining first-pass work item. Then process the retry queue once, recording score improvement and the final work-item status.
+0. **[V]** Measurement Readiness on source, disabled target, and author target: viewport, DPR/scale, relevant font checks, decoded/failed component media, network quiescence, and component layout stability.
+1. **[C]** Open source, disabled target, and author target in real Chromium at every breakpoint. Run the exhaustive eight-signal block-discovery walker on the source and emit the `coverage_report` proving `[0, documentElement.scrollHeight]` coverage with no `UNCLAIMED` gap `>= 20 CSS px`. Any gap is a hard `FAIL`; update the frozen manifest and route the missing block through the next creation/integration wave before parity continues.
+2. **[C+V]** The coordinator saves full-page source/target screenshot pairs once per breakpoint. Each verifier captures every assigned component instance on source and target, produces its side-by-side artefact and pixel-diff mask, and computes `visualMatchPercent`. A result `< 95%` enters the next batched remediation wave and cannot be marked `PASSED`. Property-only equality NEVER overrides visual parity; the component-type minimum is `min(visualMatchPercent, propertyScore, authorabilityScore)`, never an average.
+3. **[V]** Diff computed styles for every assigned instance root plus heading, primary CTA, primary image/media, and at least one additional nested role.
+4. **[C]** Enumerate every project-owned token from deployed `:root`; compare resolved deployed value to its local declaration once, then attach the result to every affected verifier manifest.
+5. **[C]** Fetch each unique loaded target clientlib once and fail on component-namespace BEM rules absent from local source; verifiers consume the shared fetch manifest.
+6. **[V]** Identify rule origins for assigned root/heading/CTA color, family, and background via CDP matched styles or selector/stylesheet enumeration. For cross-origin source CSS, record URL plus final values on `SecurityError`; all project target CSS must be inspectable.
+7. **[C]** Merge checks 0-6 from coordinator and verifier manifests. The base gate must pass before scoring or domain checks.
+8. **[C+V]** The coordinator performs HEAD with GET fallback once per unique media URL and records status, MIME, and bytes; each verifier confirms browser decode for its component media.
+9. **[V]** Probe component video after 3 seconds: `paused === false`, `currentTime > 0`, `readyState >= 3`, and `error === null` for source-equivalent autoplay videos.
+10. **[V]** Verify media-class parity: video/audio/motion cannot be a poster/static substitute and `currentSrc` must resolve.
+11. **[V]** Attach the frozen source-DOM manifest for each assigned Tier 2/3/4 component.
+12. **[V]** Verify exactly-one role-map correspondence for every visible node in each assigned source and target component.
+13. **[V]** Verify section-relative x/y and width/height within 1 CSS px and exact flex/grid axis. Emit the **Per-Component Width Match Table**. Route failures to the batched remediation policy; after three failed attempts retain the row as `RETRY_QUEUED`, and revisit it once after the full first pass.
+14. **[C]** Verify exactly-once complete source-section ownership coverage using homologous section boundaries.
+15. **[V]** Verify assigned component region count/order, item count, prominence class, and adjacency.
+16. **[V]** Verify the assigned component's per-breakpoint behavior matrix, overflow, controls, pagination, initial state, and transitions.
+17. **[V]** Emit authored role -> deployed tag/parent/attributes for every assigned role; verify links, buttons, wrappers, order, and attributes.
+18. **[C]** Emit expected -> live resource type, properties, child cardinality/order, and runtime DOM order for every authored block in one repository assertion sweep.
+19. **[C+V]** The coordinator emits the asset manifest and clean-environment deployment method; verifiers attach per-component live decode and media-class evidence.
+20. **[C]** Merge scores. For every score or mandatory check that fails its stated threshold, refresh the live source and complete manifest, identify failed frozen entries, and route the defect to its owning layer. Run independent component remediations concurrently, apply shared fixes once, execute one aggregated focused validation/build/deploy for the wave, reconcile repository/DOM/assets, and rerun checks 0-19 for affected components at all breakpoints and both modes under the Bounded Reflection And Retry Policy. Do not rescore unchanged evidence. After three failed attempts for a component/breakpoint, record `RETRY_QUEUED` while the remaining first-pass work continues. Then process the retry queue in one parallel revisit wave, recording score improvement and final work-item status.
 
 Checks 0-19 are all hard prerequisites. Missing screenshots, browser/source load, readiness, tokens, inspectable target cascade, semantic roles, repository order, or reproducible assets blocks a pass. Missing assets do not excuse non-media checks; acquire and deploy directly referenced assets in this run.
 
@@ -394,4 +510,4 @@ VISUAL PARITY GATE: BLOCKED after <N> prerequisite attempts — prerequisite: <e
 
 Emit exactly one of the three templates. `DEFERRED` and bare `FAILED` are not permitted whole-run statuses. `PASSED` is valid only when all readiness/base/structural/media/deployment checks passed in this turn AND every component published its per-breakpoint side-by-side visual-parity artefacts (`<component>-<bp>-source.png`, `<component>-<bp>-target.png`, `<component>-<bp>-diff.png`, `<component>-<bp>-mask.png`) with `visualMatchPercent >= 95%`. `COMPLETED_WITH_FAILURES` must list every `FAILED_AFTER_RETRY` and `BLOCKED_COMPONENT` work item, include every queued component's revisit score delta, and publish all evidence captured for them while still reporting every successfully processed component. `BLOCKED` must publish all evidence available before the global external blocker and mark unavailable measurements `NOT_MEASURED`; it must not fabricate score tables. Provide every captured side-by-side screenshot to the user — a `PASSED` report without them is treated as gaming the score and is rejected.
 
-Then concisely report: loaded/invoked skills; source inputs; discovery inventories; current `design-facts`; block decomposition and tier decisions; tokens/fonts/assets; files by component (Tier 1 says no new files); template/policy changes; author-experience regression audit; HTL list audit; spatial variants; interaction guards; tests/code assessment/build; deployed DOM/clientlibs/repository; demo page path; screenshot/evidence artifact paths; accessibility deviations; and residual gaps. Residual gaps must be empty for `PASSED`; for `COMPLETED_WITH_FAILURES` or `BLOCKED`, enumerate them with the attempts made and exact resume condition.
+Then concisely report: loaded/invoked skills; source inputs; coordinator-owned discovery inventories; current `design-facts`; block decomposition and tier decisions; Component Work Packets and creation dependency waves; Component Result Manifests and path-ownership audit; deployment identifiers; Parity Work Packets and Parity Result Manifests; remediation waves and build/deploy count; tokens/fonts/assets; files by component (Tier 1 says no new files); template/policy changes; author-experience regression audit; HTL list audit; spatial variants; interaction guards; tests/code assessment/build; deployed DOM/clientlibs/repository; demo page path; screenshot/evidence artifact paths; accessibility deviations; and residual gaps. Residual gaps must be empty for `PASSED`; for `COMPLETED_WITH_FAILURES` or `BLOCKED`, enumerate them with the attempts made and exact resume condition.
