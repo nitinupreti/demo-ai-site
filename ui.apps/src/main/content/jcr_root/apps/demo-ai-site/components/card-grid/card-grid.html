@@ -1,0 +1,54 @@
+<sly data-sly-use.model="com.demo.core.models.CardGridModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.card-grid'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-card-grid cmp-card-grid--style-${model.style @ context='attribute'}">
+        <header class="cmp-card-grid__header">
+            <h2 class="cmp-card-grid__heading" data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-card-grid__intro" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+        </header>
+        <ul class="cmp-card-grid__list" data-sly-list.item="${model.items}">
+            <li class="cmp-card-grid__item cmp-card-grid__item--image-${item.imageSide @ context='attribute'}" data-index="${itemList.index}">
+                <div class="cmp-card-grid__category" data-sly-test="${model.style == 'catalog'}">
+                    <span class="cmp-card-grid__category-name">${item.tagline}</span>
+                    <a class="cmp-card-grid__see-all" href="${item.ctaLink @ context='uri'}">${'See all' @ i18n}</a>
+                </div>
+                <div class="cmp-card-grid__shelf" data-sly-test="${model.style == 'catalog'}" aria-hidden="true">
+                    <span class="cmp-card-grid__book">${'Ut Sed Eros' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Curabitur Egestas' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Quisque Consequat' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Cras Convallis' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Vestibulum Faucibus' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Ut Sed Eros' @ i18n}</span>
+                    <span class="cmp-card-grid__book">${'Vestibulum Habitu' @ i18n}</span>
+                </div>
+                <img class="cmp-card-grid__image" data-sly-test="${item.image}" src="${item.image @ context='uri'}" alt="${item.imageAlt @ context='attribute'}"/>
+                <div class="cmp-card-grid__scrim" data-sly-test="${item.image}"></div>
+                <span class="cmp-card-grid__icon" data-sly-test="${item.icon}" aria-hidden="true">
+                    <svg data-sly-test="${item.icon == 'invoice'}" viewBox="0 0 48 48" width="48" height="48" fill="none"><path d="M12 5h19l7 7v31H12zM31 5v9h7M19 23h12M19 31h12" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg data-sly-test="${item.icon == 'calendar'}" viewBox="0 0 48 48" width="48" height="48" fill="none"><path d="M8 12h32v29H8zM8 20h32M16 6v12M32 6v12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M15 27h6v6h-6zM27 27h6v6h-6z" fill="currentColor"/></svg>
+                    <svg data-sly-test="${item.icon == 'users'}" viewBox="0 0 55 44" width="55" height="44" fill="none"><circle cx="20" cy="13" r="8" stroke="currentColor" stroke-width="3"/><circle cx="39" cy="15" r="6" stroke="currentColor" stroke-width="3"/><path d="M4 40c1-10 7-15 16-15s15 5 16 15M34 27c9 0 15 4 17 13" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                </span>
+                <div class="cmp-card-grid__content">
+                    <span class="cmp-card-grid__tagline" data-sly-test="${item.tagline && model.style != 'catalog'}">${item.tagline}</span>
+                    <h3 class="cmp-card-grid__title">${item.title}</h3>
+                    <div class="cmp-card-grid__description" data-sly-test="${item.description}">${item.description @ context='html'}</div>
+                    <span class="cmp-card-grid__rating" data-sly-test="${model.style == 'catalog'}" aria-label="${'Five star rating' @ i18n}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z"/></svg>
+                    </span>
+                    <span class="cmp-card-grid__meta" data-sly-test="${item.meta}">${item.meta}</span>
+                    <a class="cmp-card-grid__cta" data-sly-test="${item.ctaLabel}" href="${item.ctaLink @ context='uri'}">${item.ctaLabel}</a>
+                </div>
+            </li>
+        </ul>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-card-grid__placeholder" data-emptytext="Card Grid"></div>
+</sly>

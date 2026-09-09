@@ -185,6 +185,20 @@
                     linkDisabled="false"
                     type="h2">
                     <jcr:content jcr:primaryType="nt:unstructured"/>
+                    <cq:styleGroups jcr:primaryType="nt:unstructured">
+                        <layout
+                            jcr:primaryType="nt:unstructured"
+                            cq:styleGroupLabel="Layout"
+                            cq:styleGroupMultiple="{Boolean}false">
+                            <cq:styles jcr:primaryType="nt:unstructured">
+                                <sectionHeading
+                                    jcr:primaryType="nt:unstructured"
+                                    cq:styleClasses="section-heading"
+                                    cq:styleId="2101001"
+                                    cq:styleLabel="Centered Section Heading"/>
+                            </cq:styles>
+                        </layout>
+                    </cq:styleGroups>
                 </policy_641528232375303>
             </title>
             <experiencefragment jcr:primaryType="nt:unstructured">

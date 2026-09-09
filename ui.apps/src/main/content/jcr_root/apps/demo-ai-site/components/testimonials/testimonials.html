@@ -1,0 +1,38 @@
+<sly data-sly-use.model="com.demo.core.models.TestimonialsModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.testimonials'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-testimonials">
+        <div class="cmp-testimonials__container">
+            <div class="cmp-testimonials__intro">
+                <p class="cmp-testimonials__kicker" data-sly-test="${model.kicker}">${model.kicker}</p>
+                <h2 class="cmp-testimonials__title" data-sly-test="${model.title}">${model.title}</h2>
+                <div class="cmp-testimonials__intro-text" data-sly-test="${model.intro}">
+                    ${model.intro @ context='html'}
+                </div>
+                <a class="cmp-testimonials__cta"
+                   data-sly-test="${model.ctaLabel}"
+                   href="${model.ctaLink @ context='uri'}">${model.ctaLabel}</a>
+            </div>
+            <div class="cmp-testimonials__card">
+                <div class="cmp-testimonials__media" data-sly-test="${model.image}">
+                    <img class="cmp-testimonials__image" src="${model.image @ context='uri'}" alt="${model.imageAlt @ context='attribute'}"/>
+                </div>
+                <blockquote class="cmp-testimonials__quote">
+                    <div class="cmp-testimonials__quote-text" data-sly-test="${model.quote}">
+                        ${model.quote @ context='html'}
+                    </div>
+                    <footer class="cmp-testimonials__attribution">
+                        <span class="cmp-testimonials__author" data-sly-test="${model.authorName}">${model.authorName}</span>
+                        <span class="cmp-testimonials__meta" data-sly-test="${model.authorMeta}">${model.authorMeta}</span>
+                    </footer>
+                </blockquote>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-testimonials__placeholder" data-emptytext="Testimonials"></div>
+</sly>

@@ -1,0 +1,28 @@
+<sly data-sly-use.model="com.demo.core.models.FeatureListModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.feature-list'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-feature-list">
+        <div class="cmp-feature-list__container">
+            <ol class="cmp-feature-list__items" data-sly-list.item="${model.items}">
+                <li class="cmp-feature-list__item cmp-feature-list__item--image-${item.effectiveImageSide @ context='attribute'}"
+                    data-index="${itemList.index}">
+                    <div class="cmp-feature-list__media" data-sly-test="${item.image}">
+                        <img class="cmp-feature-list__image" src="${item.image @ context='uri'}" alt="${item.imageAlt @ context='attribute'}"/>
+                    </div>
+                    <div class="cmp-feature-list__text">
+                        <h3 class="cmp-feature-list__title">${item.title}</h3>
+                        <div class="cmp-feature-list__description" data-sly-test="${item.description}">
+                            ${item.description @ context='html'}
+                        </div>
+                    </div>
+                </li>
+            </ol>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-feature-list__placeholder" data-emptytext="Feature List"></div>
+</sly>

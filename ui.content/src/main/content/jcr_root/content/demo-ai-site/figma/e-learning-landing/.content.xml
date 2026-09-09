@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        pageTitle="Studying Online is now much easier | TOTC"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="E-Learning Landing"
+        jcr:description="Migration of the E-Learning Site (Community) Figma landing page - TOTC."
+        cq:template="/conf/demo-ai-site/settings/wcm/templates/page-content"
+        sling:resourceType="demo-ai-site/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="demo-ai-site/components/landing-page"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="demo-ai-site/components/container"
+                layout="responsiveGrid">
+                <title
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/title"
+                    jcr:title="Studying Online is now much easier"
+                    type="h1"/>
+                <container
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="demo-ai-site/components/container"
+                    layout="responsiveGrid">
+
+                    <hero
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/hero"
+                        style="full-bleed"
+                        brandName="TOTC"
+                        titleAccent="Studying"
+                        title=" Online is now much easier"
+                        description="&lt;p&gt;TOTC is an interesting platform that will teach you in a more interactive way.&lt;/p&gt;"
+                        image="/content/dam/demo-ai-site/design/figma/hero-subject.png"
+                        imageAlt="Student attending an online class"
+                        primaryLabel="Join for free"
+                        primaryLink="#join"
+                        secondaryLabel="Watch how it works"
+                        secondaryLink="#watch"
+                        loginLabel="Login"
+                        loginLink="#login"
+                        signupLabel="Sign Up"
+                        signupLink="#signup">
+                        <navItems jcr:primaryType="nt:unstructured">
+                            <home jcr:primaryType="nt:unstructured" label="Home" link="#home"/>
+                            <courses jcr:primaryType="nt:unstructured" label="Courses" link="#courses"/>
+                            <careers jcr:primaryType="nt:unstructured" label="Careers" link="#careers"/>
+                            <blog jcr:primaryType="nt:unstructured" label="Blog" link="#blog"/>
+                            <about jcr:primaryType="nt:unstructured" label="About Us" link="#about"/>
+                        </navItems>
+                        <statusItems jcr:primaryType="nt:unstructured">
+                            <students jcr:primaryType="nt:unstructured" title="250k" detail="Assisted Student"/>
+                            <admission jcr:primaryType="nt:unstructured" title="Congratulations" detail="Your admission completed"/>
+                            <class jcr:primaryType="nt:unstructured" title="User Experience Class" detail="Today at 12.00 PM" actionLabel="Join Now"/>
+                        </statusItems>
+                    </hero>
+
+                    <stats
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/stats-strip"
+                        title="Our Success"
+                        description="&lt;p&gt;Ornare id fames interdum porttitor nulla turpis etiam. Diam vitae sollicitudin at nec nam et pharetra gravida. Adipiscing a quis ultrices eu ornare tristique vel nisl orci.&lt;/p&gt;">
+                        <items jcr:primaryType="nt:unstructured">
+                            <item0 jcr:primaryType="nt:unstructured" value="15K+" label="Students"/>
+                            <item1 jcr:primaryType="nt:unstructured" value="75%"  label="Total Success"/>
+                            <item2 jcr:primaryType="nt:unstructured" value="35"   label="Main Questions"/>
+                            <item3 jcr:primaryType="nt:unstructured" value="26"   label="Chief Experts"/>
+                            <item4 jcr:primaryType="nt:unstructured" value="16"   label="Years of Experience"/>
+                        </items>
+                    </stats>
+
+                    <cloud_cards
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-grid"
+                        style="icon-cards"
+                        title="All-In-One Cloud Software."
+                        description="&lt;p&gt;TOTC is one powerful online software suite that combines all the tools needed to run a successful school or office.&lt;/p&gt;">
+                        <items jcr:primaryType="nt:unstructured">
+                            <billing jcr:primaryType="nt:unstructured" icon="invoice" title="Online Billing, Invoicing, &amp; Contracts" description="&lt;p&gt;Simple and secure control of your organization&#39;s financial and legal transactions. Send customized invoices and contracts.&lt;/p&gt;"/>
+                            <scheduling jcr:primaryType="nt:unstructured" icon="calendar" title="Easy Scheduling &amp; Attendance Tracking" description="&lt;p&gt;Schedule and reserve classrooms at one campus or multiple campuses. Keep detailed records of student attendance.&lt;/p&gt;"/>
+                            <tracking jcr:primaryType="nt:unstructured" icon="users" title="Customer Tracking" description="&lt;p&gt;Automate and track emails to individuals or groups. TOTC&#39;s built-in system helps organize your organization.&lt;/p&gt;"/>
+                        </items>
+                    </cloud_cards>
+
+                    <audience_cards
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-grid"
+                        style="image-overlay"
+                        title="What is TOTC?"
+                        description="&lt;p&gt;TOTC is a platform that allows educators to create online classes whereby they can store the course materials online; manage assignments, quizzes and exams; monitor due dates; grade results and provide students with feedback all in one place.&lt;/p&gt;">
+                        <items jcr:primaryType="nt:unstructured">
+                            <instructors jcr:primaryType="nt:unstructured" title="FOR INSTRUCTORS" image="/content/dam/demo-ai-site/design/figma/raw_11.jpg" imageAlt="Instructor teaching online" ctaLabel="Start a class today" ctaLink="#instructors"/>
+                            <students jcr:primaryType="nt:unstructured" title="FOR STUDENTS" image="/content/dam/demo-ai-site/design/figma/raw_09.jpg" imageAlt="Students learning online" ctaLabel="Enter access code" ctaLink="#students"/>
+                        </items>
+                    </audience_cards>
+
+                    <physical_classroom
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-grid"
+                        style="split">
+                        <items jcr:primaryType="nt:unstructured">
+                            <classroom jcr:primaryType="nt:unstructured" title="Everything you can do in a physical classroom, you can do with TOTC" description="&lt;p&gt;TOTC&#39;s school management software helps traditional and online schools manage scheduling, attendance, payments and virtual classrooms all in one secure cloud-based system.&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_14.png" imageAlt="Teacher explaining a lesson" ctaLabel="Learn more" ctaLink="#learn-more" imageSide="right"/>
+                        </items>
+                    </physical_classroom>
+
+                    <title_features
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/title"
+                        jcr:title="Our Features"
+                        type="h2"/>
+                    <text_features_intro
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/text"
+                        text="&lt;p&gt;This very extraordinary feature, can make learning activities more efficient.&lt;/p&gt;"
+                        textIsRich="true"/>
+
+                    <features
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/feature-list">
+                        <items jcr:primaryType="nt:unstructured">
+                            <ui
+                                jcr:primaryType="nt:unstructured"
+                                title="A user interface designed for the classroom"
+                                description="&lt;p&gt;Teachers don&#39;t get lost in the grid view like they do on other educational platforms. TOTC and educators can be more involved in the front of the class. Teachers can easily see all students and class data at one time.&lt;/p&gt;"
+                                image="/content/dam/demo-ai-site/design/figma/raw_04.png"
+                                imageAlt="Classroom UI"/>
+                            <tools
+                                jcr:primaryType="nt:unstructured"
+                                title="Tools For Teachers And Learners"
+                                description="&lt;p&gt;Class has a suite of tools for the virtual classroom. Teachers can handout assignments in real-time for students to complete and submit.&lt;/p&gt;"
+                                image="/content/dam/demo-ai-site/design/figma/raw_12.png"
+                                imageAlt="Teaching tools"/>
+                            <assessments
+                                jcr:primaryType="nt:unstructured"
+                                title="Assessments, Quizzes, Tests"
+                                description="&lt;p&gt;Easily launch live assignments, quizzes, and tests. Student results are automatically entered into the online gradebook.&lt;/p&gt;"
+                                image="/content/dam/demo-ai-site/design/figma/raw_18.png"
+                                imageAlt="Quiz interface"/>
+                            <management
+                                jcr:primaryType="nt:unstructured"
+                                title="Class Management Tools for Educators"
+                                description="&lt;p&gt;Class provides tools to help run and manage the class such as Class Roster, Attendance, and more. With the tools available, educators can easily manage their classes and stay organized.&lt;/p&gt;"
+                                image="/content/dam/demo-ai-site/design/figma/raw_15.png"
+                                imageAlt="Gradebook management"/>
+                            <discussions
+                                jcr:primaryType="nt:unstructured"
+                                title="One-on-One Discussions"
+                                description="&lt;p&gt;Teachers and teacher assistants can talk with students privately without leaving the Zoom environment.&lt;/p&gt;"
+                                image="/content/dam/demo-ai-site/design/figma/raw_10.png"
+                                imageAlt="One-on-one discussion"/>
+                        </items>
+                    </features>
+
+                    <button_more_features
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/button"
+                        jcr:title="See more features"
+                        link="#features"/>
+
+                    <course_catalog
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-grid"
+                        style="catalog"
+                        title="Explore Course"
+                        description="&lt;p&gt;Ut sed eros finibus, placerat orci id, dapibus.&lt;/p&gt;">
+                        <items jcr:primaryType="nt:unstructured">
+                            <design jcr:primaryType="nt:unstructured" tagline="Lorem Ipsum" title="Integer id Orc Sed Ante Tincidunt" description="&lt;p&gt;Cras convallis lacus orci, tristique tincidunt magna fringilla at faucibus vel.&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_06.png" imageAlt="Creative course" meta="$450" ctaLabel="Explore" ctaLink="#course-1" imageSide="right"/>
+                            <global jcr:primaryType="nt:unstructured" tagline="Quisque a Consequat" title="Integer id Orc Sed Ante Tincidunt" description="&lt;p&gt;Cras convallis lacus orci, tristique tincidunt magna fringilla at faucibus vel.&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_07.png" imageAlt="Astronomy course" meta="$450" ctaLabel="Explore" ctaLink="#course-2" imageSide="center"/>
+                            <creative jcr:primaryType="nt:unstructured" tagline="Aenean Facilisis" title="Integer id Orc Sed Ante Tincidunt" description="&lt;p&gt;Cras convallis lacus orci, tristique tincidunt magna fringilla at faucibus vel.&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_08.png" imageAlt="Photography course" meta="$450" ctaLabel="Explore" ctaLink="#course-3" imageSide="left"/>
+                        </items>
+                    </course_catalog>
+
+                    <testimonials
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/testimonials"
+                        kicker="TESTIMONIAL"
+                        title="What They Say?"
+                        intro="&lt;p&gt;TOTC has got more than 100k positive ratings from our users around the world. Some of the students and teachers were greatly helped by the Skilline. Are you too? Please give your assessment.&lt;/p&gt;"
+                        quote="&lt;p&gt;&#8220;Thank you so much for your help. It&#39;s exactly what I&#39;ve been looking for. You won&#39;t regret it. It really saves me time and effort. TOTC is exactly what our business has been lacking.&#8221;&lt;/p&gt;"
+                        authorName="Gloria Rose"
+                        authorMeta="12 reviews at Yelp"
+                        image="/content/dam/demo-ai-site/design/figma/raw_19.png"
+                        imageAlt="Gloria Rose"
+                        ctaLabel="Write your assessment"
+                        ctaLink="#assessment"/>
+
+                    <news
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/card-grid"
+                        style="news"
+                        title="Latest News and Resources"
+                        description="&lt;p&gt;See the developments that have occurred to TOTC in the world.&lt;/p&gt;">
+                        <items jcr:primaryType="nt:unstructured">
+                            <feature jcr:primaryType="nt:unstructured" tagline="NEWS" title="Class adds $30 million to its balance sheet for a Zoom-friendly edtech solution" description="&lt;p&gt;Class, launched less than a year ago by Blackboard co-founder Michael Chasen, integrates exclusively with Zoom...&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_20.png" imageAlt="Online class on a laptop" ctaLabel="Read more" ctaLink="#news-1"/>
+                            <financing jcr:primaryType="nt:unstructured" tagline="PRESS RELEASE" title="Class Technologies Inc. Closes $30 Million Series A Financing to Meet High Demand" description="&lt;p&gt;Class Technologies Inc., the company that created Class, ...&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_16.png" imageAlt="Student learning online"/>
+                            <investors jcr:primaryType="nt:unstructured" tagline="NEWS" title="Zoom&#8217;s earliest investors are betting millions on a better Zoom for schools" description="&lt;p&gt;Zoom was never created to be a consumer product. Nonetheless, the...&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_17.png" imageAlt="Remote classroom"/>
+                            <classrooms jcr:primaryType="nt:unstructured" tagline="NEWS" title="Former Blackboard CEO Raises $16M to Bring LMS Features to Zoom Classrooms" description="&lt;p&gt;This year, investors have reaped big financial returns from betting on Zoom...&lt;/p&gt;" image="/content/dam/demo-ai-site/design/figma/raw_13.png" imageAlt="Virtual classroom illustration"/>
+                        </items>
+                    </news>
+
+                    <site_footer
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/site-footer"
+                        brandName="TOTC"
+                        tagline="Virtual Class for Zoom"
+                        newsletterTitle="Subscribe to get our Newsletter"
+                        emailPlaceholder="Your Email"
+                        submitLabel="Subscribe"
+                        copyright="© 2021 Class Technologies Inc.">
+                        <links jcr:primaryType="nt:unstructured">
+                            <careers jcr:primaryType="nt:unstructured" label="Careers" link="#careers"/>
+                            <privacy jcr:primaryType="nt:unstructured" label="Privacy Policy" link="#privacy"/>
+                            <terms jcr:primaryType="nt:unstructured" label="Terms &amp; Conditions" link="#terms"/>
+                        </links>
+                    </site_footer>
+                </container>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

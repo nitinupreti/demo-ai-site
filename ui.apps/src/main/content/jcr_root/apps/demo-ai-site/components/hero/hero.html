@@ -1,0 +1,59 @@
+<sly data-sly-use.model="com.demo.core.models.HeroModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.hero'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-hero cmp-hero--style-${model.style @ context='attribute'}">
+        <header class="cmp-hero__header" data-sly-test="${model.style == 'full-bleed'}">
+            <a class="cmp-hero__brand" href="#">${model.brandName}</a>
+            <nav class="cmp-hero__navigation" aria-label="${'Primary navigation' @ i18n}">
+                <ul class="cmp-hero__navigation-list" data-sly-list.item="${model.navItems}">
+                    <li class="cmp-hero__navigation-item"><a href="${item.link @ context='uri'}">${item.label}</a></li>
+                </ul>
+            </nav>
+            <div class="cmp-hero__auth-actions">
+                <a class="cmp-hero__auth cmp-hero__auth--login" href="${model.loginLink @ context='uri'}">${model.loginLabel}</a>
+                <a class="cmp-hero__auth cmp-hero__auth--signup" href="${model.signupLink @ context='uri'}">${model.signupLabel}</a>
+            </div>
+        </header>
+        <div class="cmp-hero__container">
+            <div class="cmp-hero__text">
+                <p class="cmp-hero__pretitle" data-sly-test="${model.pretitle}">${model.pretitle}</p>
+                <h1 class="cmp-hero__title"><span data-sly-test="${model.titleAccent}">${model.titleAccent}</span>${model.title}</h1>
+                <div class="cmp-hero__description" data-sly-test="${model.description}">
+                    ${model.description @ context='html'}
+                </div>
+                <div class="cmp-hero__actions" data-sly-test="${model.primaryLabel || model.secondaryLabel}">
+                    <a class="cmp-hero__cta cmp-hero__cta--primary"
+                       data-sly-test="${model.primaryLabel}"
+                       href="${model.primaryLink @ context='uri'}">${model.primaryLabel}</a>
+                    <a class="cmp-hero__cta cmp-hero__cta--secondary"
+                       data-sly-test="${model.secondaryLabel}"
+                       href="${model.secondaryLink @ context='uri'}">
+                        <span class="cmp-hero__cta-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </span>
+                        ${model.secondaryLabel}
+                    </a>
+                </div>
+            </div>
+            <div class="cmp-hero__media" data-sly-test="${model.image}">
+                <img class="cmp-hero__image" src="${model.image @ context='uri'}" alt="${model.imageAlt @ context='attribute'}"/>
+                <ul class="cmp-hero__status-list" data-sly-list.item="${model.statusItems}" data-sly-test="${model.style == 'full-bleed'}">
+                    <li class="cmp-hero__status-card" data-index="${itemList.index}">
+                        <span class="cmp-hero__status-icon" aria-hidden="true"></span>
+                        <span class="cmp-hero__status-copy">
+                            <strong>${item.title}</strong>
+                            <span>${item.detail}</span>
+                            <button class="cmp-hero__status-action" type="button" data-sly-test="${item.actionLabel}">${item.actionLabel}</button>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-hero__placeholder" data-emptytext="Hero"></div>
+</sly>

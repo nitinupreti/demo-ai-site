@@ -1,5 +1,5 @@
 # DESIGN_SOURCE
-FIGMA_URL:   ""
+FIGMA_URL:   "https://www.figma.com/design/dBePw4ykyuEWiyJ2zGcP2L/E-Learning-Site--Community-?node-id=10-358&t=0EW5EKAfKpbe9YFv-0"
 DESIGN_FILE: <path to .pdf or .fig — optional>
 # Optional companions: DESIGN_SCREENSHOTS_DIR, DESIGN_SVG_DIR, DESIGN_TOKENS_JSON 
 # If neither FIGMA_URL nor DESIGN_FILE is set, STOP and ask.
@@ -19,6 +19,31 @@ Rendered output MUST match DESIGN_SOURCE for typography (family, weight, size, l
 
 **Iteration on mismatch:** fix at token layer → component CSS layer → redesign component (change HTL/dialog/split) → redeploy → re-verify BOTH modes. Green build + wrong colors/font/background = NOT DONE.
 
+## Failure modes — must never repeat (hard fails)
+Every prior Figma port that shipped "green build + wrong look" tripped one of these. Each is a hard fail — the run is NOT DONE until every one is verified false on the deployed page.
+- **F1 — Font never loads.** A component CSS references a non-system family (`'Buenos Aires Trial'`, `'Poppins'`, etc.) but no `@font-face` (or licensed CDN `<link>`) exists in the shared tokens clientlib. Browsers silently fall back to Helvetica Neue / Segoe UI and the entire page looks generic. Detection: `getComputedStyle(<h1>).fontFamily` post-deploy MUST resolve to the design family, verified by loading the font file HTTP 200 AND by `document.fonts.check('16px "<family>"')` returning `true`. If the family is proprietary and the run cannot self-host or CDN-link it, STOP and ask the user — do NOT ship with a fallback stack that hides the miss.
+- **F2 — Shared tokens clientlib missing.** No `clientlib-tokens` (or equivalent shared category) exists. Every component redeclares the design font, hex colors, spacing, and radii as literals. Detection: `grep` for hardcoded font families, hex colors, and non-zero px values in component CSS after Step 4 — the count of unique literals per property MUST be ≤1 (the token fallback). Fix at Step 0.5 before any component work.
+- **F3 — Site clientlib has no CSS.** The site-wide `clientlib-base` (or equivalent) only lists `embed=` and ships zero CSS. Body renders in AEM's default typography and background. Detection: fetch the site clientlib CSS URL — it MUST return >0 bytes AND include rules on `body`/`html`/`.das-page` setting `font-family`, `background-color`, `color`, `font-size`, `line-height` sourced from tokens.
+- **F4 — Visual parity check was skipped or run at the wrong viewport.** Playwright is available in this project — the "browser tooling unavailable" fallback in Step 10.5 is FORBIDDEN. Detection: the run's evidence folder MUST contain at least one design/rendered screenshot pair per component at ≥1280 px viewport AND at each design-defined breakpoint. Absence = defect.
+- **F5 — Assets extracted but never uploaded to DAM.** Downloaded Figma assets live only under `design/scratch/…`. Detection: every `fileReference` in authored content MUST resolve to `/content/dam/<project>/design/…` AND every one of those DAM paths MUST return HTTP 200 (not 404). A `fileReference` pointing to a scratch path, remote URL, or missing DAM node is a defect.
+- **F6 — Style variant keys derived from the source design.** Keys like `--style-teal` (paired with a comment naming the brand/campaign) drift toward A25 violation once a second design lands. Detection: every `style` variant `value` MUST be role/layout-descriptive (`default`, `alt`, `split`, `full-bleed`, `centered`) — never a color that only exists in one design, a brand name, a campaign, or a Figma file slug.
+
+The Reflection gate below is for score-based drift AFTER F1–F6 pass. If any F# is still failing, the fix is at that F# layer, not at "add more padding".
+
+## Reflection gate — mandatory below 90%
+Calculate `visualMatchPercent` for every component instance at every breakpoint from fresh, homologous design/rendered screenshots at native dimensions. The `90%` threshold is an escalation threshold, NOT a completion threshold; all P0 exact-value, author-mode, disabled-mode, and `>1px` / color-delta requirements still govern completion.
+
+When any `(component instance, breakpoint)` scores `<90%`, complete the current read-only measurement wave, then run this bounded reflection cycle before editing:
+1. **Observe** — attach the design screenshot, rendered screenshot, pixel-diff mask, raw score, bounding boxes, and computed styles for the root plus 2–3 homologous nested roles.
+2. **Critique** — list each distinct mismatch by category: missing/extra content, structure, layout, typography, color, asset, responsive behavior, interaction, or authoring.
+3. **Diagnose** — assign one controlling layer: `TOKEN`, `CONTENT`, `DIALOG`, `MODEL`, `HTL`, `CSS`, `ASSET`, `CONTAINER`, `TEMPLATE`, `POLICY`, or `DEPLOYMENT`. State one falsifiable cause and the evidence that would disprove it.
+4. **Revise** — change only the smallest controlling layer that can fix the diagnosed cause. Do not compensate for a parent/container defect with child padding, transforms, or arbitrary offsets.
+5. **Verify** — run the narrowest executable check, batch independent remediations, build/deploy once for the wave, then recapture BOTH design and rendered evidence and recompute the score.
+
+Each reflection attempt MUST include a relevant change and record `scoreBefore`, `scoreAfter`, `scoreDelta`, diagnosis, changed layer, changed paths, and evidence paths. A rerun without a relevant change is a blind retry and does not count. Allow at most three reflection attempts per `(component instance, breakpoint)`; if attempt two remains `<90%`, attempt three MUST reconsider the component structure and its owning container/template rather than repeating local CSS tuning. After attempt three, STOP that work item and ask the user with the latest screenshot pair, scores, diagnosis history, and one specific A/B decision. Continue processing independent work items first.
+
+When the score reaches `>=90%`, exit structural reflection and continue normal exact-parity refinement until every P0 requirement passes. Never round a score up to cross the threshold and never report `90%` as pixel-perfect completion.
+
 ## Input modes
 | Set                                    | Mode | Source of truth                                    |
 | -------------------------------------- | ---- | -------------------------------------------------- |
@@ -26,6 +51,17 @@ Rendered output MUST match DESIGN_SOURCE for typography (family, weight, size, l
 | DESIGN_FILE only (PDF; not `.fig`)     | B    | Local parser (PDF text/geometry/images)            |
 | Both                                   | C    | Figma MCP wins; PDF is safety net                  |
 | Neither / `.fig` without URL / no PDF  | —    | STOP and ask                                       |
+
+## Mandatory runtime and breakpoint preflight
+Complete this before measuring, editing, building, or deploying. Record the results in the inline `design-facts` block.
+
+1. **Resolve the actual AEM target.** Do not assume port `4502`. Prefer an explicit user-supplied URL/port, then `AEM_HOST` / `AEM_PORT`, then Maven defaults. Store one `$base` value and use it for every HTTP request, CSRF request, browser URL, and Maven deployment. When the target is not the Maven default, pass the quoted PowerShell argument `"-Daem.port=<port>"` (and `"-Daem.host=<host>"` when needed) to every install command.
+2. **Prove the target is the same instance the user is viewing.** Fetch an authenticated project page from `$base` and record its status before deploying. After deployment, fetch the changed clientlib or component from the same `$base` with a cache-busting query string.
+3. **Separate source-frame width from implementation breakpoint.** Record `sourceFrameWidth`, `sourceFrameHeight`, and the user-approved desktop viewport. A Figma canvas width is not automatically the implementation desktop breakpoint. If they differ, calculate `desktopScale = desktopViewportWidth / sourceFrameWidth`.
+4. **Normalize desktop coordinates consistently.** For each top-level section and critical child, retain the raw Figma box and calculate `x`, `y`, `width`, `height`, gaps, font sizes, and radii at the implementation desktop width using the same factor. Do not selectively scale some values while copying others raw. For a `1920` source frame and `1440` desktop viewport, the factor is `0.75`.
+5. **Create a vertical coordinate manifest.** In reading order, record every section's normalized `targetY`, `targetHeight`, and `targetBottom`. After each desktop deployment, measure the same boxes with `getBoundingClientRect()` and report signed `deltaY` / `deltaHeight`. A shared downstream offset means the preceding section or inter-section gap owns the defect; fix that one control instead of compensating every later section.
+6. **Treat smaller breakpoints as reflow, not uniform scaling.** Use a matching Figma frame when one exists. Otherwise preserve content, hierarchy, image intent, and controls while applying the prompt's tablet/mobile stacking rules. Assert `window.innerWidth` equals the requested width before collecting evidence.
+7. **Account for the browser scrollbar.** `window.innerWidth` is the breakpoint truth. Full-width rendered elements may measure approximately 15px narrower when a vertical scrollbar consumes layout space; do not rescale the design a second time to compensate.
 
 ## Mandatory skills / tools
 Read `.agents/skills/` first and follow each SKILL.md whose stated domain overlaps the task. In particular:
@@ -46,9 +82,9 @@ Read `.agents/skills/` first and follow each SKILL.md whose stated domain overla
 - **Generic component names — non-negotiable (A25).** Every component folder / Sling Model / clientlib category / BEM class MUST use a semantic kebab-case name that describes the *block role*, never the design, brand, campaign, or source Figma file. FORBIDDEN: any prefix or suffix derived from a brand, product, campaign, design-system nickname, Figma file slug, page name, version tag, or the project itself — for example `<brand>-hero`, `<design-key>-header`, `<slug>-footer`, `<name>-v2`, `<project-prefix>-cards`. ALLOWED names describe the role only: `hero`, `header`, `footer`, `services`, `destinations`, `steps`, `testimonials`, `logos`, `subscribe`, `pricing`, `faq`, `contact-form`, `rating-strip`, `portfolio`, etc. If discovery (Step 0) finds any existing branded/prefixed component, Step 1.5 MUST rename it to the generic role name (folder + `<Name>Model.java` + clientlib category + BEM classes + every `sling:resourceType` in authored content) BEFORE proceeding — this rename is part of the run, not deferred. Different designs of the same block coexist via `style` variant, never via prefix.
 - **Reuse templates and policies.** Never create a new template unless page structure demands it. Add components to existing policy `allowedComponents`, don't fork policy trees.
 - **Exact values (A19):** copy hex, px, weights, line-heights, letter-spacing byte-for-byte from Figma. No rounding, no scale-snapping.
-- **No hardcoded literals** in component CSS — reference tokens. Add a shared token if the design needs a new value.
+- **No hardcoded literals** in component CSS — reference tokens. Add a shared token if the design needs a new value. Specifically, a component CSS file MUST NOT contain: (a) a `font-family` with a raw quoted family name (must be `var(--das-font-*)`); (b) a hex color literal `#[0-9a-f]{3,8}` (must be `var(--das-color-*)`); (c) a non-zero `px`/`rem` value that isn't declared as a token in the shared clientlib. Grep the component CSS after Step 4 to enforce.
 - **BEM:** `.cmp-<name>__<el>--<mod>`. Vanilla CSS in existing clientlib structure. No new build tooling.
-- **Assets on DAM** — upload every extracted image to `/content/dam/<project>/design/`. No remote/temporary URLs.
+- **Assets on DAM** — upload every extracted image to `/content/dam/<project>/design/` AND verify each DAM path returns HTTP 200 before authoring the sample content that references it. No remote/temporary URLs, no `design/scratch/` paths in `fileReference`.
 - **Icons = inline SVG with `currentColor` (A7/A21).** Never substitute Unicode/emoji (`→`, `★`, `✓`, etc.) for a designed glyph.
 - **No image `filter:` effects** (grayscale, opacity, blend) unless the design shows them (A16).
 - **i18n static labels** via `${'…' @ i18n}`.
@@ -193,11 +229,17 @@ For every visual delta between sibling instances (alternating offset, variable s
 - Tablet ≤1024px collapses side-by-side to stacked+centered; mobile ≤640px reduces padding. Use design-frame widths if multiple exist.
 - **A15 — proportional inner container.** If the design frame's usable content width is materially smaller than the project container-max, cap the component's inner container to a shared narrower token FIRST — before adjusting `justify-content` / `gap` / margins — otherwise `space-between` / `flex-wrap` / `1fr` distribute unbounded remaining space and siblings drift apart visually.
 
-## Page-level styles (A9)
+## Page-level styles (A9) — HARD FAIL
 Body background, base font-family/color/size/line-height, section vertical rhythm, default link color and focus-outline live on the site clientlib (`body` or `.das-page` wrapper), NOT per component. If a component's CSS repeats a `body`-level style, move it to the site clientlib.
 
-## Web-font loading (A6)
-Recording a font family as a token is not enough. For every non-system font in DESIGN_SOURCE, wire an `@font-face` (self-hosted `.woff2` under `clientlib-tokens/fonts/`) OR licensed CDN `<link>` in the tokens clientlib. `font-display: swap`. Ship only the weights the design uses. Verify computed `font-family` in the browser matches the token.
+**Verification (mandatory).** Fetch the site clientlib CSS URL (`/etc.clientlibs/<project>/clientlibs/clientlib-base.css` or equivalent) — response MUST be `Status == 200` AND `Content-Length > 0` AND MUST contain a `body` (or `.das-page`) rule that sets `font-family`, `background-color`, `color`, `font-size`, and `line-height` sourced from `var(--das-*)` tokens. In the browser, `getComputedStyle(document.body)` MUST report values matching the tokens (font-family starts with the design family — see A6; background-color equals the design page background). A site clientlib that only ships `embed=` with zero CSS is a hard fail (F3).
+
+## Web-font loading (A6) — HARD FAIL
+Recording a font family as a token or as a component `font-family` stack is not enough — that is exactly failure mode F1. For every non-system font in DESIGN_SOURCE:
+1. Ship an `@font-face` (self-hosted `.woff2` under `clientlib-tokens/fonts/`) OR a licensed CDN `<link>` in the shared tokens clientlib. `font-display: swap`. Ship only the weights the design uses.
+2. Expose the family as a token custom property (e.g. `--das-font-display: 'Buenos Aires Trial', system-ui, sans-serif;`) declared on `:root` in the shared tokens clientlib. Component CSS MUST consume `var(--das-font-*)` — a raw family literal in a component CSS is a defect (see F2).
+3. **Post-deploy verification (mandatory).** For every non-system family declared: (a) HTTP-GET the font file URL and assert `Status == 200` and `Content-Type` is `font/woff2` (or the CDN's equivalent); (b) in the browser, assert `document.fonts.check('16px "<family>"') === true` after `document.fonts.ready`; (c) assert `getComputedStyle(document.querySelector('h1, .cmp-hero__title')).fontFamily` STARTS WITH the design family — never with `"Helvetica Neue"`, `Segoe UI`, `Arial`, or `sans-serif`. Any of a/b/c failing is a hard fail — do not report DONE.
+4. If the family is proprietary and neither self-hosting nor CDN is achievable in this run, STOP and ask the user with the family name, the components that need it, and one A/B choice (self-host / CDN / substitute an approved open family). Do NOT ship with a silent fallback.
 
 ## Image rendering (A10)
 For every image slot: `aspect-ratio: <w> / <h>` from the design, `object-fit: cover | contain` per intent, wrapper `overflow: hidden` when the design shows rounded media corners.
@@ -215,6 +257,17 @@ Run `mvn -pl core test -Dtest=<ModelName>Test` before deploying.
 ## Content-package gotcha
 `ui.content` typically uses `mode="merge"` — adds missing nodes but does NOT update properties on existing ones. If a schema changed and stale instances remain, delete them via authenticated Sling POST (CSRF token required) OR temporarily switch to `mode="update"` OR re-author via dialog. Plain merge works fine for net-new content.
 
+### Live/source reconciliation
+Run this after every authored-structure change; a green `ui.content` build does not prove the live JCR tree matches source when FileVault uses merge mode.
+
+1. Fetch the live editable-region parent with `.2.json` from the configured `$base`.
+2. Compare live node names, order, `sling:resourceType`, style values, direct properties, and multifield child counts with source `.content.xml`.
+3. Treat extra replaced nodes, old Core Component instances, and missing new properties as a deployment failure even when Maven is green.
+4. When the demo page is disposable and several nodes were replaced, delete only that demo page with authenticated Sling POST + CSRF, reinstall `ui.content`, and verify the recreated sequence. Do not delete shared templates, policies, DAM assets, or unrelated authored pages.
+5. Re-fetch disabled HTML after recreation and confirm removed node names/resource types no longer appear.
+
+**Core Image runtime check:** a DAM-backed authoring property is not sufficient evidence. Inspect every rendered `<img src>`. It MUST be a working `/content/dam/<project>/design/...` URL for custom rendering, or a deliberately supported image-delivery URL that returns `200`. In Playwright assert `img.complete && img.naturalWidth > 0`; a Core Image servlet URL returning `404`/`500` is F5 and requires a component/content fix, not CSS.
+
 ## Step 0 — Discover
 - Read `AGENTS.md`, `CLAUDE.md`, `README.md` → build command, module layout, package prefix, component group, clientlib naming, content root.
 - List `.agents/skills/` and record each SKILL.md `name` + `description`.
@@ -222,6 +275,22 @@ Run `mvn -pl core test -Dtest=<ModelName>Test` before deploying.
 - Inventory `conf/<project>/settings/wcm/templates/` and `.../policies/`.
 - Determine mode (A/B/C). Mode A/C: parse URL → fetch Figma via the tool sequence above and pull assets to a local scratch folder. Mode B/C: parse DESIGN_FILE (page count, per-page text/fonts/colors/geometry/embedded images).
 - Record raw values; do not paraphrase.
+
+## Step 0.5 — Foundation prerequisites (BEFORE any component work)
+The prior run shipped four components with a font that never loaded and a body that stayed AEM-default gray because these two artefacts were absent. Both MUST exist and be verified before Step 4 begins:
+
+1. **Shared tokens clientlib** — `ui.apps/.../clientlibs/clientlib-tokens/` with category `<project>.tokens`, `allowProxy="{Boolean}true"`, `css.txt` and `css/tokens.css`. `tokens.css` declares on `:root`:
+   - Every family in DESIGN_SOURCE as `--das-font-*`.
+   - Every hex color as `--das-color-*` (design's raw hex, not paraphrased).
+   - Every unique spacing / radius / shadow / breakpoint value.
+   - `@font-face` for every non-system family (self-hosted `.woff2` under `clientlib-tokens/fonts/`) — see A6.
+2. **Site clientlib CSS (page baseline)** — `clientlib-base` (or the project's existing site category) MUST ship its own `css.txt` + `css/site.css` (not only `embed=`). `site.css` sets on `body` (or `.das-page`) `font-family`, `background-color`, `color`, `font-size`, `line-height` — all sourced from `var(--das-*)` tokens. Every site clientlib category MUST list `<project>.tokens` FIRST in its `embed` array so tokens resolve everywhere.
+3. **Verification before Step 4.** Build + deploy JUST the two foundation clientlibs, then:
+   - HTTP-GET the tokens CSS URL, site CSS URL, and every `@font-face` `src` URL — all MUST return `200`.
+   - Load any existing page (the project home page is fine) at ≥1280 px viewport and assert `getComputedStyle(document.body).fontFamily` starts with the design family AND `backgroundColor` equals the design page background.
+   - If any check fails, fix the foundation before scaffolding a single component. Component-level parity work on top of a broken foundation is wasted effort.
+
+Every component built in Step 4+ MUST consume tokens via `var(--das-*)`; a raw font-family, hex color, or magic px number in a component CSS file is a defect (see F2 / A19).
 
 ## Step 1 — Decompose the design
 Per distinct reusable block: semantic kebab-case name, variants/modifiers (→ dialog selects), author-editable fields, interactive state and initial/active behavior, repeating children (→ composite multifield + child model).
@@ -295,6 +364,9 @@ Under the project's content root, create a sample page. Reuse the best-matching 
 ## Step 10 — Build, install, verify
 1. `mvn -pl core clean test` — green before deploying.
 2. Local install (`mvn install -PautoInstallSinglePackage -DskipTests` or equivalent). BUILD SUCCESS with 0 analyser warnings.
+  - When HTL references a new or changed Sling Model, install/package `core` before compiling `ui.apps`, or build both in one reactor with `-am`. A standalone `ui.apps` build may otherwise compile against a stale model JAR in the local Maven repository and fail with `cannot find symbol` even though the Java source exists.
+  - On PowerShell, quote dotted Maven properties: `"-Daem.port=4504"`, `"-Dvault.skipValidation=true"`.
+  - If generated HTL references a class that no longer exists in source, remove only the stale generated build output and rebuild; never edit `target/` as source.
 3. **Fetch demo page** with `?wcmmode=disabled`, Basic auth `admin:admin`, `Referer` header. Verify in ONE batched grep pass:
    - Every component's BEM root class appears.
    - List-driven components: per-item element count == authored multifield size.
@@ -302,10 +374,23 @@ Under the project's content root, create a sample page. Reuse the best-matching 
    - Each per-instance spatial variant modifier class count matches DESIGN_SOURCE.
    - `other`+hex color instances emit inline `style="background-color: #…"` on the root.
    - Zero `SightlyException`.
-4. **Fetch deployed clientlib CSS** for each per-component clientlib and confirm modifier rules are present (defends against stale-cache).
-5. **Visual parity (A4/A11).** Side-by-side against the design at native width and every design-defined breakpoint. If browser tooling exists, automate the diff.
-6. **Author-mode parity (A17).** Load `/editor.html<demo-page-path>.html` and verify computed `font-family`, `background-color`, `color`, gradients / shadows / borders / radii match the design at every breakpoint. Ignore only editor chrome and empty-state placeholders.
-7. Iterate on any mismatch: token → CSS → dialog option → component redesign. Cap at 3 attempts per gap (A23); after that STOP CSS-tweaking, re-read Steps 1–2, and if unresolvable escalate to the user with a screenshot pair and a specific A/B question — never spin silently.
+4. **Fetch deployed clientlib CSS** for each per-component clientlib and confirm modifier rules are present (defends against stale-cache). ALSO fetch the shared tokens CSS URL and the site clientlib CSS URL — both MUST return `Status == 200`, `Content-Length > 0`, contain the design's `--das-font-*` and `--das-color-*` custom properties, and (for the site clientlib) a `body`/`.das-page` rule setting `font-family` / `background-color` / `color` from those tokens. Missing site clientlib CSS = F3 fail.
+5. **Visual parity (A4/A11) — MANDATORY, browser-based.** Playwright is available in this project, so the "browser tooling unavailable" fallback is FORBIDDEN. For every component instance:
+   - Launch Playwright, set viewport to `1440×900` first (the design's native desktop), then to every design-defined breakpoint (typically `1024×768`, `768×1024`, `375×812`). If `window.innerWidth` after `setViewportSize` does not match the requested width (e.g. the environment locks a narrow viewport), STOP and ask the user — do NOT record scores at the wrong width.
+   - `await document.fonts.ready` before every screenshot so web-fonts are not caught mid-swap.
+   - Capture rendered screenshot at each breakpoint into `design/scratch/evidence/<component>/rendered-<w>.png`; place the matching design frame at `design/scratch/evidence/<component>/design-<w>.png`.
+  - If the browser cannot capture one very tall full-page bitmap (`Page.captureScreenshot` protocol/size failure), this is NOT permission to skip evidence. Capture each component root with `locator(selector).screenshot(...)`, or capture deterministic viewport-height tiles with explicit `clip` rectangles. Use the same component bounds/normalization for the design image and keep the standard evidence names.
+  - Do not judge dimensions from the chat/editor thumbnail, which may be visually scaled. Use the saved PNG dimensions plus `window.innerWidth` and `getBoundingClientRect()` as the authoritative geometry.
+   - Compute `visualMatchPercent` per (instance, breakpoint) from the pair without display rounding and record in the Reflection table.
+   - **Computed-style assertions (hard fail on any miss).** For the root and 2–3 nested elements of every component, capture `font-family`, `font-weight`, `font-size`, `line-height`, `letter-spacing`, `color`, `background-color`, `padding`, `border-radius`, `box-shadow` via `getComputedStyle`. Assert:
+     - `fontFamily` STARTS WITH the design family — never `Helvetica Neue`, `Segoe UI`, `Arial`, `Times`, `sans-serif`, or `serif` as the first token.
+     - `backgroundColor` on `<body>` equals the design page background exactly (compare as `rgb(...)` after normalization).
+     - Hex-derived colors on component roots match the design hex byte-for-byte.
+     A fail here is F1 / F3 / A19 and blocks the run.
+   - **Asset check.** Every `<img src>` in the rendered DOM MUST resolve under `/content/dam/<project>/design/` AND return `Status == 200`. A `src` pointing to a scratch path or a remote URL is F5.
+  - **Responsive integrity check.** For each viewport, assert `document.documentElement.scrollWidth <= window.innerWidth`, no adjacent major-section boxes overlap, all visible controls are at least `44×44` CSS px on mobile, every image has `naturalWidth > 0`, and `SightlyException` count is zero.
+6. **Author-mode parity (A17).** Load `/editor.html<demo-page-path>.html` at ≥1280 px viewport, `await document.fonts.ready`, and repeat the same computed-style assertions on the root and nested elements. Ignore only editor chrome and empty-state placeholders. A mismatch here that disabled-mode passed usually means an editor-only stylesheet is overriding tokens — fix the specificity, do NOT scope the fix to disabled mode.
+7. Iterate on any mismatch: token → CSS → dialog option → component redesign. For every score `<90%`, run the mandatory Reflection gate before editing. Cap at 3 attempts per gap (A23); after that STOP CSS-tweaking, re-read Steps 1–2, and if unresolvable escalate to the user with a screenshot pair, reflection history, and a specific A/B question — never spin silently.
 
 ## Deliverables per block
 | Tier | Files                                                                                                                                |
@@ -315,7 +400,7 @@ Under the project's content root, create a sample page. Reuse the best-matching 
 | 4    | Full: `.content.xml`, `_cq_dialog/.content.xml` (Properties + Style), `<component>.html`, `<Name>Model.java` + child models, `clientlib-<name>/` (`.content.xml`, `css.txt`, `css/*.css`, optional `js.txt`, `js/*.js`), `<Name>ModelTest.java` (`defaultsWhenEmpty` + `configuredFully`), sample content per variant, resource type added to existing policy `allowedComponents`. |
 
 ## Final summary
-Include: skills loaded from `.agents/skills/`; Step 0 inventories; reuse-decision table (tier + gap + additions per block); component decomposition; skills invoked (must match tiers 2/3/4); design inputs consumed; tokens created / updated; per-component file paths (tier 1 says "no new files (reused <parent>)"); template + policy decisions; HTL iteration audit; per-instance spatial-field audit; unit-test results; rendered-DOM check results; deployed-clientlib check results; interaction guards applied; demo page path; build status; residual gaps.
+Include: skills loaded from `.agents/skills/`; Step 0 inventories; reuse-decision table (tier + gap + additions per block); component decomposition; skills invoked (must match tiers 2/3/4); design inputs consumed; tokens created / updated; per-component file paths (tier 1 says "no new files (reused <parent>)"); template + policy decisions; HTL iteration audit; per-instance spatial-field audit; unit-test results; rendered-DOM check results; deployed-clientlib check results; interaction guards applied; demo page path; build status; residual gaps. If any score was `<90%`, include a Reflection table with component instance, breakpoint, attempt, `scoreBefore`, `scoreAfter`, `scoreDelta`, diagnosis, changed layer, changed paths, evidence paths, and outcome.
 
 **Evidence per component (A22):** screenshot pair (design + rendered) at every breakpoint, computed-style excerpt from DevTools/Playwright (`font-family`, `font-weight`, `font-size`, `line-height`, `background-color`, `color`, `padding`, `border-radius`, `box-shadow` on root and 2–3 nested elements), cross-referenced to the `design-facts` block. Deltas > 1px or > 1 hex digit = failure, iterate. If browser tooling unavailable, substitute rendered HTML + clientlib CSS excerpts + manual measurement callouts and state so explicitly.
 

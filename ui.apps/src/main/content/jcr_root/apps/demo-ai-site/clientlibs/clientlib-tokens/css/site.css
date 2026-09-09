@@ -1,0 +1,46 @@
+/* Site-level (A9) baseline. Consumes tokens declared in tokens.css. */
+
+html {
+    box-sizing: border-box;
+}
+*, *::before, *::after { box-sizing: inherit; }
+
+body {
+    margin: 0;
+    background-color: var(--das-color-page-bg);
+    color: var(--das-color-ink-navy);
+    font-family: var(--das-font-body);
+    font-size: var(--das-font-size-base);
+    line-height: var(--das-line-height-base);
+    font-weight: var(--das-font-weight-regular);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Headings pick up the display family and design ink color. */
+h1, h2, h3, h4, h5, h6,
+.cmp-title__text {
+    font-family: var(--das-font-display);
+    color: var(--das-color-ink);
+    line-height: 1.2;
+    margin: 0 0 var(--das-space-5);
+    font-weight: var(--das-font-weight-bold);
+}
+
+a { color: var(--das-color-teal-dark); }
+a:focus-visible {
+    outline: 3px solid var(--das-color-teal);
+    outline-offset: 3px;
+    border-radius: var(--das-radius-sm);
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+/* Neutralize AEM Grid outer container gutters so section components hit true
+   edge-to-edge widths. Sections still own their own padding. */
+.root.container > .cmp-container,
+main .aem-Grid > .container > .cmp-container {
+    padding: 0;
+    margin: 0;
+}

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="nt:unstructured" jcr:title="Card Grid" sling:resourceType="cq/gui/components/authoring/dialog">
+    <content jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/tabs" maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties jcr:primaryType="nt:unstructured" jcr:title="Properties" sling:resourceType="granite/ui/components/coral/foundation/container" margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <title jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Section title" name="./title"/>
+                            <description jcr:primaryType="nt:unstructured" sling:resourceType="cq/gui/components/authoring/dialog/richtext" fieldLabel="Section introduction" name="./description" useFixedInlineToolbar="{Boolean}true"/>
+                            <items jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/multifield" composite="{Boolean}true" fieldLabel="Cards">
+                                <field jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/container" name="./items">
+                                    <items jcr:primaryType="nt:unstructured">
+                                        <title jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Title" name="./title"/>
+                                        <description jcr:primaryType="nt:unstructured" sling:resourceType="cq/gui/components/authoring/dialog/richtext" fieldLabel="Description" name="./description" useFixedInlineToolbar="{Boolean}true"/>
+                                        <image jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="Image" name="./image" rootPath="/content/dam"/>
+                                        <imageAlt jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Image alt text" name="./imageAlt"/>
+                                        <tagline jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Tagline" name="./tagline"/>
+                                        <meta jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="Metadata" name="./meta"/>
+                                        <ctaLabel jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/textfield" fieldLabel="CTA label" name="./ctaLabel"/>
+                                        <ctaLink jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/pathfield" fieldLabel="CTA link" name="./ctaLink" rootPath="/content"/>
+                                        <icon jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Icon" name="./icon">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <none jcr:primaryType="nt:unstructured" text="None" value="" selected="{Boolean}true"/>
+                                                <invoice jcr:primaryType="nt:unstructured" text="Invoice" value="invoice"/>
+                                                <calendar jcr:primaryType="nt:unstructured" text="Calendar" value="calendar"/>
+                                                <users jcr:primaryType="nt:unstructured" text="Users" value="users"/>
+                                            </items>
+                                        </icon>
+                                        <imageSide jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Image side" name="./imageSide">
+                                            <items jcr:primaryType="nt:unstructured">
+                                                <right jcr:primaryType="nt:unstructured" text="Right" value="right" selected="{Boolean}true"/>
+                                                <left jcr:primaryType="nt:unstructured" text="Left" value="left"/>
+                                                <center jcr:primaryType="nt:unstructured" text="Center" value="center"/>
+                                            </items>
+                                        </imageSide>
+                                    </items>
+                                </field>
+                            </items>
+                        </items>
+                    </properties>
+                    <style jcr:primaryType="nt:unstructured" jcr:title="Style" sling:resourceType="granite/ui/components/coral/foundation/container" margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <style jcr:primaryType="nt:unstructured" sling:resourceType="granite/ui/components/coral/foundation/form/select" fieldLabel="Design style" name="./style">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <iconCards jcr:primaryType="nt:unstructured" text="Icon cards" value="icon-cards" selected="{Boolean}true"/>
+                                    <imageOverlay jcr:primaryType="nt:unstructured" text="Image overlay" value="image-overlay"/>
+                                    <split jcr:primaryType="nt:unstructured" text="Split feature" value="split"/>
+                                    <catalog jcr:primaryType="nt:unstructured" text="Course catalog" value="catalog"/>
+                                    <news jcr:primaryType="nt:unstructured" text="Featured news" value="news"/>
+                                </items>
+                            </style>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

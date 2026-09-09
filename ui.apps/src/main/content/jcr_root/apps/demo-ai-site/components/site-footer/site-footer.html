@@ -1,0 +1,26 @@
+<sly data-sly-use.model="com.demo.core.models.SiteFooterModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.site-footer'}"/>
+
+<footer class="cmp-site-footer" data-sly-test.hasContent="${model.hasContent}">
+    <div class="cmp-site-footer__brand-row">
+        <span class="cmp-site-footer__brand">${model.brandName}</span>
+        <span class="cmp-site-footer__tagline">${model.tagline}</span>
+    </div>
+    <h2 class="cmp-site-footer__title">${model.newsletterTitle}</h2>
+    <form class="cmp-site-footer__form">
+        <label class="cmp-site-footer__label" for="footer-email">${model.emailPlaceholder}</label>
+        <input class="cmp-site-footer__input" id="footer-email" name="email" type="email" placeholder="${model.emailPlaceholder @ context='attribute'}"/>
+        <button class="cmp-site-footer__submit" type="submit">${model.submitLabel}</button>
+    </form>
+    <nav class="cmp-site-footer__navigation" aria-label="${'Footer navigation' @ i18n}">
+        <ul class="cmp-site-footer__links" data-sly-list.item="${model.links}">
+            <li class="cmp-site-footer__link-item"><a href="${item.link @ context='uri'}">${item.label}</a></li>
+        </ul>
+    </nav>
+    <p class="cmp-site-footer__copyright">${model.copyright}</p>
+</footer>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder" data-emptytext="Site Footer"></div>
+</sly>

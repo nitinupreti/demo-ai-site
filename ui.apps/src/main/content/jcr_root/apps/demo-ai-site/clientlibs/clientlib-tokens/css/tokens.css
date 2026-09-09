@@ -1,0 +1,312 @@
+/* Design tokens — sourced from the E-Learning Landing (Community) Figma.
+   Buenos Aires Trial is replaced by the approved Poppins substitute. */
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 300;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-300-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-400-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-500-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-600-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-700-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Poppins";
+    font-style: normal;
+    font-weight: 800;
+    font-display: swap;
+    src: url("../resources/fonts/poppins-800-latin.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Nunito Sans";
+    font-style: normal;
+    font-weight: 400 700;
+    font-stretch: 100%;
+    font-display: swap;
+    src: url("../resources/fonts/nunito-sans-latin.woff2") format("woff2");
+}
+
+:root {
+    /* ---------- Typography ---------- */
+    --das-font-display: "Poppins", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --das-font-body:    "Poppins", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --das-font-narrative: "Nunito Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+    --das-font-size-base:   16px;
+    --das-line-height-base: 1.6;
+    --das-font-weight-regular: 400;
+    --das-font-weight-medium:  500;
+    --das-font-weight-semibold:600;
+    --das-font-weight-bold:    700;
+
+    /* ---------- Colors (raw hex from Figma) ---------- */
+    --das-color-page-bg:      #ffffff;
+    --das-color-surface:      #ffffff;
+    --das-color-surface-alt:  #F3F5FA;
+    --das-color-ink:          #010514;   /* headings on light backgrounds */
+    --das-color-ink-navy:     #252641;   /* body text, navy accents */
+    --das-color-ink-muted:    rgba(1, 5, 20, 0.72);
+
+    --das-color-teal:         #49BBBD;   /* Hero / primary brand */
+    --das-color-teal-dark:    #2A9D9F;
+    --das-color-teal-accent:  #00CBB8;
+    --das-color-heading:      #2F327D;
+    --das-color-copy:         #696984;
+    --das-color-sky:          #23BDEE;
+    --das-color-gradient-blue:#136CB5;
+    --das-color-orange:       #ff9d43;   /* Primary CTA */
+    --das-color-orange-dark:  #F48C06;
+    --das-color-rose:         #D8587E;
+    --das-color-status-title: #595959;
+    --das-color-status-copy:  #545567;
+    --das-color-course-bg:    rgba(157, 204, 255, 0.2);
+    --das-color-footer-copy:  #B2B3CF;
+    --das-color-footer-border:#83839A;
+    --das-color-book-orange:  #FF6F00;
+    --das-color-book-coral:   #FF8374;
+    --das-color-book-brown:   #B45A1B;
+    --das-color-book-gold:    #FFB300;
+    --das-color-book-purple:  #C583FF;
+    --das-color-book-blue:    #00A8FF;
+    --das-color-book-green:   #6DB4A7;
+    --das-color-testimonial-accent: #F67766;
+    --das-color-white:        #ffffff;
+    --das-color-border:       rgba(1, 5, 20, 0.08);
+    --das-color-shadow:       rgba(1, 5, 20, 0.14);
+
+    /* ---------- Layout ---------- */
+    --das-container-max:  1440px;
+    --das-container-pad:  60px;
+    --das-container-pad-tablet: 32px;
+    --das-container-pad-mobile: 20px;
+
+    --das-hero-height: 839px;
+    --das-hero-header-width: 1249px;
+    --das-hero-header-height: 107px;
+    --das-hero-brand-size: 24px;
+    --das-hero-nav-size: 17px;
+    --das-hero-title-size: 41px;
+    --das-hero-title-width: 511px;
+    --das-hero-copy-size: 18px;
+    --das-hero-copy-width: 392px;
+    --das-hero-subject-width: 408px;
+    --das-hero-subject-height: 669px;
+    --das-hero-status-title-size: 18px;
+    --das-hero-status-copy-size: 15px;
+    --das-hero-status-radius: 15px;
+    --das-hero-button-height: 60px;
+    --das-hero-button-width: 165px;
+    --das-hero-auth-width: 120px;
+    --das-hero-auth-height: 45px;
+    --das-status-small-width: 225px;
+    --das-status-small-height: 75px;
+    --das-status-medium-width: 278px;
+    --das-status-medium-height: 83px;
+    --das-status-large-width: 293px;
+    --das-status-large-height: 140px;
+
+    --das-hero-text-offset: 615px;
+    --das-hero-text-top: 251px;
+    --das-hero-subject-offset: 96px;
+    --das-hero-subject-top: 168px;
+    --das-status-small-offset: 49px;
+    --das-status-small-top: 307px;
+    --das-status-medium-right: 95px;
+    --das-status-medium-top: 453px;
+    --das-status-large-offset: 58px;
+    --das-status-large-top: 558px;
+
+    --das-hero-status-padding: 18px;
+    --das-hero-status-gap: 15px;
+    --das-hero-status-icon-size: 45px;
+    --das-hero-brand-mark-size: 45px;
+
+    --das-success-block-height: 281px;
+    --das-success-top-gap: 101px;
+    --das-success-header-width: 563px;
+    --das-success-list-width: 1145px;
+    --das-success-stats-gap: 76px;
+    --das-success-stat-gap: 71px;
+    --das-success-title-size: 36px;
+    --das-success-copy-size: 14px;
+    --das-success-value-size: 72px;
+    --das-success-label-size: 24px;
+
+    --das-landing-width: 1440px;
+    --das-landing-content-width: 1103px;
+    --das-landing-wide-width: 1200px;
+    --das-landing-section-gap: 90px;
+    --das-landing-heading-size: 27px;
+    --das-landing-heading-line: 49px;
+    --das-landing-copy-size: 18px;
+    --das-landing-copy-line: 32px;
+
+    --das-icon-cards-block-height: 571px;
+    --das-icon-cards-top-gap: 74px;
+    --das-icon-cards-intro-width: 628px;
+    --das-icon-cards-heading-size: 27px;
+    --das-icon-cards-intro-size: 18px;
+    --das-icon-cards-list-gap: 120px;
+    --das-icon-cards-list-width: 1103px;
+    --das-icon-cards-gap: 45px;
+    --das-icon-card-width: 338px;
+    --das-icon-card-height: 323px;
+    --das-icon-card-radius: 15px;
+    --das-icon-card-shadow: 0 8px 45px rgba(38, 45, 118, 0.08);
+    --das-icon-card-icon-size: 75px;
+    --das-icon-card-icon-offset: 43px;
+    --das-icon-card-content-top: 92px;
+    --das-icon-card-side-pad: 36px;
+    --das-icon-card-title-size: 23px;
+    --das-icon-card-copy-size: 15px;
+
+    --das-overlay-block-height: 531px;
+    --das-overlay-top-gap: 89px;
+    --das-overlay-intro-width: 826px;
+    --das-overlay-heading-size: 33px;
+    --das-overlay-intro-size: 18px;
+    --das-overlay-list-gap: 58px;
+    --das-overlay-list-width: 975px;
+    --das-overlay-card-gap: 75px;
+    --das-overlay-card-width: 450px;
+    --das-overlay-card-height: 300px;
+    --das-overlay-radius: 15px;
+    --das-overlay-card-title-size: 27px;
+    --das-overlay-cta-size: 17px;
+    --das-overlay-cta-height: 60px;
+    --das-overlay-cta-width: 212px;
+
+    --das-split-width: 1160px;
+    --das-split-height: 384px;
+    --das-split-copy-width: 548px;
+    --das-split-media-width: 529px;
+    --das-split-media-height: 353px;
+    --das-feature-width: 1200px;
+    --das-feature-row-height: 458px;
+    --das-feature-row-gap: 78px;
+    --das-feature-title-size: 30px;
+    --das-feature-copy-size: 18px;
+    --das-feature-media-width: 600px;
+    --das-feature-media-height: 458px;
+
+    --das-catalog-height: 1807px;
+    --das-catalog-width: 1323px;
+    --das-catalog-row-height: 407px;
+    --das-catalog-row-gap: 82px;
+    --das-catalog-radius: 75px;
+    --das-catalog-top-pad: 185px;
+    --das-catalog-header-width: 1206px;
+    --das-catalog-heading-size: 36px;
+    --das-catalog-category-size: 21px;
+    --das-catalog-see-all-size: 18px;
+    --das-catalog-shelf-height: 62px;
+    --das-catalog-book-width: 78px;
+    --das-catalog-book-height: 314px;
+    --das-catalog-book-gap: 18px;
+    --das-catalog-detail-width: 514px;
+    --das-catalog-detail-height: 322px;
+    --das-catalog-detail-image-width: 180px;
+    --das-catalog-detail-image-height: 286px;
+    --das-catalog-detail-pad: 28px;
+    --das-catalog-detail-copy-offset: 205px;
+
+    --das-news-width: 1168px;
+    --das-news-feature-width: 480px;
+    --das-news-list-width: 598px;
+    --das-news-row-height: 150px;
+    --das-news-row-gap: 38px;
+    --das-news-column-gap: 90px;
+    --das-news-feature-image-height: 255px;
+    --das-news-image-width: 210px;
+    --das-news-title-size: 18px;
+    --das-news-copy-size: 14px;
+
+    --das-footer-height: 445px;
+    --das-footer-top-pad: 56px;
+    --das-footer-brand-size: 24px;
+    --das-footer-brand-gap: 31px;
+    --das-footer-mark-size: 45px;
+    --das-footer-mark-border: 1px;
+    --das-footer-tagline-size: 17px;
+    --das-footer-tagline-width: 148px;
+    --das-footer-title-size: 20px;
+    --das-footer-title-gap: 54px;
+    --das-footer-control-height: 45px;
+    --das-footer-control-size: 15px;
+    --das-footer-input-width: 300px;
+    --das-footer-submit-width: 134px;
+    --das-footer-links-gap: 64px;
+    --das-footer-copy-size: 16px;
+    --das-footer-letter-spacing: 0.8px;
+    --das-footer-divider: 1px;
+    --das-control-min: 44px;
+
+    /* ---------- Spacing scale ---------- */
+    --das-space-1: 4px;
+    --das-space-2: 8px;
+    --das-space-3: 12px;
+    --das-space-4: 16px;
+    --das-space-5: 20px;
+    --das-space-6: 24px;
+    --das-space-7: 32px;
+    --das-space-8: 40px;
+    --das-space-9: 48px;
+    --das-space-10: 60px;
+    --das-space-11: 80px;
+    --das-space-12: 96px;
+
+    /* ---------- Radii ---------- */
+    --das-radius-sm: 8px;
+    --das-radius-md: 16px;
+    --das-radius-lg: 24px;
+    --das-radius-xl: 40px;
+    --das-radius-pill: 999px;
+
+    /* ---------- Shadows ---------- */
+    --das-shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.12);
+    --das-shadow-md: 0 12px 24px rgba(0, 0, 0, 0.18);
+    --das-shadow-lg: 0 24px 60px rgba(1, 5, 20, 0.14);
+    --das-shadow-card: 0 24px 48px rgba(1, 5, 20, 0.08);
+
+    /* ---------- Type scale (fluid) ---------- */
+    --das-fs-h1: 56px;
+    --das-fs-h2: 48px;
+    --das-fs-h3: 40px;
+    --das-fs-h4: 28px;
+    --das-fs-body-lg: 18px;
+    --das-fs-body: 17px;
+    --das-fs-body-sm: 16px;
+    --das-fs-kicker: 14px;
+}

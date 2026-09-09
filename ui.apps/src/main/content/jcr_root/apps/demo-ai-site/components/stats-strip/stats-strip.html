@@ -1,0 +1,22 @@
+<sly data-sly-use.model="com.demo.core.models.StatsStripModel"
+     data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+<sly data-sly-call="${clientlib.css @ categories='demo-ai-site.stats-strip'}"/>
+
+<sly data-sly-test.hasContent="${model.hasContent}">
+    <section class="cmp-stats-strip">
+        <header class="cmp-stats-strip__header">
+            <h2 class="cmp-stats-strip__title" data-sly-test="${model.title}">${model.title}</h2>
+            <div class="cmp-stats-strip__description" data-sly-test="${model.description}">${model.description @ context='html'}</div>
+        </header>
+        <ul class="cmp-stats-strip__list" data-sly-list.item="${model.items}">
+            <li class="cmp-stats-strip__item" data-index="${itemList.index}">
+                <span class="cmp-stats-strip__value">${item.value}</span>
+                <span class="cmp-stats-strip__label">${item.label}</span>
+            </li>
+        </ul>
+    </section>
+</sly>
+
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cq-placeholder cmp-stats-strip__placeholder" data-emptytext="Stats Strip"></div>
+</sly>

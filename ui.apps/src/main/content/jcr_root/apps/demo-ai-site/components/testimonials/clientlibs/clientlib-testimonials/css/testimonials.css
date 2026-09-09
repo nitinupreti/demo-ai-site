@@ -1,0 +1,124 @@
+/* Testimonials — split intro + quote card overlapping portrait. Reads shared tokens. */
+.cmp-testimonials { padding: 0; }
+.cmp-testimonials__container {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 64px;
+    align-items: center;
+}
+
+.cmp-testimonials__kicker {
+    margin: 0 0 var(--das-space-3);
+    font-family: var(--das-font-narrative);
+    font-size: 15px;
+    font-weight: var(--das-font-weight-bold);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--das-color-orange);
+}
+.cmp-testimonials__title {
+    margin: 0 0 var(--das-space-5);
+    font-family: var(--das-font-narrative);
+    font-size: 45px;
+    font-weight: var(--das-font-weight-bold);
+    line-height: 1.2;
+    color: var(--das-color-ink);
+}
+.cmp-testimonials__intro-text {
+    font-family: var(--das-font-body);
+    font-size: 19.5px;
+    line-height: 1.7;
+    color: var(--das-color-ink);
+    opacity: 0.8;
+    max-width: 455px;
+    margin-bottom: var(--das-space-7);
+}
+.cmp-testimonials__intro-text p { margin: 0 0 var(--das-space-3); }
+.cmp-testimonials__intro-text p:last-child { margin-bottom: 0; }
+
+.cmp-testimonials__cta {
+    display: inline-block;
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--das-color-teal);
+    display: inline-flex;
+    height: 60px;
+    padding: 0 28px;
+    border-radius: var(--das-radius-pill);
+    background: var(--das-color-orange);
+    color: var(--das-color-teal);
+    font-family: var(--das-font-body);
+    font-weight: var(--das-font-weight-semibold);
+    text-decoration: none;
+    box-shadow: var(--das-shadow-sm);
+    transition: transform 0.15s ease;
+}
+.cmp-testimonials__cta:hover { transform: translateY(-1px); }
+.cmp-testimonials__cta:focus-visible { outline: 3px solid var(--das-color-ink); outline-offset: 3px; }
+
+.cmp-testimonials__card { position: relative; min-height: 616px; }
+.cmp-testimonials__media {
+    position: relative; z-index: 1;
+    border-radius: var(--das-radius-lg);
+    overflow: hidden;
+    max-width: 420px;
+    aspect-ratio: 4 / 5;
+    background: var(--das-color-surface-alt);
+}
+.cmp-testimonials__image {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.cmp-testimonials__quote {
+    position: absolute;
+    right: 0; bottom: 0;
+    z-index: 2;
+    background: var(--das-color-surface);
+    padding: 27px 33px 27px 60px;
+    max-width: 510px;
+    min-height: 247px;
+    border-radius: 15px;
+    box-shadow: var(--das-shadow-lg);
+    border-left: 11px solid var(--das-color-testimonial-accent);
+    margin: 0;
+}
+.cmp-testimonials__quote-text {
+    font-family: var(--das-font-narrative);
+    font-size: 16.5px;
+    line-height: var(--das-line-height-base);
+    color: var(--das-color-ink);
+    margin-bottom: var(--das-space-5);
+    font-style: italic;
+}
+.cmp-testimonials__quote-text p { margin: 0 0 var(--das-space-3); }
+.cmp-testimonials__quote-text p:last-child { margin-bottom: 0; }
+.cmp-testimonials__attribution { display: flex; flex-direction: column; gap: var(--das-space-1); }
+.cmp-testimonials__author {
+    font-family: var(--das-font-narrative);
+    font-size: 18px;
+    font-weight: var(--das-font-weight-bold);
+    color: var(--das-color-ink);
+}
+.cmp-testimonials__meta {
+    font-family: var(--das-font-narrative);
+    font-size: var(--das-fs-kicker);
+    color: var(--das-color-ink);
+    opacity: 0.6;
+}
+
+@media (max-width: 1024px) {
+    .cmp-testimonials { padding: 56px 0; }
+    .cmp-testimonials__container { grid-template-columns: 1fr; padding: 0 var(--das-container-pad-tablet); gap: var(--das-space-8); }
+    .cmp-testimonials__title { font-size: 36px; }
+    .cmp-testimonials__card { min-height: auto; }
+    .cmp-testimonials__quote { position: static; margin-top: -60px; max-width: 90%; margin-left: auto; margin-right: auto; }
+    .cmp-testimonials__media { margin: 0 auto; max-width: 320px; }
+}
+@media (max-width: 640px) {
+    .cmp-testimonials { padding: var(--das-space-8) 0; }
+    .cmp-testimonials__container { padding: 0 var(--das-container-pad-mobile); }
+    .cmp-testimonials__title { font-size: 28px; }
+    .cmp-testimonials__quote { padding: var(--das-space-6) var(--das-space-7); margin-top: -40px; }
+}
