@@ -45,7 +45,8 @@ If a later stage exposes missing or stale evidence, return to the owning stage, 
 1. Read `AGENTS.md`, `CLAUDE.md`, and `.aem-skills-config.yaml` when present.
 2. Use `create-component` for every Tier 2/3/4 component. Run `code-assessment` on generated Java/OSGi/Maven code before completion.
 3. Inspect only `SITE_URL` and exact resources referenced by its DOM, CSS, or captured network traffic. Do not crawl linked pages, submit forms, forward cookies, or inspect unrelated embeds.
-4. Keep an inline `design-facts` block current throughout implementation:
+4. Site modes: use Node.js Playwright/Chromium to open the exact URL and inspect only that page and same-origin resources. The screenshot comparison pipeline MUST run in Node.js. Use locator.screenshot() for component captures, pixelmatch for pixel comparison, and pngjs (preferred) or sharp only for lossless PNG decoding, padding, masks, and side-by-side composition. An alternate-origin resource may be fetched only when its exact URL appears in rendered DOM, computed CSS, or captured network traffic. Never crawl linked pages, submit forms, forward cookies, or inspect unrelated embeds.
+5. Keep an inline `design-facts` block current throughout implementation:
 
 ```yaml
 reuse_decisions:
