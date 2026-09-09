@@ -1,0 +1,38 @@
+{
+  "375": {
+    "bp": "375",
+    "viewport": {
+      "innerWidth": 375,
+      "dpr": 1,
+      "height": 10730,
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+    },
+    "present": 12,
+    "absent": 51,
+    "embedHits": 21
+  },
+  "768": {
+    "bp": "768",
+    "viewport": {
+      "innerWidth": 768,
+      "dpr": 1,
+      "height": 8266,
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+    },
+    "present": 12,
+    "absent": 51,
+    "embedHits": 19
+  },
+  "1440": {
+    "bp": "1440",
+    "viewport": {
+      "innerWidth": 1440,
+      "dpr": 1,
+      "height": 7066,
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+    },
+    "present": 14,
+    "absent": 49,
+    "embedHits": 18
+  }
+}

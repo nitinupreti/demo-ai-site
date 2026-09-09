@@ -1,0 +1,36 @@
+<sly data-sly-use.hero="com.demo.core.models.Hero"/>
+<sly data-sly-test.hasContent="${hero.hasContent}"/>
+<section class="hero" data-cmp-is="hero" data-sly-test="${hasContent}">
+    <div class="hero__inner">
+        <div class="hero__content">
+            <div class="hero__brand-lockup" data-sly-test="${hero.brandLogoPath}">
+                <span class="hero__notion-brand"><span class="hero__notion-mark" aria-hidden="true">N</span> Notion</span>
+                <span class="hero__brand-separator" aria-hidden="true">×</span>
+                <img class="hero__brand-logo" src="${hero.brandLogoPath @ context='uri'}" alt="${hero.brandLogoAlt}"/>
+            </div>
+            <p class="hero__eyebrow" data-sly-test="${hero.eyebrow}">${hero.eyebrow}</p>
+            <h1 class="hero__headline">${hero.headline}</h1>
+            <p class="hero__subhead" data-sly-test="${hero.subhead}">${hero.subhead}</p>
+            <div class="hero__actions" data-sly-test="${hero.ctaLabel || hero.secondaryLabel}">
+                <a class="hero__cta hero__cta--primary" data-sly-test="${hero.ctaLabel}" href="${hero.ctaHref @ context='uri'}">${hero.ctaLabel}</a>
+                <a class="hero__cta hero__cta--secondary" data-sly-test="${hero.secondaryLabel}" href="${hero.secondaryHref @ context='uri'}">${hero.secondaryLabel}</a>
+            </div>
+        </div>
+        <div class="hero__media" data-sly-test="${hero.mediaPath}">
+            <button class="hero__video-trigger" type="button" data-sly-test="${hero.hasVideo}" aria-label="${hero.videoTitle}" aria-haspopup="dialog">
+                <img class="hero__image" src="${hero.mediaPath @ context='uri'}" alt="${hero.mediaAlt}"/>
+                <span class="hero__play-icon" aria-hidden="true">&#9654;</span>
+            </button>
+            <img class="hero__image" data-sly-test="${!hero.hasVideo}" src="${hero.mediaPath @ context='uri'}" alt="${hero.mediaAlt}"/>
+        </div>
+    </div>
+    <dialog class="hero__dialog" data-video-url="${hero.videoEmbedUrl @ context='uri'}">
+        <button class="hero__dialog-close" type="button" aria-label="${'Close video' @ i18n}">&times;</button>
+        <div class="hero__dialog-frame">
+            <iframe class="hero__video" title="${hero.videoTitle}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>
+        </div>
+    </dialog>
+</section>
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cmp-placeholder">${'Hero - configure headline to display.' @ i18n}</div>
+</sly>

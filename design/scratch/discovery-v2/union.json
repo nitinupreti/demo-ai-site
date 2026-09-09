@@ -1,0 +1,938 @@
+{
+  "skip-link": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "announcement-bar": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "ticker": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "[class*=\"ticker\" i]",
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "rect": {
+          "x": 14,
+          "y": 15,
+          "w": 33,
+          "h": 34
+        }
+      },
+      "768": {
+        "selector": "[class*=\"ticker\" i]",
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "rect": {
+          "x": 14,
+          "y": 15,
+          "w": 33,
+          "h": 34
+        }
+      },
+      "1440": {
+        "selector": "[class*=\"ticker\" i]",
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "rect": {
+          "x": 22,
+          "y": 15,
+          "w": 33,
+          "h": 34
+        }
+      }
+    }
+  },
+  "sticky-top-nav": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "nav[class*=\"global\" i]",
+        "tag": "nav",
+        "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 375,
+          "h": 64
+        }
+      },
+      "768": {
+        "selector": "nav[class*=\"global\" i]",
+        "tag": "nav",
+        "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 768,
+          "h": 64
+        }
+      },
+      "1440": {
+        "selector": "nav[class*=\"global\" i]",
+        "tag": "nav",
+        "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 64
+        }
+      }
+    }
+  },
+  "mega-menu-overlay": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": true
+    },
+    "evidence": {
+      "1440": {
+        "selector": "[class*=\"dropdown\" i][class*=\"grid\" i]",
+        "tag": "div",
+        "cls": "globalNavigation-module-scss-module__HWB10a__dropdownGrid",
+        "rect": {
+          "x": 323,
+          "y": 76,
+          "w": 794,
+          "h": 224
+        }
+      }
+    }
+  },
+  "utility-bar": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "breadcrumb": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "search-overlay": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "region-language-selector": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "primary-hero": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "section[class*=\"hero\" i]",
+        "tag": "section",
+        "cls": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withB",
+        "rect": {
+          "x": 0,
+          "y": 64,
+          "w": 375,
+          "h": 737
+        }
+      },
+      "768": {
+        "selector": "section[class*=\"hero\" i]",
+        "tag": "section",
+        "cls": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withB",
+        "rect": {
+          "x": 0,
+          "y": 64,
+          "w": 768,
+          "h": 1034
+        }
+      },
+      "1440": {
+        "selector": "section[class*=\"hero\" i]",
+        "tag": "section",
+        "cls": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withB",
+        "rect": {
+          "x": 0,
+          "y": 64,
+          "w": 1440,
+          "h": 576
+        }
+      }
+    }
+  },
+  "secondary-hero": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "headless-media-band": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "background-video-strip": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "animated-canvas-bg": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "intro-lead": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "two-column-text": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "[class*=\"sectionContent\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdy",
+        "rect": {
+          "x": 29,
+          "y": 833,
+          "w": 317,
+          "h": 1604
+        }
+      },
+      "768": {
+        "selector": "[class*=\"sectionContent\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdy",
+        "rect": {
+          "x": 58,
+          "y": 1130,
+          "w": 653,
+          "h": 944
+        }
+      },
+      "1440": {
+        "selector": "[class*=\"sectionContent\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdy",
+        "rect": {
+          "x": 106,
+          "y": 672,
+          "w": 1229,
+          "h": 760
+        }
+      }
+    }
+  },
+  "feature-grid": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "stat-strip": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "pull-quote": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "blockquote",
+        "tag": "blockquote",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 29,
+          "y": 4493,
+          "w": 317,
+          "h": 196
+        }
+      },
+      "768": {
+        "selector": "blockquote",
+        "tag": "blockquote",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 58,
+          "y": 3114,
+          "w": 653,
+          "h": 128
+        }
+      },
+      "1440": {
+        "selector": "blockquote",
+        "tag": "blockquote",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 186,
+          "y": 2544,
+          "w": 1069,
+          "h": 120
+        }
+      }
+    }
+  },
+  "media-with-caption": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "figure[class*=\"mediaWithCaption\" i]",
+        "tag": "figure",
+        "cls": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+        "rect": {
+          "x": 29,
+          "y": 6245,
+          "w": 317,
+          "h": 381
+        }
+      },
+      "768": {
+        "selector": "figure[class*=\"mediaWithCaption\" i]",
+        "tag": "figure",
+        "cls": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+        "rect": {
+          "x": 58,
+          "y": 4110,
+          "w": 653,
+          "h": 500
+        }
+      },
+      "1440": {
+        "selector": "figure[class*=\"mediaWithCaption\" i]",
+        "tag": "figure",
+        "cls": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+        "rect": {
+          "x": 106,
+          "y": 3584,
+          "w": 1229,
+          "h": 692
+        }
+      }
+    }
+  },
+  "carousel": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "tabs": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "accordion": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "comparison-table": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "pricing-grid": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "faq": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "timeline": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "roadmap": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "logo-strip": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "customer-story-teaser": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "testimonial-marquee": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "review-stars": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "awards-badges": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "inline-cta-strip": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "cta-band": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "newsletter-signup": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "contact-demo-form": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "download-panel": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "meeting-scheduler": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "related-articles": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "related-case-studies": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "[class*=\"relatedCaseStudies\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+        "rect": {
+          "x": 0,
+          "y": 8891,
+          "w": 375,
+          "h": 1130
+        }
+      },
+      "768": {
+        "selector": "[class*=\"relatedCaseStudies\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+        "rect": {
+          "x": 0,
+          "y": 6180,
+          "w": 768,
+          "h": 1378
+        }
+      },
+      "1440": {
+        "selector": "[class*=\"relatedCaseStudies\" i]",
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+        "rect": {
+          "x": 0,
+          "y": 6041,
+          "w": 1440,
+          "h": 629
+        }
+      }
+    }
+  },
+  "product-carousel": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "also-on-site-grid": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "pre-footer-cta": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "footer-tagline": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": true
+    },
+    "evidence": {
+      "1440": {
+        "selector": "footer blockquote",
+        "tag": "blockquote",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 94,
+          "y": 6876,
+          "w": 269,
+          "h": 48
+        }
+      }
+    }
+  },
+  "footer-nav-grid": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "footer nav",
+        "tag": "nav",
+        "cls": "footer-module-scss-module__U-iC1W__nav",
+        "rect": {
+          "x": 16,
+          "y": 10140,
+          "w": 343,
+          "h": 400
+        }
+      },
+      "768": {
+        "selector": "footer nav",
+        "tag": "nav",
+        "cls": "footer-module-scss-module__U-iC1W__nav",
+        "rect": {
+          "x": 32,
+          "y": 7676,
+          "w": 704,
+          "h": 400
+        }
+      },
+      "1440": {
+        "selector": "footer nav",
+        "tag": "nav",
+        "cls": "footer-module-scss-module__U-iC1W__nav",
+        "rect": {
+          "x": 519,
+          "y": 6750,
+          "w": 827,
+          "h": 214
+        }
+      }
+    }
+  },
+  "secondary-links": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "footer [class*=\"secondary\" i]",
+        "tag": "a",
+        "cls": "inline-full menuList-module-scss-module__qf-KyW__menuListItemAnchor menuList-mod",
+        "rect": {
+          "x": 8,
+          "y": 10164,
+          "w": 82,
+          "h": 26
+        }
+      },
+      "768": {
+        "selector": "footer [class*=\"secondary\" i]",
+        "tag": "a",
+        "cls": "inline-full menuList-module-scss-module__qf-KyW__menuListItemAnchor menuList-mod",
+        "rect": {
+          "x": 24,
+          "y": 7700,
+          "w": 82,
+          "h": 26
+        }
+      },
+      "1440": {
+        "selector": "footer [class*=\"secondary\" i]",
+        "tag": "a",
+        "cls": "inline-full menuList-module-scss-module__qf-KyW__menuListItemAnchor menuList-mod",
+        "rect": {
+          "x": 511,
+          "y": 6774,
+          "w": 82,
+          "h": 26
+        }
+      }
+    }
+  },
+  "copyright-bar": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "footer [class*=\"copyright\" i]",
+        "tag": "p",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 16,
+          "y": 10694,
+          "w": 343,
+          "h": 24
+        }
+      },
+      "768": {
+        "selector": "footer [class*=\"copyright\" i]",
+        "tag": "p",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 32,
+          "y": 8230,
+          "w": 704,
+          "h": 24
+        }
+      },
+      "1440": {
+        "selector": "footer [class*=\"copyright\" i]",
+        "tag": "p",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 519,
+          "y": 7004,
+          "w": 189,
+          "h": 29
+        }
+      }
+    }
+  },
+  "social-icons": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "legal-strip": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "footer [class*=\"legal\" i]",
+        "tag": "div",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 16,
+          "y": 10658,
+          "w": 343,
+          "h": 20
+        }
+      },
+      "768": {
+        "selector": "footer [class*=\"legal\" i]",
+        "tag": "div",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 32,
+          "y": 8194,
+          "w": 704,
+          "h": 20
+        }
+      },
+      "1440": {
+        "selector": "footer [class*=\"legal\" i]",
+        "tag": "div",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 732,
+          "y": 7004,
+          "w": 401,
+          "h": 29
+        }
+      }
+    }
+  },
+  "cookie-consent": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "gdpr-banner": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "chat-widget": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "back-to-top": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "floating-cta": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "notification-toast": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "video-lightbox-trigger": {
+    "visibility_by_bp": {
+      "375": true,
+      "768": true,
+      "1440": true
+    },
+    "evidence": {
+      "375": {
+        "selector": "button[class*=\"videoButton\" i]",
+        "tag": "button",
+        "cls": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+        "rect": {
+          "x": 0,
+          "y": 426,
+          "w": 375,
+          "h": 375
+        }
+      },
+      "768": {
+        "selector": "button[class*=\"videoButton\" i]",
+        "tag": "button",
+        "cls": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+        "rect": {
+          "x": 0,
+          "y": 330,
+          "w": 768,
+          "h": 768
+        }
+      },
+      "1440": {
+        "selector": "button[class*=\"videoButton\" i]",
+        "tag": "button",
+        "cls": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+        "rect": {
+          "x": 720,
+          "y": 64,
+          "w": 720,
+          "h": 576
+        }
+      }
+    }
+  },
+  "gated-modal": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "geo-redirect-prompt": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "mobile-bottom-nav": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "mobile-sticky-cta": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "mobile-mega-menu-drawer": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  },
+  "tablet-only-sidebar": {
+    "visibility_by_bp": {
+      "375": false,
+      "768": false,
+      "1440": false
+    },
+    "evidence": {}
+  }
+}

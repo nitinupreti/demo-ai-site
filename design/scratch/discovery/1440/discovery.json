@@ -1,0 +1,3567 @@
+{
+  "viewport": {
+    "innerWidth": 1440,
+    "innerHeight": 900,
+    "dpr": 1,
+    "scale": 1
+  },
+  "discovery": [
+    {
+      "instance_id": "blk-000",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]",
+      "tag": "nav",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+      "role": "",
+      "aria_label": "Main",
+      "text_preview": "ProductFeaturesSee all features→ CaptureBring everything into one system of reco",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 64
+      },
+      "styles": {
+        "display": "grid",
+        "position": "relative",
+        "background_color": "rgb(255, 255, 255)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "rgba(0, 0, 0, 0) 0px 1px 0px 0px",
+        "opacity": "1",
+        "z_index": "100"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-001",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]>div[1]>img[0]",
+      "tag": "img",
+      "id": "",
+      "classes": "next-image",
+      "role": "presentation",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 340,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-002",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]>div[1]>img[0]",
+      "tag": "img",
+      "id": "",
+      "classes": "next-image",
+      "role": "presentation",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 610,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-003",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]>div[1]>img[0]",
+      "tag": "img",
+      "id": "",
+      "classes": "next-image",
+      "role": "presentation",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 880,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-004",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[1]>div[1]>div[0]>div[0]>div[0]>ul[0]>li[0]",
+      "tag": "li",
+      "id": "_R_3aipksbm_",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Browse",
+      "rect": {
+        "x": 323,
+        "y": 76,
+        "w": 248.65625,
+        "h": 32
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "8px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-005",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[1]>div[1]>div[0]>div[0]>div[0]>ul[1]>li[0]",
+      "tag": "li",
+      "id": "_R_5aipksbm_",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Discover",
+      "rect": {
+        "x": 595.65625,
+        "y": 76,
+        "w": 248.671875,
+        "h": 32
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "8px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-006",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[1]>div[1]>div[0]>div[0]>div[0]>ul[2]>li[0]",
+      "tag": "li",
+      "id": "_R_7aipksbm_",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Learn",
+      "rect": {
+        "x": 868.328125,
+        "y": 76,
+        "w": 248.671875,
+        "h": 32
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "8px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-007",
+      "dom_path": "div[6]>div[0]>main[2]",
+      "tag": "main",
+      "id": "",
+      "classes": "layout-module-scss-module__18xgza__main layout-module-scss-module__18xgza__withoutPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "×How the world's fastest-growing startup stays fast with NotionCursor became the",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1440,
+        "h": 6157.59375
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-008",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withBgColor",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "×How the world's fastest-growing startup stays fast with Notion",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1440,
+        "h": 576
+      },
+      "styles": {
+        "display": "block",
+        "position": "relative",
+        "background_color": "rgba(0, 0, 0, 0.05)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-009",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]",
+      "tag": "section",
+      "id": "",
+      "classes": "HeroStories-module-scss-module__sP_DKq__heroStories [slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__removeBgColor [slug]-module-scss-module__rdykIW__ultraWide",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "×How the world's fastest-growing startup stays fast with Notion",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1440,
+        "h": 576
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-010",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Cursor became the fastest-growing company in history by giving developers AI sup",
+      "rect": {
+        "x": 0,
+        "y": 672,
+        "w": 1440,
+        "h": 759.90625
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-011",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]>div[1]>div[2]>aside[0]",
+      "tag": "aside",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__metaArea",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Insights fromMichael TruellCo-founder & CEORyo LuHead of DesignUse casesNotion A",
+      "rect": {
+        "x": 1073.59375,
+        "y": 688,
+        "w": 232,
+        "h": 196
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-012",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[2]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Why they build instead of buyWhile Cursor's rapid growth has captured headlines ",
+      "rect": {
+        "x": 0,
+        "y": 1463.90625,
+        "w": 1440,
+        "h": 1015.8125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-013",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[3]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "I honestly can't imagine running a design team without Notion. It's our everythi",
+      "rect": {
+        "x": 80,
+        "y": 2511.71875,
+        "w": 1280,
+        "h": 248
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 80px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-014",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[3]>figure[1]",
+      "tag": "figure",
+      "id": "",
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "I honestly can't imagine running a design team without Notion. It's our everythi",
+      "rect": {
+        "x": 185.59375,
+        "y": 2511.71875,
+        "w": 1068.8125,
+        "h": 248
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "32px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-015",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "AI is strongest where work flows and knowledge growsFast-moving teams don’t have",
+      "rect": {
+        "x": 0,
+        "y": 2791.71875,
+        "w": 1440,
+        "h": 1035.3125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-016",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]>div[2]>figure[0]",
+      "tag": "figure",
+      "id": "",
+      "classes": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "With Notion AI built into where Cursor teams work and collaborate, the friction ",
+      "rect": {
+        "x": 105.59375,
+        "y": 3583.53125,
+        "w": 1228.8125,
+        "h": 243.5
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark"
+      ]
+    },
+    {
+      "instance_id": "blk-017",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[5]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Keeping people in the loop as we’ve grown so fast is really difficult, but Notio",
+      "rect": {
+        "x": 80,
+        "y": 3859.03125,
+        "w": 1280,
+        "h": 248
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 80px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-018",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[5]>figure[1]",
+      "tag": "figure",
+      "id": "",
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Keeping people in the loop as we’ve grown so fast is really difficult, but Notio",
+      "rect": {
+        "x": 185.59375,
+        "y": 3859.03125,
+        "w": 1068.8125,
+        "h": 248
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "32px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-019",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[6]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "The modern stack: 5x fewer tools requiredWhere most companies accumulate tools t",
+      "rect": {
+        "x": 0,
+        "y": 4139.03125,
+        "w": 1440,
+        "h": 627.8125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-020",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[7]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We’re moving away from a world where communication is siloed towards one where e",
+      "rect": {
+        "x": 80,
+        "y": 4798.84375,
+        "w": 1280,
+        "h": 248
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 80px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-021",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[7]>figure[1]",
+      "tag": "figure",
+      "id": "",
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We’re moving away from a world where communication is siloed towards one where e",
+      "rect": {
+        "x": 185.59375,
+        "y": 4798.84375,
+        "w": 1068.8125,
+        "h": 248
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "32px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-022",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[8]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Build with less tool sprawl and more focusSee how Notion keeps companies nimble ",
+      "rect": {
+        "x": 0,
+        "y": 5078.84375,
+        "w": 1440,
+        "h": 450
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-023",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>div[9]>section[0]",
+      "tag": "section",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "How other teams use Notion Customer storyHow Morning Brew Turned Every 'Sigh' In",
+      "rect": {
+        "x": 0,
+        "y": 5592.84375,
+        "w": 1440,
+        "h": 628.75
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 105.6px",
+        "margin": "32px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-024",
+      "dom_path": "div[6]>div[0]>footer[3]",
+      "tag": "footer",
+      "id": "site-footer",
+      "classes": "surface surfaceBase surface-module-scss-module__CFFfpW__surfaceBase footer-module-scss-module__U-iC1W__footer footer-module-scss-module__cwVo7a__footer footer-module-scss-module__cwVo7a__hideSeparator",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We shape our tools, and thereafter our tools shape us.Marshall McLuhanProductFea",
+      "rect": {
+        "x": 0,
+        "y": 6221.59375,
+        "w": 1440,
+        "h": 396
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgb(255, 255, 255)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "80px 0px 24px",
+        "margin": "0px",
+        "border": "",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-025",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>div[0]>figure[1]",
+      "tag": "figure",
+      "id": "",
+      "classes": "quote-module-scss-module__2NYrkq__quote footer-module-scss-module__cwVo7a__quote footer-module-scss-module__cwVo7a__quoteMcLuhan quote-module-scss-module__2NYrkq__quoteAlignStart",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We shape our tools, and thereafter our tools shape us.Marshall McLuhan",
+      "rect": {
+        "x": 94,
+        "y": 6427.59375,
+        "w": 401.328125,
+        "h": 88
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 12px 0px 0px",
+        "margin": "71px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-026",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>nav[1]",
+      "tag": "nav",
+      "id": "",
+      "classes": "footer-module-scss-module__U-iC1W__nav",
+      "role": "",
+      "aria_label": "Footer",
+      "text_preview": "ProductFeaturesWhat's NewNotion AIPricingRequest a demoDownloadExplore more→Reso",
+      "rect": {
+        "x": 519.328125,
+        "y": 6301.59375,
+        "w": 826.671875,
+        "h": 214
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-027",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>nav[1]>ul[0]>li[0]",
+      "tag": "li",
+      "id": "product",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Product",
+      "rect": {
+        "x": 511.328125,
+        "y": 6301.59375,
+        "w": 204.65625,
+        "h": 24
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 8px 8px",
+        "margin": "0px -8px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-028",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>nav[1]>ul[1]>li[0]",
+      "tag": "li",
+      "id": "resources",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Resources",
+      "rect": {
+        "x": 723.984375,
+        "y": 6301.59375,
+        "w": 204.671875,
+        "h": 24
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 8px 8px",
+        "margin": "0px -8px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-029",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>nav[1]>ul[2]>li[0]",
+      "tag": "li",
+      "id": "company",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Company",
+      "rect": {
+        "x": 936.65625,
+        "y": 6301.59375,
+        "w": 204.671875,
+        "h": 24
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 8px 8px",
+        "margin": "0px -8px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-030",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>nav[1]>ul[3]>li[0]",
+      "tag": "li",
+      "id": "notionFor",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "role": "none",
+      "aria_label": "",
+      "text_preview": "Notion for",
+      "rect": {
+        "x": 1149.328125,
+        "y": 6301.59375,
+        "w": 204.671875,
+        "h": 24
+      },
+      "styles": {
+        "display": "list-item",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 8px 8px",
+        "margin": "0px -8px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "landmark",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-031",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]>div[2]>h3[0]",
+      "tag": "h3",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Capture",
+      "rect": {
+        "x": 340,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgb(0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "22px",
+        "font_weight": "700",
+        "line_height": "28px",
+        "padding": "0px",
+        "margin": "0px 0px 4px",
+        "border": "0px none rgb(0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-032",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]>div[2]>h3[0]",
+      "tag": "h3",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Find",
+      "rect": {
+        "x": 610,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgb(0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "22px",
+        "font_weight": "700",
+        "line_height": "28px",
+        "padding": "0px",
+        "margin": "0px 0px 4px",
+        "border": "0px none rgb(0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-033",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]>div[2]>h3[0]",
+      "tag": "h3",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Automate",
+      "rect": {
+        "x": 880,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgb(0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "22px",
+        "font_weight": "700",
+        "line_height": "28px",
+        "padding": "0px",
+        "margin": "0px 0px 4px",
+        "border": "0px none rgb(0, 0, 0)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-034",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[0]>h1[1]",
+      "tag": "h1",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "How the world's fastest-growing startup stays fast with Notion",
+      "rect": {
+        "x": 48,
+        "y": 325,
+        "w": 624,
+        "h": 96
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "42px",
+        "font_weight": "700",
+        "line_height": "48px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-035",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]>div[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__contentColumn",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Cursor became the fastest-growing company in history by giving developers AI sup",
+      "rect": {
+        "x": 385.59375,
+        "y": 688,
+        "w": 640,
+        "h": 743.90625
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-036",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[2]>div[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__contentColumn",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Why they build instead of buyWhile Cursor's rapid growth has captured headlines ",
+      "rect": {
+        "x": 385.59375,
+        "y": 1463.90625,
+        "w": 640,
+        "h": 1015.8125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-037",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]>div[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__contentColumn",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "AI is strongest where work flows and knowledge growsFast-moving teams don’t have",
+      "rect": {
+        "x": 385.59375,
+        "y": 2791.71875,
+        "w": 640,
+        "h": 727.8125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-038",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[6]>div[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__contentColumn",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "The modern stack: 5x fewer tools requiredWhere most companies accumulate tools t",
+      "rect": {
+        "x": 385.59375,
+        "y": 4139.03125,
+        "w": 640,
+        "h": 627.8125
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-039",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[8]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "flex flex-col items-center inline-full gap-12 pt-64 pb-64 ps-32 pe-32 ms-auto me-auto surface surfaceNeutral surface-module-scss-module__CFFfpW__surfaceNeutral Endcap-module-scss-module__0m6-va__endcap",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Build with less tool sprawl and more focusSee how Notion keeps companies nimble ",
+      "rect": {
+        "x": 105.59375,
+        "y": 5078.84375,
+        "w": 1228.8125,
+        "h": 450
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgb(246, 245, 244)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "64px 32px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-040",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>div[9]>section[0]>h2[1]",
+      "tag": "h2",
+      "id": "_R_in4bm_",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle [slug]-module-scss-module__rdykIW__relatedCaseStudiesHeader",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "How other teams use Notion",
+      "rect": {
+        "x": 105.59375,
+        "y": 5592.84375,
+        "w": 1228.8125,
+        "h": 96
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "42px",
+        "font_weight": "700",
+        "line_height": "48px",
+        "padding": "48px 0px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading",
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-041",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>div[9]>section[0]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__relatedCaseStudies",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Customer storyHow Morning Brew Turned Every 'Sigh' Into an Agent Customer storyH",
+      "rect": {
+        "x": 105.59375,
+        "y": 5688.84375,
+        "w": 1228.8125,
+        "h": 532.75
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "48px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "heading"
+      ]
+    },
+    {
+      "instance_id": "blk-042",
+      "dom_path": "div[6]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__globalNavigationWrapper globalNavigation-module-scss-module__HWB10a__stickyWrapper",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "ProductFeaturesSee all features→ CaptureBring everything into one system of reco",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 64
+      },
+      "styles": {
+        "display": "block",
+        "position": "sticky",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "100"
+      },
+      "signals": [
+        "class-family",
+        "floating"
+      ]
+    },
+    {
+      "instance_id": "blk-043",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__container",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "ProductFeaturesSee all features→ CaptureBring everything into one system of reco",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 64
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "14px 24px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-044",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__links",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "ProductFeaturesSee all features→ CaptureBring everything into one system of reco",
+      "rect": {
+        "x": 379.84375,
+        "y": 17,
+        "w": 680.3125,
+        "h": 30
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-045",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__dropdown",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FeaturesSee all features→ CaptureBring everything into one system of record. Fin",
+      "rect": {
+        "x": 307,
+        "y": 60,
+        "w": 826,
+        "h": 376
+      },
+      "styles": {
+        "display": "block",
+        "position": "absolute",
+        "background_color": "rgb(255, 255, 255)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px",
+        "margin": "0px 307px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "16px",
+        "box_shadow": "rgba(0, 0, 0, 0.01) 0px 0.175px 1.041px 0px, rgba(0, 0, 0, 0.02) 0px 0.8px 2.925px 0px, rgba(0, 0, 0, 0.027) 0px 2.025px 7.847px 0px, rgba(0, 0, 0, 0.04) 0px 4px 18px 0px",
+        "opacity": "0",
+        "z_index": "-1"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-046",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__desktop",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FeaturesSee all features→ CaptureBring everything into one system of record. Fin",
+      "rect": {
+        "x": 323,
+        "y": 84,
+        "w": 794,
+        "h": 352
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-047",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__panel",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FeaturesSee all features→ CaptureBring everything into one system of record. Fin",
+      "rect": {
+        "x": 323,
+        "y": 84,
+        "w": 794,
+        "h": 284
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "8px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-048",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__header",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FeaturesSee all features→",
+      "rect": {
+        "x": 323,
+        "y": 84,
+        "w": 794,
+        "h": 16
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-049",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]",
+      "tag": "ul",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__featureGrid",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "CaptureBring everything into one system of record. FindGet answers, instantly—wi",
+      "rect": {
+        "x": 323,
+        "y": 112,
+        "w": 794,
+        "h": 256
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-050",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintBlue",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "CaptureBring everything into one system of record.",
+      "rect": {
+        "x": 323,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "styles": {
+        "display": "flex",
+        "position": "relative",
+        "background_color": "rgb(242, 249, 255)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px",
+        "margin": "0px",
+        "border": "1px solid rgba(0, 0, 0, 0.05)",
+        "border_radius": "8px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-051",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 340,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "8px 8px 0px 0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-052",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "CaptureBring everything into one system of record.",
+      "rect": {
+        "x": 340,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-053",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[0]>div[0]>div[2]>p[1]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardBody card-module-scss-module__uD7svG__cardBody productFeaturesDropdown-module-scss-module__qVhEtq__featureDescription",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Bring everything into one system of record.",
+      "rect": {
+        "x": 340,
+        "y": 311,
+        "w": 220,
+        "h": 40
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "14px",
+        "font_weight": "400",
+        "line_height": "20px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-054",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintRed",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FindGet answers, instantly—with citations.",
+      "rect": {
+        "x": 593,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "styles": {
+        "display": "flex",
+        "position": "relative",
+        "background_color": "rgb(254, 243, 241)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px",
+        "margin": "0px",
+        "border": "1px solid rgba(0, 0, 0, 0.05)",
+        "border_radius": "8px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-055",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 610,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "8px 8px 0px 0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-056",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "FindGet answers, instantly—with citations.",
+      "rect": {
+        "x": 610,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-057",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[1]>div[0]>div[2]>p[1]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardBody card-module-scss-module__uD7svG__cardBody productFeaturesDropdown-module-scss-module__qVhEtq__featureDescription",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Get answers, instantly—with citations.",
+      "rect": {
+        "x": 610,
+        "y": 311,
+        "w": 220,
+        "h": 40
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "14px",
+        "font_weight": "400",
+        "line_height": "20px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-058",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintYellow",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "AutomateKeep work moving 24/7 with agents.",
+      "rect": {
+        "x": 863,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "styles": {
+        "display": "flex",
+        "position": "relative",
+        "background_color": "rgb(255, 245, 224)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px",
+        "margin": "0px",
+        "border": "1px solid rgba(0, 0, 0, 0.05)",
+        "border_radius": "8px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-059",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 880,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "8px 8px 0px 0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-060",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "AutomateKeep work moving 24/7 with agents.",
+      "rect": {
+        "x": 880,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-061",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[0]>ul[1]>li[2]>div[0]>div[2]>p[1]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardBody card-module-scss-module__uD7svG__cardBody productFeaturesDropdown-module-scss-module__qVhEtq__featureDescription",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Keep work moving 24/7 with agents.",
+      "rect": {
+        "x": 880,
+        "y": 311,
+        "w": 220,
+        "h": 40
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "14px",
+        "font_weight": "400",
+        "line_height": "20px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-062",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "productFeaturesDropdown-module-scss-module__qVhEtq__desktopFooter",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Ask your agent to suggest edits. See what’s new→Download the Notion App→",
+      "rect": {
+        "x": 307,
+        "y": 384,
+        "w": 826,
+        "h": 52
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgb(249, 249, 248)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "12px 16px",
+        "margin": "16px -16px -16px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-063",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[1]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationCaption dropdownFooterContent-module-scss-module__RvmCHG__footerLeft",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Ask your agent to suggest edits. See what’s new→",
+      "rect": {
+        "x": 323,
+        "y": 396,
+        "w": 334.953125,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 0px 0px 8px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-064",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[1]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "dropdownFooterContent-module-scss-module__RvmCHG__footerWhatsNewContainer dropdownFooterContent-module-scss-module__RvmCHG__visible",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Ask your agent to suggest edits. See what’s new→",
+      "rect": {
+        "x": 331,
+        "y": 396,
+        "w": 326.953125,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-065",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[0]>div[1]>div[0]>div[0]>div[0]>div[1]>div[1]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationCaption dropdownFooterContent-module-scss-module__RvmCHG__footerRight",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Download the Notion App→",
+      "rect": {
+        "x": 915.546875,
+        "y": 396,
+        "w": 201.453125,
+        "h": 28
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px 8px 0px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-066",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__dropdown",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "BrowseTemplatesConsultantsConnectionsDiscoverWhat's NewCustomer storiesBlogWebin",
+      "rect": {
+        "x": 307,
+        "y": 60,
+        "w": 826,
+        "h": 168
+      },
+      "styles": {
+        "display": "block",
+        "position": "absolute",
+        "background_color": "rgb(255, 255, 255)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px",
+        "margin": "0px 307px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "16px",
+        "box_shadow": "rgba(0, 0, 0, 0.01) 0px 0.175px 1.041px 0px, rgba(0, 0, 0, 0.02) 0px 0.8px 2.925px 0px, rgba(0, 0, 0, 0.027) 0px 2.025px 7.847px 0px, rgba(0, 0, 0, 0.04) 0px 4px 18px 0px",
+        "opacity": "0",
+        "z_index": "-1"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-067",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[1]>div[1]>div[1]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__dropdownGrid",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "BrowseTemplatesConsultantsConnectionsDiscoverWhat's NewCustomer storiesBlogWebin",
+      "rect": {
+        "x": 323,
+        "y": 76,
+        "w": 794,
+        "h": 136
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-068",
+      "dom_path": "div[6]>div[0]>div[1]>div[0]>nav[0]>div[0]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "globalNavigation-module-scss-module__HWB10a__actions",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Log inGet Notion free",
+      "rect": {
+        "x": 1207.046875,
+        "y": 14,
+        "w": 208.953125,
+        "h": 36
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-069",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "HeroStories-module-scss-module__sP_DKq__content",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "×How the world's fastest-growing startup stays fast with Notion",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 720,
+        "h": 576
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px 48px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-070",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__heroLogoLockup",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "×",
+      "rect": {
+        "x": 251.71875,
+        "y": 283,
+        "w": 216.546875,
+        "h": 30
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-071",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "HeroStories-module-scss-module__sP_DKq__media HeroStories-module-scss-module__sP_DKq__mediaVariantBleed",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 720,
+        "y": 64,
+        "w": 720,
+        "h": 576
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-072",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[1]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "HeroStories-module-scss-module__sP_DKq__mediaInner",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 720,
+        "y": 64,
+        "w": 720,
+        "h": 576
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-073",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[0]>section[1]>div[1]>div[0]>button[0]",
+      "tag": "button",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+      "role": "",
+      "aria_label": "Watch the video",
+      "text_preview": "",
+      "rect": {
+        "x": 720,
+        "y": 64,
+        "w": 720,
+        "h": 576
+      },
+      "styles": {
+        "display": "block",
+        "position": "relative",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-074",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdykIW__firstContentSection",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Cursor became the fastest-growing company in history by giving developers AI sup",
+      "rect": {
+        "x": 105.59375,
+        "y": 672,
+        "w": 1228.8125,
+        "h": 759.90625
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "16px 0px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-075",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]>div[1]>div[2]>aside[0]>p[0]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Insights from",
+      "rect": {
+        "x": 1073.59375,
+        "y": 688,
+        "w": 232,
+        "h": 16
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-076",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[1]>div[1]>div[2]>aside[0]>p[2]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Use cases",
+      "rect": {
+        "x": 1073.59375,
+        "y": 840,
+        "w": 232,
+        "h": 16
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.54)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "12px",
+        "font_weight": "500",
+        "line_height": "16px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.54)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-077",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[2]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Why they build instead of buyWhile Cursor's rapid growth has captured headlines ",
+      "rect": {
+        "x": 105.59375,
+        "y": 1463.90625,
+        "w": 1228.8125,
+        "h": 1015.8125
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-078",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[3]>figure[1]>blockquote[0]",
+      "tag": "blockquote",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "I honestly can't imagine running a design team without Notion. It's our everythi",
+      "rect": {
+        "x": 185.59375,
+        "y": 2543.71875,
+        "w": 1068.8125,
+        "h": 120
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "\"Lyon Text\", Georgia, YuMincho, \"Yu Mincho\", \"Hiragino Mincho ProN\", \"Hiragino Mincho Pro\", \"Songti TC\", \"Songti SC\", SimSun, \"Nanum Myeongjo\", NanumMyeongjo, Batang, serif",
+        "font_size": "32px",
+        "font_weight": "400",
+        "line_height": "40px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-079",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "AI is strongest where work flows and knowledge growsFast-moving teams don’t have",
+      "rect": {
+        "x": 105.59375,
+        "y": 2791.71875,
+        "w": 1228.8125,
+        "h": 727.8125
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-080",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]>div[2]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__sectionMedia",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "With Notion AI built into where Cursor teams work and collaborate, the friction ",
+      "rect": {
+        "x": 105.59375,
+        "y": 3583.53125,
+        "w": 1228.8125,
+        "h": 243.5
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "64px 0px 32px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-081",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[5]>figure[1]>blockquote[0]",
+      "tag": "blockquote",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Keeping people in the loop as we’ve grown so fast is really difficult, but Notio",
+      "rect": {
+        "x": 185.59375,
+        "y": 3891.03125,
+        "w": 1068.8125,
+        "h": 120
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "\"Lyon Text\", Georgia, YuMincho, \"Yu Mincho\", \"Hiragino Mincho ProN\", \"Hiragino Mincho Pro\", \"Songti TC\", \"Songti SC\", SimSun, \"Nanum Myeongjo\", NanumMyeongjo, Batang, serif",
+        "font_size": "32px",
+        "font_weight": "400",
+        "line_height": "40px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-082",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[6]>div[1]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "The modern stack: 5x fewer tools requiredWhere most companies accumulate tools t",
+      "rect": {
+        "x": 105.59375,
+        "y": 4139.03125,
+        "w": 1228.8125,
+        "h": 627.8125
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-083",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[7]>figure[1]>blockquote[0]",
+      "tag": "blockquote",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We’re moving away from a world where communication is siloed towards one where e",
+      "rect": {
+        "x": 185.59375,
+        "y": 4830.84375,
+        "w": 1068.8125,
+        "h": 120
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "\"Lyon Text\", Georgia, YuMincho, \"Yu Mincho\", \"Hiragino Mincho ProN\", \"Hiragino Mincho Pro\", \"Songti TC\", \"Songti SC\", SimSun, \"Nanum Myeongjo\", NanumMyeongjo, Batang, serif",
+        "font_size": "32px",
+        "font_weight": "400",
+        "line_height": "40px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-084",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[8]>div[0]>h2[0]",
+      "tag": "h2",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalHeadingSubtle Endcap-module-scss-module__0m6-va__endcapTitle [slug]-module-scss-module__rdykIW__constrainedFooterWidth",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Build with less tool sprawl and more focus",
+      "rect": {
+        "x": 321.15625,
+        "y": 5208.84375,
+        "w": 797.671875,
+        "h": 48
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "42px",
+        "font_weight": "700",
+        "line_height": "48px",
+        "padding": "0px",
+        "margin": "0px 0px 4px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-085",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[8]>div[0]>p[1]",
+      "tag": "p",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalDeck Endcap-module-scss-module__0m6-va__endcapDeck [slug]-module-scss-module__rdykIW__constrainedFooterWidth",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "See how Notion keeps companies nimble at any size—book your personalized demo be",
+      "rect": {
+        "x": 300,
+        "y": 5272.84375,
+        "w": 840,
+        "h": 56
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "20px",
+        "font_weight": "400",
+        "line_height": "28px",
+        "padding": "0px",
+        "margin": "0px 0px 12px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-086",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>div[9]",
+      "tag": "div",
+      "id": "",
+      "classes": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "How other teams use Notion Customer storyHow Morning Brew Turned Every 'Sigh' In",
+      "rect": {
+        "x": 0,
+        "y": 5592.84375,
+        "w": 1440,
+        "h": 628.75
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0.05)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "64px 0px 0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-087",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "grid-module-scss-module__lgnKUW__grid footer-module-scss-module__U-iC1W__grid",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We shape our tools, and thereafter our tools shape us.Marshall McLuhanProductFea",
+      "rect": {
+        "x": 94,
+        "y": 6301.59375,
+        "w": 1252,
+        "h": 292
+      },
+      "styles": {
+        "display": "grid",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-088",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>div[0]",
+      "tag": "div",
+      "id": "",
+      "classes": "footer-module-scss-module__U-iC1W__brand footer-module-scss-module__cwVo7a__brand",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We shape our tools, and thereafter our tools shape us.Marshall McLuhan",
+      "rect": {
+        "x": 94,
+        "y": 6301.59375,
+        "w": 401.328125,
+        "h": 214
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-089",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>div[0]>a[0]",
+      "tag": "a",
+      "id": "",
+      "classes": "footer-module-scss-module__cwVo7a__logo",
+      "role": "",
+      "aria_label": "Notion – Home",
+      "text_preview": "",
+      "rect": {
+        "x": 94,
+        "y": 6301.59375,
+        "w": 401.328125,
+        "h": 39
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-090",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>div[0]>figure[1]>blockquote[0]",
+      "tag": "blockquote",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuoteDeemphasized quote-module-scss-module__2NYrkq__blockquote",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "We shape our tools, and thereafter our tools shape us.",
+      "rect": {
+        "x": 94,
+        "y": 6427.59375,
+        "w": 268.796875,
+        "h": 48
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "\"Lyon Text\", Georgia, YuMincho, \"Yu Mincho\", \"Hiragino Mincho ProN\", \"Hiragino Mincho Pro\", \"Songti TC\", \"Songti SC\", SimSun, \"Nanum Myeongjo\", NanumMyeongjo, Batang, serif",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family",
+        "missable"
+      ]
+    },
+    {
+      "instance_id": "blk-091",
+      "dom_path": "div[6]>div[0]>footer[3]>div[0]>div[0]>div[3]",
+      "tag": "div",
+      "id": "",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantInteractionMenuListItemLabel footer-module-scss-module__U-iC1W__legal footer-module-scss-module__cwVo7a__legal",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "Cookie settings",
+      "rect": {
+        "x": 732,
+        "y": 6555.59375,
+        "w": 401.328125,
+        "h": 29
+      },
+      "styles": {
+        "display": "flex",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "14px",
+        "font_weight": "500",
+        "line_height": "20px",
+        "padding": "9px 0px 0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "class-family"
+      ]
+    },
+    {
+      "instance_id": "blk-092",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>section[4]>div[2]>figure[0]>div[0]>div[0]>div[0]>video[0]",
+      "tag": "video",
+      "id": "",
+      "classes": "Video-module-scss-module__D671CW__video Video-module-scss-module__D671CW__videoAspectRatio",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 241,
+        "y": 3584.53125,
+        "w": 958,
+        "h": 150
+      },
+      "styles": {
+        "display": "block",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.898)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "0px",
+        "font_weight": "400",
+        "line_height": "0px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgba(0, 0, 0, 0.898)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "media"
+      ]
+    },
+    {
+      "instance_id": "blk-093",
+      "dom_path": "div[6]>div[0]>main[2]>div[0]>dialog[10]>div[0]>div[1]>div[1]>div[0]>iframe[0]",
+      "tag": "iframe",
+      "id": "589020720",
+      "classes": "videoPlayer-module-scss-module__ZFVVSq__videoIframe",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0,
+        "h": 0
+      },
+      "styles": {
+        "display": "block",
+        "position": "absolute",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgb(0, 0, 0)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "0px none rgb(0, 0, 0)",
+        "border_radius": "1px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "media"
+      ]
+    },
+    {
+      "instance_id": "blk-094",
+      "dom_path": "iframe[9]",
+      "tag": "iframe",
+      "id": "",
+      "classes": "",
+      "role": "",
+      "aria_label": "",
+      "text_preview": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0,
+        "h": 0
+      },
+      "styles": {
+        "display": "none",
+        "position": "static",
+        "background_color": "rgba(0, 0, 0, 0)",
+        "background_image": "none",
+        "color": "rgba(0, 0, 0, 0.95)",
+        "font_family": "NotionInter, Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, \"Apple Color Emoji\", Arial, sans-serif, \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "font_size": "16px",
+        "font_weight": "400",
+        "line_height": "24px",
+        "padding": "0px",
+        "margin": "0px",
+        "border": "2px inset rgba(0, 0, 0, 0.95)",
+        "border_radius": "0px",
+        "box_shadow": "none",
+        "opacity": "1",
+        "z_index": "auto"
+      },
+      "signals": [
+        "media"
+      ]
+    }
+  ],
+  "bands": {
+    "height": 6618,
+    "viewport": 1440
+  },
+  "coverage": {
+    "totalHeight": 6618
+  }
+}

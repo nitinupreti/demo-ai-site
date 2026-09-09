@@ -1,0 +1,13 @@
+<sly data-sly-use.q="com.demo.core.models.PullQuote"/>
+<sly data-sly-test.has="${q.hasContent}"/>
+<figure data-cmp-is="pull-quote" data-sly-test="${has}">
+    <blockquote class="pull-quote__text">${q.quoteText}</blockquote>
+    <figcaption class="pull-quote__caption" data-sly-test="${q.attributionName || q.attributionRole}">
+        <img class="pull-quote__avatar" data-sly-test="${q.attributionImage}" src="${q.attributionImage @ context='uri'}" alt="${q.attributionImageAlt}"/>
+        <span class="pull-quote__attribution">
+            <span class="pull-quote__name" data-sly-test="${q.attributionName}">${q.attributionName}</span>
+            <span class="pull-quote__role" data-sly-test="${q.attributionRole}">${q.attributionRole}</span>
+        </span>
+    </figcaption>
+</figure>
+<sly data-sly-test="${!has && wcmmode.edit}"><div class="cmp-placeholder">${'Pull quote - configure to display.' @ i18n}</div></sly>

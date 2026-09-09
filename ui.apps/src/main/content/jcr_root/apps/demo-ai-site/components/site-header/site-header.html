@@ -1,0 +1,28 @@
+<sly data-sly-use.header="com.demo.core.models.SiteHeader"/>
+<sly data-sly-test.hasContent="${header.hasContent}"/>
+<header data-cmp-is="site-header" data-sly-test="${hasContent}">
+    <div class="site-header__inner">
+        <a class="site-header__brand" href="${header.logoHref @ context='uri'}" aria-label="${header.logoText}">
+            <span class="site-header__mark" aria-hidden="true">N</span>
+        </a>
+        <nav class="site-header__nav" id="site-header-nav" aria-label="${'Main' @ i18n}">
+            <ul class="site-header__nav-list">
+                <li class="site-header__nav-item" data-sly-repeat.item="${header.navItems}" data-index="${itemList.index}">
+                    <a class="site-header__nav-link" href="${item.href @ context='uri'}">${item.label}</a>
+                </li>
+            </ul>
+        </nav>
+        <div class="site-header__actions">
+            <a class="site-header__secondary" href="${header.secondaryHref @ context='uri'}" data-sly-test="${header.secondaryLabel && header.secondaryHref}">${header.secondaryLabel}</a>
+            <a class="site-header__cta" href="${header.ctaHref @ context='uri'}" data-sly-test="${header.ctaLabel && header.ctaHref}">${header.ctaLabel}</a>
+            <button class="site-header__menu" type="button" aria-label="${header.menuLabel}" aria-controls="site-header-nav" aria-expanded="false">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </button>
+        </div>
+    </div>
+</header>
+<sly data-sly-test="${!hasContent && wcmmode.edit}">
+    <div class="cmp-placeholder">${'Site Header - configure to display.' @ i18n}</div>
+</sly>

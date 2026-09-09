@@ -1,0 +1,797 @@
+{
+  "viewport": {
+    "innerWidth": 768,
+    "dpr": 1,
+    "height": 8266,
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
+  },
+  "inventory": {
+    "skip-link": {
+      "present": false,
+      "selectors_tried": [
+        "a[href^=\"#\"][class*=\"skip\" i]",
+        "a.skip-link",
+        "a[aria-label*=\"skip\" i]"
+      ]
+    },
+    "announcement-bar": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"announce\" i]:not(button)",
+        "[class*=\"promo\" i][class*=\"bar\" i]",
+        "[data-announce]",
+        "[class*=\"topbanner\" i]"
+      ]
+    },
+    "ticker": {
+      "present": true,
+      "selector": "[class*=\"ticker\" i]",
+      "evidence": {
+        "tag": "svg",
+        "cls": "[object SVGAnimatedString]",
+        "rect": {
+          "x": 14,
+          "y": 15,
+          "w": 33,
+          "h": 34
+        }
+      }
+    },
+    "sticky-top-nav": {
+      "present": true,
+      "selector": "nav[class*=\"global\" i]",
+      "evidence": {
+        "tag": "nav",
+        "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 768,
+          "h": 64
+        }
+      }
+    },
+    "mega-menu-overlay": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"megamenu\" i]",
+        "[class*=\"dropdown\" i][class*=\"panel\" i]",
+        "[class*=\"dropdown\" i][role=\"menu\"]",
+        "[class*=\"dropdown\" i][class*=\"grid\" i]"
+      ]
+    },
+    "utility-bar": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"utility\" i][class*=\"bar\" i]",
+        "[class*=\"topbar\" i]"
+      ]
+    },
+    "breadcrumb": {
+      "present": false,
+      "selectors_tried": [
+        "nav[aria-label*=\"breadcrumb\" i]",
+        "[class*=\"breadcrumb\" i]"
+      ]
+    },
+    "search-overlay": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"search\" i][class*=\"overlay\" i]",
+        "dialog[class*=\"search\" i]"
+      ]
+    },
+    "region-language-selector": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"language\" i][class*=\"select\" i]",
+        "[class*=\"region\" i][class*=\"select\" i]",
+        "[aria-label*=\"language\" i]"
+      ]
+    },
+    "primary-hero": {
+      "present": true,
+      "selector": "section[class*=\"hero\" i]",
+      "evidence": {
+        "tag": "section",
+        "cls": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withB",
+        "rect": {
+          "x": 0,
+          "y": 64,
+          "w": 768,
+          "h": 1034
+        }
+      }
+    },
+    "secondary-hero": {
+      "present": false,
+      "selectors_tried": []
+    },
+    "headless-media-band": {
+      "present": false,
+      "selectors_tried": [
+        "section:has(> video)",
+        "section:has(> figure video)"
+      ]
+    },
+    "background-video-strip": {
+      "present": false,
+      "selectors_tried": [
+        "section [class*=\"background\" i] video",
+        "div[class*=\"bg\" i] video"
+      ]
+    },
+    "animated-canvas-bg": {
+      "present": false,
+      "selectors_tried": [
+        "canvas"
+      ]
+    },
+    "intro-lead": {
+      "present": false,
+      "selectors_tried": [
+        "section[class*=\"intro\" i]",
+        "section[class*=\"lead\" i]"
+      ]
+    },
+    "two-column-text": {
+      "present": true,
+      "selector": "[class*=\"sectionContent\" i]",
+      "evidence": {
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdy",
+        "rect": {
+          "x": 58,
+          "y": 1130,
+          "w": 653,
+          "h": 944
+        }
+      }
+    },
+    "feature-grid": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"feature\" i][class*=\"grid\" i]",
+        "[class*=\"featureGrid\" i]"
+      ]
+    },
+    "stat-strip": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"stats\" i]",
+        "[class*=\"statStrip\" i]"
+      ]
+    },
+    "pull-quote": {
+      "present": true,
+      "selector": "blockquote",
+      "evidence": {
+        "tag": "blockquote",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 58,
+          "y": 3114,
+          "w": 653,
+          "h": 128
+        }
+      }
+    },
+    "media-with-caption": {
+      "present": true,
+      "selector": "figure[class*=\"mediaWithCaption\" i]",
+      "evidence": {
+        "tag": "figure",
+        "cls": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+        "rect": {
+          "x": 58,
+          "y": 4110,
+          "w": 653,
+          "h": 500
+        }
+      }
+    },
+    "carousel": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"carousel\" i]",
+        "[class*=\"slider\" i]",
+        "[role=\"listbox\"][aria-label*=\"carousel\" i]"
+      ]
+    },
+    "tabs": {
+      "present": false,
+      "selectors_tried": [
+        "[role=\"tablist\"]"
+      ]
+    },
+    "accordion": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"accordion\" i]",
+        "[data-accordion]"
+      ]
+    },
+    "comparison-table": {
+      "present": false,
+      "selectors_tried": [
+        "table[class*=\"compare\" i]"
+      ]
+    },
+    "pricing-grid": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"pricing\" i][class*=\"grid\" i]",
+        "[class*=\"priceCard\" i]"
+      ]
+    },
+    "faq": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"faq\" i]",
+        "section[aria-label*=\"faq\" i]"
+      ]
+    },
+    "timeline": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"timeline\" i]"
+      ]
+    },
+    "roadmap": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"roadmap\" i]"
+      ]
+    },
+    "logo-strip": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"logoStrip\" i]",
+        "[class*=\"logoBar\" i]",
+        "[class*=\"logoWall\" i]"
+      ]
+    },
+    "customer-story-teaser": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"customerStory\" i]",
+        "[class*=\"caseStudy\" i][class*=\"teaser\" i]"
+      ]
+    },
+    "testimonial-marquee": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"testimonial\" i][class*=\"marquee\" i]"
+      ]
+    },
+    "review-stars": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"rating\" i][class*=\"star\" i]",
+        "[aria-label*=\"rating\" i]"
+      ]
+    },
+    "awards-badges": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"awards\" i]",
+        "[class*=\"badge\" i][class*=\"row\" i]"
+      ]
+    },
+    "inline-cta-strip": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"ctaStrip\" i]",
+        "[class*=\"cta\" i][class*=\"row\" i]"
+      ]
+    },
+    "cta-band": {
+      "present": false,
+      "selectors_tried": [
+        "section[class*=\"cta\" i]",
+        "[class*=\"ctaBand\" i]",
+        "[class*=\"ctaSection\" i]"
+      ]
+    },
+    "newsletter-signup": {
+      "present": false,
+      "selectors_tried": [
+        "form[class*=\"newsletter\" i]",
+        "[class*=\"subscribe\" i] form"
+      ]
+    },
+    "contact-demo-form": {
+      "present": false,
+      "selectors_tried": [
+        "form[class*=\"contact\" i]",
+        "form[class*=\"demo\" i]",
+        "form[class*=\"requestDemo\" i]"
+      ]
+    },
+    "download-panel": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"download\" i][class*=\"panel\" i]"
+      ]
+    },
+    "meeting-scheduler": {
+      "present": false,
+      "selectors_tried": [
+        "iframe[src*=\"chilipiper\" i]",
+        "iframe[src*=\"calendly\" i]",
+        "[class*=\"chilipiper\" i]"
+      ]
+    },
+    "related-articles": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"relatedArticles\" i]",
+        "[class*=\"related\" i][class*=\"post\" i]"
+      ]
+    },
+    "related-case-studies": {
+      "present": true,
+      "selector": "[class*=\"relatedCaseStudies\" i]",
+      "evidence": {
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+        "rect": {
+          "x": 0,
+          "y": 6180,
+          "w": 768,
+          "h": 1378
+        }
+      }
+    },
+    "product-carousel": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"productCarousel\" i]"
+      ]
+    },
+    "also-on-site-grid": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"alsoOn\" i]",
+        "[class*=\"youMayLike\" i]"
+      ]
+    },
+    "pre-footer-cta": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"preFooter\" i]",
+        "[class*=\"footerCta\" i]"
+      ]
+    },
+    "footer-tagline": {
+      "present": false,
+      "selectors_tried": [
+        "footer blockquote",
+        "footer [class*=\"tagline\" i]",
+        "footer [class*=\"quote\" i]"
+      ]
+    },
+    "footer-nav-grid": {
+      "present": true,
+      "selector": "footer nav",
+      "evidence": {
+        "tag": "nav",
+        "cls": "footer-module-scss-module__U-iC1W__nav",
+        "rect": {
+          "x": 32,
+          "y": 7676,
+          "w": 704,
+          "h": 400
+        }
+      }
+    },
+    "secondary-links": {
+      "present": true,
+      "selector": "footer [class*=\"secondary\" i]",
+      "evidence": {
+        "tag": "a",
+        "cls": "inline-full menuList-module-scss-module__qf-KyW__menuListItemAnchor menuList-mod",
+        "rect": {
+          "x": 24,
+          "y": 7700,
+          "w": 82,
+          "h": 26
+        }
+      }
+    },
+    "copyright-bar": {
+      "present": true,
+      "selector": "footer [class*=\"copyright\" i]",
+      "evidence": {
+        "tag": "p",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 32,
+          "y": 8230,
+          "w": 704,
+          "h": 24
+        }
+      }
+    },
+    "social-icons": {
+      "present": false,
+      "selectors_tried": [
+        "footer [class*=\"social\" i]",
+        "footer ul[class*=\"social\" i]"
+      ]
+    },
+    "legal-strip": {
+      "present": true,
+      "selector": "footer [class*=\"legal\" i]",
+      "evidence": {
+        "tag": "div",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr",
+        "rect": {
+          "x": 32,
+          "y": 8194,
+          "w": 704,
+          "h": 20
+        }
+      }
+    },
+    "cookie-consent": {
+      "present": false,
+      "selectors_tried": [
+        "[id*=\"cookie\" i][class*=\"consent\" i]",
+        "[class*=\"cookieBanner\" i]",
+        "[class*=\"cookieConsent\" i]",
+        "#onetrust-banner-sdk",
+        "[data-cookiebanner]",
+        "#usercentrics-root"
+      ]
+    },
+    "gdpr-banner": {
+      "present": false,
+      "selectors_tried": [
+        "#didomi-host",
+        "#truste-consent-track",
+        "[class*=\"gdpr\" i]"
+      ]
+    },
+    "chat-widget": {
+      "present": false,
+      "selectors_tried": [
+        "[id*=\"intercom\" i]",
+        "[class*=\"intercom\" i]",
+        "[id*=\"drift\" i]",
+        "iframe[title*=\"chat\" i]",
+        "[class*=\"chatWidget\" i]"
+      ]
+    },
+    "back-to-top": {
+      "present": false,
+      "selectors_tried": [
+        "[aria-label*=\"back to top\" i]",
+        "a[href=\"#top\"]",
+        "[class*=\"backToTop\" i]"
+      ]
+    },
+    "floating-cta": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"floatingCta\" i]",
+        "[class*=\"stickyCta\" i]"
+      ]
+    },
+    "notification-toast": {
+      "present": false,
+      "selectors_tried": [
+        "[role=\"status\"][class*=\"toast\" i]",
+        "[class*=\"snackbar\" i]"
+      ]
+    },
+    "video-lightbox-trigger": {
+      "present": true,
+      "selector": "button[class*=\"videoButton\" i]",
+      "evidence": {
+        "tag": "button",
+        "cls": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+        "rect": {
+          "x": 0,
+          "y": 330,
+          "w": 768,
+          "h": 768
+        }
+      }
+    },
+    "gated-modal": {
+      "present": false,
+      "selectors_tried": [
+        "dialog[open]",
+        "[role=\"dialog\"][class*=\"gated\" i]"
+      ]
+    },
+    "geo-redirect-prompt": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"geoPrompt\" i]",
+        "[class*=\"regionPrompt\" i]"
+      ]
+    },
+    "mobile-bottom-nav": {
+      "present": false,
+      "selectors_tried": [
+        "nav[class*=\"bottomNav\" i]",
+        "nav[class*=\"mobile\" i][class*=\"fixed\" i]"
+      ]
+    },
+    "mobile-sticky-cta": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"stickyMobileCta\" i]",
+        "[class*=\"mobileCta\" i][class*=\"fixed\" i]"
+      ]
+    },
+    "mobile-mega-menu-drawer": {
+      "present": false,
+      "selectors_tried": [
+        "[class*=\"drawer\" i]",
+        "[class*=\"mobileMenu\" i]",
+        "dialog[class*=\"menu\" i]"
+      ]
+    },
+    "tablet-only-sidebar": {
+      "present": false,
+      "selectors_tried": [
+        "aside[class*=\"tablet\" i]"
+      ]
+    }
+  },
+  "bands": {
+    "count": 79,
+    "sample": [
+      {
+        "y": 0,
+        "tag": "h1",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr"
+      },
+      {
+        "y": 280,
+        "tag": "div",
+        "cls": "HeroStories-module-scss-module__sP_DKq__content"
+      },
+      {
+        "y": 340,
+        "tag": "img",
+        "cls": "next-image"
+      },
+      {
+        "y": 1100,
+        "tag": "main",
+        "cls": "layout-module-scss-module__18xgza__main layout-module-scss-module__18xgza__witho"
+      },
+      {
+        "y": 1140,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdy"
+      },
+      {
+        "y": 1160,
+        "tag": "aside",
+        "cls": "[slug]-module-scss-module__rdykIW__metaArea"
+      },
+      {
+        "y": 1180,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__metaPeople"
+      },
+      {
+        "y": 1240,
+        "tag": "aside",
+        "cls": "[slug]-module-scss-module__rdykIW__metaArea"
+      },
+      {
+        "y": 1300,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__metaColumn"
+      },
+      {
+        "y": 1320,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__contentColumn"
+      },
+      {
+        "y": 1340,
+        "tag": "p",
+        "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypogr"
+      },
+      {
+        "y": 1480,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__contentColumn"
+      },
+      {
+        "y": 1580,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 1680,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__bodyCopy"
+      },
+      {
+        "y": 1700,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 1780,
+        "tag": "strong",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__strong"
+      },
+      {
+        "y": 1800,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 1840,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__bodyCopy"
+      },
+      {
+        "y": 1860,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 1940,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__bodyCopy"
+      },
+      {
+        "y": 1960,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 2060,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__contentColumn"
+      },
+      {
+        "y": 2080,
+        "tag": "main",
+        "cls": "layout-module-scss-module__18xgza__main layout-module-scss-module__18xgza__witho"
+      },
+      {
+        "y": 2120,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__contentColumn"
+      },
+      {
+        "y": 2200,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 2380,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__bodyCopy"
+      },
+      {
+        "y": 2400,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 2460,
+        "tag": "strong",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__strong"
+      },
+      {
+        "y": 2480,
+        "tag": "p",
+        "cls": "markdownRenderer-module-scss-module__LwslzW__paragraph"
+      },
+      {
+        "y": 2520,
+        "tag": "div",
+        "cls": "[slug]-module-scss-module__rdykIW__bodyCopy"
+      }
+    ]
+  },
+  "embedResponses": [
+    {
+      "url": "https://www.youtube-nocookie.com/embed/txuTNgghan0?enablejsapi=1&autoplay=0&mute=0&playsinline=1&controls=1&loop=0&modestbranding=1&rel=0",
+      "status": 200,
+      "ct": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.UGIbaskIjd4.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFXHj59njWpF80FfAkO4TOCYP5A0A/m=root,base",
+      "status": 200,
+      "ct": "text/css; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/player/8c3fda2d/www-player.css",
+      "status": 200,
+      "ct": "text/css"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.YKAkt1c8h4Q.es5.O/am=AAAAQA/d=1/excm=base,root/br=1/rs=AGKMywGqa-1UwfVn6c6M1_WI_SAKnXBY7A/m=root,base",
+      "status": 200,
+      "ct": "text/javascript; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/player/8c3fda2d/player_embed.vflset/en_GB/base.js",
+      "status": 200,
+      "ct": "text/javascript"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/embed/txuTNgghan0?enablejsapi=1&autoplay=0&mute=0&playsinline=1&controls=1&loop=0&modestbranding=1&rel=0&origin=https%3A%2F%2Fwww.notion.com",
+      "status": 200,
+      "ct": "text/html; charset=utf-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/player/8c3fda2d/www-player.css",
+      "status": 200,
+      "ct": "text/css"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.UGIbaskIjd4.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFXHj59njWpF80FfAkO4TOCYP5A0A/m=root,base",
+      "status": 200,
+      "ct": "text/css; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.YKAkt1c8h4Q.es5.O/am=AAAAQA/d=1/excm=base,root/br=1/rs=AGKMywGqa-1UwfVn6c6M1_WI_SAKnXBY7A/m=root,base",
+      "status": 200,
+      "ct": "text/javascript; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/player/8c3fda2d/player_embed.vflset/en_GB/base.js",
+      "status": 200,
+      "ct": "text/javascript"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.YKAkt1c8h4Q.es5.O/ck=ytembeds.base.UGIbaskIjd4.L.W.O/am=AAAAQA/d=1/exm=base,root/excm=base,root/ed=1/br=1/rs=AGKMywHDtIA0IsKlxaq-YLMilFGjK-aA2w/m=r78Drb",
+      "status": 200,
+      "ct": "text/javascript; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.YKAkt1c8h4Q.es5.O/ck=ytembeds.base.UGIbaskIjd4.L.W.O/am=AAAAQA/d=1/exm=base,r78Drb,root/excm=base,root/ed=1/br=1/rs=AGKMywHDtIA0IsKlxaq-YLMilFGjK-aA2w/m=cwx9N",
+      "status": 200,
+      "ct": "text/javascript; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/youtubei/v1/log_event?alt=json",
+      "status": 200,
+      "ct": "application/json; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/generate_204?v2rodg",
+      "status": 204,
+      "ct": ""
+    },
+    {
+      "url": "https://munchkin.marketo.net/munchkin.js",
+      "status": 200,
+      "ct": "application/x-javascript"
+    },
+    {
+      "url": "https://munchkin.marketo.net/165/munchkin.js",
+      "status": 200,
+      "ct": "application/x-javascript"
+    },
+    {
+      "url": "https://www.youtube.com/iframe_api",
+      "status": 200,
+      "ct": "text/javascript; charset=utf-8"
+    },
+    {
+      "url": "https://www.youtube-nocookie.com/youtubei/v1/log_event?alt=json",
+      "status": 200,
+      "ct": "application/json; charset=UTF-8"
+    },
+    {
+      "url": "https://www.youtube.com/s/player/8c3fda2d/www-widgetapi.vflset/www-widgetapi.js",
+      "status": 200,
+      "ct": "text/javascript"
+    }
+  ]
+}

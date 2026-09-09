@@ -1,0 +1,170 @@
+{
+  "375": {
+    "srcRects": {
+      "header": {
+        "w": 375,
+        "h": 64
+      },
+      "hero": {
+        "w": 375,
+        "h": 737
+      },
+      "footer": {
+        "w": 375,
+        "h": 709
+      }
+    },
+    "tgtRects": {
+      "header": {
+        "w": 375,
+        "h": 66
+      },
+      "hero": {
+        "w": 343,
+        "h": 900
+      },
+      "footer": {
+        "w": 343,
+        "h": 1298
+      }
+    },
+    "components": {
+      "header": {
+        "W": 376,
+        "H": 66,
+        "matched": 20129,
+        "differing": 4687,
+        "total": 24816,
+        "visualMatchPercent": 81.113
+      },
+      "hero": {
+        "W": 375,
+        "H": 902,
+        "matched": 171012,
+        "differing": 167238,
+        "total": 338250,
+        "visualMatchPercent": 50.558
+      },
+      "footer": {
+        "W": 375,
+        "H": 1299,
+        "matched": 465093,
+        "differing": 22032,
+        "total": 487125,
+        "visualMatchPercent": 95.477
+      }
+    }
+  },
+  "768": {
+    "srcRects": {
+      "header": {
+        "w": 768,
+        "h": 64
+      },
+      "hero": {
+        "w": 768,
+        "h": 1034
+      },
+      "footer": {
+        "w": 768,
+        "h": 709
+      }
+    },
+    "tgtRects": {
+      "header": {
+        "w": 768,
+        "h": 66
+      },
+      "hero": {
+        "w": 736,
+        "h": 970
+      },
+      "footer": {
+        "w": 736,
+        "h": 883
+      }
+    },
+    "components": {
+      "header": {
+        "W": 769,
+        "H": 66,
+        "matched": 43225,
+        "differing": 7529,
+        "total": 50754,
+        "visualMatchPercent": 85.166
+      },
+      "hero": {
+        "W": 768,
+        "H": 1034,
+        "matched": 175649,
+        "differing": 618463,
+        "total": 794112,
+        "visualMatchPercent": 22.119
+      },
+      "footer": {
+        "W": 768,
+        "H": 884,
+        "matched": 656243,
+        "differing": 22669,
+        "total": 678912,
+        "visualMatchPercent": 96.661
+      }
+    }
+  },
+  "1440": {
+    "srcRects": {
+      "header": {
+        "w": 1440,
+        "h": 64
+      },
+      "hero": {
+        "w": 1440,
+        "h": 576
+      },
+      "footer": {
+        "w": 1440,
+        "h": 396
+      }
+    },
+    "tgtRects": {
+      "header": {
+        "w": 1440,
+        "h": 66
+      },
+      "hero": {
+        "w": 1408,
+        "h": 744
+      },
+      "footer": {
+        "w": 1408,
+        "h": 499
+      }
+    },
+    "components": {
+      "header": {
+        "W": 1441,
+        "H": 66,
+        "matched": 82054,
+        "differing": 13052,
+        "total": 95106,
+        "visualMatchPercent": 86.276
+      },
+      "hero": {
+        "W": 1440,
+        "H": 745,
+        "matched": 611040,
+        "differing": 461760,
+        "total": 1072800,
+        "visualMatchPercent": 56.957
+      },
+      "footer": {
+        "W": 1440,
+        "H": 500,
+        "matched": 695464,
+        "differing": 24536,
+        "total": 720000,
+        "visualMatchPercent": 96.592
+      }
+    }
+  }
+}

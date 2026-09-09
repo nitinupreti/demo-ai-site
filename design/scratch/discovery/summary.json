@@ -1,0 +1,17 @@
+[
+  {
+    "bp": "1440",
+    "blocks": 95,
+    "network": 88
+  },
+  {
+    "bp": "768",
+    "blocks": 64,
+    "network": 81
+  },
+  {
+    "bp": "375",
+    "blocks": 64,
+    "network": 75
+  }
+]

@@ -1,0 +1,14 @@
+<sly data-sly-use.cta="com.demo.core.models.CtaBand"/>
+<sly data-sly-test.has="${cta.hasContent}"/>
+<section data-cmp-is="cta-band" data-sly-test="${has}">
+    <div class="cta-band__inner">
+        <p class="cta-band__eyebrow" data-sly-test="${cta.eyebrow}">${cta.eyebrow}</p>
+        <h2 class="cta-band__headline">${cta.headline}</h2>
+        <p class="cta-band__subhead" data-sly-test="${cta.subhead}">${cta.subhead}</p>
+        <div class="cta-band__actions" data-sly-test="${cta.ctaLabel || cta.secondaryLabel}">
+            <a class="cta-band__cta cta-band__cta--primary" data-sly-test="${cta.ctaLabel && cta.ctaHref}" href="${cta.ctaHref @ context='uri'}">${cta.ctaLabel}</a>
+            <a class="cta-band__cta cta-band__cta--secondary" data-sly-test="${cta.secondaryLabel && cta.secondaryHref}" href="${cta.secondaryHref @ context='uri'}">${cta.secondaryLabel}</a>
+        </div>
+    </div>
+</section>
+<sly data-sly-test="${!has && wcmmode.edit}"><div class="cmp-placeholder">${'CTA band - configure headline to display.' @ i18n}</div></sly>

@@ -1,0 +1,24 @@
+<sly data-sly-use.grid="com.demo.core.models.CaseStudyGrid"/>
+<sly data-sly-test.has="${grid.hasContent}"/>
+<section data-cmp-is="case-study-grid" data-sly-test="${has}">
+    <div class="case-study-grid__inner">
+        <h2 class="case-study-grid__heading" data-sly-test="${grid.sectionHeading}">${grid.sectionHeading}</h2>
+        <ul class="case-study-grid__list">
+            <li class="case-study-grid__item" data-sly-repeat.tile="${grid.items}" data-index="${tileList.index}">
+                <a class="case-study-grid__tile" href="${tile.href @ context='uri'}">
+                    <div class="case-study-grid__logo" data-sly-test="${tile.logoPath}">
+                        <img src="${tile.logoPath @ context='uri'}" alt="${tile.logoAlt}"/>
+                    </div>
+                    <div class="case-study-grid__thumb" data-sly-test="${tile.thumbnail}">
+                        <img class="case-study-grid__img" src="${tile.thumbnail @ context='uri'}" alt="${tile.thumbnailAlt}"/>
+                    </div>
+                    <div class="case-study-grid__body">
+                        <p class="case-study-grid__eyebrow" data-sly-test="${tile.eyebrow}">${tile.eyebrow}</p>
+                        <h3 class="case-study-grid__title">${tile.title}</h3>
+                    </div>
+                </a>
+            </li>
+        </ul>
+    </div>
+</section>
+<sly data-sly-test="${!has && wcmmode.edit}"><div class="cmp-placeholder">${'Case study grid - add tiles to display.' @ i18n}</div></sly>

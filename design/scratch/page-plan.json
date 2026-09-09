@@ -1,0 +1,39 @@
+{
+  "container": "/content/demo-ai-site/us/en/customers/cursor/jcr:content/root/container/container",
+  "order": [
+    {
+      "name": "hero",
+      "resourceType": "demo-ai-site/components/hero",
+      "fields": {
+        "eyebrow": "Customer story",
+        "headline": "How the world's fastest-growing startup stays fast with Notion",
+        "subhead": "Cursor became the fastest-growing company in history by giving developers a truly AI-native code editor. Notion is where that fast-moving team keeps its knowledge, decisions, and plans.",
+        "ctaLabel": "Read the story",
+        "ctaHref": "#story",
+        "secondaryLabel": "Watch the video",
+        "secondaryHref": "#video",
+        "mediaPath": "/content/dam/demo-ai-site/design/cursor-hero.jpg",
+        "mediaAlt": "Cursor product surface embedded in a Notion doc"
+      }
+    },
+    { "name": "intro-title", "resourceType": "demo-ai-site/components/title", "fields": { "jcr:title": "Cursor: the fastest-growing company in history", "type": "h2" } },
+    { "name": "intro-text",  "resourceType": "demo-ai-site/components/text",  "fields": { "textIsRich": "true", "text": "<p>Cursor became the fastest-growing company in history by giving developers a truly AI-native code editor. In just a few years the team scaled from a handful of engineers to more than a hundred people across product, research, design, and go-to-market -- all shipping every week.</p><p>They chose Notion as the connective tissue for that speed: a single workspace where research, planning, product specs, customer feedback, engineering docs, and company knowledge live side by side.</p>" } },
+    { "name": "why-title",   "resourceType": "demo-ai-site/components/title", "fields": { "jcr:title": "Why they build instead of buy", "type": "h2" } },
+    { "name": "why-text",    "resourceType": "demo-ai-site/components/text",  "fields": { "textIsRich": "true", "text": "<p>While Cursor's rapid growth has demanded ever-more sophisticated internal systems, the team resists tool sprawl. Instead of stitching together a dozen point tools, they built their internal stack on Notion -- from product briefs and design reviews to hiring pipelines and go-to-market plans.</p><p>When a workflow gets heavy, they turn it into a Notion database with the exact views their team needs. Everything stays in the same workspace, searchable and cross-linked.</p>" } },
+    { "name": "pull-quote-1", "resourceType": "demo-ai-site/components/pull-quote", "fields": { "quoteText": "I honestly can't imagine running a design team without Notion. Everything we ship -- from moodboards to specs to launch plans -- lives in one place, and that keeps us fast.", "attributionName": "Head of Design", "attributionRole": "Cursor" } },
+    { "name": "ai-title",    "resourceType": "demo-ai-site/components/title", "fields": { "jcr:title": "AI is strongest where work flows and knowledge grows", "type": "h2" } },
+    { "name": "ai-text",     "resourceType": "demo-ai-site/components/text",  "fields": { "textIsRich": "true", "text": "<p>Fast-moving teams generate an enormous amount of context -- customer calls, design critiques, engineering debates, launch retros. Notion AI, built into the workspace where Cursor teams work and collaborate, turns that context into leverage: instant answers, drafted summaries, translated notes, and generated to-dos, all grounded in the team's own docs.</p><p>Because everything lives in Notion, Notion AI has the shared memory a fast startup needs.</p>" } },
+    { "name": "ai-media",    "resourceType": "demo-ai-site/components/media-with-caption", "fields": { "mediaType": "image", "mediaPath": "/content/dam/demo-ai-site/design/cursor-hero.jpg", "altText": "Notion AI answering questions grounded in Cursor's docs", "caption": "Notion AI, embedded in the docs Cursor writes every day." } },
+    { "name": "pull-quote-2", "resourceType": "demo-ai-site/components/pull-quote", "fields": { "quoteText": "Keeping people in the loop as we've grown so fast is really hard. Notion is the way we do it -- every project, every decision, every retro is one link away.", "attributionName": "Head of Operations", "attributionRole": "Cursor" } },
+    { "name": "stack-title", "resourceType": "demo-ai-site/components/title", "fields": { "jcr:title": "The modern stack: 5x fewer tools required", "type": "h2" } },
+    { "name": "stack-text",  "resourceType": "demo-ai-site/components/text",  "fields": { "textIsRich": "true", "text": "<p>Where most companies at this scale run more than a dozen SaaS tools -- separate wikis, doc editors, project trackers, spec repos, briefs, roadmaps -- Cursor runs on Notion for nearly all of it. Their teams estimate they use 5x fewer tools than a comparable startup, which means fewer context switches, fewer integrations to maintain, and faster onboarding for every new hire.</p>" } },
+    { "name": "pull-quote-3", "resourceType": "demo-ai-site/components/pull-quote", "fields": { "quoteText": "We're moving away from a world where communication is siloed inside chat threads and toward a world where knowledge lives in the docs it belongs in.", "attributionName": "Head of Engineering", "attributionRole": "Cursor" } },
+    { "name": "cta-band", "resourceType": "demo-ai-site/components/cta-band", "fields": { "eyebrow": "Try Notion", "headline": "Build with less tool sprawl and more focus", "subhead": "See how Notion keeps the fastest teams in the world aligned, informed, and shipping.", "ctaLabel": "Request a demo", "ctaHref": "#request-a-demo", "secondaryLabel": "Try Notion free", "secondaryHref": "#try-free" } },
+    { "name": "related-case-studies", "resourceType": "demo-ai-site/components/case-study-grid", "fields": { "sectionHeading": "How other teams use Notion" } }
+  ],
+  "caseStudyTiles": [
+    { "name": "t0", "eyebrow": "Customer story", "title": "How Morning Brew turned every 'sigh' into an ad", "href": "#morning-brew", "thumbnail": "/content/dam/demo-ai-site/design/tile-morning-brew.png", "thumbnailAlt": "Morning Brew" },
+    { "name": "t1", "eyebrow": "Customer story", "title": "How Little Plains scaled creative operations",     "href": "#little-plains", "thumbnail": "/content/dam/demo-ai-site/design/tile-little-plains.png", "thumbnailAlt": "Little Plains" },
+    { "name": "t2", "eyebrow": "Customer story", "title": "How Ryo built a modern research org in Notion",    "href": "#ryo",           "thumbnail": "/content/dam/demo-ai-site/design/tile-ryo.png", "thumbnailAlt": "Ryo" }
+  ]
+}

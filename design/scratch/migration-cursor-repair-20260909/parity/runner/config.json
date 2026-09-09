@@ -1,0 +1,18 @@
+{
+  "sourceUrl": "https://www.notion.com/customers/cursor",
+  "targetUrl": "http://localhost:4504/content/demo-ai-site/us/en/customers/cursor.html?wcmmode=disabled",
+  "breakpoints": [
+    { "name": "375", "width": 375, "height": 812 },
+    { "name": "768", "width": 768, "height": 1024 },
+    { "name": "1440", "width": 1440, "height": 900 }
+  ],
+  "components": [
+    { "id": "site-header", "source": "nav[class*=\"globalNavigation-module\"]", "target": ".site-header" },
+    { "id": "hero", "source": "section[class*=\"HeroStories\"], section[class*=\"hero\"]", "target": ".hero" },
+    { "id": "pull-quote", "source": "figure[class*=\"quote-module\"]", "target": ".pull-quote" },
+    { "id": "media-with-caption", "source": "figure[class*=\"mediaWithCaption-module\"]", "target": ".media-with-caption" },
+    { "id": "cta-band", "source": "section:has(> div[class*=\"flex-col\"][class*=\"items-center\"])", "target": ".cta-band" },
+    { "id": "case-study-grid", "source": "div[class*=\"relatedCaseStudies\"]", "target": ".case-study-grid" },
+    { "id": "site-footer", "source": "footer[class*=\"surface\"]", "target": ".site-footer" }
+  ]
+}

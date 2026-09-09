@@ -1,0 +1,58 @@
+.media-with-caption {
+    float: none !important;
+    clear: both !important;
+    width: 85.333333vw !important;
+    max-width: 1228.8px;
+    height: 244.5px;
+    margin: 0 auto !important;
+    padding: 0;
+    box-sizing: border-box;
+    background: #ffffff;
+    font-family: "NotionInter", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.media-with-caption > figure {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+.media-with-caption__media {
+    width: min(100%, 960px);
+    height: 152px;
+    margin: 0 auto;
+    border: 1px solid rgba(15, 15, 15, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+    box-sizing: border-box;
+    box-shadow: 0 2px 12px rgba(15, 15, 15, 0.05);
+}
+
+.media-with-caption__image,
+.media-with-caption__video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.media-with-caption__caption {
+    margin: 24px auto 0;
+    max-width: 840px;
+    text-align: left;
+    font-size: 16px;
+    line-height: 24px;
+    color: rgba(0, 0, 0, 0.65);
+    font-style: normal;
+}
+
+@media (max-width: 900px) {
+    .media-with-caption { width: 85vw !important; height: 244.5px; }
+    .media-with-caption__caption { font-size: 16px; }
+}
+
+@media (max-width: 480px) {
+    .media-with-caption { height: 334.5px; }
+    .media-with-caption__caption { font-size: 16px; margin-top: 24px; }
+}

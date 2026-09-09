@@ -1,0 +1,82 @@
+.pull-quote {
+    float: none !important;
+    clear: both !important;
+    width: 85vw !important;
+    max-width: 1068.8px;
+    margin: 0 auto !important;
+    padding: 32px 0;
+    box-sizing: border-box;
+    text-align: center;
+    font-family: "Lyon Text", Georgia, "Times New Roman", serif;
+    color: #191918;
+    background: #ffffff !important;
+}
+
+.pull-quote > figure {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    margin: 0;
+}
+
+.pull-quote__text {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0;
+    box-sizing: border-box;
+    font-size: 32px;
+    line-height: 40px;
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.pull-quote__text::before { content: "\201C"; }
+.pull-quote__text::after  { content: "\201D"; }
+
+.pull-quote__caption {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    font-family: "NotionInter", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    color: rgba(0, 0, 0, 0.6);
+    font-style: normal;
+}
+
+.pull-quote__avatar {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.pull-quote__attribution {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.pull-quote__name {
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.95);
+    letter-spacing: 0;
+}
+
+.pull-quote__role { font-weight: 400; }
+
+@media (max-width: 900px) {
+    .pull-quote { padding: 16px 0; }
+    .pull-quote__text { max-width: none; font-size: 26px; line-height: 32px; text-align: left; }
+    .pull-quote__caption { justify-content: flex-start; }
+}
+
+@media (max-width: 480px) {
+    .pull-quote__text { font-size: 22px; line-height: 28px; }
+}

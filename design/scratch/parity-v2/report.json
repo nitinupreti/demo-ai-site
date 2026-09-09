@@ -1,0 +1,404 @@
+{
+  "375": {
+    "srcRects": {
+      "site-header": {
+        "w": 375,
+        "h": 64
+      },
+      "hero": {
+        "w": 375,
+        "h": 737
+      },
+      "pull-quote": {
+        "w": 317,
+        "h": 292
+      },
+      "media-with-caption": {
+        "w": 317,
+        "h": 334
+      },
+      "cta-band": {
+        "w": 375,
+        "h": 406
+      },
+      "case-study-grid": {
+        "w": 375,
+        "h": 1158
+      },
+      "site-footer": {
+        "w": 375,
+        "h": 709
+      }
+    },
+    "tgtRects": {
+      "site-header": {
+        "w": 375,
+        "h": 1
+      },
+      "hero": {
+        "w": 343,
+        "h": 650
+      },
+      "pull-quote": {
+        "w": 343,
+        "h": 408
+      },
+      "media-with-caption": {
+        "w": 343,
+        "h": 263
+      },
+      "cta-band": {
+        "w": 343,
+        "h": 235
+      },
+      "case-study-grid": {
+        "w": 343,
+        "h": 1259
+      },
+      "site-footer": {
+        "w": 343,
+        "h": 1298
+      }
+    },
+    "components": {
+      "site-header": {
+        "W": 375,
+        "H": 64,
+        "matched": 18954,
+        "differing": 5046,
+        "total": 24000,
+        "visualMatchPercent": 78.975,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\site-header-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\site-header-mask.png"
+      },
+      "hero": {
+        "W": 375,
+        "H": 737,
+        "matched": 125509,
+        "differing": 150866,
+        "total": 276375,
+        "visualMatchPercent": 45.413,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\hero-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\hero-mask.png"
+      },
+      "pull-quote": {
+        "W": 343,
+        "H": 409,
+        "matched": 120856,
+        "differing": 19431,
+        "total": 140287,
+        "visualMatchPercent": 86.149,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\pull-quote-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\pull-quote-mask.png"
+      },
+      "media-with-caption": {
+        "W": 343,
+        "H": 335,
+        "matched": 68936,
+        "differing": 45969,
+        "total": 114905,
+        "visualMatchPercent": 59.994,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\media-with-caption-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\media-with-caption-mask.png"
+      },
+      "cta-band": {
+        "W": 375,
+        "H": 407,
+        "matched": 129911,
+        "differing": 22714,
+        "total": 152625,
+        "visualMatchPercent": 85.118,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\cta-band-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\cta-band-mask.png"
+      },
+      "case-study-grid": {
+        "W": 375,
+        "H": 1260,
+        "matched": 325033,
+        "differing": 147467,
+        "total": 472500,
+        "visualMatchPercent": 68.79,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\case-study-grid-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\case-study-grid-mask.png"
+      },
+      "site-footer": {
+        "W": 375,
+        "H": 1299,
+        "matched": 462645,
+        "differing": 24480,
+        "total": 487125,
+        "visualMatchPercent": 94.975,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\site-footer-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\375\\site-footer-mask.png"
+      }
+    }
+  },
+  "768": {
+    "srcRects": {
+      "site-header": {
+        "w": 768,
+        "h": 64
+      },
+      "hero": {
+        "w": 768,
+        "h": 1034
+      },
+      "pull-quote": {
+        "w": 653,
+        "h": 224
+      },
+      "media-with-caption": {
+        "w": 653,
+        "h": 500
+      },
+      "cta-band": {
+        "w": 768,
+        "h": 302
+      },
+      "case-study-grid": {
+        "w": 768,
+        "h": 1378
+      },
+      "site-footer": {
+        "w": 768,
+        "h": 709
+      }
+    },
+    "tgtRects": {
+      "site-header": {
+        "w": 768,
+        "h": 1
+      },
+      "hero": {
+        "w": 736,
+        "h": 1098
+      },
+      "pull-quote": {
+        "w": 736,
+        "h": 380
+      },
+      "media-with-caption": {
+        "w": 736,
+        "h": 497
+      },
+      "cta-band": {
+        "w": 736,
+        "h": 319
+      },
+      "case-study-grid": {
+        "w": 736,
+        "h": 660
+      },
+      "site-footer": {
+        "w": 736,
+        "h": 883
+      }
+    },
+    "components": {
+      "site-header": {
+        "W": 768,
+        "H": 64,
+        "matched": 44106,
+        "differing": 5046,
+        "total": 49152,
+        "visualMatchPercent": 89.734,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\site-header-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\site-header-mask.png"
+      },
+      "hero": {
+        "W": 768,
+        "H": 1099,
+        "matched": 558709,
+        "differing": 285323,
+        "total": 844032,
+        "visualMatchPercent": 66.195,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\hero-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\hero-mask.png"
+      },
+      "pull-quote": {
+        "W": 736,
+        "H": 381,
+        "matched": 255236,
+        "differing": 25180,
+        "total": 280416,
+        "visualMatchPercent": 91.02,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\pull-quote-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\pull-quote-mask.png"
+      },
+      "media-with-caption": {
+        "W": 736,
+        "H": 501,
+        "matched": 140000,
+        "differing": 228736,
+        "total": 368736,
+        "visualMatchPercent": 37.968,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\media-with-caption-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\media-with-caption-mask.png"
+      },
+      "cta-band": {
+        "W": 768,
+        "H": 320,
+        "matched": 216822,
+        "differing": 28938,
+        "total": 245760,
+        "visualMatchPercent": 88.225,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\cta-band-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\cta-band-mask.png"
+      },
+      "case-study-grid": {
+        "W": 768,
+        "H": 1379,
+        "matched": 875270,
+        "differing": 183802,
+        "total": 1059072,
+        "visualMatchPercent": 82.645,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\case-study-grid-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\case-study-grid-mask.png"
+      },
+      "site-footer": {
+        "W": 768,
+        "H": 884,
+        "matched": 656232,
+        "differing": 22680,
+        "total": 678912,
+        "visualMatchPercent": 96.659,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\site-footer-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\768\\site-footer-mask.png"
+      }
+    }
+  },
+  "1440": {
+    "srcRects": {
+      "site-header": {
+        "w": 1440,
+        "h": 64
+      },
+      "hero": {
+        "w": 1440,
+        "h": 576
+      },
+      "pull-quote": {
+        "w": 1069,
+        "h": 248
+      },
+      "media-with-caption": {
+        "w": 1229,
+        "h": 244
+      },
+      "cta-band": {
+        "w": 1440,
+        "h": 450
+      },
+      "case-study-grid": {
+        "w": 1440,
+        "h": 657
+      },
+      "site-footer": {
+        "w": 1440,
+        "h": 396
+      }
+    },
+    "tgtRects": {
+      "site-header": {
+        "w": 1440,
+        "h": 1
+      },
+      "hero": {
+        "w": 1408,
+        "h": 720
+      },
+      "pull-quote": {
+        "w": 900,
+        "h": 410
+      },
+      "media-with-caption": {
+        "w": 1120,
+        "h": 699
+      },
+      "cta-band": {
+        "w": 1408,
+        "h": 495
+      },
+      "case-study-grid": {
+        "w": 1408,
+        "h": 696
+      },
+      "site-footer": {
+        "w": 1408,
+        "h": 499
+      }
+    },
+    "components": {
+      "site-header": {
+        "W": 1440,
+        "H": 64,
+        "matched": 84471,
+        "differing": 7689,
+        "total": 92160,
+        "visualMatchPercent": 91.657,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\site-header-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\site-header-mask.png"
+      },
+      "hero": {
+        "W": 1440,
+        "H": 721,
+        "matched": 636266,
+        "differing": 401974,
+        "total": 1038240,
+        "visualMatchPercent": 61.283,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\hero-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\hero-mask.png"
+      },
+      "pull-quote": {
+        "W": 1070,
+        "H": 411,
+        "matched": 402831,
+        "differing": 36939,
+        "total": 439770,
+        "visualMatchPercent": 91.6,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\pull-quote-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\pull-quote-mask.png"
+      },
+      "media-with-caption": {
+        "W": 1230,
+        "H": 699,
+        "matched": 270980,
+        "differing": 588790,
+        "total": 859770,
+        "visualMatchPercent": 31.518,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\media-with-caption-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\media-with-caption-mask.png"
+      },
+      "cta-band": {
+        "W": 1440,
+        "H": 496,
+        "matched": 677146,
+        "differing": 37094,
+        "total": 714240,
+        "visualMatchPercent": 94.807,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\cta-band-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\cta-band-mask.png"
+      },
+      "case-study-grid": {
+        "W": 1440,
+        "H": 697,
+        "matched": 755600,
+        "differing": 248080,
+        "total": 1003680,
+        "visualMatchPercent": 75.283,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\case-study-grid-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\case-study-grid-mask.png"
+      },
+      "site-footer": {
+        "W": 1440,
+        "H": 500,
+        "matched": 695454,
+        "differing": 24546,
+        "total": 720000,
+        "visualMatchPercent": 96.591,
+        "sideBySidePath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\site-footer-sbs.png",
+        "maskPath": "C:\\projects\\Trainings\\new\\demo-ai-site\\design\\scratch\\parity-v2\\1440\\site-footer-mask.png"
+      }
+    }
+  }
+}

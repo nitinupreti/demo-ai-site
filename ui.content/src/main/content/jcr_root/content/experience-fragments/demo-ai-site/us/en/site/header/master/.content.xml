@@ -13,22 +13,27 @@
             jcr:primaryType="nt:unstructured"
             sling:resourceType="demo-ai-site/components/container"
             layout="simple">
-            <navigation
+            <site-header
                 jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/navigation"
-                collectAllPages="false"
-                navigationRoot="/content/demo-ai-site/us/en"
-                skipNavigationRoot="false"
-                structureDepth="1"/>
-            <languagenavigation
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/languagenavigation"
-                navigationRoot="/content/demo-ai-site/us"
-                structureDepth="2"/>
-            <search
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/search"
-                searchRoot="/content/demo-ai-site/us"/>
+                sling:resourceType="demo-ai-site/components/site-header"
+                logoText="Notion"
+                logoHref="https://www.notion.com/product"
+                menuLabel="Open menu"
+                ctaLabel="Get Notion free"
+                ctaHref="https://www.notion.com/signup"
+                secondaryLabel="Log in"
+                secondaryHref="https://www.notion.com/login">
+                <navItems jcr:primaryType="nt:unstructured">
+                    <item0 jcr:primaryType="nt:unstructured" label="Product⌄" href="https://www.notion.com/product"/>
+                    <item1 jcr:primaryType="nt:unstructured" label="AI⌄" href="https://www.notion.com/product/ai"/>
+                    <item2 jcr:primaryType="nt:unstructured" label="Resources⌄" href="https://www.notion.com/resources"/>
+                    <item3 jcr:primaryType="nt:unstructured" label="Developers" href="https://developers.notion.com"/>
+                    <item4 jcr:primaryType="nt:unstructured" label="Startups" href="https://www.notion.com/startups"/>
+                    <item5 jcr:primaryType="nt:unstructured" label="Enterprise" href="https://www.notion.com/enterprise"/>
+                    <item6 jcr:primaryType="nt:unstructured" label="Pricing" href="https://www.notion.com/pricing"/>
+                    <item7 jcr:primaryType="nt:unstructured" label="Request a demo" href="https://www.notion.com/contact-sales"/>
+                </navItems>
+            </site-header>
         </root>
     </jcr:content>
 </jcr:root>

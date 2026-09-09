@@ -12,15 +12,60 @@
         <root
             jcr:primaryType="nt:unstructured"
             sling:resourceType="demo-ai-site/components/container"
-            layout="responsiveGrid">
-            <separator
+            layout="simple">
+            <site-footer
                 jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/separator"/>
-            <text
-                jcr:primaryType="nt:unstructured"
-                sling:resourceType="demo-ai-site/components/text"
-                text="&lt;p>Copyright 2026, Demo AI Site.&amp;nbsp;All rights reserved.&lt;/p>&#xd;&#xa;&lt;p>345 Park Avenue,&amp;nbsp;San Jose, CA 95110-2704, USA&lt;/p>&#xd;&#xa;"
-                textIsRich="true"/>
+                sling:resourceType="demo-ai-site/components/site-footer"
+                brandLabel="Notion"
+                brandHref="https://www.notion.com/product"
+                quoteText="We shape our tools, and thereafter our tools shape us."
+                quoteAttribution="Marshall McLuhan"
+                copyright="© 2026 Notion Labs, Inc."
+                cookieLabel="Cookie settings"
+                cookieHref="https://www.notion.com/trust/privacy-policy"
+                languageLabel="English (US)">
+                <linkGroups jcr:primaryType="nt:unstructured">
+                    <g0 jcr:primaryType="nt:unstructured" heading="Product">
+                        <links jcr:primaryType="nt:unstructured">
+                            <l0 jcr:primaryType="nt:unstructured" label="Features" href="https://www.notion.com/product/features"/>
+                            <l1 jcr:primaryType="nt:unstructured" label="What's New" href="https://www.notion.com/releases"/>
+                            <l2 jcr:primaryType="nt:unstructured" label="Notion AI" href="https://www.notion.com/product/ai"/>
+                            <l3 jcr:primaryType="nt:unstructured" label="Pricing" href="https://www.notion.com/pricing"/>
+                            <l4 jcr:primaryType="nt:unstructured" label="Request a demo" href="https://www.notion.com/contact-sales"/>
+                            <l5 jcr:primaryType="nt:unstructured" label="Download" href="https://www.notion.com/download"/>
+                            <l6 jcr:primaryType="nt:unstructured" label="Explore more →" href="https://www.notion.com/explore"/>
+                        </links>
+                    </g0>
+                    <g1 jcr:primaryType="nt:unstructured" heading="Resources">
+                        <links jcr:primaryType="nt:unstructured">
+                            <l0 jcr:primaryType="nt:unstructured" label="Customer stories" href="https://www.notion.com/customers"/>
+                            <l1 jcr:primaryType="nt:unstructured" label="Connections" href="https://www.notion.com/connections"/>
+                            <l2 jcr:primaryType="nt:unstructured" label="Marketplace" href="https://www.notion.com/templates"/>
+                            <l3 jcr:primaryType="nt:unstructured" label="Help Center" href="https://www.notion.com/help"/>
+                            <l4 jcr:primaryType="nt:unstructured" label="Academy" href="https://academy.notion.com"/>
+                            <l5 jcr:primaryType="nt:unstructured" label="Community" href="https://www.notion.com/community"/>
+                        </links>
+                    </g1>
+                    <g2 jcr:primaryType="nt:unstructured" heading="Company">
+                        <links jcr:primaryType="nt:unstructured">
+                            <l0 jcr:primaryType="nt:unstructured" label="About us" href="https://www.notion.com/about"/>
+                            <l1 jcr:primaryType="nt:unstructured" label="Careers" href="https://www.notion.com/careers"/>
+                            <l2 jcr:primaryType="nt:unstructured" label="Security" href="https://www.notion.com/security"/>
+                            <l3 jcr:primaryType="nt:unstructured" label="Status" href="https://www.notion-status.com"/>
+                            <l4 jcr:primaryType="nt:unstructured" label="Terms &amp; privacy" href="https://www.notion.com/terms-and-privacy"/>
+                            <l5 jcr:primaryType="nt:unstructured" label="Your privacy rights" href="https://www.notion.com/trust/privacy-policy#california"/>
+                        </links>
+                    </g2>
+                    <g3 jcr:primaryType="nt:unstructured" heading="Notion for">
+                        <links jcr:primaryType="nt:unstructured">
+                            <l0 jcr:primaryType="nt:unstructured" label="Enterprise" href="https://www.notion.com/enterprise"/>
+                            <l1 jcr:primaryType="nt:unstructured" label="Small businesses" href="https://www.notion.com/teams"/>
+                            <l2 jcr:primaryType="nt:unstructured" label="Startups" href="https://www.notion.com/startups"/>
+                            <l3 jcr:primaryType="nt:unstructured" label="Developers" href="https://developers.notion.com"/>
+                        </links>
+                    </g3>
+                </linkGroups>
+            </site-footer>
         </root>
     </jcr:content>
 </jcr:root>

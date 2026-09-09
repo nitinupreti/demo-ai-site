@@ -1,0 +1,33 @@
+<sly data-sly-use.footer="com.demo.core.models.SiteFooter"/>
+<footer data-cmp-is="site-footer" data-sly-test="${footer.hasContent}">
+    <div class="site-footer__inner">
+        <div class="site-footer__lead">
+            <a class="site-footer__brand" data-sly-test="${footer.brandLabel && footer.brandHref}" href="${footer.brandHref @ context='uri'}" aria-label="${footer.brandLabel}">
+                <span class="site-footer__mark" aria-hidden="true">N</span>
+                <span>${footer.brandLabel}</span>
+            </a>
+            <blockquote class="site-footer__quote" data-sly-test="${footer.quoteText}">
+                <p class="site-footer__quote-text">${footer.quoteText}</p>
+                <cite class="site-footer__quote-cite" data-sly-test="${footer.quoteAttribution}">${footer.quoteAttribution}</cite>
+            </blockquote>
+        </div>
+        <nav class="site-footer__nav" aria-label="Footer">
+            <div class="site-footer__group" data-sly-repeat.group="${footer.linkGroups}" data-index="${groupList.index}">
+                <h3 class="site-footer__group-heading">${group.heading}</h3>
+                <ul class="site-footer__group-list">
+                    <li class="site-footer__group-item" data-sly-repeat.link="${group.links}" data-index="${linkList.index}">
+                        <a class="site-footer__link" href="${link.href @ context='uri'}">${link.label}</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </div>
+    <div class="site-footer__bar">
+        <span class="site-footer__copyright" data-sly-test="${footer.copyright}">${footer.copyright}</span>
+        <a class="site-footer__cookie" data-sly-test="${footer.cookieLabel && footer.cookieHref}" href="${footer.cookieHref @ context='uri'}">${footer.cookieLabel}</a>
+        <button class="site-footer__language" data-sly-test="${footer.languageLabel}" type="button">${footer.languageLabel} <span aria-hidden="true">⌄</span></button>
+    </div>
+</footer>
+<sly data-sly-test="${!footer.hasContent && wcmmode.edit}">
+    <div class="cmp-placeholder">${'Site Footer - configure to display.' @ i18n}</div>
+</sly>

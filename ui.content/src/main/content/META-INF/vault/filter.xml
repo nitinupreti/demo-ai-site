@@ -7,5 +7,12 @@
         <include pattern="/content/dam/demo-ai-site/jcr:content(/.*)?"/>
     </filter>
     <filter root="/content/dam/demo-ai-site/asset.jpg" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/ryo-lu.png" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/michael-truell.png" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/cursor-notion-ai.mp4" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/little-plains-logo.png" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/little-plains-story.png" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/ramp-logo.svg" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/ramp-story.png" mode="merge"/>
     <filter root="/content/experience-fragments/demo-ai-site" mode="merge"/>
 </workspaceFilter>

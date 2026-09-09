@@ -1,0 +1,981 @@
+{
+  "generatedAt": "2026-09-09T18:29:27.876Z",
+  "config": {
+    "sourceUrl": "https://www.notion.com/customers/cursor",
+    "targetUrl": "http://localhost:4504/content/demo-ai-site/us/en/customers/cursor.html?wcmmode=disabled",
+    "breakpoints": [
+      {
+        "name": "375",
+        "width": 375,
+        "height": 812
+      },
+      {
+        "name": "768",
+        "width": 768,
+        "height": 1024
+      },
+      {
+        "name": "1440",
+        "width": 1440,
+        "height": 900
+      }
+    ],
+    "components": [
+      {
+        "id": "site-header",
+        "source": "nav[class*=\"globalNavigation-module\"]",
+        "target": ".site-header"
+      },
+      {
+        "id": "hero",
+        "source": "section[class*=\"HeroStories\"], section[class*=\"hero\"]",
+        "target": ".hero"
+      },
+      {
+        "id": "pull-quote",
+        "source": "figure[class*=\"quote-module\"]",
+        "target": ".pull-quote"
+      },
+      {
+        "id": "media-with-caption",
+        "source": "figure[class*=\"mediaWithCaption-module\"]",
+        "target": ".media-with-caption"
+      },
+      {
+        "id": "cta-band",
+        "source": "section:has(> div[class*=\"flex-col\"][class*=\"items-center\"])",
+        "target": ".cta-band"
+      },
+      {
+        "id": "case-study-grid",
+        "source": "div[class*=\"relatedCaseStudies\"]",
+        "target": ".case-study-grid"
+      },
+      {
+        "id": "site-footer",
+        "source": "footer[class*=\"surface\"]",
+        "target": ".site-footer"
+      }
+    ]
+  },
+  "breakpoints": {
+    "375": {
+      "sourceUrl": "https://www.notion.com/customers/cursor",
+      "targetUrl": "http://localhost:4504/content/demo-ai-site/us/en/customers/cursor.html?wcmmode=disabled",
+      "components": {
+        "site-header": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 64
+            },
+            "pixels": {
+              "width": 375,
+              "height": 64
+            },
+            "text": "Get Notion free",
+            "file": "evidence/375/source/site-header.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 64
+            },
+            "pixels": {
+              "width": 375,
+              "height": 64
+            },
+            "text": "N Get Notion free",
+            "file": "evidence/375/target/site-header.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 21895,
+            "differingPixels": 2105,
+            "totalPixels": 24000,
+            "visualMatchRatio": 0.9122916666666666,
+            "visualMatchPercent": 91.229,
+            "mask": "evidence/375/site-header-mask.png"
+          }
+        },
+        "hero": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 64,
+              "width": 375,
+              "height": 737
+            },
+            "pixels": {
+              "width": 375,
+              "height": 737
+            },
+            "text": "× How the world's fastest-growing startup stays fast with Notion",
+            "file": "evidence/375/source/hero.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 25,
+              "width": 375,
+              "height": 737
+            },
+            "pixels": {
+              "width": 375,
+              "height": 737
+            },
+            "text": "N Notion × How the world's fastest-growing startup stays fast with Notion ▶",
+            "file": "evidence/375/target/hero.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 248941,
+            "differingPixels": 27434,
+            "totalPixels": 276375,
+            "visualMatchRatio": 0.9007363184079602,
+            "visualMatchPercent": 90.074,
+            "mask": "evidence/375/hero-mask.png"
+          }
+        },
+        "pull-quote": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 28.796875,
+              "y": 299.71875,
+              "width": 317.40625,
+              "height": 292
+            },
+            "pixels": {
+              "width": 319,
+              "height": 293
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/375/source/pull-quote.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 28.125,
+              "y": 260,
+              "width": 318.75,
+              "height": 292
+            },
+            "pixels": {
+              "width": 319,
+              "height": 292
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/375/target/pull-quote.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 319,
+              "height": 293
+            },
+            "targetPixels": {
+              "width": 319,
+              "height": 292
+            }
+          }
+        },
+        "media-with-caption": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 28.796875,
+              "y": 279.53125,
+              "width": 317.40625,
+              "height": 333.5
+            },
+            "pixels": {
+              "width": 319,
+              "height": 335
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/375/source/media-with-caption.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 28.125,
+              "y": 239,
+              "width": 318.75,
+              "height": 334
+            },
+            "pixels": {
+              "width": 319,
+              "height": 334
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/375/target/media-with-caption.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 319,
+              "height": 335
+            },
+            "targetPixels": {
+              "width": 319,
+              "height": 334
+            }
+          }
+        },
+        "cta-band": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 242.84375,
+              "width": 375,
+              "height": 406
+            },
+            "pixels": {
+              "width": 375,
+              "height": 407
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/375/source/cta-band.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 203,
+              "width": 375,
+              "height": 406
+            },
+            "pixels": {
+              "width": 375,
+              "height": 406
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/375/target/cta-band.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 375,
+              "height": 407
+            },
+            "targetPixels": {
+              "width": 375,
+              "height": 406
+            }
+          }
+        },
+        "case-study-grid": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 79.96875,
+              "width": 375,
+              "height": 1186.25
+            },
+            "pixels": {
+              "width": 375,
+              "height": 1188
+            },
+            "text": "How other teams use Notion Customer story Remote Built a World-Class IT Help Desk with Orchestrated Notion Custom Agents Customer story How Crafty uses Notion t",
+            "file": "evidence/375/source/case-study-grid.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 1187
+            },
+            "pixels": {
+              "width": 375,
+              "height": 1187
+            },
+            "text": "How other teams use Notion CUSTOMER STORY How Little Plains runs a modern agency on Notion CUSTOMER STORY Ramp runs on Notion: How they built an AI operating sy",
+            "file": "evidence/375/target/case-study-grid.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 375,
+              "height": 1188
+            },
+            "targetPixels": {
+              "width": 375,
+              "height": 1187
+            }
+          }
+        },
+        "site-footer": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 103.21875,
+              "width": 375,
+              "height": 709
+            },
+            "pixels": {
+              "width": 375,
+              "height": 710
+            },
+            "text": "Product Features What's New Notion AI Pricing Request a demo Download Resources Customer stories Connections Marketplace Help Center Academy Community Company A",
+            "file": "evidence/375/source/site-footer.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 95,
+              "width": 375,
+              "height": 709
+            },
+            "pixels": {
+              "width": 375,
+              "height": 709
+            },
+            "text": "N Notion Product Features What's New Notion AI Pricing Request a demo Download Explore more → Resources Customer stories Connections Marketplace Help Center Aca",
+            "file": "evidence/375/target/site-footer.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 375,
+              "height": 710
+            },
+            "targetPixels": {
+              "width": 375,
+              "height": 709
+            }
+          }
+        }
+      }
+    },
+    "768": {
+      "sourceUrl": "https://www.notion.com/customers/cursor",
+      "targetUrl": "http://localhost:4504/content/demo-ai-site/us/en/customers/cursor.html?wcmmode=disabled",
+      "components": {
+        "site-header": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 64
+            },
+            "pixels": {
+              "width": 768,
+              "height": 64
+            },
+            "text": "Get Notion free",
+            "file": "evidence/768/source/site-header.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 64
+            },
+            "pixels": {
+              "width": 768,
+              "height": 64
+            },
+            "text": "N Get Notion free",
+            "file": "evidence/768/target/site-header.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 47047,
+            "differingPixels": 2105,
+            "totalPixels": 49152,
+            "visualMatchRatio": 0.9571736653645834,
+            "visualMatchPercent": 95.717,
+            "mask": "evidence/768/site-header-mask.png"
+          }
+        },
+        "hero": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 64,
+              "width": 768,
+              "height": 1034
+            },
+            "pixels": {
+              "width": 768,
+              "height": 1034
+            },
+            "text": "× How the world's fastest-growing startup stays fast with Notion",
+            "file": "evidence/768/source/hero.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1034
+            },
+            "pixels": {
+              "width": 768,
+              "height": 1034
+            },
+            "text": "N Notion × How the world's fastest-growing startup stays fast with Notion ▶",
+            "file": "evidence/768/target/hero.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 766589,
+            "differingPixels": 27523,
+            "totalPixels": 794112,
+            "visualMatchRatio": 0.9653411609445519,
+            "visualMatchPercent": 96.534,
+            "mask": "evidence/768/hero-mask.png"
+          }
+        },
+        "pull-quote": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 57.59375,
+              "y": 439.71875,
+              "width": 652.8125,
+              "height": 224
+            },
+            "pixels": {
+              "width": 654,
+              "height": 225
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/768/source/pull-quote.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 57.59375,
+              "y": 400,
+              "width": 652.796875,
+              "height": 224
+            },
+            "pixels": {
+              "width": 654,
+              "height": 224
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/768/target/pull-quote.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 654,
+              "height": 225
+            },
+            "targetPixels": {
+              "width": 654,
+              "height": 224
+            }
+          }
+        },
+        "media-with-caption": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 57.59375,
+              "y": 430.53125,
+              "width": 652.8125,
+              "height": 243.5
+            },
+            "pixels": {
+              "width": 654,
+              "height": 245
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/768/source/media-with-caption.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 57.59375,
+              "y": 390,
+              "width": 652.796875,
+              "height": 244
+            },
+            "pixels": {
+              "width": 654,
+              "height": 244
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/768/target/media-with-caption.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 654,
+              "height": 245
+            },
+            "targetPixels": {
+              "width": 654,
+              "height": 244
+            }
+          }
+        },
+        "cta-band": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 400.59375,
+              "width": 768,
+              "height": 302
+            },
+            "pixels": {
+              "width": 768,
+              "height": 303
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/768/source/cta-band.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 361,
+              "width": 768,
+              "height": 302.5
+            },
+            "pixels": {
+              "width": 768,
+              "height": 303
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/768/target/cta-band.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 219169,
+            "differingPixels": 13535,
+            "totalPixels": 232704,
+            "visualMatchRatio": 0.9418359804730473,
+            "visualMatchPercent": 94.184,
+            "mask": "evidence/768/cta-band-mask.png"
+          }
+        },
+        "case-study-grid": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 79.59375,
+              "width": 768,
+              "height": 1377.5
+            },
+            "pixels": {
+              "width": 768,
+              "height": 1379
+            },
+            "text": "How other teams use Notion Customer story How Pennylane is turning Custom Agents into everyday AI teammates Customer story How Crafty uses Notion to make AI age",
+            "file": "evidence/768/source/case-study-grid.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": -0.5,
+              "width": 768,
+              "height": 1406
+            },
+            "pixels": {
+              "width": 768,
+              "height": 1407
+            },
+            "text": "How other teams use Notion CUSTOMER STORY How Little Plains runs a modern agency on Notion CUSTOMER STORY Ramp runs on Notion: How they built an AI operating sy",
+            "file": "evidence/768/target/case-study-grid.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 768,
+              "height": 1379
+            },
+            "targetPixels": {
+              "width": 768,
+              "height": 1407
+            }
+          }
+        },
+        "site-footer": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 315.09375,
+              "width": 768,
+              "height": 709
+            },
+            "pixels": {
+              "width": 768,
+              "height": 710
+            },
+            "text": "Product Features What's New Notion AI Pricing Request a demo Download Resources Customer stories Connections Marketplace Help Center Academy Community Company A",
+            "file": "evidence/768/source/site-footer.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 306.5,
+              "width": 768,
+              "height": 709
+            },
+            "pixels": {
+              "width": 768,
+              "height": 710
+            },
+            "text": "N Notion Product Features What's New Notion AI Pricing Request a demo Download Explore more → Resources Customer stories Connections Marketplace Help Center Aca",
+            "file": "evidence/768/target/site-footer.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 524454,
+            "differingPixels": 20826,
+            "totalPixels": 545280,
+            "visualMatchRatio": 0.961806778169014,
+            "visualMatchPercent": 96.181,
+            "mask": "evidence/768/site-footer-mask.png"
+          }
+        }
+      }
+    },
+    "1440": {
+      "sourceUrl": "https://www.notion.com/customers/cursor",
+      "targetUrl": "http://localhost:4504/content/demo-ai-site/us/en/customers/cursor.html?wcmmode=disabled",
+      "components": {
+        "site-header": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 64
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 64
+            },
+            "text": "Product AI Resources Developers Startups Enterprise Pricing Request a demo Log in Get Notion free",
+            "file": "evidence/1440/source/site-header.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 64
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 64
+            },
+            "text": "N Product⌄ AI⌄ Resources⌄ Pricing Get Notion free",
+            "file": "evidence/1440/target/site-header.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 86702,
+            "differingPixels": 5458,
+            "totalPixels": 92160,
+            "visualMatchRatio": 0.9407769097222223,
+            "visualMatchPercent": 94.078,
+            "mask": "evidence/1440/site-header-mask.png"
+          }
+        },
+        "hero": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 64,
+              "width": 1440,
+              "height": 576
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 576
+            },
+            "text": "× How the world's fastest-growing startup stays fast with Notion",
+            "file": "evidence/1440/source/hero.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 25,
+              "width": 1440,
+              "height": 576
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 576
+            },
+            "text": "N Notion × How the world's fastest-growing startup stays fast with Notion ▶",
+            "file": "evidence/1440/target/hero.png"
+          },
+          "comparison": {
+            "status": "PASS",
+            "matchedPixels": 776598,
+            "differingPixels": 52842,
+            "totalPixels": 829440,
+            "visualMatchRatio": 0.9362919560185186,
+            "visualMatchPercent": 93.629,
+            "mask": "evidence/1440/hero-mask.png"
+          }
+        },
+        "pull-quote": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 185.59375,
+              "y": 365.71875,
+              "width": 1068.8125,
+              "height": 248
+            },
+            "pixels": {
+              "width": 1070,
+              "height": 249
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/1440/source/pull-quote.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 185.59375,
+              "y": 326,
+              "width": 1068.796875,
+              "height": 248
+            },
+            "pixels": {
+              "width": 1070,
+              "height": 248
+            },
+            "text": "I honestly can't imagine running a design team without Notion. It's our everything-but-code layer—we use it for project planning, design specs, research, to-dos",
+            "file": "evidence/1440/target/pull-quote.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 1070,
+              "height": 249
+            },
+            "targetPixels": {
+              "width": 1070,
+              "height": 248
+            }
+          }
+        },
+        "media-with-caption": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 105.59375,
+              "y": 368.53125,
+              "width": 1228.8125,
+              "height": 243.5
+            },
+            "pixels": {
+              "width": 1230,
+              "height": 245
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/1440/source/media-with-caption.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 105.59375,
+              "y": 328,
+              "width": 1228.796875,
+              "height": 244
+            },
+            "pixels": {
+              "width": 1230,
+              "height": 244
+            },
+            "text": "With Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + co",
+            "file": "evidence/1440/target/media-with-caption.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 1230,
+              "height": 245
+            },
+            "targetPixels": {
+              "width": 1230,
+              "height": 244
+            }
+          }
+        },
+        "cta-band": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 264.84375,
+              "width": 1440,
+              "height": 450
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 451
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/1440/source/cta-band.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 225,
+              "width": 1440,
+              "height": 450
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 450
+            },
+            "text": "Build with less tool sprawl and more focus See how Notion keeps companies nimble at any size—book your personalized demo below to learn more Request a demo",
+            "file": "evidence/1440/target/cta-band.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 1440,
+              "height": 451
+            },
+            "targetPixels": {
+              "width": 1440,
+              "height": 450
+            }
+          }
+        },
+        "case-study-grid": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 242.84375,
+              "width": 1440,
+              "height": 656.75
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 658
+            },
+            "text": "How other teams use Notion Customer story How Pennylane is turning Custom Agents into everyday AI teammates Customer story How Crafty uses Notion to make AI age",
+            "file": "evidence/1440/source/case-study-grid.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 243,
+              "width": 1440,
+              "height": 657
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 657
+            },
+            "text": "How other teams use Notion CUSTOMER STORY How Little Plains runs a modern agency on Notion CUSTOMER STORY Ramp runs on Notion: How they built an AI operating sy",
+            "file": "evidence/1440/target/case-study-grid.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 1440,
+              "height": 658
+            },
+            "targetPixels": {
+              "width": 1440,
+              "height": 657
+            }
+          }
+        },
+        "site-footer": {
+          "source": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 503.59375,
+              "width": 1440,
+              "height": 396
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 397
+            },
+            "text": "We shape our tools, and thereafter our tools shape us. Marshall McLuhan Product Features What's New Notion AI Pricing Request a demo Download Explore more→ Reso",
+            "file": "evidence/1440/source/site-footer.png"
+          },
+          "target": {
+            "status": "PASS",
+            "box": {
+              "x": 0,
+              "y": 496,
+              "width": 1440,
+              "height": 396
+            },
+            "pixels": {
+              "width": 1440,
+              "height": 396
+            },
+            "text": "N Notion We shape our tools, and thereafter our tools shape us. Marshall McLuhan Product Features What's New Notion AI Pricing Request a demo Download Explore m",
+            "file": "evidence/1440/target/site-footer.png"
+          },
+          "comparison": {
+            "status": "SCORE_WITHHELD",
+            "reason": "crop dimensions differ",
+            "sourcePixels": {
+              "width": 1440,
+              "height": 397
+            },
+            "targetPixels": {
+              "width": 1440,
+              "height": 396
+            }
+          }
+        }
+      }
+    }
+  }
+}
