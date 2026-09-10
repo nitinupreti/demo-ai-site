@@ -3,8 +3,8 @@
 <section class="hero" data-cmp-is="hero" data-sly-test="${hasContent}">
     <div class="hero__inner">
         <div class="hero__content">
-            <div class="hero__brand-lockup" data-sly-test="${hero.brandLogoPath}">
-                <span class="hero__notion-brand"><span class="hero__notion-mark" aria-hidden="true">N</span> Notion</span>
+            <div class="hero__brand-lockup" data-sly-test="${hero.notionLogoPath && hero.brandLogoPath}">
+                <img class="hero__notion-logo" src="${hero.notionLogoPath @ context='uri'}" alt="${hero.notionLogoAlt}"/>
                 <span class="hero__brand-separator" aria-hidden="true">×</span>
                 <img class="hero__brand-logo" src="${hero.brandLogoPath @ context='uri'}" alt="${hero.brandLogoAlt}"/>
             </div>

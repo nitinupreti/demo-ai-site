@@ -29,6 +29,8 @@ class HeroTest {
                 "headline", "Headline",
                 "mediaPath", "/content/dam/hero.jpg",
                 "mediaAlt", "Portrait",
+                "notionLogoPath", "/content/dam/notion.svg",
+                "notionLogoAlt", "Notion",
                 "brandLogoPath", "/content/dam/logo.svg",
                 "brandLogoAlt", "Partner",
                 "videoEmbedUrl", "https://www.youtube-nocookie.com/embed/example",
@@ -39,6 +41,8 @@ class HeroTest {
         assertNotNull(hero);
         assertEquals("Headline", hero.getHeadline());
         assertEquals("Portrait", hero.getMediaAlt());
+        assertEquals("/content/dam/notion.svg", hero.getNotionLogoPath());
+        assertEquals("Notion", hero.getNotionLogoAlt());
         assertEquals("/content/dam/logo.svg", hero.getBrandLogoPath());
         assertEquals("Partner", hero.getBrandLogoAlt());
         assertEquals("Customer video", hero.getVideoTitle());
@@ -52,6 +56,7 @@ class HeroTest {
 
         assertNotNull(hero);
         assertEquals("", hero.getMediaAlt());
+        assertEquals("", hero.getNotionLogoAlt());
         assertEquals("", hero.getBrandLogoAlt());
         assertFalse(hero.isHasVideo());
         assertFalse(hero.isHasContent());

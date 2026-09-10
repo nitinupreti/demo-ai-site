@@ -16,5 +16,6 @@
     <filter root="/content/dam/demo-ai-site/design/ramp-story.png" mode="merge"/>
     <filter root="/content/dam/demo-ai-site/design/notion-mark.svg" mode="merge"/>
     <filter root="/content/dam/demo-ai-site/design/notion-wordmark.svg" mode="merge"/>
+    <filter root="/content/dam/demo-ai-site/design/notion-hero-logo.svg" mode="merge"/>
     <filter root="/content/experience-fragments/demo-ai-site" mode="merge"/>
 </workspaceFilter>

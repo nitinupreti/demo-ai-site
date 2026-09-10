@@ -74,6 +74,17 @@
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
                                                 fieldLabel="Media alt text"
                                                 name="./mediaAlt"/>
+                                            <notionLogoPath
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Notion logo"
+                                                name="./notionLogoPath"
+                                                rootPath="/content/dam"/>
+                                            <notionLogoAlt
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                                fieldLabel="Notion logo alt text"
+                                                name="./notionLogoAlt"/>
                                             <brandLogoPath
                                                 jcr:primaryType="nt:unstructured"
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"

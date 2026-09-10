@@ -24,6 +24,8 @@
                         headline="How the world's fastest-growing startup stays fast with Notion"
                         mediaPath="/content/dam/demo-ai-site/design/cursor-hero.jpg"
                         mediaAlt="Michael Truell, co-founder and CEO of Cursor"
+                        notionLogoPath="/content/dam/demo-ai-site/design/notion-hero-logo.svg"
+                        notionLogoAlt="Notion"
                         brandLogoPath="/content/dam/demo-ai-site/design/cursor-logo.svg"
                         brandLogoAlt="Cursor"
                         videoEmbedUrl="https://www.youtube-nocookie.com/embed/txuTNgghan0?autoplay=1&amp;playsinline=1&amp;controls=1&amp;rel=0"

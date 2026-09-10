@@ -39,6 +39,12 @@ public class Hero {
     private String mediaAlt;
 
     @ValueMapValue
+    private String notionLogoPath;
+
+    @ValueMapValue
+    private String notionLogoAlt;
+
+    @ValueMapValue
     private String brandLogoPath;
 
     @ValueMapValue
@@ -67,6 +73,10 @@ public class Hero {
     public String getMediaPath() { return mediaPath; }
 
     public String getMediaAlt() { return mediaAlt == null ? "" : mediaAlt; }
+
+    public String getNotionLogoPath() { return notionLogoPath; }
+
+    public String getNotionLogoAlt() { return notionLogoAlt == null ? "" : notionLogoAlt; }
 
     public String getBrandLogoPath() { return brandLogoPath; }
 
