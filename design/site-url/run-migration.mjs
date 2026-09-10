@@ -5,13 +5,13 @@ import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
 import readlinePromises from 'node:readline/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
 const canonicalPromptPath = path.join(here, 'prompt_new.md');
 const defaultAemPort = 4502;
-const launcherVersion = '1.3.0';
+const launcherVersion = '1.6.0';
 const stageIds = [
   '01-source-discovery',
   '02-component-authoring',
@@ -45,8 +45,11 @@ Options:
       --aem-port <port>        Local AEM port; blank uses ${defaultAemPort}
       --breakpoints <list>     Comma-separated widths (default: 375,768,1440)
       --evidence-dir <path>    Override the generated evidence directory
-      --model <model>          Copilot model or auto (default: auto)
-      --effort <level>         Optional effort for an explicitly selected model
+      --model <model>          Model ID; prompted from account models when omitted
+      --effort <level>         Thinking effort: high or xhigh, when supported
+      --list-models            List models available to the authenticated account
+      --login                  Open GitHub browser login before model discovery
+      --no-login               Reuse existing credentials; fail if unauthenticated
       --max-ai-credits <n>     Optional Copilot credit cap (minimum: 30)
       --max-continues <n>      Autopilot continuation limit (default: 20)
       --no-open                Do not open the final AEM page
@@ -70,8 +73,8 @@ function parseArgs(argv) {
     aemPort: defaultAemPort,
     aemPortProvided: false,
     breakpoints: [375, 768, 1440],
-    model: 'auto',
     maxContinues: 20,
+    loginMode: 'auto',
     openResult: true,
     dryRun: false,
     agentSmokeTest: false,
@@ -117,8 +120,17 @@ function parseArgs(argv) {
         index += 1;
         break;
       case '--effort':
-        options.effort = readValue(argv, index, argument);
+        options.effort = readValue(argv, index, argument).toLowerCase();
         index += 1;
+        break;
+      case '--list-models':
+        options.listModels = true;
+        break;
+      case '--login':
+        options.loginMode = 'force';
+        break;
+      case '--no-login':
+        options.loginMode = 'existing';
         break;
       case '--max-ai-credits':
         options.maxAiCredits = readValue(argv, index, argument);
@@ -155,11 +167,8 @@ function parseArgs(argv) {
   if (!options.breakpoints.length || options.breakpoints.some((width) => !Number.isInteger(width) || width < 240)) {
     throw new Error('--breakpoints must contain comma-separated integer widths of at least 240.');
   }
-  if (options.effort && !['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(options.effort)) {
-    throw new Error('--effort must be none, minimal, low, medium, high, xhigh, or max.');
-  }
-  if (options.effort && options.model === 'auto') {
-    throw new Error('--effort requires an explicit --model because Copilot auto routing selects its own effort.');
+  if (options.effort && !['high', 'xhigh'].includes(options.effort)) {
+    throw new Error('--effort must be high or xhigh.');
   }
   if (options.maxAiCredits !== undefined
       && (!Number.isInteger(Number(options.maxAiCredits)) || Number(options.maxAiCredits) < 30)) {
@@ -309,6 +318,175 @@ function findCopilot() {
   throw new Error('GitHub Copilot CLI was not found. Run `npm install -g @github/copilot` and `copilot login`, then retry.');
 }
 
+function findCopilotSdk(copilot) {
+  const candidates = [];
+  if (process.env.COPILOT_SDK_PATH) candidates.push(process.env.COPILOT_SDK_PATH);
+  if (path.isAbsolute(copilot.executable)) {
+    candidates.push(path.join(path.dirname(copilot.executable), 'copilot-sdk', 'index.js'));
+  }
+  if (process.platform === 'win32' && process.env.APPDATA) {
+    const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
+    candidates.push(path.join(
+      process.env.APPDATA,
+      'npm',
+      'node_modules',
+      '@github',
+      'copilot',
+      'node_modules',
+      '@github',
+      `copilot-win32-${architecture}`,
+      'copilot-sdk',
+      'index.js',
+    ));
+  }
+  const sdkPath = [...new Set(candidates)].find((candidate) => fs.existsSync(candidate));
+  if (!sdkPath) {
+    throw new Error('Copilot SDK was not found beside the installed CLI. Reinstall `@github/copilot` or set COPILOT_SDK_PATH.');
+  }
+  return sdkPath;
+}
+
+async function listAvailableModels(copilot) {
+  const sdkPath = findCopilotSdk(copilot);
+  const { CopilotClient } = await import(pathToFileURL(sdkPath).href);
+  const client = new CopilotClient();
+  try {
+    await client.start();
+    const auth = await client.getAuthStatus();
+    if (!auth.isAuthenticated) {
+      throw new Error('GitHub Copilot CLI is not authenticated. Run `copilot login`, then retry.');
+    }
+    const models = await client.listModels();
+    return models.filter((model) => model.policy?.state !== 'disabled');
+  } finally {
+    await client.stop();
+  }
+}
+
+async function getCopilotAuthStatus(copilot) {
+  const sdkPath = findCopilotSdk(copilot);
+  const { CopilotClient } = await import(pathToFileURL(sdkPath).href);
+  const client = new CopilotClient();
+  try {
+    await client.start();
+    return await client.getAuthStatus();
+  } finally {
+    await client.stop();
+  }
+}
+
+async function ensureCopilotAuthenticated(copilot, loginMode) {
+  let auth = await getCopilotAuthStatus(copilot);
+  if (loginMode === 'force' || !auth.isAuthenticated) {
+    if (loginMode === 'existing') {
+      throw new Error('GitHub Copilot CLI is not authenticated. Rerun without --no-login or run `copilot login --web-flow`.');
+    }
+    console.log(color.cyan('\nOpening GitHub sign-in in your browser...'));
+    const login = spawnSync(copilot.executable, ['login', '--web-flow'], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      shell: false,
+    });
+    if (login.error || login.status !== 0) {
+      throw new Error(`GitHub Copilot browser login failed${login.error ? `: ${login.error.message}` : ` with exit code ${login.status}`}.`);
+    }
+    auth = await getCopilotAuthStatus(copilot);
+  }
+  if (!auth.isAuthenticated) {
+    throw new Error('GitHub Copilot authentication did not complete. Run `copilot login --web-flow`, then retry.');
+  }
+  console.log(color.green(`  GitHub authenticated${auth.login ? ` as ${auth.login}` : ''}.`));
+  return auth;
+}
+
+function preferredModelIndex(models) {
+  const opusCandidates = models
+    .map((model, index) => ({ model, index }))
+    .filter(({ model }) => /opus/i.test(`${model.name} ${model.id}`))
+    .sort((left, right) => right.model.name.localeCompare(left.model.name, undefined, { numeric: true }));
+  if (opusCandidates.length) return opusCandidates[0].index;
+  const autoIndex = models.findIndex((model) => model.id === 'auto');
+  return autoIndex >= 0 ? autoIndex : 0;
+}
+
+function modelEfforts(model) {
+  if (!model.capabilities?.supports?.reasoningEffort) return [];
+  return (model.supportedReasoningEfforts || []).filter((effort) => ['high', 'xhigh'].includes(effort));
+}
+
+function printModels(models) {
+  console.log(color.cyan('\nModels available to the authenticated GitHub account:'));
+  models.forEach((model, index) => {
+    const efforts = modelEfforts(model);
+    const effortLabel = efforts.length ? `; effort: ${efforts.join('/')}` : '; effort: managed by model';
+    const multiplier = model.billing?.multiplier === undefined ? '' : `; billing: ${model.billing.multiplier}x`;
+    console.log(`  ${index + 1}. ${model.name} (${model.id})${effortLabel}${multiplier}`);
+  });
+}
+
+async function selectModelAndEffort(options, models) {
+  if (!models.length) {
+    throw new Error('The authenticated GitHub account returned no enabled Copilot models.');
+  }
+  printModels(models);
+
+  let selected;
+  if (options.model) {
+    const requested = options.model.toLowerCase();
+    selected = models.find((model) => model.id.toLowerCase() === requested || model.name.toLowerCase() === requested);
+    if (!selected) {
+      throw new Error(`Model "${options.model}" is not available to this account. Use --list-models to inspect available IDs.`);
+    }
+  } else if (process.stdin.isTTY) {
+    const defaultIndex = preferredModelIndex(models);
+    const terminal = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const answer = ((await terminal.question(`Select model [${defaultIndex + 1}]: `)) || '').trim();
+      const selectedIndex = answer ? Number.parseInt(answer, 10) - 1 : defaultIndex;
+      if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= models.length) {
+        throw new Error(`Model selection must be a number between 1 and ${models.length}.`);
+      }
+      selected = models[selectedIndex];
+    } finally {
+      terminal.close();
+    }
+  } else {
+    selected = models[preferredModelIndex(models)];
+  }
+
+  options.model = selected.id;
+  const efforts = modelEfforts(selected);
+  if (!efforts.length) {
+    if (options.effort) {
+      throw new Error(`Model "${selected.name}" does not support configurable high/xhigh effort.`);
+    }
+    options.effort = undefined;
+    console.log(color.dim(`  Selected ${selected.name}; reasoning effort is managed by the model.`));
+    return;
+  }
+
+  if (options.effort) {
+    if (!efforts.includes(options.effort)) {
+      throw new Error(`Model "${selected.name}" supports effort ${efforts.join('/')}, not ${options.effort}.`);
+    }
+  } else if (process.stdin.isTTY) {
+    const defaultEffort = efforts.includes('high') ? 'high' : efforts[0];
+    const terminal = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      const answer = ((await terminal.question(`Thinking effort [${defaultEffort}] (${efforts.join('/')}): `)) || '').trim().toLowerCase();
+      options.effort = answer || defaultEffort;
+    } finally {
+      terminal.close();
+    }
+    if (!efforts.includes(options.effort)) {
+      throw new Error(`Thinking effort must be ${efforts.join(' or ')} for ${selected.name}.`);
+    }
+  } else {
+    options.effort = efforts.includes('high') ? 'high' : efforts[0];
+  }
+  console.log(color.green(`  Selected ${selected.name} with ${options.effort} effort.`));
+}
+
 function writeJson(filePath, value) {
   const temporaryPath = `${filePath}.tmp`;
   fs.writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -331,6 +509,8 @@ function createRuntimePrompt(options, runId, evidenceDir, statePath) {
     `BREAKPOINTS: [${options.breakpoints.join(', ')}]`,
     `AEM_HOST: ${JSON.stringify(options.aemHost)}`,
     `AEM_PORT: ${options.aemPort}`,
+    `MODEL: ${JSON.stringify(options.model)}`,
+    `THINKING_EFFORT: ${options.effort ? JSON.stringify(options.effort) : 'null'}`,
     `RUN_ID: ${JSON.stringify(runId)}`,
     `EVIDENCE_DIR: ${JSON.stringify(relativeToRepo(evidenceDir))}`,
     `RUN_STATE: ${JSON.stringify(relativeToRepo(statePath))}`,
@@ -550,6 +730,13 @@ async function main() {
     return;
   }
 
+  const copilot = findCopilot();
+  await ensureCopilotAuthenticated(copilot, options.loginMode);
+  if (options.listModels) {
+    printModels(await listAvailableModels(copilot));
+    return;
+  }
+
   console.log(color.cyan('\nAEM URL Migration Launcher'));
   console.log(color.dim(`Repository: ${repoRoot}`));
   await promptForInputs(options);
@@ -568,8 +755,9 @@ async function main() {
   const aemProbe = await probeUrl(`${aemBaseUrl}/libs/granite/core/content/login.html`, 'AEM author');
   console.log(color.green(`  AEM reachable: HTTP ${aemProbe.status}`));
 
-  const copilot = findCopilot();
   console.log(color.green(`  Agent available: ${copilot.version}`));
+  const models = await listAvailableModels(copilot);
+  await selectModelAndEffort(options, models);
 
   const runId = crypto.randomUUID();
   const evidenceDir = options.evidenceDir
@@ -596,6 +784,8 @@ async function main() {
       BREAKPOINTS: options.breakpoints,
       AEM_HOST: options.aemHost,
       AEM_PORT: options.aemPort,
+      MODEL: options.model,
+      THINKING_EFFORT: options.effort || null,
       EVIDENCE_DIR: relativeToRepo(evidenceDir),
     },
     stages: stageIds.map((stage) => ({ stage, status: 'PENDING' })),

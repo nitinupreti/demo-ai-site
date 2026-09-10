@@ -14,15 +14,36 @@ if errorlevel 1 (
 set "HAS_URL=0"
 set "HAS_AEM_PORT=0"
 set "SHOW_HELP=0"
+set "LIST_MODELS=0"
+set "HAS_LOGIN_MODE=0"
+set "LOGIN_ARG="
 for %%A in (%*) do (
   if /i "%%~A"=="--url" set "HAS_URL=1"
   if /i "%%~A"=="-u" set "HAS_URL=1"
   if /i "%%~A"=="--aem-port" set "HAS_AEM_PORT=1"
   if /i "%%~A"=="--help" set "SHOW_HELP=1"
   if /i "%%~A"=="-h" set "SHOW_HELP=1"
+  if /i "%%~A"=="--list-models" set "LIST_MODELS=1"
+  if /i "%%~A"=="--login" set "HAS_LOGIN_MODE=1"
+  if /i "%%~A"=="--no-login" set "HAS_LOGIN_MODE=1"
 )
 
 if "!SHOW_HELP!"=="1" goto :run_existing
+
+if "!HAS_LOGIN_MODE!"=="0" (
+  set "LOGIN_CHOICE="
+  set /p "LOGIN_CHOICE=Open GitHub login in browser? [Y/n]: "
+  set "RAW_LOGIN_CHOICE=!LOGIN_CHOICE!"
+  set "LOGIN_CHOICE="
+  for /f "tokens=* delims= " %%A in ("!RAW_LOGIN_CHOICE!") do set "LOGIN_CHOICE=%%A"
+  if /i "!LOGIN_CHOICE!"=="n" (
+    set "LOGIN_ARG=--no-login"
+  ) else (
+    set "LOGIN_ARG=--login"
+  )
+)
+
+if "!LIST_MODELS!"=="1" goto :run_existing
 if "!HAS_URL!"=="1" if "!HAS_AEM_PORT!"=="1" goto :run_existing
 
 for /f "tokens=1,* delims==" %%A in ('node "%~dp0run-migration.mjs" --print-defaults') do (
@@ -63,19 +84,19 @@ if "!HAS_URL!"=="0" goto :run_url
 if "!HAS_AEM_PORT!"=="0" goto :run_port
 
 :run_existing
-node "%~dp0run-migration.mjs" %*
+node "%~dp0run-migration.mjs" !LOGIN_ARG! %*
 goto :after_run
 
 :run_both
-node "%~dp0run-migration.mjs" --url "!SITE_URL!" --aem-port "!AEM_PORT!" %*
+node "%~dp0run-migration.mjs" --url "!SITE_URL!" --aem-port "!AEM_PORT!" !LOGIN_ARG! %*
 goto :after_run
 
 :run_url
-node "%~dp0run-migration.mjs" --url "!SITE_URL!" %*
+node "%~dp0run-migration.mjs" --url "!SITE_URL!" !LOGIN_ARG! %*
 goto :after_run
 
 :run_port
-node "%~dp0run-migration.mjs" --aem-port "!AEM_PORT!" %*
+node "%~dp0run-migration.mjs" --aem-port "!AEM_PORT!" !LOGIN_ARG! %*
 
 :after_run
 set "EXIT_CODE=%ERRORLEVEL%"
