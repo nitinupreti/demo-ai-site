@@ -21,6 +21,9 @@ public class SiteHeader {
     private String logoText;
 
     @ValueMapValue
+    private String logoPath;
+
+    @ValueMapValue
     private String logoHref;
 
     @ValueMapValue
@@ -43,6 +46,10 @@ public class SiteHeader {
 
     public String getLogoText() {
         return logoText;
+    }
+
+    public String getLogoPath() {
+        return logoPath;
     }
 
     public String getLogoHref() {
@@ -90,12 +97,19 @@ public class SiteHeader {
         @ValueMapValue
         private String href;
 
+        @ValueMapValue
+        private boolean showCaret;
+
         public String getLabel() {
             return label;
         }
 
         public String getHref() {
             return href;
+        }
+
+        public boolean isShowCaret() {
+            return showCaret;
         }
 
         public boolean hasContent() {

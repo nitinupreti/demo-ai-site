@@ -32,6 +32,12 @@
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
                                                 fieldLabel="Brand accessible label"
                                                 name="./brandLabel"/>
+                                            <logoPath
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Logo asset (DAM)"
+                                                name="./logoPath"
+                                                rootPath="/content/dam"/>
                                             <brandHref
                                                 jcr:primaryType="nt:unstructured"
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/textfield"

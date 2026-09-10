@@ -14,11 +14,6 @@
             <container
                 jcr:primaryType="nt:unstructured"
                 sling:resourceType="demo-ai-site/components/container">
-                <title
-                    jcr:primaryType="nt:unstructured"
-                    sling:resourceType="demo-ai-site/components/title"
-                    jcr:title="Customer story"
-                    type="h2"/>
                 <container
                     jcr:primaryType="nt:unstructured"
                     sling:resourceType="demo-ai-site/components/container"
@@ -33,6 +28,11 @@
                         brandLogoAlt="Cursor"
                         videoEmbedUrl="https://www.youtube-nocookie.com/embed/txuTNgghan0?autoplay=1&amp;playsinline=1&amp;controls=1&amp;rel=0"
                         videoTitle="Inside Cursor's OS: How the world's fastest-growing startup stays fast"/>
+                    <story-meta
+                        jcr:primaryType="nt:unstructured"
+                        sling:resourceType="demo-ai-site/components/text"
+                        textIsRich="true"
+                        text="&lt;div class=&quot;story-meta&quot; role=&quot;group&quot; aria-label=&quot;Customer story details&quot;&gt;&lt;p class=&quot;story-meta__label&quot;&gt;Insights from&lt;/p&gt;&lt;div class=&quot;story-meta__people&quot;&gt;&lt;div class=&quot;story-meta__person&quot;&gt;&lt;img class=&quot;story-meta__avatar&quot; src=&quot;/content/dam/demo-ai-site/design/michael-truell.png&quot; alt=&quot;&quot;&gt;&lt;span class=&quot;story-meta__identity&quot;&gt;&lt;span class=&quot;story-meta__name&quot;&gt;Michael Truell&lt;/span&gt;&lt;span class=&quot;story-meta__role&quot;&gt;Co-founder &amp;amp; CEO&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;story-meta__person&quot;&gt;&lt;img class=&quot;story-meta__avatar&quot; src=&quot;/content/dam/demo-ai-site/design/ryo-lu.png&quot; alt=&quot;&quot;&gt;&lt;span class=&quot;story-meta__identity&quot;&gt;&lt;span class=&quot;story-meta__name&quot;&gt;Ryo Lu&lt;/span&gt;&lt;span class=&quot;story-meta__role&quot;&gt;Head of Design&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;p class=&quot;story-meta__label story-meta__label--use-cases&quot;&gt;Use cases&lt;/p&gt;&lt;p class=&quot;story-meta__use-cases&quot;&gt;Notion AI, Company-wide use&lt;/p&gt;&lt;/div&gt;"/>
                     <intro-text
                         jcr:primaryType="nt:unstructured"
                         sling:resourceType="demo-ai-site/components/text"

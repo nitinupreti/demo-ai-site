@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     z-index: 100;
-    width: 100vw !important;
+    width: 100% !important;
     height: 64px;
     margin: 0 !important;
     box-sizing: border-box;
@@ -21,7 +21,7 @@
     gap: 20px;
     max-width: 1440px;
     margin: 0 auto;
-    padding: 12px 24px;
+    padding: 12px 22px;
     height: 64px;
     box-sizing: border-box;
 }
@@ -29,30 +29,23 @@
 .site-header__brand {
     display: inline-flex;
     align-items: center;
+    width: 33px;
+    height: 34px;
     color: #191918;
     text-decoration: none;
     flex-shrink: 0;
 }
 
-.site-header__mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 27px;
-    height: 28px;
-    border: 2px solid currentColor;
-    border-radius: 2px;
-    font-family: Georgia, serif;
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1;
-    transform: rotate(-2deg);
+.site-header__logo {
+    display: block;
+    width: 33px;
+    height: 34px;
 }
 
 .site-header__nav {
     flex: 1 1 auto;
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
 }
 
 .site-header__nav-list {
@@ -61,19 +54,40 @@
     gap: 0;
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 0 0 0 434.2875px;
 }
 
 .site-header__nav-link {
     display: inline-flex;
     align-items: center;
-    padding: 8px 10px;
+    gap: 8px;
+    height: 30px;
+    padding: 5px 10px;
+    box-sizing: border-box;
     font-size: 14px;
     font-weight: 500;
     color: #37352f;
     text-decoration: none;
     border-radius: 6px;
-    line-height: 1.2;
+    line-height: 20px;
+}
+
+.site-header__nav-label {
+    display: block;
+}
+
+.site-header__caret {
+    display: block;
+    width: 10.4px;
+    height: 10.4px;
+    flex: 0 0 10.4px;
+}
+
+.site-header__caret svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
 }
 
 .site-header__nav-link:hover {
@@ -83,17 +97,23 @@
 .site-header__actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    margin-right: 2px;
     flex-shrink: 0;
 }
 
 .site-header__secondary {
-    font-size: 14px;
-    font-weight: 500;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 5px 10px;
+    box-sizing: border-box;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
     color: #37352f;
     text-decoration: none;
-    padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 .site-header__secondary:hover {
@@ -104,19 +124,36 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 16px;
-    background: #0f0f0f;
+    height: 36px;
+    padding: 4px 14px;
+    box-sizing: border-box;
+    background: #191918;
     color: #ffffff;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     border-radius: 8px;
+    border: 1px solid transparent;
     text-decoration: none;
-    line-height: 1.2;
+    line-height: 24px;
     transition: background 0.15s ease;
+}
+
+header.experiencefragment .site-header__secondary {
+    color: rgba(0, 0, 0, 0.898);
+}
+
+header.experiencefragment .site-header__cta {
+    color: #ffffff;
 }
 
 .site-header__cta:hover {
     background: #333333;
+}
+
+.site-header__action-label {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
 }
 
 .site-header__menu {
@@ -156,31 +193,27 @@
     .site-header__nav-list {
         align-items: stretch;
         flex-direction: column;
+        margin-left: 0;
     }
     .site-header__nav-link {
         display: block;
         padding: 12px;
     }
     .site-header__inner {
-        padding: 8px 16px;
+        padding: 10px 5px 10px 14px;
         gap: 12px;
         height: 64px;
     }
-    .site-header__cta {
-        padding: 8px 16px;
-        font-size: 14px;
-        font-weight: 600;
-    }
+    .site-header__secondary,
+    .site-header__cta { display: none; }
     .site-header__menu {
         display: flex;
+        width: 44px;
+        height: 44px;
+        padding: 13px 11px;
     }
 }
 
 @media (max-width: 480px) {
-    .site-header__secondary {
-        display: none;
-    }
-    .site-header__inner {
-        padding: 8px 16px;
-    }
+    .site-header__inner { padding: 10px 5px 10px 14px; }
 }

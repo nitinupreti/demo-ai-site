@@ -30,9 +30,15 @@
                                             <logoText
                                                 jcr:primaryType="nt:unstructured"
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
-                                                fieldLabel="Brand text"
+                                                fieldLabel="Brand accessible label"
                                                 name="./logoText"
                                                 value="Notion"/>
+                                            <logoPath
+                                                jcr:primaryType="nt:unstructured"
+                                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                                fieldLabel="Logo asset (DAM)"
+                                                name="./logoPath"
+                                                rootPath="/content/dam"/>
                                             <logoHref
                                                 jcr:primaryType="nt:unstructured"
                                                 sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
@@ -89,6 +95,13 @@
                                                             sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
                                                             fieldLabel="URL"
                                                             name="./href"/>
+                                                        <showCaret
+                                                            jcr:primaryType="nt:unstructured"
+                                                            sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                                            text="Show dropdown caret"
+                                                            name="./showCaret"
+                                                            value="{Boolean}true"
+                                                            uncheckedValue="{Boolean}false"/>
                                                     </items>
                                                 </field>
                                             </navItems>

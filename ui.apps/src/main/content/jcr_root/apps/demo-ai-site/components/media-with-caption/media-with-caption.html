@@ -3,7 +3,7 @@
 <figure data-cmp-is="media-with-caption" data-sly-test="${has}">
     <div class="media-with-caption__media">
         <sly data-sly-test="${m.video}">
-            <video class="media-with-caption__video" src="${m.mediaPath @ context='uri'}" poster="${m.posterPath @ context='uri'}" muted playsinline preload="metadata" aria-label="${m.altText}"></video>
+            <video class="media-with-caption__video" src="${m.mediaPath @ context='uri'}" poster="${m.posterPath @ context='uri'}" autoplay loop muted playsinline preload="auto" aria-label="${m.altText}"></video>
         </sly>
         <sly data-sly-test="${!m.video}">
             <img class="media-with-caption__image" src="${m.mediaPath @ context='uri'}" alt="${m.altText}"/>

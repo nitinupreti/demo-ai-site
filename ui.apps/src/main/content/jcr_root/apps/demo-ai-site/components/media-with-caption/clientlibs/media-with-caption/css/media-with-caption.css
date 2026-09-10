@@ -1,10 +1,10 @@
 .media-with-caption {
     float: none !important;
     clear: both !important;
-    width: 85.333333vw !important;
+    width: calc(100% - 211.2px) !important;
     max-width: 1228.8px;
     height: auto;
-    margin: 0 auto !important;
+    margin: 72px auto 0 !important;
     padding: 0;
     box-sizing: border-box;
     background: #ffffff;
@@ -55,5 +55,10 @@
 }
 
 @media (max-width: 900px) {
-    .media-with-caption { width: 85vw !important; }
+    .media-with-caption { width: calc(100% - 15vw) !important; }
+}
+
+@media (max-width: 480px) {
+    .media-with-caption { width: 84% !important; }
+    .media-with-caption__media { border-radius: 6px; }
 }

@@ -1,0 +1,2 @@
+#base=js
+media-with-caption.js

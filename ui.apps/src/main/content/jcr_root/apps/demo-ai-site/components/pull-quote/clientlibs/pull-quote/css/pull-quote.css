@@ -1,15 +1,23 @@
 .pull-quote {
     float: none !important;
     clear: both !important;
-    width: 85vw !important;
-    max-width: 1068.8px;
-    margin: 0 auto !important;
+    width: 90vw !important;
+    max-width: 1280px;
+    margin: 74px auto 0 !important;
     padding: 32px 0;
     box-sizing: border-box;
     text-align: center;
     font-family: "Lyon Text", Georgia, "Times New Roman", serif;
     color: #191918;
     background: #ffffff !important;
+}
+
+.media-with-caption + .pull-quote {
+    margin-top: 32px !important;
+}
+
+.pull-quote + .title + .text + .pull-quote {
+    margin-top: 52px !important;
 }
 
 .pull-quote > figure {
@@ -22,7 +30,7 @@
 
 .pull-quote__text {
     width: 100%;
-    max-width: 960px;
+    max-width: 1068.8px;
     margin: 0 auto;
     padding: 0;
     box-sizing: border-box;
@@ -64,7 +72,7 @@
 }
 
 .pull-quote__name {
-    font-weight: 600;
+    font-weight: 400;
     color: rgba(0, 0, 0, 0.95);
     letter-spacing: 0;
 }
@@ -72,11 +80,20 @@
 .pull-quote__role { font-weight: 400; }
 
 @media (max-width: 900px) {
-    .pull-quote { padding: 16px 0; }
+    .pull-quote { width: calc(100% - 15vw) !important; margin-top: 80px !important; padding: 16px 0; }
     .pull-quote__text { max-width: none; font-size: 26px; line-height: 32px; text-align: left; }
     .pull-quote__caption { justify-content: flex-start; }
+
+    .media-with-caption + .pull-quote {
+        margin-top: 32px !important;
+    }
+
+    .pull-quote + .title + .text + .pull-quote {
+        margin-top: 52px !important;
+    }
 }
 
 @media (max-width: 480px) {
+    .pull-quote { width: 84% !important; }
     .pull-quote__text { font-size: 22px; line-height: 28px; }
 }

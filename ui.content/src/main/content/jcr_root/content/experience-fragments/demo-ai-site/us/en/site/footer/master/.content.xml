@@ -17,6 +17,7 @@
                 jcr:primaryType="nt:unstructured"
                 sling:resourceType="demo-ai-site/components/site-footer"
                 brandLabel="Notion"
+                logoPath="/content/dam/demo-ai-site/design/notion-wordmark.svg"
                 brandHref="https://www.notion.com/product"
                 quoteText="We shape our tools, and thereafter our tools shape us."
                 quoteAttribution="Marshall McLuhan"

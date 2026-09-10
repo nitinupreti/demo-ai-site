@@ -21,13 +21,14 @@ class SiteFooterTest {
 
     @Test
     void testFooterFieldsAndLinks() {
-        Resource resource = context.create().resource("/content/footer", "brandLabel", "Notion", "brandHref", "/product", "cookieLabel", "Cookie settings", "cookieHref", "/privacy", "languageLabel", "English (US)");
+        Resource resource = context.create().resource("/content/footer", "brandLabel", "Notion", "logoPath", "/content/dam/demo-ai-site/design/notion-wordmark.svg", "brandHref", "/product", "cookieLabel", "Cookie settings", "cookieHref", "/privacy", "languageLabel", "English (US)");
         context.create().resource(resource, "linkGroups/group0", "heading", "Product");
         context.create().resource("/content/footer/linkGroups/group0/links/link0", "label", "Features", "href", "/features");
         context.create().resource("/content/footer/linkGroups/group0/links/link1", "label", "Missing URL");
         SiteFooter footer = resource.adaptTo(SiteFooter.class);
         assertNotNull(footer);
         assertEquals("Notion", footer.getBrandLabel());
+        assertEquals("/content/dam/demo-ai-site/design/notion-wordmark.svg", footer.getLogoPath());
         assertEquals("Cookie settings", footer.getCookieLabel());
         assertEquals(1, footer.getLinkGroups().size());
         assertEquals(1, footer.getLinkGroups().get(0).getLinks().size());

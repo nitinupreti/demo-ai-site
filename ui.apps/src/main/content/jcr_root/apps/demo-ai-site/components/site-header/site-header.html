@@ -3,18 +3,23 @@
 <header data-cmp-is="site-header" data-sly-test="${hasContent}">
     <div class="site-header__inner">
         <a class="site-header__brand" href="${header.logoHref @ context='uri'}" aria-label="${header.logoText}">
-            <span class="site-header__mark" aria-hidden="true">N</span>
+            <img class="site-header__logo" src="${header.logoPath @ context='uri'}" alt=""/>
         </a>
         <nav class="site-header__nav" id="site-header-nav" aria-label="${'Main' @ i18n}">
             <ul class="site-header__nav-list">
                 <li class="site-header__nav-item" data-sly-repeat.item="${header.navItems}" data-index="${itemList.index}">
-                    <a class="site-header__nav-link" href="${item.href @ context='uri'}">${item.label}</a>
+                    <a class="site-header__nav-link" href="${item.href @ context='uri'}" x-cq-linkchecker="skip">
+                        <span class="site-header__nav-label">${item.label}</span>
+                        <span class="site-header__caret" data-sly-test="${item.showCaret}" aria-hidden="true">
+                            <svg viewBox="0 0 30 30" focusable="false"><polygon points="15,17.4 4.8,7 2,9.8 15,23 28,9.8 25.2,7"/></svg>
+                        </span>
+                    </a>
                 </li>
             </ul>
         </nav>
         <div class="site-header__actions">
-            <a class="site-header__secondary" href="${header.secondaryHref @ context='uri'}" data-sly-test="${header.secondaryLabel && header.secondaryHref}">${header.secondaryLabel}</a>
-            <a class="site-header__cta" href="${header.ctaHref @ context='uri'}" data-sly-test="${header.ctaLabel && header.ctaHref}">${header.ctaLabel}</a>
+            <a class="site-header__secondary" href="${header.secondaryHref @ context='uri'}" data-sly-test="${header.secondaryLabel && header.secondaryHref}"><span class="site-header__action-label">${header.secondaryLabel}</span></a>
+            <a class="site-header__cta" href="${header.ctaHref @ context='uri'}" data-sly-test="${header.ctaLabel && header.ctaHref}"><span class="site-header__action-label">${header.ctaLabel}</span></a>
             <button class="site-header__menu" type="button" aria-label="${header.menuLabel}" aria-controls="site-header-nav" aria-expanded="false">
                 <span aria-hidden="true"></span>
                 <span aria-hidden="true"></span>

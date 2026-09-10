@@ -3,8 +3,7 @@
     <div class="site-footer__inner">
         <div class="site-footer__lead">
             <a class="site-footer__brand" data-sly-test="${footer.brandLabel && footer.brandHref}" href="${footer.brandHref @ context='uri'}" aria-label="${footer.brandLabel}">
-                <span class="site-footer__mark" aria-hidden="true">N</span>
-                <span>${footer.brandLabel}</span>
+                <img class="site-footer__logo" src="${footer.logoPath @ context='uri'}" alt=""/>
             </a>
             <blockquote class="site-footer__quote" data-sly-test="${footer.quoteText}">
                 <p class="site-footer__quote-text">${footer.quoteText}</p>
@@ -25,7 +24,10 @@
     <div class="site-footer__bar">
         <span class="site-footer__copyright" data-sly-test="${footer.copyright}">${footer.copyright}</span>
         <a class="site-footer__cookie" data-sly-test="${footer.cookieLabel && footer.cookieHref}" href="${footer.cookieHref @ context='uri'}">${footer.cookieLabel}</a>
-        <button class="site-footer__language" data-sly-test="${footer.languageLabel}" type="button">${footer.languageLabel} <span aria-hidden="true">⌄</span></button>
+        <button class="site-footer__language" data-sly-test="${footer.languageLabel}" type="button">
+            <span>${footer.languageLabel}</span>
+            <svg class="site-footer__language-caret" viewBox="0 0 30 30" focusable="false" aria-hidden="true"><polygon points="15,17.4 4.8,7 2,9.8 15,23 28,9.8 25.2,7"/></svg>
+        </button>
     </div>
 </footer>
 <sly data-sly-test="${!footer.hasContent && wcmmode.edit}">

@@ -52,6 +52,8 @@ main.container {
 
 main.container .title,
 main.container .text {
+    position: relative;
+    left: -6.8px;
     float: none !important;
     clear: both !important;
     width: 85vw !important;
@@ -83,6 +85,115 @@ main.container .cmp-text {
     line-height: 28px;
 }
 
+main.container .cmp-text > p {
+    margin: 16px 0;
+}
+
+main.container .aem-Grid:has(> .text .story-meta) {
+    position: relative;
+}
+
+main.container .text:has(.story-meta) {
+    position: absolute;
+    top: 608px;
+    left: calc(50% + 361.2px);
+    width: 232px !important;
+    max-width: none;
+    margin: 0 !important;
+    padding-top: 16px;
+    box-sizing: border-box;
+}
+
+main.container .story-meta {
+    width: 100%;
+    color: rgba(0, 0, 0, 0.898);
+    font-family: "NotionInter", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+main.container .story-meta__label,
+main.container .story-meta__use-cases {
+    margin: 0;
+}
+
+main.container .story-meta__label {
+    color: rgba(0, 0, 0, 0.54);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0.125px;
+}
+
+main.container .story-meta__people {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0 12px;
+}
+
+main.container .story-meta__person {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+}
+
+main.container .story-meta__avatar {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+main.container .story-meta__identity {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+}
+
+main.container .story-meta__name {
+    color: rgba(0, 0, 0, 0.95);
+}
+
+main.container .story-meta__role {
+    color: rgba(0, 0, 0, 0.54);
+}
+
+main.container .story-meta__label--use-cases {
+    margin-bottom: 8px;
+}
+
+main.container .story-meta__use-cases {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+}
+
+main.container .text:has(.story-meta) + .text .cmp-text > p:first-child {
+    margin: 0 0 32px;
+    color: rgba(0, 0, 0, 0.54);
+    font-family: "NotionInter", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    font-feature-settings: "lnum", "locl" 0;
+    text-wrap: pretty;
+    -webkit-font-smoothing: antialiased;
+}
+
+main.container .text:has(.story-meta) + .text .cmp-text > p:first-child + h2 {
+    margin-top: 0;
+}
+
+main.container .text:has(.story-meta) + .text {
+    margin-top: 0 !important;
+    padding-top: 48px;
+    box-sizing: border-box;
+}
+
 main.container .cmp-text h2 {
     margin: 48px 0 20px;
     color: rgba(0, 0, 0, 0.898);
@@ -102,9 +213,38 @@ main.container .cmp-text li {
     padding-left: 4px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 900px) {
     main.container .title,
     main.container .text {
-        width: 84vw !important;
+        left: 0;
+        width: calc(100% - 15vw) !important;
+        max-width: none;
+    }
+
+    main.container .text:has(.story-meta) {
+        position: static;
+        width: calc(100% - 15vw) !important;
+        margin: 32px auto 0 !important;
+        padding-top: 48px;
+    }
+
+    main.container .story-meta__people {
+        flex-direction: row;
+        gap: 24px;
+        margin: 12px 0 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    main.container .title,
+    main.container .text,
+    main.container .text:has(.story-meta) {
+        width: 84% !important;
+    }
+
+    main.container .story-meta__people {
+        flex-direction: column;
+        gap: 12px;
+        margin: 16px 0 12px;
     }
 }

@@ -29,6 +29,9 @@ public class SiteFooter {
     private String brandLabel;
 
     @ValueMapValue
+    private String logoPath;
+
+    @ValueMapValue
     private String brandHref;
 
     @ValueMapValue
@@ -56,6 +59,8 @@ public class SiteFooter {
     }
 
     public String getBrandLabel() { return brandLabel; }
+
+    public String getLogoPath() { return logoPath; }
 
     public String getBrandHref() { return brandHref; }
 

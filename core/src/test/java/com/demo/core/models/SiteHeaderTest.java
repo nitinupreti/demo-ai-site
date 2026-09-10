@@ -27,18 +27,21 @@ class SiteHeaderTest {
     void testCompleteHeaderFiltersIncompleteItems() {
         Resource resource = context.create().resource("/content/header",
                 "logoText", "Notion",
+            "logoPath", "/content/dam/demo-ai-site/design/notion-mark.svg",
                 "logoHref", "/product",
                 "menuLabel", "Open navigation");
-        context.create().resource(resource, "navItems/item0", "label", "Product", "href", "/product");
+        context.create().resource(resource, "navItems/item0", "label", "Product", "href", "/product", "showCaret", true);
         context.create().resource(resource, "navItems/item1", "label", "Missing link");
 
         SiteHeader header = resource.adaptTo(SiteHeader.class);
 
         assertNotNull(header);
         assertEquals("Notion", header.getLogoText());
+        assertEquals("/content/dam/demo-ai-site/design/notion-mark.svg", header.getLogoPath());
         assertEquals("/product", header.getLogoHref());
         assertEquals("Open navigation", header.getMenuLabel());
         assertEquals(1, header.getNavItems().size());
+        assertTrue(header.getNavItems().get(0).isShowCaret());
         assertTrue(header.isHasContent());
     }
 
