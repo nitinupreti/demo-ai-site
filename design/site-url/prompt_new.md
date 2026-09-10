@@ -23,6 +23,18 @@ completion_requires: [stage_01_pass, stage_02_pass, stage_03_pass, stage_04_pass
 
 Create one `run_id` before Stage 1 and preserve it. Write stage artifacts and a machine-readable `run-state.json` under `EVIDENCE_DIR` so later stages consume files rather than reconstructed chat summaries.
 
+## MUST — Decoded Video And Stable Geometry Gate
+
+This gate applies to every visible or component-owned `<video>` at every required breakpoint on the live source, disabled target, and author target. Run it before Stage 1 freezes source geometry and again immediately before every Stage 4 geometry measurement or screenshot. Earlier readiness evidence cannot be reused because lazy-loading and responsive video state may change.
+
+1. Scroll the owning component root into view and trigger its real lazy-loading path. Await `loadedmetadata` and `loadeddata`/`canplay`, then require a non-empty `currentSrc`, no failed media request, `readyState >= HTMLMediaElement.HAVE_CURRENT_DATA` (`2`), and `videoWidth > 0` / `videoHeight > 0`.
+2. Pause source and target at the same deterministic comparable time (use `0.01s` or the first common seekable time unless discovery requires another state), await `seeked`, then await one presented frame with `requestVideoFrameCallback`. If that API is unavailable, require `readyState >= 2` and await two `requestAnimationFrame` callbacks after seeking.
+3. Only after the decoded frame is presented, measure the component root, media wrapper, video, and caption. Sample their rectangles three times at least 500 ms apart and require x/y/width/height deltas no greater than 1 CSS px. Run motion-freeze CSS only after this frame-readiness step.
+4. If post-decode dimensions differ from a poster, skeleton, blank frame, intrinsic fallback, or other pre-decode placeholder, discard every earlier geometry value and screenshot for that component. Recapture using only the stable post-decode state; never tune AEM CSS to placeholder geometry.
+5. Reject blank or mostly uniform video crops, poster-only substitutions for a source video, `readyState < 2`, zero intrinsic dimensions, failed seeks, missing frame-presentation evidence, or unstable post-decode rectangles. Report `SCORE WITHHELD — VIDEO NOT DECODED OR GEOMETRY UNSTABLE`; do not calculate a visual percentage.
+6. Persist per-video readiness evidence for source and target: component/instance ID, selector, final page URL, `currentSrc`, HTTP result, `readyState`, `networkState`, intrinsic width/height, selected `currentTime`, seek result, frame-callback result, pre-decode rectangle, post-decode rectangle samples, and screenshot path. A component score without this evidence is invalid.
+7. When AEM is intended to reproduce the exact source video, compare the source and DAM asset byte length and SHA-256 when both resources are accessible. A mismatch must be explained and validated as an intentional transcode; otherwise it is an asset failure.
+
 ## Objective
 
 Reproduce the complete visible source document as reusable, authorable AEM as a Cloud Service components: global chrome, all main regions, headless/decorative bands, responsive-only variants, overlays, consent UI, floating utilities, and interactions. Linked pages are out of scope unless supplied separately.
