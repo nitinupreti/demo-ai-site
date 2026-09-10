@@ -4,11 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
+import readlinePromises from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
-const launcherVersion = '1.1.0';
+const canonicalPromptPath = path.join(here, 'prompt_new.md');
+const defaultAemPort = 4502;
+const launcherVersion = '1.3.0';
 const stageIds = [
   '01-source-discovery',
   '02-component-authoring',
@@ -36,10 +39,10 @@ Usage:
   node design/site-url/run-migration.mjs --url <https://site/page> [options]
 
 Options:
-  -u, --url <url>              Live source URL; prompted when omitted
+  -u, --url <url>              Live source URL; blank uses prompt_new.md
       --target-path <path>     Optional AEM page path
       --aem-host <host>        Local AEM host (default: localhost)
-      --aem-port <port>        Local AEM author port; prompted when omitted
+      --aem-port <port>        Local AEM port; blank uses ${defaultAemPort}
       --breakpoints <list>     Comma-separated widths (default: 375,768,1440)
       --evidence-dir <path>    Override the generated evidence directory
       --model <model>          Copilot model or auto (default: auto)
@@ -64,7 +67,7 @@ function readValue(argv, index, option) {
 function parseArgs(argv) {
   const options = {
     aemHost: 'localhost',
-    aemPort: 4504,
+    aemPort: defaultAemPort,
     aemPortProvided: false,
     breakpoints: [375, 768, 1440],
     model: 'auto',
@@ -134,6 +137,9 @@ function parseArgs(argv) {
       case '--agent-smoke-test':
         options.agentSmokeTest = true;
         break;
+      case '--print-defaults':
+        options.printDefaults = true;
+        break;
       default:
         if (!argument.startsWith('-') && !options.siteUrl) {
           options.siteUrl = argument;
@@ -173,25 +179,40 @@ async function promptForInputs(options) {
   const needsAemPort = !options.aemPortProvided;
   if (!needsSiteUrl && !needsAemPort) return;
 
+  const defaultSiteUrl = needsSiteUrl ? readDefaultSiteUrl() : null;
+
   if (!process.stdin.isTTY) {
-    const requiredOptions = [];
-    if (needsSiteUrl) requiredOptions.push('--url');
-    if (needsAemPort) requiredOptions.push('--aem-port');
-    throw new Error(`Provide ${requiredOptions.join(' and ')} when input is not interactive.`);
+    if (needsSiteUrl) options.siteUrl = defaultSiteUrl;
+    if (needsAemPort) options.aemPort = defaultAemPort;
+    return;
   }
 
-  const terminal = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const terminal = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
   try {
     if (needsSiteUrl) {
-      options.siteUrl = ((await terminal.question('Live site URL: ')) || '').trim();
+      const answer = ((await terminal.question(`Live site URL [${defaultSiteUrl}]: `)) || '').trim();
+      options.siteUrl = answer || defaultSiteUrl;
     }
     if (needsAemPort) {
-      const answer = ((await terminal.question('Local AEM author port [4504]: ')) || '').trim();
-      options.aemPort = Number.parseInt(answer || '4504', 10);
+      const answer = ((await terminal.question(`Local AEM author port [${defaultAemPort}]: `)) || '').trim();
+      options.aemPort = Number.parseInt(answer || String(defaultAemPort), 10);
     }
   } finally {
     terminal.close();
   }
+}
+
+function readDefaultSiteUrl() {
+  if (!fs.existsSync(canonicalPromptPath)) {
+    throw new Error(`Missing canonical prompt: ${canonicalPromptPath}`);
+  }
+  const prompt = fs.readFileSync(canonicalPromptPath, 'utf8');
+  const match = prompt.match(/^SITE_URL:\s*(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/m);
+  const value = match && (match[1] || match[2] || match[3]);
+  if (!value || value === '<runtime-required>') {
+    throw new Error('prompt_new.md must contain a concrete SITE_URL fallback or the launcher must receive --url.');
+  }
+  return normalizeSiteUrl(value);
 }
 
 function normalizeSiteUrl(value) {
@@ -519,6 +540,11 @@ function openUrl(url) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.printDefaults) {
+    console.log(`SITE_URL=${readDefaultSiteUrl()}`);
+    console.log(`AEM_PORT=${defaultAemPort}`);
+    return;
+  }
   if (options.help) {
     printHelp();
     return;
