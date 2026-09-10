@@ -3,11 +3,11 @@
 ## Inputs
 
 ```yaml
-SITE_URL: "https://www.notion.com/customers/cursor"
+SITE_URL: "<runtime-required>"
 # Optional: TARGET_PAGE_PATH, BREAKPOINTS, EVIDENCE_DIR
 ```
 
-`SITE_URL` must be readable or STOP with the failing URL and browser/network evidence.
+`SITE_URL` is a required runtime input supplied by `run-migration.mjs` or its caller. Never edit this file to set a run-specific URL. The resolved URL must be readable or STOP with the failing URL and browser/network evidence.
 
 ## Canonical Run Contract
 
