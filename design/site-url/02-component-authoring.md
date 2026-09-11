@@ -6,7 +6,7 @@ Owns reuse, authoring contracts, implementation coverage, and `design-facts`. Co
 
 Stage 3 is blocked until every Stage 1 block has a reuse decision, complete file row, concrete resource type for each instance, and an authored node reachable from the demo page or a consumed XF. No discovered block may be skipped, and no implementation may invent an untraced source region.
 
-The `component_file_matrix` records: block/instances, tier, resource type, metadata, dialog, HTL, model/children, clientlib/CSS/JS, tests, authored parent/node, demo order, policy, and status. Publish `component_coverage_matrix` as its per-block completeness view, not a second independent inventory. Cite existing/inherited files and every delta; justify non-applicable columns. `MISSING`, `PLANNED`, or `SKIPPED` blocks the gate. No viable tier: record `tier: null`, rejected tiers/reasons, and required user decision; return BLOCKED. Only explicit scope approval permits removing a block.
+The `component_file_matrix` records: block/instances, tier, resource type, metadata, dialog, HTL, model/children, clientlib/CSS/JS, tests, authored parent/node, demo order, policy, and status. Publish `component_coverage_matrix` as its per-block completeness view, not a second independent inventory. Cite existing/inherited files and every delta; justify non-applicable columns. `MISSING`, `PLANNED`, or `SKIPPED` blocks the gate. Missing implementations require development, not consent. No viable tier: record `tier: null`, rejected tiers/reasons, and an evidenced external blocker; return BLOCKED. Never solicit block removal to avoid development.
 
 ## Reuse Decision
 

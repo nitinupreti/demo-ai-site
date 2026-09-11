@@ -25,17 +25,24 @@ default_evidence_dir: design/scratch/migration-<run_id>
 completion_requires: [stage_01_pass, stage_02_pass, stage_03_pass, stage_04_pass, no_residual_gaps]
 ```
 
-These values are authoritative; stage/reference files cannot weaken them. `stage_NN_pass` means that stage's current accepted envelope has `status: PASS`; these are predicates, not additional artifacts.
+Authoritative values: stage/reference files cannot weaken them. `stage_NN_pass` means a current accepted envelope with `status: PASS`, not another artifact.
 
-Acceptance is model/effort-independent: `high` and `xhigh` use identical gates, pixel-diff settings, and retry limits. Reasoning effort cannot waive evidence or guarantee a match. Require both component comparisons and an independent final full-page pixel comparison; Stage 4 owns the procedure.
+Acceptance is model/effort-independent: use supported `low`, `medium`, `high`, or `xhigh`; model-managed reasoning is also allowed. All choices use identical gates, pixel-diff settings, and retry limits; effort cannot waive evidence or guarantee parity. Stage 4 requires component comparisons AND an independent final full-page pixel comparison.
+
+## Mandatory Full-Pipeline Execution
+
+- Run all five stages exhaustively without asking whether to continue, prioritize required work, or approve the full scope. Discovery, component development, DAM assets, deployment, and visual validation are already authorized. Required safety/credential/cost approvals still apply.
+- Missing components or clientlib-only stubs require implementation, not deferral. Reuse/extend/build through Stage 2; never replace required media, layouts, or interactions with text-only approximations.
+- Workload, elapsed time, and session/context limits never justify reduced scope or a "pragmatic single-pass" delivery. Persist checkpoints and resume the same run after interruption; never reset retries or declare completion prematurely.
+- Stop only for an explicit user pause/cancel, an evidenced external blocker requiring user action, or exhausted canonical retries. Ask only for the specific unblocker, never scope consent; follow FAIL/BLOCKED routing.
 
 ## Context Loading
 
-- Read project instructions once: root `AGENTS.md`, `CLAUDE.md`, and `.aem-skills-config.yaml` when present. Do not reread content already available and unchanged in the active context.
-- Read only the active stage and its explicitly required references. A link is a routing pointer, not an instruction to recursively load every Markdown file. Do not glob-load prompts, skill directories, examples, or historical runs.
-- Consult [skill routing](references/skill-routing.md) only for Stage 2/3 or a skill-owned remediation. Follow each invoked skill's mandatory dependencies; load conditional references only when their condition applies.
-- Persist large manifests, raw DOM, tables, screenshots, logs, `design-facts`, and retry history under `EVIDENCE_DIR`. Read the needed rows/artifacts, not chat reconstructions. Chat contains active decisions and short result summaries.
-- After compaction or a new context, reload this router, the active stage, and referenced current-run evidence. Read-once applies only while the instructions remain available. Stage files do not unload earlier chat automatically.
+- Read root `AGENTS.md`, `CLAUDE.md`, and optional `.aem-skills-config.yaml` once; do not reread unchanged instructions already available.
+- Load only the active stage and required references; links are routing pointers, not recursive loading instructions. Never glob-load prompts, skills, examples, or historical runs.
+- Consult [skill routing](references/skill-routing.md) for Stage 2/3 or skill-owned remediation; follow mandatory dependencies and applicable conditional references.
+- Persist manifests, raw DOM, tables, screenshots, logs, `design-facts`, and retries under `EVIDENCE_DIR`; read needed rows, not chat reconstructions. Keep chat to decisions/summaries.
+- After compaction/new context, reload this router, active stage, and current evidence. Read-once applies only while instructions remain available; stage files cannot unload chat.
 
 ## Stage Router
 
@@ -47,13 +54,13 @@ Acceptance is model/effort-independent: `high` and `xhigh` use identical gates, 
 | 4 | [Visual parity](04-visual-parity.md) | Accepted Stages 1–3; rerun after appearance/behavior deployments |
 | 5 | [Completion report](05-completion-output.md) | Terminal Stage 4 PASS, FAIL, or BLOCKED |
 
-Execute sequentially; only independent work inside a stage may run in parallel. Remediable Stage 1–3 failures stay with their owner. External blockers or required user decisions stop those stages without invented downstream results. Stage 4 always hands its terminal result to Stage 5, including exhausted retries. Direct Stage 4 entry requires current accepted prerequisite results for the same run.
+Execute sequentially; parallelize only independent work within a stage. Remediate Stage 1–3 failures with their owner; external blockers stop without invented downstream results. Stage 4 always hands terminal results to Stage 5, including exhausted retries. Direct Stage 4 entry requires current accepted same-run prerequisites.
 
-Missing/stale evidence returns to its owning stage and invalidates affected dependents. Restart discovery only when source evidence or frozen denominators are invalid, never merely because retries were exhausted. User rejection invalidates affected evidence and scores.
+Missing/stale evidence returns to its owner and invalidates dependents. Restart discovery only for invalid source evidence/frozen denominators, never exhausted retries. User rejection invalidates affected evidence/scores.
 
 ## Shared Result Envelope
 
-Create one `run_id` before Stage 1 (reuse `RUN_ID` when supplied). Persist each executed stage under `run-state.json.stage_results[stage]` using this envelope; each stage lists its required outputs/checks, without repeating the schema:
+Create `run_id` before Stage 1 (reuse supplied `RUN_ID`). Persist each executed stage under `run-state.json.stage_results[stage]`; stages define required outputs/checks:
 
 ```yaml
 stage_result:
@@ -68,14 +75,14 @@ stage_result:
   next_stage: <router successor or null>
 ```
 
-Missing output/check/envelope means not passed. Record artifact revisions/hashes, dependency result IDs, and timing in the ledger; refresh dependents when inputs change. Preserve launcher inputs/metadata and keep stage summaries, `current_stage`, and top-level status synchronized. Stage 5 alone may set COMPLETE; earlier stops set FAIL/BLOCKED and `next_stage: null`.
+Missing outputs/checks/envelopes mean not passed. Log revisions/hashes, dependency IDs, and timing; refresh dependents when inputs change. Preserve launcher inputs/metadata; synchronize summaries, `current_stage`, and top-level status. Stage 5 alone may set COMPLETE; earlier stops set FAIL/BLOCKED and `next_stage: null`.
 
 ## Cross-Stage Guardrails
 
-- Inspect only `SITE_URL` and exact resources observed in its DOM, CSS, or network traffic. No crawling linked pages, submitting forms, forwarding cookies, or inspecting unrelated embeds.
-- Use Node.js Playwright/Chromium for source, disabled, and author evidence. Browser properties or build success alone cannot prove parity.
-- [Capture gates](references/capture-gates.md) own exact assets/icons, computed typography/spacing, and freshly decoded stable video. Stages 1/3/4 invoke them; failures cannot be waived by a percentage.
-- Author business-editable values and DAM asset paths; preserve media class. Stage 2 owns authorability, color controls, reuse, and `design-facts`; every edit must trace to an instance there.
-- Validate the first implementation edit with the cheapest focused executable check before further edits. Keep FileVault validation enabled; reconcile live repository data after deployment.
+- Inspect only `SITE_URL` and exact DOM/CSS/network-observed resources. No linked-page crawling, form submissions, cookie forwarding, or unrelated embed inspection.
+- Use Node.js Playwright/Chromium for source/disabled/author evidence. Browser properties/build success cannot prove parity.
+- [Capture gates](references/capture-gates.md) own exact assets/icons, computed typography/spacing, and freshly decoded stable video. Mandatory in Stages 1/3/4; percentages cannot waive failures.
+- Author business-editable values and DAM paths; preserve media class. Stage 2 owns authorability, colors, reuse, and `design-facts`; trace every edit to an instance.
+- Validate the first implementation edit with the cheapest focused executable check before further edits. Keep FileVault validation enabled; reconcile deployed repository data.
 - Never hand-edit generated/vendor paths (`target/`, `dist/`, `node_modules/`, `.m2/`, Core libraries) or template `initial`/`structure` trees. Authorized builds may regenerate outputs; Stage 3 owns proven-stale build cleanup.
-- Completion requires exhaustive coverage and every instance, component-type minimum, and page composite strictly above the canonical ratio at every required breakpoint, in both target modes, with all exact checks passing and no residual gaps.
+- Completion requires exhaustive coverage, no residual gaps, all exact checks passing, and every instance/component-type minimum/page composite strictly above the canonical ratio at every required breakpoint in both target modes.
