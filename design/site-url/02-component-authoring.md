@@ -2,11 +2,29 @@
 
 This file owns block decomposition, reuse tiers, component contracts, author experience, and authored content.
 
+## MUST — Component Coverage Gate (precondition for Stage 3)
+
+Stage 2 cannot close, and Stage 3 cannot begin, until every Stage 1 block has:
+
+1. A Tier decision recorded in the `reuse_decisions` block of `design-facts`;
+2. A row in the Component File Matrix below;
+3. A concrete `resource_type` in the `instance_authoring_map` for every source instance of that block;
+4. At least one authored node reachable from the demo page or an XF the demo page consumes.
+
+Emit a `component_coverage_matrix` alongside the Component File Matrix:
+
+| Stage 1 block | Instances | Tier | resource_type | Files landed (dialog / HTL / model / clientlib / test) | Authored under | Status |
+|---|---|---|---|---|---|---|
+
+`Status = COMPLETE` requires every column filled. Any `MISSING` / `PLANNED` / `SKIPPED` row blocks Stage 3. If a discovered block has no viable Tier decision, record `tier: null`, the rejected tiers and reasons, and the exact decision required from the user; emit Stage 2 `status: BLOCKED` with `next_stage: null`. Do not silently omit it or enter Stage 3. Only an explicit user decision may change the block scope, after which rerun this gate.
+
+Stage 2 has no authority to invent a component that Stage 1 did not surface, and no authority to skip one that Stage 1 did surface. Every implementation and remediation change must trace back to a Stage 1 row.
+
 ## Stage Execution Contract
 
 - Inputs: accepted Stage 1 result, frozen manifests/denominators, project instructions, and the same `run_id`.
 - Execute reuse decisions and implement/author every Stage 1 block. A block absent from the component matrix is a failure.
-- Required outputs: current `design-facts`, reuse decisions, component-file matrix, authorability/color matrices, created/modified file inventory, demo content order, and policy/template changes.
+- Required outputs: current `design-facts`, reuse decisions, component-file matrix, per-instance target selector map, authorability/color matrices, created/modified file inventory, demo content order, and policy/template changes.
 - Exit gate: every source block has exactly one Tier 1/2/3/4 decision and one complete implementation/authoring row; focused tests for the touched implementation pass.
 
 ## Component File Matrix
@@ -88,30 +106,41 @@ Place every instance in frozen source order in the best existing editable contai
 
 Treat create/update/delete/reorder explicitly. After deployment, read live repository JSON and verify resource types, properties, child names/count/order, and runtime DOM order. Do not assume merge-mode packages removed stale values.
 
+## Target Selector Map
+
+Map every Stage 1 `instance_id` to one deployed-intent target selector for Stage 4:
+
+| Instance ID | resource_type | Target selector | Match index | Expected matches | Text/media signature |
+|---|---|---|---:|---:|---|
+
+Derive selectors from rendered semantic roots, `data-cmp-is`, stable BEM classes, or authored instance hooks. Do not guess from a component title. Repeated instances require an explicit match index and signature. Stage 3 verifies these selectors against the deployed disabled page before Stage 4 may score them.
+
 ## Required Stage Result
 
 Return the orchestrator's required `stage_result` envelope with:
 
 ```yaml
 stage_result:
-	stage: 02-component-authoring
-	run_id: <same run_id>
-	status: PASS|FAIL|BLOCKED
-	inputs_consumed: [01-source-discovery:<result-id>]
-	outputs:
-		design_facts: <artifact>
-		reuse_decisions: <artifact>
-		component_file_matrix: <artifact>
-		authorability_matrices: <artifact>
-		changed_files: [<paths>]
-		demo_content_and_policy_map: <artifact>
-	checks:
-		- {name: every_source_block_has_decision, status: PASS|FAIL, evidence: <artifact>}
-		- {name: every_block_file_row_complete, status: PASS|FAIL, evidence: <artifact>}
-		- {name: every_business_value_authorable, status: PASS|FAIL, evidence: <artifact>}
-		- {name: focused_implementation_tests, status: PASS|FAIL, evidence: <command/output>}
-	failures: []
-	next_stage: 03-assets-runtime
+  stage: 02-component-authoring
+  run_id: <same run_id>
+  status: PASS|FAIL|BLOCKED
+  inputs_consumed: [01-source-discovery:<result-id>]
+  outputs:
+    design_facts: <artifact>
+    reuse_decisions: <artifact>
+    component_file_matrix: <artifact>
+    target_selector_map: <artifact>
+    authorability_matrices: <artifact>
+    changed_files: [<paths>]
+    demo_content_and_policy_map: <artifact>
+  checks:
+    - {name: every_source_block_has_decision, status: PASS|FAIL, evidence: <artifact>}
+    - {name: every_block_file_row_complete, status: PASS|FAIL, evidence: <artifact>}
+    - {name: every_instance_has_target_selector, status: PASS|FAIL, evidence: <artifact>}
+    - {name: every_business_value_authorable, status: PASS|FAIL, evidence: <artifact>}
+    - {name: focused_implementation_tests, status: PASS|FAIL, evidence: <command/output>}
+  failures: []
+  next_stage: <03-assets-runtime when PASS; null when FAIL/BLOCKED>
 ```
 
 Do not return `PASS` when any coverage block lacks a component row, any applicable file is absent, content order differs, or authoring evidence is incomplete.
