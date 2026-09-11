@@ -35,6 +35,8 @@ Acceptance is model/effort-independent: use supported `low`, `medium`, `high`, o
 - Missing components or clientlib-only stubs require implementation, not deferral. Reuse/extend/build through Stage 2; never replace required media, layouts, or interactions with text-only approximations.
 - Workload, elapsed time, and session/context limits never justify reduced scope or a "pragmatic single-pass" delivery. Persist checkpoints and resume the same run after interruption; never reset retries or declare completion prematurely.
 - Stop only for an explicit user pause/cancel, an evidenced external blocker requiring user action, or exhausted canonical retries. Ask only for the specific unblocker, never scope consent; follow FAIL/BLOCKED routing.
+- Assessed size, turn/tool budgets, or "this will take too long" judgments never authorize silently substituting a smaller scope. The executing agent must not self-authorize reduced scope under any framing, including "pragmatic", "targeted", "single-pass", "continuation", or "good enough for now". If exhaustive execution appears infeasible, halt and disclose the specific blocker BEFORE proceeding, never as an after-the-fact footnote in a completion report.
+- A shortcut disclosed only after delivery is a contract violation, not transparency. Skipping any stage means the run is FAIL or BLOCKED, never a partial success.
 
 ## Context Loading
 
