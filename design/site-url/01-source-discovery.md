@@ -1,27 +1,14 @@
 # Source Discovery And Coverage
 
-This file owns source readiness, exhaustive block discovery, manifests, and frozen scoring denominators. Complete it before inspecting the target.
+Owns discovery, coverage, selectors, and frozen scoring denominators. Input: runtime URL, breakpoints, evidence directory, and `run_id`. Complete source evidence before inspecting the target.
 
-## Stage Execution Contract
+## Readiness
 
-- Input: `SITE_URL`, breakpoints, evidence directory, and the orchestrator `run_id`.
-- Execute every requirement in this file against the live source. Do not inspect the AEM target during this stage.
-- Required outputs: readiness report, full-page screenshots, `score_manifest`, `coverage_report`, ownership map, per-instance source selector map, source-DOM manifests, responsive/state matrix, media manifest, metadata, and frozen scoring denominators.
-- Exit gate: every breakpoint is ready, every discovery signal ran, every visible candidate is claimed exactly once, and no `UNCLAIMED` gap is 20 CSS px or more.
-
-## Readiness At Every Breakpoint
-
-1. Set the viewport and assert `window.innerWidth` exactly. Record DPR and `visualViewport.scale`.
-2. Await `document.fonts.ready`; require `document.fonts.check()` for every measured non-system family.
-3. Trigger lazy loading and require visible images to be decoded (`complete`, `naturalWidth > 0`, `naturalHeight > 0`) and visible video/audio to have `readyState >= 2`.
-4. Verify external font/background/media responses from network events or direct HEAD with GET fallback.
-5. Inject measurement-only CSS that disables animation, transition, and smooth scrolling. Sample `documentElement`, `body`, `main`, and every discovered block root three times at least 500 ms apart; require x/y/width/height deltas no greater than 1 CSS px between samples. Rerun this check after the final candidate union is known. Restore motion before interaction capture.
-
-Wrong viewport, unresolved fonts/media, or unstable layout invalidates the capture.
+Execute [capture gates](references/capture-gates.md) against the source at every required breakpoint, including video frame presentation BEFORE freezing motion. Freeze geometry only after the final discovery union is stable. Save readiness and network failures, not inferred success.
 
 ## Exhaustive Block Discovery
 
-Create one stable `instance_id` per visible block in reading order. Build the candidate set from the **union** of all signals below; headings or landmarks alone are insufficient. Every signal below MUST run at every breakpoint. Skipping a signal invalidates discovery.
+Assign stable `instance_id`s in reading order. Run ALL signals at EVERY runtime breakpoint and union candidates; headings or landmarks alone are insufficient.
 
 1. Semantic landmarks and ARIA: `header`, `footer`, `main`, `nav`, `aside`, `article`, `section`, `form`, `figure`, `dialog`, `details`, region/list/status/dialog roles, and elements with labeling attributes.
 2. Heading anchors: `h1` through `h6` and their nearest visual owners.
@@ -35,13 +22,11 @@ Create one stable `instance_id` per visible block in reading order. Build the ca
 10. Dynamic-injection signals: elements added to the DOM after `document.fonts.ready`, from `data-*` toggles, from `IntersectionObserver` triggers, from React/Vue portals, or from XHR-loaded partials. Wait at least 3 000 ms after `load` and re-run signals 1–9 before freezing evidence.
 11. Third-party embed signals: iframe hosts (`youtube.com`, `vimeo.com`, `player.*`, `embed.*`), Segment/Amplitude/analytics injectors, chat widgets, consent management platforms (`onetrust`, `cookiebot`, `usercentrics`, `didomi`, `trustarc`, `truste`), A/B-test containers (`optimizely`, `vwo`, `abtasty`), and marketing-form hosts (`hubspot`, `marketo`, `salesforce`, `chilipiper`).
 
-If a reviewer identifies an omitted block, invalidate discovery, add it, rerun **every** signal 1–11, and refresh downstream evidence in the same run.
+An omitted block invalidates discovery: add it, rerun signals 1–11, and refresh affected downstream evidence in the same run.
 
 ## No-Omission Component Inventory (mandatory)
 
-Before emitting the `stage_result`, produce an `inventory_audit` that names every catalog block and answers `PRESENT: yes/no` with **evidence** (source selector + rect + screenshot region) for every `yes` and a **negative-evidence citation** (search executed, zero matches) for every `no`. An unanswered row invalidates discovery.
-
-For each `no`, record the discovery signal number, exact selector/class/ARIA/data-attribute query, result count at every breakpoint, and scroll states checked. “Not seen” or a generic visual inspection is not negative evidence.
+Produce one `inventory_audit` row per catalog member below. `yes` requires selector + rect + screenshot region and a manifest owner. `no` requires signal number, exact selector/class/ARIA/data query, zero visible/non-empty matches at each breakpoint, and scroll states checked. “Not seen” and blank rows are invalid.
 
 | Block category | Catalog member | Present? | Evidence (selector / rect / screenshot) or negative citation |
 |---|---|:-:|---|
@@ -55,15 +40,9 @@ For each `no`, record the discovery signal number, exact selector/class/ARIA/dat
 | Floating / overlays | cookie consent, GDPR banner, chat widget, back-to-top, floating CTA, notification toast, video-lightbox trigger, gated-content modal, geo/redirect prompt | | |
 | Responsive-only variants | mobile-only bottom nav, mobile CTA sticky bar, mobile mega-menu drawer, tablet-only sidebar | | |
 
-Every `yes` row must appear in the `score_manifest`. Every `no` row must cite the exact CSS selector or attribute search that returned zero non-empty rects across all breakpoints. Rows left blank block Stage 2.
-
 ## Cross-Breakpoint Reconciliation
 
-Blocks that appear at one breakpoint but not another are still visible blocks and MUST be inventoried:
-
-- Union the `yes` rows across 375, 768, and 1440. The union is the source-of-truth block set; the intersection is not.
-- Record each block's `visibility_by_bp: {375: yes|no, 768: yes|no, 1440: yes|no}` in the `score_manifest`.
-- A block with `visibility_by_bp` mismatches drives a responsive variant contract in Stage 2, not omission.
+Union `yes` rows across the runtime breakpoint list, not its intersection. In `score_manifest`, record `visibility_by_bp: {<width>: yes|no}` for each block. Visibility differences drive Stage 2 variants, not omissions. This includes replacement `BREAKPOINTS`, not only the defaults.
 
 ## Source Selector Map
 
@@ -86,7 +65,7 @@ Assign intentional whitespace to its neighboring/owning block. Sorted merged blo
 Also assert:
 
 - every candidate from every discovery signal maps to exactly one manifest owner;
-- every manifest owner has a non-empty rect at the active breakpoint;
+- every manifest owner marked visible has a non-empty rect at the active breakpoint; verify hidden owners against `visibility_by_bp`;
 - every class/ID matching the missable-pattern catalog is claimed;
 - source block order and adjacency match the screenshot bands.
 
@@ -118,33 +97,10 @@ N/A is permitted only when source evidence proves the role/property absent.
 
 ## Required Stage Result
 
-Return the orchestrator's required `stage_result` envelope with:
+Persist the router's envelope with `stage: 01-source-discovery`, runtime inputs, and:
 
-```yaml
-stage_result:
-  stage: 01-source-discovery
-  run_id: <run_id>
-  status: PASS|FAIL|BLOCKED
-  inputs_consumed: [SITE_URL, breakpoints]
-  outputs:
-    readiness_report: <artifact>
-    score_manifest: <artifact>
-    coverage_report: <artifact>
-    ownership_map: <artifact>
-    source_selector_map: <artifact>
-    inventory_audit: <artifact>
-    dom_state_media_manifests: <artifacts>
-    frozen_denominators: <artifact>
-  checks:
-    - {name: all_breakpoints_ready, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_discovery_signals_executed, status: PASS|FAIL, evidence: <artifact>}
-    - {name: inventory_audit_complete, status: PASS|FAIL, evidence: <artifact — every catalog row answered>}
-    - {name: cross_breakpoint_visibility_recorded, status: PASS|FAIL, evidence: <artifact>}
-    - {name: every_instance_has_stable_source_selector, status: PASS|FAIL, evidence: <artifact>}
-    - {name: exactly_once_coverage, status: PASS|FAIL, evidence: <artifact>}
-    - {name: no_unclaimed_gap_20px, status: PASS|FAIL, evidence: <artifact>}
-  failures: []
-  next_stage: <02-component-authoring when PASS; null when FAIL/BLOCKED>
-```
+- **outputs:** `readiness_report`, `score_manifest`, `coverage_report`, `ownership_map`, `source_selector_map`, `inventory_audit`, `dom_state_media_manifests` (including metadata/screenshots/fingerprint), `frozen_denominators`.
+- **checks:** `all_breakpoints_ready`, `all_discovery_signals_executed`, `inventory_audit_complete`, `cross_breakpoint_visibility_recorded`, `every_instance_has_stable_source_selector`, `exactly_once_coverage`, `no_unclaimed_gap_20px`.
+- **next_stage:** `02-component-authoring` only on PASS; otherwise null.
 
-Do not return `PASS` if an output or check is missing, or if any inventory-audit row is left blank. A user-reported omission invalidates this result and all downstream results — restart Stage 1 in the same run and refresh Stages 2–5 from the corrected manifest.
+PASS requires complete inventory, all signals, exactly-once ownership, and no unclaimed gap of 20 CSS px or more at any breakpoint.

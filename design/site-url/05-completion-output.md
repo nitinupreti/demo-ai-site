@@ -1,92 +1,51 @@
 # Completion Output
 
-Prepare this report after Stage 4 reaches a terminal `PASS`, `FAIL`, or `BLOCKED` result in the current run.
+Read only after Stage 4 reaches terminal PASS, FAIL, or BLOCKED. Use upstream artifacts, not reconstructed chat or reloaded implementation skills.
 
-## MUST — Completion Authorization
+## Authorization
 
-Stage 5 is authorized after the Stage 4 Remediation Loop reaches a terminal result. The following are non-negotiable:
+- Validate Stage 1–4 envelopes, outputs/checks, `run_id`, dependency result IDs, and evidence revisions. Stages 1–3 must be accepted PASS; Stage 4 may be terminal FAIL/BLOCKED for reporting only.
+- Missing/stale prerequisites return to their owner. Never invent a result; restart Stage 1 only for invalid source discovery/denominators, not exhausted retries.
+- COMPLETE requires all four stages PASS, all coverage/files/assets/scores reconciled, strict visual minima, and empty `residual_gaps`. FAIL/BLOCKED closes an incomplete run and explicitly identifies missing evidence and its owner.
 
-- MUST emit `status: COMPLETE` only when every upstream stage passed and every visual minimum is strictly `>90%`. If Stage 4 exhausted its bounded retries or an external prerequisite remains unavailable, emit the corresponding `FAIL` or `BLOCKED` result without claiming completion.
-- MUST validate every upstream `stage_result` envelope (Stages 1–4) belongs to the same `run_id` and current run. Return to the earliest missing or stale owning stage; restart Stage 1 only when source discovery or frozen denominators are invalid.
-- MUST NOT recreate, infer, or synthesize a missing upstream result. The only source of Stage 5 content is the frozen artifacts published by Stages 1–4.
-- For `COMPLETE`, MUST emit every mandatory table and artifact listed below. For `FAIL` or `BLOCKED`, emit every available table and explicitly list missing artifacts and their owning blocker.
-- MUST cite the run ledger (`design-facts`, timing log, `remediation_history`) for every claim about coverage, scores, or asset deployment.
+## Durable Report
 
-Only `status: COMPLETE` flips the pipeline. `FAIL` or `BLOCKED` closes the current run as incomplete and preserves the evidence needed for a later run.
+Write the complete report under `EVIDENCE_DIR`; link it from the final response instead of reprinting large tables in chat. Cite `design-facts`, timing log, `remediation_history`, and upstream artifacts for every claim. Include these tables, with breakpoint AND target mode:
 
-## Stage Execution Contract
+1. Per-instance Content, Typography, Color, Layout, Section order, Media/interaction, property score, screenshot score, authorability score, final minimum, and evidence paths.
+2. Component-type minima, breakpoint page composites, and independent `full_page_scores` with full-page pixel ratios and final deployment revision; averages cannot replace the full-page check.
+3. Cross-breakpoint/mode minimum instance, type, and page composite.
+4. Per-component geometry/deltas/full-bleed status.
+5. Coverage ranges/discovery signals proving no unclaimed gap of 20 CSS px or more.
+6. Color authorability: role, token key, custom hex, conditional visibility, sanitized model value, deployed CSS property, round-trip result.
+7. Assets: source/local/DAM paths, MIME, bytes, deployment method, reachability, decode status, and exactness evidence.
 
-- Inputs: terminal results from Stages 1-4 with the same `run_id`; Stages 1-3 must be `PASS`, while Stage 4 may be `PASS`, `FAIL`, or `BLOCKED`.
-- Validate each upstream result envelope, its required outputs/checks, dependency IDs, and evidence freshness. Do not recreate or infer missing results.
-- Produce the mandatory tables/artifacts summary below.
-- Exit gate for `COMPLETE`: Stages 1-4 are accepted `PASS` results, all evidence belongs to this run, all coverage/component/asset/visual rows reconcile, and residual gaps are empty.
-
-## Mandatory Tables
-
-1. Per-instance score table at every breakpoint with Content, Typography, Color, Layout, Section order, Media/interaction, property score, screenshot score, authorability score, final minimum, and source/target evidence paths.
-2. Component-type minima and breakpoint page composites.
-3. Cross-breakpoint minimum instance, component type, and page composite.
-4. Per-component geometry table from the visual gate.
-5. Coverage report per breakpoint proving no unclaimed gap of 20 CSS px or more and showing each block's discovery signals.
-6. Color-authorability matrix per component: role, selected token key, custom hex, correct conditional visibility, sanitized model value, deployed CSS property, and round-trip result.
-7. Asset manifest with source/local/DAM paths, MIME, bytes, deployment method, reachability, and decode status.
-
-## Mandatory Artifacts
-
-For every breakpoint publish:
-
-- `evidence/full-<bp>-source.png`
-- `evidence/full-<bp>-target.png`
-
-For every component instance and breakpoint publish:
-
-- `evidence/<instance>-<bp>-source.png`
-- `evidence/<instance>-<bp>-target.png`
-- `evidence/<instance>-<bp>-side-by-side.png`
-- `evidence/<instance>-<bp>-mask.png`
-
-Report pixel counts and `visualMatchPercent`. Missing, blank, wrong-viewport, stale, or non-homologous artifacts invalidate the associated score.
-
-Every score row must additionally include `Live URL`, `AEM URL`, `Viewport`, `DPR`, `Live Screenshot`, `AEM Screenshot`, `Side-by-Side`, `Diff Mask`, `Screenshot Validation`, `Matched Pixels`, `Differing Pixels`, and `Total Pixels`. If `Screenshot Validation != PASS`, omit every numeric score for that row and print `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`.
+Publish the full-page and every instance's source/target/side-by-side/mask files using Stage 4's mode-specific artifact index. Every score row includes Live/AEM URL, viewport, DPR, runner revision, readiness, screenshot paths/validation, matched/differing/total pixels, and `visualMatchPercent`. Invalid evidence means all numeric scores are omitted and the Stage 4 withheld reason is shown. No historical or estimated scores.
 
 ## Status Line
 
-Emit exactly one status line based only on current-run evidence:
+Emit exactly one line matching current evidence:
 
 ```text
-VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required >90%)
-VISUAL PARITY GATE: FAILED after bounded remediation — <N> FAILED-FINAL components — see residual_gaps
+VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% — minimum full-page pixel match <score>% (required >90%)
+VISUAL PARITY GATE: FAILED — <reason; bounded-retry FAILED-FINAL count when applicable> — see residual_gaps
 VISUAL PARITY GATE: BLOCKED — <external prerequisite and evidence>
 ```
 
-Choose the line matching the Stage 5 status. Do not emit PASSED unless every prerequisite and component is strictly above 90% using valid current-run Playwright screenshots from the exact live site and deployed AEM page. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
+PASSED is allowed only for COMPLETE under the router's strict unrounded ratio and exact gates, including valid final full-page pairs in both modes at every breakpoint. Report `MODEL`/`THINKING_EFFORT` as provenance, never as proof of parity.
 
-## Concise Supporting Summary
+## Supporting Summary And Gaps
 
-Report invoked skills; sources; discovery and coverage; current `design-facts`; tiers; tokens/fonts/assets; files by component; template/policy changes; author regression audit; HTL list audit; spatial/interaction checks; tests/build/code assessment; deployed DOM/clientlibs/repository; demo path; accessibility deviations; and residual gaps.
+In the report, summarize invoked skills, sources/coverage, facts/tiers, tokens/fonts/assets, files by component, template/policy changes, author regression and HTL-list audits, spatial/interaction checks, tests/build/assessment, deployed DOM/clientlibs/repository, demo path, and accessibility deviations.
 
-Residual gaps must be empty for `COMPLETE`. For `FAIL` or `BLOCKED`, list every unresolved component or prerequisite with current evidence and do not emit the PASSED status line.
+For FAIL/BLOCKED, list EVERY unresolved component/prerequisite and missing artifact. Each `FAILED-FINAL` row includes component, breakpoints/modes, final valid `visualMatchPercent` or withheld reason, owning-layer trace, evidence paths, attempt count, and why further remediation was not viable within four attempts. COMPLETE requires `residual_gaps: []`.
 
 ## Required Final Stage Result
 
-Return the orchestrator's required envelope after the human-readable report:
+Persist and return the shared envelope with `stage: 05-completion-output`, Stage 1–4 result IDs, `status: COMPLETE|FAIL|BLOCKED`, and:
 
-```yaml
-stage_result:
-  stage: 05-completion-output
-  run_id: <same run_id>
-  status: COMPLETE|FAIL|BLOCKED
-  inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>, 03-assets-runtime:<result-id>, 04-visual-parity:<result-id>]
-  outputs:
-    completion_report: <current response/artifact>
-    pipeline_result_index: <all five result IDs>
-  checks:
-    - {name: all_upstream_results_present_and_pass, status: PASS|FAIL, evidence: <result index>}
-    - {name: dependencies_same_run_and_current, status: PASS|FAIL, evidence: <run ledger>}
-    - {name: coverage_files_assets_scores_reconcile, status: PASS|FAIL, evidence: <tables>}
-    - {name: residual_gaps_consistent_with_status, status: PASS|FAIL, evidence: <report section>}
-  failures: []
-  next_stage: null
-```
+- **outputs:** `completion_report` (artifact), `pipeline_result_index` (all five result IDs).
+- **checks:** `all_upstream_results_present_and_pass`, `dependencies_same_run_and_current`, `coverage_files_assets_scores_reconcile`, `residual_gaps_consistent_with_status`.
+- **next_stage:** null.
 
-Only `status: COMPLETE` changes `pipeline_results.process_status` to `COMPLETE`. Missing, failed, stale, or mismatched upstream results produce `FAIL` or `BLOCKED` as applicable; a polished report cannot override pipeline state.
+Only COMPLETE sets `pipeline_results.process_status` and top-level run status to COMPLETE. FAIL/BLOCKED remains incomplete regardless of report quality.

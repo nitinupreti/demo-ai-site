@@ -1,40 +1,12 @@
 # Component Architecture And Authoring
 
-This file owns block decomposition, reuse tiers, component contracts, author experience, and authored content.
+Owns reuse, authoring contracts, implementation coverage, and `design-facts`. Consume accepted Stage 1 artifacts and project configuration. Read [skill routing](references/skill-routing.md); invoke `create-component` for EVERY Tier 2/3/4 component. Use its implementation references rather than duplicating their templates here.
 
-## MUST — Component Coverage Gate (precondition for Stage 3)
+## Component Coverage Gate
 
-Stage 2 cannot close, and Stage 3 cannot begin, until every Stage 1 block has:
+Stage 3 is blocked until every Stage 1 block has a reuse decision, complete file row, concrete resource type for each instance, and an authored node reachable from the demo page or a consumed XF. No discovered block may be skipped, and no implementation may invent an untraced source region.
 
-1. A Tier decision recorded in the `reuse_decisions` block of `design-facts`;
-2. A row in the Component File Matrix below;
-3. A concrete `resource_type` in the `instance_authoring_map` for every source instance of that block;
-4. At least one authored node reachable from the demo page or an XF the demo page consumes.
-
-Emit a `component_coverage_matrix` alongside the Component File Matrix:
-
-| Stage 1 block | Instances | Tier | resource_type | Files landed (dialog / HTL / model / clientlib / test) | Authored under | Status |
-|---|---|---|---|---|---|---|
-
-`Status = COMPLETE` requires every column filled. Any `MISSING` / `PLANNED` / `SKIPPED` row blocks Stage 3. If a discovered block has no viable Tier decision, record `tier: null`, the rejected tiers and reasons, and the exact decision required from the user; emit Stage 2 `status: BLOCKED` with `next_stage: null`. Do not silently omit it or enter Stage 3. Only an explicit user decision may change the block scope, after which rerun this gate.
-
-Stage 2 has no authority to invent a component that Stage 1 did not surface, and no authority to skip one that Stage 1 did surface. Every implementation and remediation change must trace back to a Stage 1 row.
-
-## Stage Execution Contract
-
-- Inputs: accepted Stage 1 result, frozen manifests/denominators, project instructions, and the same `run_id`.
-- Execute reuse decisions and implement/author every Stage 1 block. A block absent from the component matrix is a failure.
-- Required outputs: current `design-facts`, reuse decisions, component-file matrix, per-instance target selector map, authorability/color matrices, created/modified file inventory, demo content order, and policy/template changes.
-- Exit gate: every source block has exactly one Tier 1/2/3/4 decision and one complete implementation/authoring row; focused tests for the touched implementation pass.
-
-## Component File Matrix
-
-For every source block, record applicable files or verified reuse:
-
-| Block/instance | Tier | Metadata | Dialog | HTL | Model/children | Clientlib/CSS/JS | Tests | Demo content | Policy | Status |
-|---|---:|---|---|---|---|---|---|---|---|---|
-
-Tier 1 cites reused resources. Tier 2/3 cites inherited resources plus every delta. Tier 4 requires all applicable columns. Headless blocks such as promo marquees are not exempt. `COMPLETE` requires existing files/resources and a deployed-intent mapping for every column.
+The `component_file_matrix` records: block/instances, tier, resource type, metadata, dialog, HTL, model/children, clientlib/CSS/JS, tests, authored parent/node, demo order, policy, and status. Publish `component_coverage_matrix` as its per-block completeness view, not a second independent inventory. Cite existing/inherited files and every delta; justify non-applicable columns. `MISSING`, `PLANNED`, or `SKIPPED` blocks the gate. No viable tier: record `tier: null`, rejected tiers/reasons, and required user decision; return BLOCKED. Only explicit scope approval permits removing a block.
 
 ## Reuse Decision
 
@@ -42,12 +14,34 @@ Use generic semantic kebab-case names. Brand, campaign, project, version, and Fi
 
 | Tier | Decision | Deliverable |
 |---|---|---|
-| 1 | Reuse project component unchanged | Authored content; optional dialog option |
+| 1 | Reuse project component unchanged | Authored content using existing dialog options |
 | 2 | Extend project component | supertype plus delta dialog/model/CSS/JS/test |
 | 3 | Extend Core Component | delegated Core model/exporter plus delta files/test |
 | 4 | Higher tiers proven insufficient | full component/model/dialog/clientlib/test |
 
 Reuse templates and policies. Do not fork them only for a variant. More than 80% dialog overlap between sibling components is a duplication defect.
+
+## Design Facts (durable handoff)
+
+Maintain this structure in a run-scoped artifact; report only active changes inline. Every implementation/remediation edit traces to its instance and owning layer.
+
+```yaml
+reuse_decisions:
+  - design_block: <source block ID / generic role>
+    tier: 1|2|3|4
+    reuse_target: <resource-type>|null
+    gap: none|<why higher reuse tiers fail>
+    additions: [<exact deltas>]
+template_decision: {reuse_template: <name>|null, new_template_gap: none|<reason>}
+policy_decisions:
+  - {policy_path: <path>, additions: [<resource-types>]}
+instance_authoring_map:
+  - design_instance: <instance ID + selector/heading/rect reference>
+    resource_type: <resource-type>
+    parent_path: <editable-container>
+    node_name: <semantic-unique-name>
+    dialog_values: {<all non-default authored values>}
+```
 
 ## Authorability Contract
 
@@ -78,33 +72,22 @@ Ignore stored custom hex when the select is not `other`. Verify field visibility
 - One field per independent author intent; merge only values that always change together.
 - Put content controls under Properties and visual controls under Style.
 - Required source content is required; additive extension fields remain optional and preserve legacy defaults.
-- Use composite Coral multifields, DAM pathfields rooted at `/content/dam`, and rich text for formatted/multi-sentence copy.
-- Sling Models adapt from `Resource`, use optional injection, matching defaults, child-model lists, empty-row filtering, getters, and `isHasContent()`.
+- Use composite Coral multifields, DAM-backed asset fields rooted at `/content/dam`, and rich text for formatted/multi-sentence copy. Core Image may own image authoring on a child resource.
+- Standalone/child Sling Models use `Resource`, optional injection, matching defaults, child-model lists, empty-row filtering, getters, and `isHasContent()`. Core delegation uses the skill's request-adaptable/exporter contract, not forced Resource-only adaptation.
 - Preserve existing public fields, getters, style keys, BEM classes, properties, and nodes when extending.
 
-## HTL And Interaction Contracts
+## Rendering Deltas Beyond Skill Patterns
 
-- Render a semantic root with escaped attribute/URI/style/html contexts and an edit-mode empty placeholder.
-- Guard optional regions and render valid links/actions with source-equivalent semantics.
-- Put `data-sly-list` on one container or `data-sly-repeat` on the repeated item; expose `data-index` for addressable rows.
-- Root interactive behavior in `data-cmp-is`, scope queries per instance, initialize once, avoid globals/inline handlers, and render initial state/ARIA server-side.
-- Preserve source keyboard, focus, hover, active, and screen-reader behavior.
-
-## CSS And Responsive Contracts
-
-- Component CSS is BEM-scoped and consumes shared/purpose-specific tokens; no unexplained design literals.
-- Map source flex/grid direction, sizing, alignment, wrapping, spacing, and positioning directly.
-- Use observed breakpoints; only default to `1024`/`640` when source supplies none.
-- Preserve media aspect, object-fit, radius, overflow, and source motion.
-- Use real SVG/icon assets with `currentColor`, not placeholder glyphs.
-- Ship licensed source fonts as deployable WOFF2 or approved CDN fonts and verify readiness.
-- Preserve WCAG focus and contrast; report any necessary accessibility deviation.
+- Semantic escaped HTL with edit-mode placeholder; guarded optional regions and valid links/actions. Put `data-sly-list` on one container or `data-sly-repeat` on the item; expose `data-index` for repeated rows.
+- `data-cmp-is` roots, instance-scoped initialization once, no globals/inline handlers, server-rendered initial ARIA. Preserve source keyboard/focus/hover/active/screen-reader behavior.
+- BEM-scoped CSS with shared/purpose tokens; map observed layout/spacing/media/motion directly. Use observed CSS breakpoints; `1024`/`640` are fallbacks only if none exist (capture widths still come from runtime inputs).
+- Implement exact source asset/icon/typography contracts from Stage 1, using deployable licensed fonts and separate icons with `currentColor` where appropriate. No temporary URLs or glyph substitutes. Preserve WCAG focus/contrast and report necessary deviations; no silent visual sign-off.
 
 ## Authoring And Repository Reconciliation
 
 Place every instance in frozen source order in the best existing editable container. Populate exact content, variants, assets, metadata, and child order; update the existing policy.
 
-Treat create/update/delete/reorder explicitly. After deployment, read live repository JSON and verify resource types, properties, child names/count/order, and runtime DOM order. Do not assume merge-mode packages removed stale values.
+Specify create/update/delete/reorder intent explicitly. Stage 3 verifies deployed repository JSON against resource types, properties, child names/count/order, and runtime DOM order; merge-mode packages may retain stale values. Do not deploy early to close Stage 2.
 
 ## Target Selector Map
 
@@ -117,30 +100,10 @@ Derive selectors from rendered semantic roots, `data-cmp-is`, stable BEM classes
 
 ## Required Stage Result
 
-Return the orchestrator's required `stage_result` envelope with:
+Persist the shared envelope with `stage: 02-component-authoring`, Stage 1 result ID, and:
 
-```yaml
-stage_result:
-  stage: 02-component-authoring
-  run_id: <same run_id>
-  status: PASS|FAIL|BLOCKED
-  inputs_consumed: [01-source-discovery:<result-id>]
-  outputs:
-    design_facts: <artifact>
-    reuse_decisions: <artifact>
-    component_file_matrix: <artifact>
-    target_selector_map: <artifact>
-    authorability_matrices: <artifact>
-    changed_files: [<paths>]
-    demo_content_and_policy_map: <artifact>
-  checks:
-    - {name: every_source_block_has_decision, status: PASS|FAIL, evidence: <artifact>}
-    - {name: every_block_file_row_complete, status: PASS|FAIL, evidence: <artifact>}
-    - {name: every_instance_has_target_selector, status: PASS|FAIL, evidence: <artifact>}
-    - {name: every_business_value_authorable, status: PASS|FAIL, evidence: <artifact>}
-    - {name: focused_implementation_tests, status: PASS|FAIL, evidence: <command/output>}
-  failures: []
-  next_stage: <03-assets-runtime when PASS; null when FAIL/BLOCKED>
-```
+- **outputs:** `design_facts`, `reuse_decisions` (may reference the facts artifact), `component_file_matrix`, `component_coverage_matrix`, `target_selector_map`, `authorability_matrices`, `changed_files`, `demo_content_and_policy_map`.
+- **checks:** `every_source_block_has_decision`, `every_block_file_row_complete`, `component_coverage_complete`, `every_instance_has_target_selector`, `every_business_value_authorable`, `focused_implementation_tests`.
+- **next_stage:** `03-assets-runtime` only on PASS; otherwise null.
 
-Do not return `PASS` when any coverage block lacks a component row, any applicable file is absent, content order differs, or authoring evidence is incomplete.
+PASS requires complete coverage, source order, authoring evidence, and passing focused executable tests for touched implementations.

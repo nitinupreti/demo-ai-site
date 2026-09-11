@@ -409,7 +409,7 @@ function preferredModelIndex(models) {
   return autoIndex >= 0 ? autoIndex : 0;
 }
 
-function modelEfforts(model) {
+export function modelEfforts(model) {
   if (!model.capabilities?.supports?.reasoningEffort) return [];
   return (model.supportedReasoningEfforts || []).filter((effort) => ['high', 'xhigh'].includes(effort));
 }
@@ -424,7 +424,7 @@ function printModels(models) {
   });
 }
 
-async function selectModelAndEffort(options, models) {
+export async function selectModelAndEffort(options, models) {
   if (!models.length) {
     throw new Error('The authenticated GitHub account returned no enabled Copilot models.');
   }
@@ -497,7 +497,7 @@ function relativeToRepo(filePath) {
   return path.relative(repoRoot, filePath).replaceAll('\\', '/');
 }
 
-function createRuntimePrompt(options, runId, evidenceDir, statePath) {
+export function createRuntimePrompt(options, runId, evidenceDir, statePath) {
   const lines = [
     '# Standalone AEM Migration Run',
     '',
@@ -516,7 +516,7 @@ function createRuntimePrompt(options, runId, evidenceDir, statePath) {
     `RUN_STATE: ${JSON.stringify(relativeToRepo(statePath))}`,
     '```',
     '',
-    'Read `design/site-url/prompt_new.md` first and execute its Stage Router in exact order. Read each numbered stage file only when that stage becomes active. Follow `AGENTS.md`, `CLAUDE.md`, `.aem-skills-config.yaml`, and every required AEM skill. Use Node.js Playwright/Chromium for browser evidence.',
+    'Read `design/site-url/prompt_new.md` first and follow its Stage Router and Context Loading policy. Load only the active stage and its required references; never concatenate all prompts or skill trees. Reuse unchanged instructions already available in context, and reload after compaction. Resolve AEM skills through the stage-specific skill routing reference.',
     '',
     'Standalone execution rules:',
     '- Do not edit `design/site-url/prompt_new.md` or its numbered stage specifications to inject runtime values.',
@@ -524,7 +524,7 @@ function createRuntimePrompt(options, runId, evidenceDir, statePath) {
     '- Do not ask interactive questions. For genuinely required user input or an external blocker, persist a truthful `BLOCKED` result and stop.',
     '- The user explicitly authorizes autonomous component creation for this run. When a component workflow normally asks for field confirmation, derive the smallest exact field contract from accepted source evidence, persist it in `design-facts`, and proceed without inventing additional fields.',
     '- Before each stage, print one line exactly as `MIGRATION_PROGRESS {"stage":"<stage-id>","status":"STARTED","message":"<short message>"}`.',
-    '- After each stage, print the same format with `PASS`, `FAIL`, or `BLOCKED`, and persist the full stage_result envelope to RUN_STATE before continuing.',
+    '- After each stage, print the same format with its envelope status (`PASS`, `FAIL`, or `BLOCKED`; `COMPLETE` only for Stage 5), and persist the full stage_result envelope to RUN_STATE before continuing.',
     '- Keep RUN_STATE current throughout the run. Preserve its `launcher` and `inputs` fields.',
     '- On terminal completion, set top-level `status` to `COMPLETE`, `FAIL`, or `BLOCKED`, set `current_stage`, and set `target_url` to the final disabled AEM URL when one exists.',
     '- A build success is not completion. Finish only under the completion contract in the canonical prompt.',
@@ -619,10 +619,7 @@ function displayAgentEvent(event, progressPath) {
   }
 }
 
-async function runAgent(copilot, options, runtimePrompt, evidenceDir) {
-  const streamPath = path.join(evidenceDir, 'agent-stream.jsonl');
-  const stderrPath = path.join(evidenceDir, 'agent-stderr.log');
-  const progressPath = path.join(evidenceDir, 'launcher-progress.jsonl');
+export function createAgentArguments(options, runtimePrompt, evidenceDir) {
   const argumentsList = [
     '-p', runtimePrompt,
     '--output-format', 'json',
@@ -646,7 +643,14 @@ async function runAgent(copilot, options, runtimePrompt, evidenceDir) {
   }
   if (options.effort) argumentsList.push('--effort', options.effort);
   if (options.maxAiCredits) argumentsList.push('--max-ai-credits', String(options.maxAiCredits));
+  return argumentsList;
+}
 
+async function runAgent(copilot, options, runtimePrompt, evidenceDir) {
+  const streamPath = path.join(evidenceDir, 'agent-stream.jsonl');
+  const stderrPath = path.join(evidenceDir, 'agent-stderr.log');
+  const progressPath = path.join(evidenceDir, 'launcher-progress.jsonl');
+  const argumentsList = createAgentArguments(options, runtimePrompt, evidenceDir);
   const child = spawn(copilot.executable, argumentsList, {
     cwd: repoRoot,
     env: {
@@ -836,7 +840,10 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(color.red(`\nERROR: ${error.message}`));
-  process.exitCode = 1;
-});
+// Imports expose offline-testable configuration without authenticating or starting a run.
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(color.red(`\nERROR: ${error.message}`));
+    process.exitCode = 1;
+  });
+}

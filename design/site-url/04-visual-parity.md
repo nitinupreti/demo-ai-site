@@ -1,203 +1,85 @@
 # Visual Parity Gate
 
-This file owns component scoring, exact checks, screenshots, interaction comparison, anti-gaming rules, and remediation. Run it in the same migration run as every appearance/behavior deploy.
+Owns screenshot scoring, comparisons, and bounded remediation. Entry requires accepted Stage 1–3 results, frozen denominators, verified source/target selector maps, deployed URLs, and the same `run_id`. Execute [capture gates](references/capture-gates.md) freshly before EVERY measurement/capture. Validate source, disabled target, and author target at every runtime breakpoint; measure author page content, not editor chrome.
 
-## MUST — Deterministic Parity Runner
+## Deterministic Runner
 
-A permanently frozen harness is not required. Reproducible inputs, capture behavior, and scoring are required. Choose exactly one runner path before the first baseline:
+Select one existing project Node.js Playwright/Chromium runner or create one under `<EVIDENCE_DIR>/parity/runner/`. No bundled runner is assumed. It must:
 
-1. an existing project Playwright visual-test runner; or
-2. a generated Node.js runner stored under `<EVIDENCE_DIR>/parity/runner/`.
+- Consume run-specific selectors, instance IDs, URLs, target modes, and breakpoints; no fixed component list.
+- Use `locator.screenshot()` for homologous instance crops, `page.screenshot({ fullPage: true })` for complete documents, and `pixelmatch` with `pngjs` or `sharp` for counts, diff masks, and labeled side-by-side images at BOTH levels.
+- Emit machine-readable validation/score records; keep credentials in environment variables and generated files under `<EVIDENCE_DIR>/parity/`.
 
-The selected runner MUST:
+Preflight one component at EVERY breakpoint in BOTH target modes: selectors/signatures resolve correctly, URLs/viewport/DPR match, fonts/media/geometry are ready, crops are comparable and nonblank, artifacts exist. Repair preflight before scoring.
 
-- consume Stage 1 source instance selectors, Stage 2 target selectors, URLs, and all observed breakpoints from a run-specific config; do not rely on a fixed component list;
-- use Playwright/Chromium and `locator.screenshot()` for homologous component-instance crops;
-- capture full-page source and target screenshots;
-- use `pixelmatch` with `pngjs` or `sharp` for pixel counts, diff masks, and labelled side-by-side images;
-- emit the screenshot-validation metadata and score fields required below as machine-readable JSON;
-- keep credentials in environment variables, not committed config; and
-- write all generated files only under `<EVIDENCE_DIR>/parity/`.
+Freeze SHA-256 hashes of runner, config, and dependency lockfile after preflight. Necessary changes create a new revision: invalidate old-revision scores, rerun preflight, and recapture affected components/breakpoints/modes. No mixed-revision scores; unaffected artifacts need explicit revalidation/provenance under the new revision. Manual clipping, DOM serialization, and CSS-only comparisons are not screenshot evidence.
 
-Before accepting the first score, run a preflight against one component at every breakpoint and prove: both selectors resolve to the intended instance, final URLs and viewport/DPR are recorded, fonts and media are ready, crops are non-blank, dimensions are comparable, and all required artifacts exist. If the selected runner cannot pass this preflight, repair it or choose the other permitted runner path before scoring.
+Record pixelmatch options (threshold, includeAA, masks/exclusions) in frozen config. Do not relax them to improve a score or because `MODEL`/`THINKING_EFFORT` changed; no masking of required content or mismatches.
 
-After preflight, record SHA-256 hashes for the runner, run config, and dependency lockfile. These files are frozen only for the current baseline/remediation run. A necessary runner or config change creates a new runner revision, invalidates all scores produced by the old revision, and requires recapture of every affected component and breakpoint. Manual clipping, DOM serialization, CSS-only comparison, and scores from mixed runner revisions are invalid.
+## Exact Checks And Interaction
 
-## MUST — Diagnose Before Edit
+Verify the live source fingerprint against Stage 1; source drift returns to discovery. Map each source instance exactly once to its intended target owner; missing, duplicated, orphaned, wrongly combined/split regions fail. Verify intentional hidden states rather than scoring empty crops.
 
-Every Round 1 attempt 1 for every failing component MUST begin with a live-DOM diagnostic pair captured by an equivalent command from the selected runner:
+Record source/target raw rectangles and deltas, full-bleed flags, typography, and exhaustive spacing using capture gates; no relaxed height allowance. Compare ALL frozen roles: exact RGBA colors (Delta E <=3 only for antialiased/compressed raster pixels), backgrounds, borders/radii/shadows/opacity, flex/grid/display/position/overflow/fit/aspect, counts/order/semantics/attributes/behavior. Token declarations and deployed resolved values must agree. Section/CTA background, foreground, border, and radius mismatches are hard failures.
 
-- MUST run the selected diagnostic command for the failing instance and breakpoint and copy the resulting `deltas` block into `remediation_history` before touching any CSS/HTL/model file.
-- MUST base attempt 1 edits on the reported deltas (`fontFamily`, `fontSize`, `lineHeight`, `padding`, `backgroundColor`, `gridTemplateColumns`, etc.), not on plausible-looking values inferred from class names.
-- If the diagnostic reports `deltas.rect.w != 0` or `deltas.rect.h != 0`, attempt 1 MUST address the geometry gap (container/grid/full-bleed) before typography or color.
-- MUST run the diagnostic again before every subsequent attempt to a component that regressed relative to its previous best score. Consecutive regressions with no refreshed diagnostic are treated as unrecorded attempts.
-- If either selector returns no element or resolves to the wrong instance, do not edit component code. Correct the owning Stage 1/2 selector artifact, create a new runner revision, rerun preflight, and recapture affected scores.
-
-## MUST — Broad Fix Batches (working-set discipline)
-
-The Remediation Loop SHOULD resolve multiple diagnosed component failures in one build/deploy cycle. Form a batch from non-conflicting fixes that share an owning layer or deployable module; do not force one build per component.
-
-- Every component in a batch MUST have current diagnostic evidence and one falsifiable root-cause hypothesis. A shared hypothesis is permitted only when it names the common owning rule and every affected component.
-- A batch MAY touch each included component's `_cq_dialog`, HTL, Sling Model, clientlib, authored content, and assets. Keep unrelated components and speculative refactors out.
-- Run focused tests for all touched models/components, then build and deploy each affected module exactly once in dependency order. Never run concurrent installs against one AEM instance.
-- After deployment, recapture every component changed by the batch plus every component potentially affected by shared container, template, token, or clientlib files. Never hide a regression behind aggregate improvement.
-- A batch consumes one retry attempt for each component whose owning files changed; components included only for regression recapture do not consume an attempt.
-
-## MUST — One Hypothesis Per Component
-
-Each component changed in a batch MUST test one falsifiable root-cause hypothesis, such as wrong container geometry, wrong authored structure, wrong typography, or wrong asset behavior.
-
-- Before editing, record the component, hypothesis, diagnostic evidence, owning layer, expected score movement, and cheapest falsifying validation under the batch ID.
-- Edit the smallest coherent file set required to test all batch hypotheses. File count does not override correctness; record why cross-file or cross-component edits belong in the same build.
-- After editing, run the batch's focused validations, one scoped deployment sequence, and fresh parity capture before starting another batch.
-- If one component's expected movement does not occur, mark only that hypothesis falsified; retain valid improvements for other components and use fresh evidence for the next batch.
-
-## MUST — Persist Attempt State
-
-Keep `<EVIDENCE_DIR>/run-state.json` as the source of truth for remediation state. Before each attempt, read and validate the current component row, attempt count, latest scores, runner revision, and latest diagnostic.
-
-- Before editing, append a `BATCH_STARTED` entry with `batch_id`, affected components, per-component round/attempt/hypothesis, owning layers, diagnostic artifacts, expected movements, and runner revision.
-- After recapture, append `BATCH_FINISHED` with shared validation/deploy evidence, timestamp, files changed, and per-component scores/status at every breakpoint.
-- In chat, report only the active batch, included components, hypotheses, and results. Do not reprint the full history or score matrix; Stage 5 reads the persisted artifacts.
-- An attempt missing either state entry is invalid and must not consume a retry slot until its evidence is repaired.
-
-## Stage Execution Contract
-
-- Inputs: accepted Stages 1-3 results, frozen denominators, Stage 1 source selector map, Stage 2 target selector map verified by Stage 3, deployed target URLs, and the same `run_id`.
-- Execute the full Playwright comparison at every breakpoint for every block/instance. Do not substitute CSS declarations or selected properties for rendered evidence.
-- Required outputs: readiness matrix, per-instance geometry/property/interaction tables, full and component screenshots, side-by-side/diff artifacts, scores, remediation history, and final minima/composites.
-- Passing gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 90% at every breakpoint. After bounded retries, Stage 4 may terminate with `FAIL`; that terminal result permits Stage 5 reporting but never completion.
-
-## Readiness And Scope
-
-Use real Playwright/Chromium for the live source, disabled target, and author target at every required breakpoint. Assert that the live source fingerprint still matches Stage 1, then assert identical CSS viewport, DPR/scale, font readiness, media decode, motion state, and stable geometry before capture. Source drift invalidates affected Stage 1 evidence; other readiness failures block scoring.
-
-Every source instance maps exactly once to a target owner. Missing, duplicated, orphaned, or structurally combined/split regions fail.
-
-## Exact Geometry Gate
-
-For every component root and repeated child instance, collect source and target `getBoundingClientRect()` in the same turn:
-
-| Component/instance | Breakpoint | Source x/w/h | Target x/w/h | Deltas | Full-bleed flags | Status |
-|---|---:|---|---|---|---|---|
-
-PASS requires x and width within 1 CSS px, height within 8 CSS px, and matching full-bleed status. A full-bleed source cannot be container-clamped. On failure, fix the owning component/container/grid/XF/template layer, redeploy, and remeasure. After three failed CSS attempts, reassess structure rather than adding hacks.
-
-## Exact Property Gate
-
-Compare raw source and target values for every frozen role:
-
-- all typography metrics, family/style/weight/transform;
-- all color properties as exact RGBA (Delta E <=3 only for antialiased/compressed raster pixels);
-- backgrounds, borders, radius, opacity, shadow;
-- spacing, display/position, flex/grid, overflow, aspect and fit;
-- item counts, role order, semantics, attributes, and behavior class.
-
-Section and CTA background/foreground/border/radius mismatches are hard failures. Token declarations and deployed resolved token/role values must all agree.
+For every source hover/focus/active/transition role, use real pointer/keyboard events; capture before/after computed styles, nested icon transforms, and screenshots. Compare color/background/border/shadow/opacity/transform/decoration. Capture a complete carousel transition or marquee/ticker cycle. Skip hover only when the source gates it off for non-hover input. Verify playback separately per capture gates.
 
 ## Screenshot Gate
 
-At every breakpoint:
+For EVERY instance, breakpoint, and target mode:
 
-1. Use Playwright to navigate one page to the exact live `SITE_URL` and a second page to the deployed AEM disabled URL. Record both final URLs after redirects. A local copy, cached historical image, CSS preview, or authored mock is not a source substitute.
-2. In source and target, assert the requested `window.innerWidth`, DPR, `visualViewport.scale`, font/media readiness, and stable homologous component roots; clear hover, trigger lazy loading, freeze animation for static capture, and scroll the roots into equivalent positions.
-3. Save full-page source and target screenshots from Playwright in the current run.
-4. Save source and target region screenshots for every component instance at native DPR. Source crop is always the live-site instance; target crop is always the corresponding deployed AEM instance.
-5. Produce a labeled side-by-side image with `LIVE SITE` on the left and `AEM` on the right, plus a pixel-diff mask derived from those exact two files.
-6. Validate both crops before scoring: non-empty, not mostly uniform/blank, expected component text/media present, matching viewport/DPR, matching homologous instance IDs, and identical pixel dimensions. Do not resize, stretch, or pad unequal crops; withhold the score and remediate geometry instead. Emit URL, timestamp, viewport, DPR, file path, byte size, dimensions, and content-validation result for each crop.
-7. Only after Step 6 passes, record matched pixels, differing pixels, total pixels, and unrounded `visualMatchRatio`; derive `visualMatchPercent` only for display.
+1. Navigate to the exact live `SITE_URL` and deployed AEM page; record final URLs. No local source copy, historical screenshot, mock, or CSS preview. Match viewport/DPR/scale, clear hover, trigger lazy loading, prepare media, freeze motion, and scroll homologous roots equivalently.
+2. Save current-run full-page source/target and native-DPR instance locator screenshots. Generate `LIVE SITE` (left) / `AEM` (right) side-by-side and diff mask from those EXACT files.
+3. Validate non-empty/non-uniform crops with expected text/media, matching instance IDs/viewport/DPR, and IDENTICAL pixel dimensions. Never resize, stretch, or pad unequal crops; withhold scores and repair geometry.
+4. Only after validation record `matchedPixels`, `differingPixels`, `totalPixels`, unrounded `visualMatchRatio = matchedPixels / totalPixels`, and display-only `visualMatchPercent`.
 
-Pixel comparison must use homologous non-blank crops. Reject wrong viewport, empty/mostly background crops, mismatched DPR, stale screenshots, different animation frames, and comparisons dominated by whitespace. Property equality never overrides screenshot failure.
+Use `<EVIDENCE_DIR>/parity/evidence/<mode>/` (`disabled`, `author`). Names: `full-<bp>-source.png`, `full-<bp>-target.png`, and `<instance>-<bp>-{source,target,side-by-side,mask}.png`. Keep mode-specific source captures to prevent overwrites.
 
-### Score Issuance Gate
+Each score row MUST cite: instance/breakpoint/mode, source/target final URLs, timestamp, viewport, DPR/scale, runner revision, both screenshot paths, bytes/dimensions/content-validation result, side-by-side, diff mask, readiness evidence, and pixel counts. Invalid/missing fields mean `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE` (use the video-specific reason when applicable); omit ALL numeric scores. Reject stale/wrong-instance/whitespace-dominated crops and mismatched animation frames. No estimates or hand-picked subsets.
 
-- Do not calculate, print, estimate, round, or publish a component score until all required live-site and AEM screenshot artifacts for that component and breakpoint pass screenshot validation.
-- Before validation, report `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`, never a percentage.
-- A component score row must cite the live-site image, AEM image, labeled side-by-side image, diff mask, source/target URLs, viewport, DPR, runner revision, and pixel counts. Missing any field makes the score invalid and withheld.
-- `visualMatchPercent` reflects rendered pixels only after crop validation. Determine pass/fail from the unrounded ratio (`matchedPixels / totalPixels > 0.90`), then round only the displayed percentage. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
-- A valid unrounded ratio `<= 0.90` is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
-- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly `>90%` and all prerequisite checks pass.
+## Independent Full-Page Gate
 
-## Interaction Gate
+After the final appearance/behavior deployment and component recaptures, compare complete live `SITE_URL` and deployed AEM authored-page documents at EVERY breakpoint in BOTH modes. Record the AEM editor URL and actual content-frame URL; capture the authored document, never substitute editor chrome or a cropped viewport.
 
-For every source hover/focus/active/transition role, use real pointer/keyboard events and capture before/after computed styles, nested icon transforms, and screenshots. Compare color, background, border, shadow, opacity, transform, and decoration. Capture one full carousel transition or marquee/ticker animation cycle. Skip hover only when source explicitly gates it off for non-hover input.
+Rerun capture readiness across the entire page, trigger all lazy regions, align scroll/sticky/overlay/media states, then take fresh full-page images. Validate equal native pixel dimensions and full document coverage before independently running pixelmatch over ALL page pixels. No component-average substitute, stitching component crops, resizing, padding, truncation, or hiding regions. Unequal page heights withhold the score and require geometry remediation.
 
-## Scores And Threshold
+Save `full-<bp>-side-by-side.png` and `full-<bp>-mask.png` beside the source/target pair. Persist `full_page_scores` with the same validation/URL/pixel metadata as component rows, plus final deployment revision and `fullPageVisualMatchRatio`. Require its unrounded ratio strictly `> 0.90`, independently of every component score. Missing/invalid full-page evidence blocks PASS even when all components pass. A new deployment invalidates this final comparison.
 
-Calculate frozen weighted axis scores from `01-source-discovery.md`. Instance score is the weighted sum; component-type score is its minimum instance, not an average. Final component status is the minimum of:
+Trace page-only failures to existing owning components/containers/shared files and their bounded attempt ledger; never reset retries or create an unbounded page-fix loop. Unresolved full-page failures remain in Stage 5 residual gaps.
 
-- weighted property/structure score;
-- `visualMatchPercent`;
-- authorability score;
-- media/interaction prerequisites.
+## Scores
 
-Every raw instance, component-type minimum, and page composite must be strictly `>90%`; exactly 90% fails. A high page average cannot hide a failed component or axis.
+Use Stage 1 frozen axes and weights; do not redefine denominators here. Instance property score is their weighted sum. Final instance score is the minimum of property/structure, valid screenshot score, authorability, and media/interaction results; hard gates still apply. Type score is its minimum instance, not an average. Record page composites and cross-breakpoint/mode minima with their calculation inputs.
 
-## Remediation Loop
+Every raw instance, type minimum, and page composite must meet the router's strict unrounded ratio. Exactly 90% fails. No high average may hide a failing component/axis or missing asset, interaction, authorability, exact property, or geometry check. User rejection invalidates affected evidence.
 
-The loop is bounded: **4 attempts per failing component** total — 3 consecutive in Round 1, 1 final in Round 2.
+## Bounded Remediation Loop
 
-**Round 1 — broad batches, capped at 3 attempts per component.**
+Use the router's per-component cap across the ENTIRE run: Round 1 has three attempts; Round 2 one final attempt. Counters never reset on stage returns, compaction, runner changes, or regressions.
 
-For each batch of failing components grouped by owning layer/module:
+### Each Batch (single procedure for both rounds)
 
-1. Keep each included component FAILED and enumerate its screenshot / geometry / property / interaction / media / authorability / asset gaps.
-2. Trace each gap to discovery/content, dialog, model, HTL, CSS/token, container/template, behavior, or asset ownership.
-3. Fix all non-conflicting diagnosed gaps in the batch. Run focused validation for every touched component, then scoped-deploy each affected module once per [03-assets-runtime.md](03-assets-runtime.md).
-4. Recapture source and target with fresh `locator.screenshot()` for every changed or potentially affected component and rescore only refreshed evidence.
-5. Mark each component independently: `PASS` when it crosses `>90%` at every breakpoint; otherwise increment only that component's attempt counter.
-6. On a component's **3rd** failed Round 1 batch, mark it `FAILED-ROUND-1`. Other components in the same batch continue according to their own counters.
+1. Read current `run-state.json` component rows: counters, best/latest scores, runner revision, diagnostics. Capture a live source/target diagnostic pair and persist `deltas` BEFORE edits; refresh after any regression. Wrong/missing selector returns to its Stage 1/2 owner, not speculative CSS.
+2. Group non-conflicting fixes by owning layer/module. For EACH changed component, record one falsifiable hypothesis, diagnostic, layer trace (discovery/content/dialog/model/HTL/CSS-token/container-template/behavior/asset), expected movement, cheapest falsifying validation, and files. A shared hypothesis must name the common rule and all affected components. Nonzero width/height deltas take priority over typography/color in attempt 1.
+3. Append `BATCH_STARTED` to `remediation_history` with `batch_id`, affected/regression-only components, round/attempt per changed component, hypotheses, diagnostics, and revision. Apply the smallest coherent file set; no unrelated refactors.
+4. Run focused checks, then [Stage 3 scoped deployment and runtime sweep](03-assets-runtime.md), once per affected module in dependency order. Recapture fresh source/target evidence for every changed component AND anything potentially affected by shared files.
+5. Append `BATCH_FINISHED`: timestamp, changed files, shared validation/build/deploy evidence, and each component's new valid scores (or withheld reason) by breakpoint/mode. Mark a non-improving hypothesis falsified without discarding other components' valid improvements.
 
-**Round 2 — one final pass.**
+Each component whose owning files changed consumes one attempt, including shared-rule edits affecting it; regression-only recaptures consume none. Missing ledger entries invalidate the attempt evidence: repair them BEFORE further edits, never obtain extra attempts by losing a record. Chat reports only active batch decisions/results, not the full ledger.
 
-After every failing component has consumed Round 1, group the components still marked `FAILED-ROUND-1` by owning layer and run **exactly one** final broad pass:
+### Rounds And Termination
 
-1. Apply the largest still-open gap identified in Round 1 (structural, not cosmetic).
-2. Validate all touched components, scoped-deploy each affected module once, then recapture every changed or potentially affected component with fresh `locator.screenshot()`.
-3. Evaluate each component independently. If it crosses `>90%` at every breakpoint, mark `PASS`; otherwise mark `FAILED-FINAL` and stop attempting it.
-
-**Termination.** The loop ends when every failing component is either `PASS` or `FAILED-FINAL`. Do not enter a Round 3. Do not re-open a component already at `FAILED-FINAL`. If any component is `FAILED-FINAL`, this stage returns `FAIL`; Stage 5 reports the incomplete run and must not claim completion.
-
-**Terminal status.** Return `BLOCKED` only when an external prerequisite remains unavailable after retry, such as an unreachable source URL or stopped AEM instance. Return `FAIL` for repairable runner/configuration defects, selector mistakes, invalid evidence, or components that reach `FAILED-FINAL`. Never classify a local code or configuration defect as `BLOCKED`.
-
-**Attempt ledger.** Every batch MUST be appended to `remediation_history` with `batch_id`, affected components, shared validation/build/deploy evidence, and timestamp. Each changed component also records round, attempt-in-round, hypothesis, owning layer, files changed, and new `visualMatchPercent` per breakpoint. An unrecorded component attempt is treated as not run.
-
-**Escalation inside Round 1.** If the same gap fails to close on 2 consecutive attempts, do not spend attempt 3 on more CSS tuning. Return to Stage 1 and reassess the component's block boundary, structure, or reuse tier decision; attempt 3 must act on that reassessment. Record the reassessment in the `design-facts` block.
-
-## Anti-Gaming Rules
-
-- A score above 90 requires raw source/target evidence and valid screenshots.
-- Missing/broken/un-authored assets, semantic-role substitutions, wrong full-bleed zones, incorrect body font, and missing interactions apply their prescribed hard failures/caps.
-- Do not score a hand-picked subset of properties, blank crops, whitespace, authored CSS declarations without computed evidence, or stale captures.
-- User rejection invalidates prior affected scores and evidence.
+- Round 1: passing components become PASS at all breakpoints/modes; the third failed attempt becomes `FAILED-ROUND-1`. After two consecutive failures on the same gap, reassess its owning structure/reuse layer before attempt 3, updating `design-facts`. Return to Stage 1 only if discovery is invalid.
+- Once Round 1 is finished for all failures, group `FAILED-ROUND-1` components for one final Round 2 pass addressing each largest remaining structural gap. Then mark PASS or `FAILED-FINAL` independently.
+- Stop when every failure is PASS or `FAILED-FINAL`. No Round 3, no reopening `FAILED-FINAL`. Any such row makes Stage 4 FAIL; always proceed to Stage 5.
+- External prerequisites unavailable after retry may yield BLOCKED. Local runner/config/selector/evidence defects are FAIL, not external blockers; repair before scoring. Never fabricate percentages to close an invalid row.
 
 ## Required Stage Result
 
-Return the orchestrator's required `stage_result` envelope with:
+Persist the shared envelope with `stage: 04-visual-parity`, Stage 1–3 result IDs, and:
 
-```yaml
-stage_result:
-  stage: 04-visual-parity
-  run_id: <same run_id>
-  status: PASS|FAIL|BLOCKED
-  inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>, 03-assets-runtime:<result-id>]
-  outputs:
-    readiness_matrix: <artifact>
-    geometry_property_interaction_tables: <artifacts>
-    screenshot_and_diff_index: <artifact>
-    per_instance_scores: <artifact>
-    component_minima_and_page_composites: <artifact>
-    remediation_history: <artifact>
-    parity_runner: <path, revision, hashes, preflight artifact>
-  checks:
-    - {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_screenshot_scores_above_90, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_final_minima_and_composites_above_90, status: PASS|FAIL, evidence: <artifact>}
-  failures: []
-  next_stage: 05-completion-output
-```
+- **outputs:** `readiness_matrix`, `geometry_property_interaction_tables`, `screenshot_and_diff_index`, `per_instance_scores`, `full_page_scores`, `component_minima_and_page_composites`, `remediation_history`, `parity_runner` (path/revision/hashes/preflight).
+- **checks:** `all_source_blocks_mapped_once`, `all_geometry_and_properties_pass`, `all_live_and_aem_screenshot_pairs_valid`, `all_screenshot_scores_above_90`, `all_full_page_pairs_valid`, `all_full_page_scores_above_90`, `all_interactions_and_media_pass`, `all_final_minima_and_composites_above_90`.
+- **next_stage:** `05-completion-output` for every terminal status.
 
-Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 90%, averaged-away failures, or any `FAILED-FINAL` component. Remediate within the bounded loop, then return the truthful terminal status.
+PASS requires all instances/modes/breakpoints and exact gates, valid current-run screenshots, strict minima/composites, and zero residual gaps.
