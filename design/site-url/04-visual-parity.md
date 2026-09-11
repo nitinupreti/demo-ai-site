@@ -53,6 +53,13 @@ Use Stage 1 frozen axes and weights; do not redefine denominators here. Instance
 
 Every raw instance, type minimum, and page composite must meet the router's strict unrounded ratio. Exactly 90% fails. No high average may hide a failing component/axis or missing asset, interaction, authorability, exact property, or geometry check. User rejection invalidates affected evidence.
 
+## Failure-Only LLM Handoff
+
+- Run ALL required comparisons locally; the runner computes scores, never the LLM. Retain native screenshots, full metrics/DOM, and logs on disk. Tool stdout returns compact JSON: status/counts, artifact paths, and active-batch failure rows with instance/breakpoint/mode, failed checks, valid ratio or withheld reason, property/geometry deltas, owning files, and retries remaining.
+- Load only failing, withheld, or regressed component side-by-sides and relevant diagnostics/code into model context. Passing images stay on disk unless preflight, validation uncertainty, or user rejection requires review. Do not dump entire DOMs, logs, image base64, or unchanged passing evidence into chat.
+- For full-page failure triage, use a diagnostic-only reduced overview and differing-region crops linked to original coordinates. NEVER score these derivatives: full-page scoring still uses unchanged native originals and ALL page pixels.
+- This filters LLM input, not coverage or acceptance. Shared fixes still require every affected comparison and the final full-page gate.
+
 ## Bounded Remediation Loop
 
 Use the router's per-component cap across the ENTIRE run: Round 1 has three attempts; Round 2 one final attempt. Counters never reset on stage returns, compaction, runner changes, or regressions.

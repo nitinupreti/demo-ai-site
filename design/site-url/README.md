@@ -10,8 +10,8 @@ Baseline measured on 2026-09-11 before editing the six original prompts. Current
 |---|---:|---:|---:|
 | Router words | 2,523 | 839 | 66.75% |
 | Router UTF-8 bytes | 18,829 | 6,641 | 64.73% |
-| All runtime prompt words | 9,578 | 6,801 | 28.99% |
-| All runtime prompt UTF-8 bytes | 73,030 | 55,541 | 23.95% |
+| All runtime prompt words | 9,578 | 6,951 | 27.43% |
+| All runtime prompt UTF-8 bytes | 73,030 | 56,644 | 22.44% |
 
 Words are whitespace-delimited; bytes are measured, not estimated tokens. Token counts and peak context depend on the selected model/tokenizer, automatic instruction injection, tool results, and session history. These numbers are **not a measured billing or peak-memory reduction**.
 
@@ -24,7 +24,7 @@ The router plus one stage and its direct required references, assuming a fresh c
 | Source discovery | Capture gates | 2,831 |
 | Component authoring | Skill routing | 2,292 |
 | Assets/runtime | Capture gates + skill routing | 2,767 |
-| Visual parity | Capture gates | 2,973 |
+| Visual parity | Capture gates | 3,123 |
 | Completion | None; upstream artifacts only | 1,370 |
 
 Remediation additionally loads the affected owning-stage sections and relevant skill references. This table is not a claim that earlier stages disappear from one continuous chat.
@@ -72,7 +72,7 @@ Their reference files add further context. The entrypoints already support progr
 
 ## Validation And Compatibility
 
-[tests/prompt-contract.test.mjs](tests/prompt-contract.test.mjs) and [tests/launcher-reasoning.test.mjs](tests/launcher-reasoning.test.mjs) use Node's built-in test runner with no dependencies or network calls. Run via `node --test design/site-url/tests/prompt-contract.test.mjs design/site-url/tests/launcher-reasoning.test.mjs` from the repository root. The 18 tests check links/fences, result keys, thresholds/mutations, discovery, media/authoring, retries, independent full-page gates, launcher parsing, high/xhigh capability handling and forwarding, identical workflow instructions, and word budgets (router <=900; runtime total <=7,000).
+[tests/prompt-contract.test.mjs](tests/prompt-contract.test.mjs) and [tests/launcher-reasoning.test.mjs](tests/launcher-reasoning.test.mjs) use Node's built-in test runner with no dependencies or network calls. Run via `node --test design/site-url/tests/prompt-contract.test.mjs design/site-url/tests/launcher-reasoning.test.mjs` from the repository root. The 19 tests check links/fences, result keys, thresholds/mutations, discovery, media/authoring, retries, independent full-page gates, failure-only model handoff, launcher parsing, high/xhigh capability handling and forwarding, identical workflow instructions, and word budgets (router <=900; runtime total <=7,000).
 
 The test prints current metrics so maintenance does not rely on this table staying manually accurate. Keyword/structural tests do **not** prove LLM compliance, semantic equivalence of arbitrary edits, or browser/AEM parity. Review changed contracts and run a real migration separately before asserting operational parity.
 
@@ -82,6 +82,7 @@ The existing launcher entrypoint, stage filenames, flags, and concrete fallback 
 
 - Every component instance requires a fresh live-source/AEM locator screenshot pair, labeled side-by-side, diff mask, and valid unrounded pixel score strictly above 90%, plus exact media/geometry/property/authorability gates.
 - Full-page capture alone is insufficient. Stage 4 now explicitly requires an independent final full-page pixel comparison, side-by-side, mask, and `full_page_scores` at every breakpoint in both target modes. Component averages cannot replace it. Capture the authored content document, not the AEM editor chrome; unequal dimensions or missing evidence withhold scores.
+- Stage 4 explicitly requires failure-only model handoff: compute every comparison locally, store complete evidence, and return compact JSON plus active failing/withheld/regressed pairs and relevant code. Passing images are loaded only for preflight, validation uncertainty, or rejection. Reduced page overviews/region crops are diagnostic-only, never scoring inputs. This is a runner requirement; runtime adherence still needs verification during a migration.
 - `high` and `xhigh` use identical workflow prompts (only effort metadata differs) and identical thresholds, diff settings, and retry caps. The launcher forwards the requested supported effort and rejects unsupported effort instead of silently downgrading. Capability fixtures test this locally; actual account availability is discovered at runtime.
 - Neither effort level guarantees identical decisions or a passing migration. These are verified prompt/configuration contracts, NOT a cross-model browser benchmark or an independent post-run evidence verifier. Real source/AEM comparisons must execute in each migration; unresolved failures remain FAIL/BLOCKED, never assumed PASS because extra reasoning was selected.
 
