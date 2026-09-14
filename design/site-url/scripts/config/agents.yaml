@@ -1,0 +1,108 @@
+# Agent roster.
+#
+# One entry per agent role. The Python classes only supply behaviour that cannot
+# be expressed declaratively (fan-out shape, result post-processing); everything
+# else — prompt, model, budget, and the result contract each agent must satisfy —
+# is authored here.
+
+version: 1
+
+defaults:
+  prompt_dir: design/site-url/scripts/prompts
+  model: null            # inherits model.default from migration.yaml
+  effort: null
+  max_continues: 20
+  timeout_seconds: 5400
+  result_status_values: [PASS, FAIL, BLOCKED]
+  required_result_keys: [agent, run_id, status]
+
+agents:
+  planner:
+    title: Planner
+    prompt: planner.md
+    description: >-
+      Reads the canonical prompt contract, resolves SITE_URL, performs exhaustive
+      source discovery at every required breakpoint, and emits the component plan
+      that decides how many implementation agents are fanned out.
+    timeout_seconds: 7200
+    required_result_keys: [agent, run_id, status, components]
+    outputs:
+      components: outputs.components
+      coverage_report: outputs.coverage_report
+      source_selector_map: outputs.source_selector_map
+    # Shape each planned component must have. Missing required fields fail the
+    # plan before a single implementation agent is started.
+    component_schema:
+      required: [id, name, tier, delivery, resource_type, source_selectors, source_order]
+      optional:
+        - instances
+        - visible_breakpoints
+        - owning_module
+        - reuse_target
+        - assets
+        - authorable_fields
+        - interactions
+        - notes
+      id_pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      tier_values: [1, 2, 3, 4]
+      delivery_values: [component, experience-fragment]
+
+  component:
+    title: Component builder
+    prompt: component.md
+    description: >-
+      Implements exactly one planned component end to end: dialog, HTL, Sling
+      Model, clientlib, focused test, authored demo content, and policy updates.
+      One instance of this agent is started per planned component.
+    timeout_seconds: 5400
+    required_result_keys: [agent, run_id, status, component_id, changed_files]
+    outputs:
+      changed_files: outputs.changed_files
+      resource_type: outputs.resource_type
+      authored_paths: outputs.authored_paths
+      focused_test: outputs.focused_test
+
+  deployer:
+    title: Deployer
+    prompt: deployer.md
+    description: >-
+      Receives the union of every component agent's changed files, chooses the
+      smallest scoped Maven deploy that covers them, deploys in dependency order,
+      and proves the change is live with an HTTP and repository sweep.
+    timeout_seconds: 5400
+    required_result_keys: [agent, run_id, status, deploy_commands, target_url]
+    outputs:
+      deploy_commands: outputs.deploy_commands
+      target_url: outputs.target_url
+      runtime_sweep: outputs.runtime_sweep
+      asset_manifest: outputs.asset_manifest
+
+  parity:
+    title: Visual parity
+    prompt: parity.md
+    description: >-
+      Captures live-source and deployed-AEM evidence with Playwright/Chromium,
+      scores every component instance with pixelmatch at every required
+      breakpoint, and reports which components are below the contract threshold.
+    timeout_seconds: 7200
+    required_result_keys: [agent, run_id, status, scores, failing_components]
+    outputs:
+      scores: outputs.scores
+      failing_components: outputs.failing_components
+      screenshot_index: outputs.screenshot_index
+      runner: outputs.runner
+    score_schema:
+      required: [component_id, breakpoint, mode, matched_pixels, total_pixels, ratio, status]
+
+  reporter:
+    title: Completion reporter
+    prompt: reporter.md
+    description: >-
+      Reads only the persisted run state and agent envelopes and writes the
+      truthful completion report. Emits COMPLETE only when every gate passed.
+    timeout_seconds: 3600
+    result_status_values: [COMPLETE, FAIL, BLOCKED]
+    required_result_keys: [agent, run_id, status, report_path]
+    outputs:
+      report_path: outputs.report_path
+      residual_gaps: outputs.residual_gaps

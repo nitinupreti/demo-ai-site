@@ -1,0 +1,325 @@
+# Authorable configuration for the Python migration agent pipeline.
+#
+# Everything the pipeline can reasonably be told is declared here instead of in
+# Python. Change values in this file, not in code. Secrets are referenced by
+# environment-variable name only and are never stored here.
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Project identity (mirrors .aem-skills-config.yaml)
+# ---------------------------------------------------------------------------
+project:
+  name: demo-ai-site
+  java_package: com.demo.core
+  apps_root: ui.apps/src/main/content/jcr_root/apps
+  dam_root: /content/dam/demo-ai-site/design
+
+# ---------------------------------------------------------------------------
+# Canonical prompt contract
+# ---------------------------------------------------------------------------
+# The pipeline never invents thresholds. It parses every ```yaml block in the
+# contract file below, merges them, and binds the logical names used by the
+# agents to the keys that actually appear in that markdown.
+contract:
+  file: design/site-url/prompt_new.md
+  keys:
+    site_url: SITE_URL
+    target_page_path: TARGET_PAGE_PATH
+    breakpoints: required_breakpoints
+    visual_pass_ratio: visual_pass_ratio
+    max_attempts_per_component: max_attempts_per_component
+    evidence_dir_template: default_evidence_dir
+    completion_requires: completion_requires
+  required:
+    - site_url
+    - breakpoints
+    - visual_pass_ratio
+    - max_attempts_per_component
+  # Additional prompt files handed to every agent as read-only background.
+  companion_docs:
+    - AGENTS.md
+    - .aem-skills-config.yaml
+
+# ---------------------------------------------------------------------------
+# Run layout
+# ---------------------------------------------------------------------------
+run:
+  evidence_root: design/scratch
+  evidence_dir_pattern: "migration-{run_id}"
+  state_file: run-state.json
+  plan_file: component-plan.json
+  report_file: completion-report.md
+  log_file: orchestrator.log
+  agent_workspace_dir: agents
+  result_file: result.json
+  prompt_file: prompt.md
+  stream_file: stream.jsonl
+  stderr_file: stderr.log
+  allowed_url_schemes: [http, https]
+  source_probe_timeout_seconds: 20
+
+# ---------------------------------------------------------------------------
+# Target AEM instance
+# ---------------------------------------------------------------------------
+aem:
+  # The port/host actually used. Set the number here.
+  default_host: localhost
+  default_port: 4506
+  # Names of environment variables that, when set, win over the values above.
+  host_env: AEM_HOST
+  port_env: AEM_PORT
+  # Local SDK default. Override via this environment variable for anything else.
+  credentials_env: AEM_CREDENTIALS
+  default_credentials: "admin:admin"
+  author_probe_path: /libs/granite/core/content/login.html
+  disabled_url_pattern: "http://{host}:{port}{path}.html?wcmmode=disabled"
+  author_url_pattern: "http://{host}:{port}/editor.html{path}.html"
+
+# ---------------------------------------------------------------------------
+# Agent execution backend
+# ---------------------------------------------------------------------------
+backend:
+  kind: copilot-cli
+  copilot:
+    executable_env: COPILOT_BIN
+    executable_candidates:
+      - "{APPDATA}/npm/node_modules/@github/copilot/node_modules/@github/copilot-win32-{arch}/copilot.exe"
+      - "{APPDATA}/npm/node_modules/@github/copilot/node_modules/@github/copilot-darwin-{arch}/copilot"
+      - "{APPDATA}/npm/node_modules/@github/copilot/node_modules/@github/copilot-linux-{arch}/copilot"
+      - "{APPDATA}/npm/copilot.cmd"
+      - copilot
+    version_args: ["--version"]
+    # {prompt}, {model}, {session_name}, {max_continues} and {effort} are
+    # substituted per agent invocation. Entries whose placeholder resolves to an
+    # empty value are dropped together with their flag.
+    base_args:
+      - "-p"
+      - "{prompt}"
+      - "--output-format"
+      - "json"
+      - "--stream"
+      - "on"
+      - "--allow-all"
+      - "--no-ask-user"
+      - "--no-remote"
+      - "--no-remote-export"
+      - "--no-auto-update"
+    model_args: ["--model", "{model}"]
+    session_args: ["--name", "{session_name}"]
+    effort_args: ["--effort", "{effort}"]
+    autopilot_args: ["--autopilot", "--max-autopilot-continues", "{max_continues}"]
+    credit_args: ["--max-ai-credits", "{max_ai_credits}"]
+    # Guard rails: the pipeline must never rewrite the user's git history.
+    denied_tools:
+      - "shell(git reset:*)"
+      - "shell(git clean:*)"
+      - "shell(git checkout:*)"
+      - "shell(git switch:*)"
+      - "shell(git commit:*)"
+      - "shell(git push:*)"
+      - "shell(git rebase:*)"
+    environment:
+      COPILOT_WEB_FETCH_ALLOW_LOCALHOST: "1"
+    # Event names emitted on stdout that the orchestrator surfaces to the console.
+    events:
+      ready: session.auto_mode_resolved
+      message: assistant.message
+      error: session.error
+      result: result
+
+# ---------------------------------------------------------------------------
+# Model selection
+# ---------------------------------------------------------------------------
+model:
+  default: claude-opus-4.8   # null = let the CLI choose
+  effort: high             # null = omit the flag entirely
+  max_ai_credits: null
+  max_continues: 2000
+
+# ---------------------------------------------------------------------------
+# Fan-out
+# ---------------------------------------------------------------------------
+fanout:
+  max_parallel: 3
+  # Hard ceiling so a bad plan cannot spawn an unbounded number of agents.
+  max_components: 40
+  min_components: 1
+  # Components whose ids match are implemented before any others (page chrome
+  # tends to own shared tokens that the rest of the page depends on).
+  priority_prefixes: [site-header, site-footer, global-, nav-]
+  stop_on_first_failure: false
+
+# ---------------------------------------------------------------------------
+# Reuse survey
+# ---------------------------------------------------------------------------
+# Surveyed before any tier decision so existing work is found rather than rebuilt.
+# A block delivered by the wrong mechanism is a defect even when it renders: site
+# chrome duplicated as a page component cannot be reused by other pages.
+reuse:
+  survey_roots:
+    components: ui.apps/src/main/content/jcr_root/apps/demo-ai-site/components
+    experience_fragments: ui.content/src/main/content/jcr_root/content/experience-fragments/demo-ai-site
+    templates: ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/templates
+    policies: ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/policies
+  # Roles that belong in an Experience Fragment unless the planner proves otherwise.
+  experience_fragment_first:
+    - header
+    - footer
+    - navigation
+    - mega-menu
+    - announcement-bar
+    - global-*
+  experience_fragment_root: /content/experience-fragments/demo-ai-site/us/en/site
+  experience_fragment_variation: master
+  experience_fragment_component: demo-ai-site/components/experiencefragment
+
+# ---------------------------------------------------------------------------
+# Shared files and the merge phase
+# ---------------------------------------------------------------------------
+# Component agents run in parallel against one working tree, so any file that
+# more than one component must change is a lost-update hazard: two agents read
+# the same file, both edit, and the second write erases the first. Agents never
+# edit these files. They declare what they need instead, and a single-threaded
+# merge phase applies every contribution once, in source order.
+shared_files:
+  contribution_file: contributions.json
+  # Advertised to agents as off-limits, and asserted after the merge.
+  protected:
+    - "ui.content/src/main/content/jcr_root/**/.content.xml"
+    - "ui.content/src/main/content/META-INF/vault/filter.xml"
+  authored_page:
+    # {page_path} is the JCR page path taken from each contribution.
+    file: "ui.content/src/main/content/jcr_root{page_path}/.content.xml"
+    default_parent: "jcr:content/root"
+    namespaces:
+      jcr: "http://www.jcp.org/jcr/1.0"
+      sling: "http://sling.apache.org/jcr/sling/1.0"
+      cq: "http://www.day.com/jcr/cq/1.0"
+      nt: "http://www.jcp.org/jcr/nt/1.0"
+  vault_filter:
+    file: "ui.content/src/main/content/META-INF/vault/filter.xml"
+    entry: '<filter root="{root}" mode="merge"/>'
+
+# ---------------------------------------------------------------------------
+# Build and deploy
+# ---------------------------------------------------------------------------
+# The deployer agent receives this table verbatim. Scoped deploys keep the
+# remediation loop fast; the full reactor build is opt-in.
+deploy:
+  scoped:
+    - id: ui-apps
+      match: ["ui.apps/**"]
+      description: "Component CSS / HTL / dialog / clientlib"
+      command: 'mvn install -pl ui.apps -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+    - id: core
+      match: ["core/**"]
+      description: "Java / Sling Model / OSGi service"
+      command: 'mvn install -pl core -PautoInstallBundle "-Daem.port={port}" -DskipTests'
+    - id: ui-content
+      match: ["ui.content/**"]
+      description: "Authored content (FileVault mode=merge)"
+      command: 'mvn install -pl ui.content -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+    - id: ui-config
+      match: ["ui.config/**"]
+      description: "OSGi configuration"
+      command: 'mvn install -pl ui.config -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+    - id: ui-frontend
+      match: ["ui.frontend/**"]
+      description: "Webpack sources; output is copied into ui.apps"
+      command: 'cd ui.frontend ; npm run build'
+      then: ui-apps
+  full:
+    id: reactor
+    description: "Only for a new cross-module artifact or a proven scoped-deploy mismatch"
+    command: 'mvn -T 1C install -PautoInstallSinglePackage -DskipTests -pl all,core,ui.apps,ui.apps.structure,ui.config,ui.content -am'
+  focused_tests:
+    command: 'mvn -pl core test "-Dtest={test_pattern}"'
+  # Run once, before the first deploy of a run.
+  #
+  # Stale `generated-sources/htl` from earlier sessions makes the HTL plugin compile
+  # scripts for components that no longer exist in source, producing phantom
+  # "cannot find symbol" failures that look like defects in the current run. The
+  # single validation build then surfaces every real compile and HTL error at once,
+  # instead of discovering them one per deploy cycle.
+  hygiene:
+    stale_paths:
+      - ui.apps/target/generated-sources/htl
+      - ui.apps/target/classes
+    validation:
+      description: "Surface every compile and HTL error in one cheap build before any deploy"
+      command: 'mvn -q -pl core,ui.apps -am compile --fail-at-end'
+      max_cycles: 4
+    # Fix-all-then-rebuild. One error per build cycle is the single most expensive
+    # failure mode in this phase: each cycle costs a full module build, so N errors
+    # fixed one at a time costs N builds instead of one.
+    batch_rules:
+      - "Read the ENTIRE validation output before editing anything. `--fail-at-end` keeps going after the first failure, so one run lists every broken module."
+      - "Enumerate every distinct error with its file, line, and owning module. Write that list down before touching a file."
+      - "Fix ALL enumerated errors in one editing pass. Do not rebuild between individual fixes."
+      - "Only after every enumerated error is fixed, re-run the validation build once."
+      - "A later cycle is permitted only for errors that were genuinely masked by an earlier failure (a module that could not compile at all). Treat a repeat of an error you already saw as a failed fix, not a new finding."
+      - "Never run a deploy command to discover compile errors. Deploy only after the validation build is clean."
+  rules:
+    - "Deploy each changed module with its own profile, sequentially, in dependency order."
+    - "Never parallelize package installs against the same AEM instance."
+    - "Never `mvn clean` unless a stale target/ is proven to cause the failure."
+    - "A BUILD SUCCESS is not proof the change is live; re-run the HTTP sweep."
+    - "If a deploy still fails, collect every error from that run, fix them all in one pass, and redeploy once. Never fix one error and redeploy to find the next."
+
+# ---------------------------------------------------------------------------
+# Visual parity
+# ---------------------------------------------------------------------------
+# Thresholds are read from the prompt contract. Only capture mechanics live here.
+parity:
+  modes: [disabled, author]
+  runner_dir: parity
+  screenshot_dir: parity/evidence
+  scores_file: parity/scores.json
+  diff_tooling:
+    comparator: pixelmatch
+    png_codec: pngjs
+    browser: chromium
+    driver: playwright
+  geometry_tolerance_px:
+    x: 1
+    width: 1
+    height: 8
+  stability_samples: 3
+  stability_interval_ms: 500
+
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
+# Phases run top to bottom. `fan_out: true` spawns one agent per planned
+# component. The remediation loop re-enters the listed phases while the parity
+# phase reports failing components and the attempt budget from the prompt
+# contract is not exhausted.
+pipeline:
+  phases:
+    - id: plan
+      agent: planner
+      fan_out: false
+    - id: implement
+      agent: component
+      fan_out: true
+    # Deterministic Python, not an agent: one writer for every shared file.
+    - id: merge
+      handler: merge_contributions
+      fan_out: false
+    - id: deploy
+      agent: deployer
+      fan_out: false
+    - id: parity
+      agent: parity
+      fan_out: false
+    - id: report
+      agent: reporter
+      fan_out: false
+      always_run: true
+  remediation:
+    # Re-run these phases for the failing components only.
+    phases: [implement, merge, deploy, parity]
+    # Budget comes from contract.max_attempts_per_component unless overridden.
+    max_attempts: null
+    terminal_status: FAILED-FINAL
