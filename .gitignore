@@ -104,3 +104,7 @@ reports/
 
 # Others
 dispatcher/src/conf.d/variables/default.vars
+
+# Migration run evidence: screenshots, agent event streams, per-run Playwright
+# installs. Regenerated on every run and tens of MB each.
+design/scratch/
