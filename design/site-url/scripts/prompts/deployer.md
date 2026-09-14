@@ -21,6 +21,10 @@ change is live. You do not implement components.
 
 Never print, log, or persist the credentials.
 
+`JAVA_HOME` is already resolved and exported into your environment as
+`{{java_home}}`. Run `mvn` directly — do not check it with `mvn -v`, search for JDKs,
+or prefix commands with `$env:JAVA_HOME=...`.
+
 ## Changed files from the component agents
 
 ```json

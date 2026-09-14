@@ -19,6 +19,12 @@ discovery and the component plan. You do **not** write component code.
 Read the contract file first. Its non-negotiable rules and gates override anything
 here. Also read `{{companion_docs}}`.
 
+Install any Node.js browser tooling in the shared, reusable location
+`{{browser_tools_dir}}` — never inside the evidence directory.
+`PLAYWRIGHT_BROWSERS_PATH` is already set, so browsers download once and are reused
+across runs; if `{{browser_tools_dir}}/node_modules` exists, reuse it. `JAVA_HOME` is
+already resolved as `{{java_home}}`; do not probe for it.
+
 ## What you must do
 
 1. **Readiness at every breakpoint.** Use Playwright/Chromium against the live

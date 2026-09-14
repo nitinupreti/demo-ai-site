@@ -14,6 +14,7 @@ from ..envelope import AgentResult, EnvelopeError, read_result
 from ..render import render_file
 from ..runner import CopilotBackend
 from ..state import RunState
+from ..toolchain import Toolchain
 
 
 @dataclass
@@ -28,6 +29,7 @@ class RunContext:
     evidence_dir: Path
     logger: Any
     dry_run: bool = False
+    toolchain: Toolchain | None = None
 
     @property
     def repo_root(self) -> Path:
@@ -105,6 +107,8 @@ class RunContext:
             "xf_root": str(migration.get("reuse.experience_fragment_root", "")),
             "xf_variation": str(migration.get("reuse.experience_fragment_variation", "master")),
             "xf_component": str(migration.get("reuse.experience_fragment_component", "")),
+            "java_home": str(self.toolchain.java_home) if self.toolchain else "",
+            "browser_tools_dir": str(migration.get("parity.tools_dir", "")),
         }
 
 
@@ -209,13 +213,22 @@ class Agent:
         return result
 
     def env_extra(self) -> dict[str, str]:
-        return {
+        migration = self.context.settings.migration
+        environment = {
             "MIGRATION_RUN_ID": self.context.run_id,
             "MIGRATION_SITE_URL": self.context.contract.site_url,
             "MIGRATION_EVIDENCE_DIR": self.context.rel(self.context.evidence_dir),
             "AEM_HOST": self.context.aem_host,
             "AEM_PORT": str(self.context.aem_port),
         }
+        if self.context.toolchain:
+            environment.update(self.context.toolchain.environment())
+        browsers = migration.get("parity.browsers_path", None)
+        if browsers:
+            environment["PLAYWRIGHT_BROWSERS_PATH"] = str(
+                self.context.settings.resolve(str(browsers))
+            )
+        return environment
 
     def _on_event(self, label: str, event: Mapping[str, Any]) -> None:
         events = self.context.settings.migration.section("backend.copilot.events")

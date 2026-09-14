@@ -31,6 +31,17 @@ planner's frozen selectors, rects, computed styles, and media manifest as the so
 of truth. Never re-derive source facts by guessing, and never tune CSS to compensate
 for missing discovery or content.
 
+## MUST — Do not re-capture the source, do not probe the toolchain
+
+- **Never open the live site.** The planner already captured this page at every
+  breakpoint and froze the evidence under `{{evidence_dir}}`. Do not launch
+  Playwright, fetch `{{site_url}}`, or re-measure anything. Eight other agents are
+  doing the same work you would be duplicating. If the evidence you need is missing
+  or ambiguous, report `FAIL` naming the missing artifact — do not go and get it.
+- **`JAVA_HOME` is already correct** — it is `{{java_home}}`, exported into your
+  environment. Run `mvn` directly. Do not run `mvn -v` to check it, do not search for
+  JDKs, and do not prefix commands with `$env:JAVA_HOME=...`.
+
 {{remediation_block}}
 
 ## Files you own

@@ -77,6 +77,27 @@ aem:
   author_url_pattern: "http://{host}:{port}/editor.html{path}.html"
 
 # ---------------------------------------------------------------------------
+# Toolchain
+# ---------------------------------------------------------------------------
+# Resolved once at preflight and exported to every agent. Agents must never
+# probe for a JDK or set JAVA_HOME themselves: with a broken machine value,
+# every agent rediscovers the same problem and pays for it in tool calls.
+#
+# Leave java_home null to auto-detect — the environment variable is used only
+# when it really points at a JDK, otherwise the candidate globs are searched and
+# the highest version wins. Set an absolute path to pin one.
+toolchain:
+  java_home: null
+  java_home_env: JAVA_HOME
+  java_home_candidates:
+    - "C:/Program Files/Zulu/zulu-*"
+    - "C:/Program Files/Java/jdk*"
+    - "C:/Program Files/Eclipse Adoptium/jdk*"
+    - "C:/Program Files/Microsoft/jdk*"
+    - "/usr/lib/jvm/*"
+    - "/Library/Java/JavaVirtualMachines/*/Contents/Home"
+
+# ---------------------------------------------------------------------------
 # Agent execution backend
 # ---------------------------------------------------------------------------
 backend:
@@ -276,6 +297,11 @@ parity:
   runner_dir: parity
   screenshot_dir: parity/evidence
   scores_file: parity/scores.json
+  # Installed once and reused across runs. A per-run install under the evidence
+  # directory costs a fresh ~18 MB download every time and leaves a copy behind in
+  # every retained evidence folder.
+  tools_dir: design/site-url/scripts/.tools/browser
+  browsers_path: design/site-url/scripts/.tools/ms-playwright
   diff_tooling:
     comparator: pixelmatch
     png_codec: pngjs

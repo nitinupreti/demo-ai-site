@@ -39,7 +39,15 @@ to report against the deployer, not a low score to remediate in CSS.
 
 ## Parity runner
 
-Use a Node.js Playwright/Chromium runner under `{{runner_dir}}`. It must:
+Use a Node.js Playwright/Chromium runner under `{{runner_dir}}`.
+
+Install its dependencies in the shared, reusable location `{{browser_tools_dir}}`
+— never inside the evidence directory. `PLAYWRIGHT_BROWSERS_PATH` is already set for
+you, so browsers are downloaded once and reused across runs. If
+`{{browser_tools_dir}}/node_modules` already exists, reuse it rather than
+reinstalling.
+
+The runner must:
 
 - take the planner's source selectors, the deployed target selectors, both URLs, and
   all breakpoints from a run-specific config file — never a hardcoded component list;

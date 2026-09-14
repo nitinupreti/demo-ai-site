@@ -23,6 +23,7 @@ from .envelope import AgentResult, EnvelopeError
 from .merge import MergeError, merge_contributions
 from .runner import BackendError, create_backend
 from .state import RunState
+from .toolchain import ToolchainError, resolve_java_home
 from .agents import AGENT_CLASSES, RunContext
 
 
@@ -150,6 +151,11 @@ class Orchestrator:
 
         backend = create_backend(self.settings)
         emit(f"  agent backend: {backend.version}", "green")
+
+        toolchain = resolve_java_home(self.settings)
+        emit(f"  JAVA_HOME: {toolchain.java_home} (from {toolchain.source})", "green")
+        self.state.update(toolchain={"java_home": str(toolchain.java_home), "source": toolchain.source})
+
         self.context = RunContext(
             settings=self.settings,
             contract=self.contract,
@@ -159,6 +165,7 @@ class Orchestrator:
             evidence_dir=self.evidence_dir,
             logger=self.logger,
             dry_run=self.dry_run,
+            toolchain=toolchain,
         )
 
     # -- phase dispatch ----------------------------------------------------
