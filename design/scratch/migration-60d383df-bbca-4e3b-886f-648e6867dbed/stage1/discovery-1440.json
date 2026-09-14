@@ -1,0 +1,1438 @@
+﻿{
+  "items": [
+    {
+      "tag": "nav",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1425,
+        "h": 64
+      },
+      "signals": [
+        1
+      ],
+      "text": "Product Resources Developers Startups Enterprise Pricing Req"
+    },
+    {
+      "tag": "li",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "rect": {
+        "x": 315,
+        "y": 84,
+        "w": 67,
+        "h": 16
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "img",
+      "id": null,
+      "cls": "next-image",
+      "rect": {
+        "x": 332,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "img",
+      "id": null,
+      "cls": "next-image",
+      "rect": {
+        "x": 602,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "img",
+      "id": null,
+      "cls": "next-image",
+      "rect": {
+        "x": 872,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 323,
+        "y": 398,
+        "w": 20,
+        "h": 20
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 908,
+        "y": 398,
+        "w": 20,
+        "h": 20
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "id": "_R_3aipksbm_",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "rect": {
+        "x": 315,
+        "y": 76,
+        "w": 249,
+        "h": 32
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "id": "_R_5aipksbm_",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "rect": {
+        "x": 588,
+        "y": 76,
+        "w": 249,
+        "h": 32
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "id": "_R_7aipksbm_",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading globalNavigation-module-scss-module__HWB10a__desktopDropDownNavigationHeading",
+      "rect": {
+        "x": 861,
+        "y": 76,
+        "w": 249,
+        "h": 32
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "main",
+      "id": null,
+      "cls": "layout-module-scss-module__18xgza__main layout-module-scss-module__18xgza__withoutPadding",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1425,
+        "h": 6179
+      },
+      "signals": [
+        1
+      ],
+      "text": "Ã— How the world's fastest-growing startup stays fast with No"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withBgColor",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1425,
+        "h": 570
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Ã— How the world's fastest-growing startup stays fast with No"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "HeroStories-module-scss-module__sP_DKq__heroStories [slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__removeBgColor [slug]-module-scss-module__rdykIW__ultraWide",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 1425,
+        "h": 570
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Ã— How the world's fastest-growing startup stays fast with No"
+    },
+    {
+      "tag": "span",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 343,
+        "y": 259,
+        "w": 11,
+        "h": 24
+      },
+      "signals": [
+        1
+      ],
+      "text": "Ã—"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 666,
+        "w": 1425,
+        "h": 760
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Cursor became the fastest-growing company in history by givi"
+    },
+    {
+      "tag": "aside",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__metaArea",
+      "rect": {
+        "x": 1074,
+        "y": 682,
+        "w": 232,
+        "h": 196
+      },
+      "signals": [
+        1
+      ],
+      "text": "Insights from Michael Truell Co-founder & CEO Ryo Lu Head o"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 1458,
+        "w": 1425,
+        "h": 1016
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Why they build instead of buy While Cursor's rapid growth h"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "rect": {
+        "x": 72,
+        "y": 2506,
+        "w": 1280,
+        "h": 248
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "I honestly can't imagine running a design team without Notio"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "cls": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "rect": {
+        "x": 178,
+        "y": 2506,
+        "w": 1069,
+        "h": 248
+      },
+      "signals": [
+        1,
+        8
+      ],
+      "text": "I honestly can't imagine running a design team without Notio"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 2786,
+        "w": 1425,
+        "h": 1035
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "AI is strongest where work flows and knowledge grows Fast-m"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "cls": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+      "rect": {
+        "x": 106,
+        "y": 3577,
+        "w": 1214,
+        "h": 243
+      },
+      "signals": [
+        1
+      ],
+      "text": "With Notion AI built into where Cursor teams work and collab"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "rect": {
+        "x": 72,
+        "y": 3853,
+        "w": 1280,
+        "h": 248
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Keeping people in the loop as weâ€™ve grown so fast is really "
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "cls": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "rect": {
+        "x": 178,
+        "y": 3853,
+        "w": 1069,
+        "h": 248
+      },
+      "signals": [
+        1,
+        8
+      ],
+      "text": "Keeping people in the loop as weâ€™ve grown so fast is really "
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 4133,
+        "w": 1425,
+        "h": 628
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "The modern stack: 5x fewer tools required Where most compan"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "rect": {
+        "x": 72,
+        "y": 4792,
+        "w": 1280,
+        "h": 248
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Weâ€™re moving away from a world where communication is siloed"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "cls": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "rect": {
+        "x": 178,
+        "y": 4792,
+        "w": 1069,
+        "h": 248
+      },
+      "signals": [
+        1,
+        8
+      ],
+      "text": "Weâ€™re moving away from a world where communication is siloed"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 5072,
+        "w": 1425,
+        "h": 450
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "Build with less tool sprawl and more focus See how Notion k"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "rect": {
+        "x": 0,
+        "y": 5586,
+        "w": 1425,
+        "h": 657
+      },
+      "signals": [
+        1,
+        3
+      ],
+      "text": "How other teams use Notion Customer story Edge Esmeralda"
+    },
+    {
+      "tag": "footer",
+      "id": "site-footer",
+      "cls": "surface surfaceBase surface-module-scss-module__CFFfpW__surfaceBase footer-module-scss-module__U-iC1W__footer footer-module-scss-module__cwVo7a__footer footer-module-scss-module__cwVo7a__hideSeparator",
+      "rect": {
+        "x": 0,
+        "y": 6243,
+        "w": 1425,
+        "h": 396
+      },
+      "signals": [
+        1
+      ],
+      "text": "We shape our tools, and thereafter our tools shape us. Marsh"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "cls": "quote-module-scss-module__2NYrkq__quote footer-module-scss-module__cwVo7a__quote footer-module-scss-module__cwVo7a__quoteMcLuhan quote-module-scss-module__2NYrkq__quoteAlignStart",
+      "rect": {
+        "x": 86,
+        "y": 6449,
+        "w": 401,
+        "h": 88
+      },
+      "signals": [
+        1,
+        8
+      ],
+      "text": "We shape our tools, and thereafter our tools shape us. Marsh"
+    },
+    {
+      "tag": "nav",
+      "id": null,
+      "cls": "footer-module-scss-module__U-iC1W__nav",
+      "rect": {
+        "x": 512,
+        "y": 6323,
+        "w": 827,
+        "h": 214
+      },
+      "signals": [
+        1
+      ],
+      "text": "Product Features What's New Notion AI Pricing Request a demo"
+    },
+    {
+      "tag": "li",
+      "id": "product",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "rect": {
+        "x": 504,
+        "y": 6323,
+        "w": 205,
+        "h": 24
+      },
+      "signals": [
+        1
+      ],
+      "text": "Product"
+    },
+    {
+      "tag": "li",
+      "id": "resources",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "rect": {
+        "x": 716,
+        "y": 6323,
+        "w": 205,
+        "h": 24
+      },
+      "signals": [
+        1
+      ],
+      "text": "Resources"
+    },
+    {
+      "tag": "li",
+      "id": "company",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "rect": {
+        "x": 929,
+        "y": 6323,
+        "w": 205,
+        "h": 24
+      },
+      "signals": [
+        1
+      ],
+      "text": "Company"
+    },
+    {
+      "tag": "li",
+      "id": "notionFor",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading menuList-module-scss-module__qf-KyW__heading",
+      "rect": {
+        "x": 1142,
+        "y": 6323,
+        "w": 205,
+        "h": 24
+      },
+      "signals": [
+        1
+      ],
+      "text": "Notion for"
+    },
+    {
+      "tag": "svg",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 1285,
+        "y": 6589,
+        "w": 14,
+        "h": 14
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "id": "__next-route-announcer__",
+      "cls": null,
+      "rect": {
+        "x": -1,
+        "y": -1,
+        "w": 1,
+        "h": 1
+      },
+      "signals": [
+        1
+      ],
+      "text": ""
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "rect": {
+        "x": 332,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "signals": [
+        2
+      ],
+      "text": ""
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "rect": {
+        "x": 602,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "signals": [
+        2
+      ],
+      "text": ""
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle productFeaturesDropdown-module-scss-module__qVhEtq__featureTitle",
+      "rect": {
+        "x": 872,
+        "y": 279,
+        "w": 220,
+        "h": 28
+      },
+      "signals": [
+        2
+      ],
+      "text": ""
+    },
+    {
+      "tag": "h1",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle",
+      "rect": {
+        "x": 48,
+        "y": 298,
+        "w": 616,
+        "h": 144
+      },
+      "signals": [
+        2
+      ],
+      "text": "How the world's fastest-growing startup stays fast with Noti"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 386,
+        "y": 858,
+        "w": 640,
+        "h": 36
+      },
+      "signals": [
+        2
+      ],
+      "text": "Simplicity solves for the complexities of scale"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 386,
+        "y": 1478,
+        "w": 640,
+        "h": 36
+      },
+      "signals": [
+        2
+      ],
+      "text": "Why they build instead of buy"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 386,
+        "y": 2806,
+        "w": 640,
+        "h": 72
+      },
+      "signals": [
+        2
+      ],
+      "text": "AI is strongest where work flows and knowledge grows"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "cls": null,
+      "rect": {
+        "x": 386,
+        "y": 4152,
+        "w": 640,
+        "h": 36
+      },
+      "signals": [
+        2
+      ],
+      "text": "The modern stack: 5x fewer tools required"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalHeadingSubtle Endcap-module-scss-module__0m6-va__endcapTitle [slug]-module-scss-module__rdykIW__constrainedFooterWidth",
+      "rect": {
+        "x": 314,
+        "y": 5203,
+        "w": 798,
+        "h": 48
+      },
+      "signals": [
+        2
+      ],
+      "text": "Build with less tool sprawl and more focus"
+    },
+    {
+      "tag": "h2",
+      "id": "_R_in4bm_",
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle [slug]-module-scss-module__rdykIW__relatedCaseStudiesHeader",
+      "rect": {
+        "x": 106,
+        "y": 5586,
+        "w": 1214,
+        "h": 96
+      },
+      "signals": [
+        2
+      ],
+      "text": "How other teams use Notion"
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle",
+      "rect": {
+        "x": 305,
+        "y": 6078,
+        "w": 398,
+        "h": 84
+      },
+      "signals": [
+        2
+      ],
+      "text": "Edge Esmeralda: The Village with a Living Operating System o"
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle",
+      "rect": {
+        "x": 721,
+        "y": 6078,
+        "w": 398,
+        "h": 84
+      },
+      "signals": [
+        2
+      ],
+      "text": "How Rakuten France turned every team into AI builders with C"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__globalNavigationWrapper globalNavigation-module-scss-module__HWB10a__stickyWrapper",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1425,
+        "h": 64
+      },
+      "signals": [
+        3,
+        6
+      ],
+      "text": "Product Resources Developers Startups Enterprise Pricing Req"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__container",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1425,
+        "h": 64
+      },
+      "signals": [
+        3
+      ],
+      "text": "Product Resources Developers Startups Enterprise Pricing Req"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__links",
+      "rect": {
+        "x": 372,
+        "y": 17,
+        "w": 680,
+        "h": 30
+      },
+      "signals": [
+        3
+      ],
+      "text": "Product Resources Developers Startups Enterprise Pricing Req"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__dropdown",
+      "rect": {
+        "x": 299,
+        "y": 60,
+        "w": 826,
+        "h": 376
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__desktop",
+      "rect": {
+        "x": 315,
+        "y": 84,
+        "w": 794,
+        "h": 352
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__panel",
+      "rect": {
+        "x": 315,
+        "y": 84,
+        "w": 794,
+        "h": 284
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__header",
+      "rect": {
+        "x": 315,
+        "y": 84,
+        "w": 794,
+        "h": 16
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintBlue",
+      "rect": {
+        "x": 315,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "rect": {
+        "x": 332,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "rect": {
+        "x": 332,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintRed",
+      "rect": {
+        "x": 585,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "rect": {
+        "x": 602,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "rect": {
+        "x": 602,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__card productFeaturesDropdown-module-scss-module__qVhEtq__featureCard productFeaturesDropdown-module-scss-module__qVhEtq__tintYellow",
+      "rect": {
+        "x": 855,
+        "y": 112,
+        "w": 254,
+        "h": 256
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "card-module-scss-module__uD7svG__cardMedia productFeaturesDropdown-module-scss-module__qVhEtq__featureMedia",
+      "rect": {
+        "x": 872,
+        "y": 129,
+        "w": 220,
+        "h": 126
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__featureContent",
+      "rect": {
+        "x": 872,
+        "y": 279,
+        "w": 220,
+        "h": 72
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "productFeaturesDropdown-module-scss-module__qVhEtq__desktopFooter",
+      "rect": {
+        "x": 299,
+        "y": 384,
+        "w": 826,
+        "h": 52
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationCaption dropdownFooterContent-module-scss-module__RvmCHG__footerLeft",
+      "rect": {
+        "x": 315,
+        "y": 396,
+        "w": 236,
+        "h": 28
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "dropdownFooterContent-module-scss-module__RvmCHG__footerWhatsNewContainer dropdownFooterContent-module-scss-module__RvmCHG__visible",
+      "rect": {
+        "x": 323,
+        "y": 396,
+        "w": 228,
+        "h": 28
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationCaption dropdownFooterContent-module-scss-module__RvmCHG__footerRight",
+      "rect": {
+        "x": 908,
+        "y": 396,
+        "w": 201,
+        "h": 28
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__dropdown",
+      "rect": {
+        "x": 299,
+        "y": 60,
+        "w": 826,
+        "h": 168
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__dropdownGrid",
+      "rect": {
+        "x": 315,
+        "y": 76,
+        "w": 794,
+        "h": 136
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "globalNavigation-module-scss-module__HWB10a__actions",
+      "rect": {
+        "x": 1192,
+        "y": 14,
+        "w": 209,
+        "h": 36
+      },
+      "signals": [
+        3
+      ],
+      "text": "Log in Get Notion free"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "HeroStories-module-scss-module__sP_DKq__content",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "w": 712,
+        "h": 570
+      },
+      "signals": [
+        3
+      ],
+      "text": "Ã— How the world's fastest-growing startup stays fast with No"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__heroLogoLockup",
+      "rect": {
+        "x": 248,
+        "y": 256,
+        "w": 217,
+        "h": 30
+      },
+      "signals": [
+        3
+      ],
+      "text": "Ã—"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "HeroStories-module-scss-module__sP_DKq__media HeroStories-module-scss-module__sP_DKq__mediaVariantBleed",
+      "rect": {
+        "x": 712,
+        "y": 64,
+        "w": 712,
+        "h": 570
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "HeroStories-module-scss-module__sP_DKq__mediaInner",
+      "rect": {
+        "x": 712,
+        "y": 64,
+        "w": 712,
+        "h": 570
+      },
+      "signals": [
+        3
+      ],
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdykIW__firstContentSection",
+      "rect": {
+        "x": 106,
+        "y": 666,
+        "w": 1214,
+        "h": 760
+      },
+      "signals": [
+        3
+      ],
+      "text": "Cursor became the fastest-growing company in history by givi"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "rect": {
+        "x": 106,
+        "y": 1458,
+        "w": 1214,
+        "h": 1016
+      },
+      "signals": [
+        3
+      ],
+      "text": "Why they build instead of buy While Cursor's rapid growth h"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "rect": {
+        "x": 106,
+        "y": 2786,
+        "w": 1214,
+        "h": 728
+      },
+      "signals": [
+        3
+      ],
+      "text": "AI is strongest where work flows and knowledge grows Fast-m"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__sectionMedia",
+      "rect": {
+        "x": 106,
+        "y": 3577,
+        "w": 1214,
+        "h": 243
+      },
+      "signals": [
+        3
+      ],
+      "text": "With Notion AI built into where Cursor teams work and collab"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "rect": {
+        "x": 106,
+        "y": 4133,
+        "w": 1214,
+        "h": 628
+      },
+      "signals": [
+        3
+      ],
+      "text": "The modern stack: 5x fewer tools required Where most compan"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+      "rect": {
+        "x": 0,
+        "y": 5586,
+        "w": 1425,
+        "h": 657
+      },
+      "signals": [
+        3
+      ],
+      "text": "How other teams use Notion Customer story Edge Esmeralda"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "grid-module-scss-module__lgnKUW__grid footer-module-scss-module__U-iC1W__grid",
+      "rect": {
+        "x": 86,
+        "y": 6323,
+        "w": 1252,
+        "h": 292
+      },
+      "signals": [
+        3
+      ],
+      "text": "We shape our tools, and thereafter our tools shape us. Marsh"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "footer-module-scss-module__U-iC1W__brand footer-module-scss-module__cwVo7a__brand",
+      "rect": {
+        "x": 86,
+        "y": 6323,
+        "w": 401,
+        "h": 214
+      },
+      "signals": [
+        3
+      ],
+      "text": "We shape our tools, and thereafter our tools shape us. Marsh"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantInteractionMenuListItemLabel footer-module-scss-module__U-iC1W__legal footer-module-scss-module__cwVo7a__legal",
+      "rect": {
+        "x": 724,
+        "y": 6577,
+        "w": 401,
+        "h": 29
+      },
+      "signals": [
+        3
+      ],
+      "text": "Cookie settings"
+    },
+    {
+      "tag": "video",
+      "id": null,
+      "cls": "Video-module-scss-module__D671CW__video Video-module-scss-module__D671CW__videoAspectRatio",
+      "rect": {
+        "x": 233,
+        "y": 3578,
+        "w": 958,
+        "h": 150
+      },
+      "signals": [
+        5
+      ],
+      "text": ""
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "rect": {
+        "x": 178,
+        "y": 2538,
+        "w": 1069,
+        "h": 120
+      },
+      "signals": [
+        8
+      ],
+      "text": "I honestly can't imagine running a design team without Notio"
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "rect": {
+        "x": 178,
+        "y": 3885,
+        "w": 1069,
+        "h": 120
+      },
+      "signals": [
+        8
+      ],
+      "text": "Keeping people in the loop as weâ€™ve grown so fast is really "
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "rect": {
+        "x": 178,
+        "y": 4824,
+        "w": 1069,
+        "h": 120
+      },
+      "signals": [
+        8
+      ],
+      "text": "Weâ€™re moving away from a world where communication is siloed"
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "cls": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuoteDeemphasized quote-module-scss-module__2NYrkq__blockquote",
+      "rect": {
+        "x": 86,
+        "y": 6449,
+        "w": 269,
+        "h": 48
+      },
+      "signals": [
+        8
+      ],
+      "text": "We shape our tools, and thereafter our tools shape us."
+    }
+  ],
+  "repetitionParents": [
+    {
+      "parentSel": "div",
+      "childCount": 2,
+      "childTag": "div"
+    },
+    {
+      "parentSel": "ul",
+      "childCount": 3,
+      "childTag": "li"
+    },
+    {
+      "parentSel": "div",
+      "childCount": 3,
+      "childTag": "ul"
+    },
+    {
+      "parentSel": "section",
+      "childCount": 2,
+      "childTag": "div"
+    },
+    {
+      "parentSel": "div",
+      "childCount": 4,
+      "childTag": "p"
+    },
+    {
+      "parentSel": "div",
+      "childCount": 2,
+      "childTag": "div"
+    },
+    {
+      "parentSel": "ul",
+      "childCount": 3,
+      "childTag": "li"
+    },
+    {
+      "parentSel": "section",
+      "childCount": 2,
+      "childTag": "div"
+    },
+    {
+      "parentSel": "ul",
+      "childCount": 3,
+      "childTag": "li"
+    },
+    {
+      "parentSel": "div",
+      "childCount": 3,
+      "childTag": "p"
+    },
+    {
+      "parentSel": "div",
+      "childCount": 2,
+      "childTag": "div"
+    },
+    {
+      "parentSel": "nav",
+      "childCount": 4,
+      "childTag": "ul"
+    }
+  ],
+  "scrollHeight": 6638,
+  "docTitle": "How the world's fastest-growing startup stays fast with Notion",
+  "metaDescription": "Cursor uses Notion as their central operating system to maintain velocity while scaling to 100+ employees. Learn how they avoided tool sprawl, minimized busywork, and empowered teams to customize workflowsâ€”all while using 5x fewer tools.",
+  "canonical": "https://www.notion.com/customers/cursor",
+  "ogTitle": "Inside Cursorâ€™s OS: How the worldâ€™s fastest-growing startup stays fast",
+  "ogImage": "https://images.ctfassets.net/spoqsaf9291f/47LSGjgCkt6iuqpdIawmG6/73b1a8768b28646a08ffd8b6272ed805/Cursor_MetaImage.png"
+}

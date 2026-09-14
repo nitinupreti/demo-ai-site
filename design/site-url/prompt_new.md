@@ -37,13 +37,15 @@ Acceptance is model/effort-independent: use supported `low`, `medium`, `high`, o
 - Stop only for an explicit user pause/cancel, an evidenced external blocker requiring user action, or exhausted canonical retries. Ask only for the specific unblocker, never scope consent; follow FAIL/BLOCKED routing.
 - Assessed size, turn/tool budgets, or "this will take too long" judgments never authorize silently substituting a smaller scope. The executing agent must not self-authorize reduced scope under any framing, including "pragmatic", "targeted", "single-pass", "continuation", or "good enough for now". If exhaustive execution appears infeasible, halt and disclose the specific blocker BEFORE proceeding, never as an after-the-fact footnote in a completion report.
 - A shortcut disclosed only after delivery is a contract violation, not transparency. Skipping any stage means the run is FAIL or BLOCKED, never a partial success.
+- Completion is machine-verified, not self-asserted. Run `node design/site-url/verify-run.mjs <EVIDENCE_DIR>` and paste its output; exit code 0 is REQUIRED before any COMPLETE claim. A non-zero exit means the run is not complete regardless of narrative quality, and its failure list must be reported verbatim. Never edit the verifier, its tests, or `run-state.json` to make the gate pass.
 
 ## Context Loading
 
 - Read root `AGENTS.md`, `CLAUDE.md`, and optional `.aem-skills-config.yaml` once; do not reread unchanged instructions already available.
 - Load only the active stage and required references; links are routing pointers, not recursive loading instructions. Never glob-load prompts, skills, examples, or historical runs.
-- Consult [skill routing](references/skill-routing.md) for Stage 2/3 or skill-owned remediation; follow mandatory dependencies and applicable conditional references.
-- Persist manifests, raw DOM, tables, screenshots, logs, `design-facts`, and retries under `EVIDENCE_DIR`; read needed rows, not chat reconstructions. Keep chat to decisions/summaries.
+- Consult [skill routing](references/skill-routing.md) for Stage 2/3 or skill-owned remediation; follow mandatory dependencies and applicable conditional references. Load a skill and each mandatory reference once per context and reuse it for every component in that context.
+- Read [verified project facts](references/project-facts.md) once before authoring or deploying; they replace rediscovery, never a stage gate or a runtime input.
+- Persist manifests, raw DOM, tables, screenshots, logs, `design-facts`, and retries under `EVIDENCE_DIR` as files; query back the rows you need instead of pasting artifacts into chat. Chat carries decisions, counts, and failing rows; matrices stay in their files and full DOM/JSON dumps belong in neither.
 - After compaction/new context, reload this router, active stage, and current evidence. Read-once applies only while instructions remain available; stage files cannot unload chat.
 
 ## Stage Router
@@ -85,6 +87,6 @@ Missing outputs/checks/envelopes mean not passed. Log revisions/hashes, dependen
 - Use Node.js Playwright/Chromium for source/disabled/author evidence. Browser properties/build success cannot prove parity.
 - [Capture gates](references/capture-gates.md) own exact assets/icons, computed typography/spacing, and freshly decoded stable video. Mandatory in Stages 1/3/4; percentages cannot waive failures.
 - Author business-editable values and DAM paths; preserve media class. Stage 2 owns authorability, colors, reuse, and `design-facts`; trace every edit to an instance.
-- Validate the first implementation edit with the cheapest focused executable check before further edits. Keep FileVault validation enabled; reconcile deployed repository data.
+- Validate the first implementation edit of each new pattern with the cheapest focused executable check before extending that pattern; an already-proven pattern does not repeat it per component. Keep FileVault validation enabled; reconcile deployed repository data.
 - Never hand-edit generated/vendor paths (`target/`, `dist/`, `node_modules/`, `.m2/`, Core libraries) or template `initial`/`structure` trees. Authorized builds may regenerate outputs; Stage 3 owns proven-stale build cleanup.
 - Completion requires exhaustive coverage, no residual gaps, all exact checks passing, and every instance/component-type minimum/page composite strictly above the canonical ratio at every required breakpoint in both target modes.

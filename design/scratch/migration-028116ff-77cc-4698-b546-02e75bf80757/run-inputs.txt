@@ -1,0 +1,4 @@
+﻿SITE_URL=https://www.notion.com/customers/cursor
+AEM_HOST=localhost
+AEM_PORT=4506
+BREAKPOINTS=375,768,1440

@@ -1,0 +1,71 @@
+/**
+ * Component: cta-band
+ */
+.ctaband {
+    background: var(--cmp-cta-band-background, #f7f7f5);
+    color: var(--cmp-cta-band-foreground, #0a0a0a);
+    padding: 3rem 1.5rem;
+}
+
+.ctaband--bg-inverse {
+    --cmp-cta-band-background: #0a0a0a;
+}
+
+.ctaband--bg-accent {
+    --cmp-cta-band-background: #2383e2;
+}
+
+.ctaband--bg-neutral {
+    --cmp-cta-band-background: #f7f7f5;
+}
+
+.ctaband--fg-on-inverse {
+    --cmp-cta-band-foreground: #ffffff;
+}
+
+.ctaband--fg-on-neutral {
+    --cmp-cta-band-foreground: #0a0a0a;
+}
+
+.ctaband__inner {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ctaband__heading {
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    line-height: 1.2;
+    margin: 0;
+}
+
+.ctaband__description {
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 0;
+    opacity: 0.8;
+}
+
+.ctaband__cta {
+    display: inline-block;
+    background: currentColor;
+    border-radius: 6px;
+    padding: 0.6875rem 1.25rem;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    mix-blend-mode: normal;
+}
+
+.ctaband__cta {
+    background: var(--cmp-cta-band-foreground, #0a0a0a);
+    color: var(--cmp-cta-band-background, #f7f7f5);
+}
+
+.ctaband__cta:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}

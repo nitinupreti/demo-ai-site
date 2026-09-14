@@ -1,0 +1,154 @@
+﻿{
+    "jcr:primaryType":  "cq:PageContent",
+    "jcr:createdBy":  "admin",
+    "jcr:title":  "How the world\u0027s fastest-growing startup stays fast with Notion",
+    "cq:template":  "/conf/demo-ai-site/settings/wcm/templates/page-content",
+    "jcr:created":  "Fri Sep 11 2026 20:18:36 GMT+0530",
+    "cq:lastModified":  "Fri Sep 11 2026 21:08:21 GMT+0530",
+    "sling:resourceType":  "demo-ai-site/components/page",
+    "cq:lastModifiedBy":  "admin",
+    "root":  {
+                 "jcr:primaryType":  "nt:unstructured",
+                 "layout":  "responsiveGrid",
+                 "sling:resourceType":  "demo-ai-site/components/container",
+                 "container":  {
+                                   "jcr:primaryType":  "nt:unstructured",
+                                   "layout":  "responsiveGrid",
+                                   "sling:resourceType":  "demo-ai-site/components/container",
+                                   "title":  {
+                                                 "jcr:primaryType":  "nt:unstructured",
+                                                 "sling:resourceType":  "demo-ai-site/components/title"
+                                             },
+                                   "container":  {
+                                                     "jcr:primaryType":  "nt:unstructured",
+                                                     "layout":  "responsiveGrid",
+                                                     "sling:resourceType":  "demo-ai-site/components/container",
+                                                     "eyebrow":  {
+                                                                     "jcr:primaryType":  "nt:unstructured",
+                                                                     "text":  "Customer story",
+                                                                     "sling:resourceType":  "demo-ai-site/components/text",
+                                                                     "textIsRich":  "false"
+                                                                 },
+                                                     "title":  {
+                                                                   "jcr:primaryType":  "nt:unstructured",
+                                                                   "jcr:title":  "How the world\u0027s fastest-growing startup stays fast with Notion",
+                                                                   "text":  "How the world\u0027s fastest-growing startup stays fast with Notion",
+                                                                   "type":  "h2",
+                                                                   "sling:resourceType":  "demo-ai-site/components/title"
+                                                               },
+                                                     "intro":  {
+                                                                   "jcr:primaryType":  "nt:unstructured",
+                                                                   "text":  "\u003cp class=\"article-lead\"\u003eCursor became the fastest-growing company in history by giving developers AI superpowers. But scaling from a few founders to 100+ people threatened to slow them down with meetings, misfit tools, and lost knowledge. They turned Notion into their lean “OS”—where AI answers questions instantly, new hires onboard themselves, and every team builds exactly what they need. The result: 5x fewer tools, zero information silos, and builders who stay focused on building.\u003c/p\u003e",
+                                                                   "sling:resourceType":  "demo-ai-site/components/text",
+                                                                   "textIsRich":  "true"
+                                                               },
+                                                     "section1title":  {
+                                                                           "jcr:primaryType":  "nt:unstructured",
+                                                                           "jcr:title":  "Simplicity solves for the complexities of scale",
+                                                                           "text":  "Simplicity solves for the complexities of scale",
+                                                                           "type":  "h2",
+                                                                           "sling:resourceType":  "demo-ai-site/components/title"
+                                                                       },
+                                                     "section1body":  {
+                                                                          "jcr:primaryType":  "nt:unstructured",
+                                                                          "text":  "\u003cp\u003eMost fast-growing companies slow down as they scale because they add the wrong things: specialized tools that create silos, meetings to coordinate between those silos, and more processes to manage the complexity they\u0027ve created. Cursor did the opposite.\u003c/p\u003e\u003cp\u003eWhen your AI code editor is changing how millions of developers work, every internal meeting about \"process\" is time not spent shipping. Every tool that requires context-switching is cognitive overhead your builders can\u0027t afford. Cursor\u0027s founders didn\u0027t want their builders to become managers of work.\u003c/p\u003e\u003cblockquote\u003e“It\u0027s really important for the people that are building to have a lot of time to build, and not be stuck in tons of meetings or just work about work,” says Cursor CEO and co-founder Michael Truell.\u003ccite\u003eMichael Truell, Co-founder \u0026amp; CEO\u003c/cite\u003e\u003c/blockquote\u003e\u003cp\u003eThey started with Notion because it could grow with them and give everyone AI tools to avoid busywork. Over time, Notion has evolved into a lean operating system—a single space where all knowledge lives and work is done.\u003c/p\u003e",
+                                                                          "sling:resourceType":  "demo-ai-site/components/text",
+                                                                          "textIsRich":  "true"
+                                                                      },
+                                                     "section2title":  {
+                                                                           "jcr:primaryType":  "nt:unstructured",
+                                                                           "jcr:title":  "Why they build instead of buy",
+                                                                           "text":  "Why they build instead of buy",
+                                                                           "type":  "h2",
+                                                                           "sling:resourceType":  "demo-ai-site/components/title"
+                                                                       },
+                                                     "section2body":  {
+                                                                          "jcr:primaryType":  "nt:unstructured",
+                                                                          "text":  "\u003cp\u003eWhile Cursor\u0027s rapid growth has captured headlines over the past few years, the majority of their first 100 employees are foundational hires made just in the last year. This created a pivotal moment in their growth. They needed to establish shared ways of working focused on actual workflows rather than purchasing point solutions and specialized tools for every function. \"We were able to start with a default wiki,\" explains Michael, \"and have each team build out their own business processes into things like databases.\"\u003c/p\u003e\u003cp\u003eThis organic approach is core to Cursor\u0027s unique philosophy for scaling a company—instead of standardizing processes, they standardized the foundation and let each team build and refine exactly what they need in their Notion workspace:\u003c/p\u003e\u003cul\u003e\u003cli\u003eEngineering and research maintain connected roadmaps and project trackers through databases that give leadership visibility while letting individual contributors focus on deep work—eliminating the need for standup meetings and the endless \"when will this ship?\" pings in Slack.\u003c/li\u003e\u003cli\u003eDesign and product manage their entire development workflow from initial concepts to launch planning in one place, with the ability to directly embed anything from code to mockups to other apps like a Loom video to explain or a Miro board to ideate.\u003c/li\u003e\u003cli\u003eSales and customer success reps like Jonathan Braude describe Notion as “the only tool that can keep up with the pace of change” at the company. It gives them a place to develop playbooks and lightweight systems they can iterate on as their teams grow, capturing insights from every customer interaction that the rest of the company can access—all without having to log into a separate CRM.\u003c/li\u003e\u003c/ul\u003e\u003cp\u003eWhat emerged wasn\u0027t just efficiency but transparency by design. When teams build custom workflows on shared infrastructure, customization creates visibility rather than isolation. Each team\u0027s specialized systems become windows into their work rather than walls around it.\u003c/p\u003e\u003cblockquote\u003e“I honestly can\u0027t imagine running a design team without Notion. It\u0027s our everything-but-code layer—we use it for project planning, design specs, research, to-dos. We have databases for just about everything.”\u003ccite\u003eRyo Lu, Head of Design\u003c/cite\u003e\u003c/blockquote\u003e",
+                                                                          "sling:resourceType":  "demo-ai-site/components/text",
+                                                                          "textIsRich":  "true"
+                                                                      },
+                                                     "section3title":  {
+                                                                           "jcr:primaryType":  "nt:unstructured",
+                                                                           "jcr:title":  "AI is strongest where work flows and knowledge grows",
+                                                                           "text":  "AI is strongest where work flows and knowledge grows",
+                                                                           "type":  "h2",
+                                                                           "sling:resourceType":  "demo-ai-site/components/title"
+                                                                       },
+                                                     "section3body":  {
+                                                                          "jcr:primaryType":  "nt:unstructured",
+                                                                          "text":  "\u003cp\u003eFast-moving teams don\u0027t have time to dig for information, but most knowledge management tools weren\u0027t built for the velocity or possibility of AI.\u003c/p\u003e\u003cp\u003eCursor gets this. They know that to unlock AI\u0027s potential, they needed a system that can capture everything happening at the company then make that knowledge easily accessible. Notion AI is that connective tissue—it brings together everything across their Notion workspace and all the tools like Slack that are connected to it to surface what their people need:\u003c/p\u003e\u003cul\u003e\u003cli\u003eOnboarding without friction: Notion AI serves as an onboarding buddy for new hires, surfacing relevant documents and context they didn\u0027t even know existed. No need to overwhelm teammates with questions or schedule catch-up meetings.\u003c/li\u003e\u003cli\u003eSearch that saves hours: Using Enterprise Search, teams get immediate answers from Notion AI instead of hunting through docs and messages. With all organizational knowledge centralized, hard to reach information no longer slows them down.\u003c/li\u003e\u003cli\u003eReal-time updates, no standups required: Anyone can stay current on project progress by asking Notion AI, which surfaces related work and dependencies across teams that individuals might never have discovered on their own.\u003c/li\u003e\u003c/ul\u003e\u003cp\u003eWith Notion AI built into where Cursor teams work and collaborate, the friction between knowing and doing dissolve. It connects dots across their workspace + connected apps, delivering rich insights and context right where work flows and decisions happen.\u003c/p\u003e\u003cblockquote\u003e“Keeping people in the loop as we\u0027ve grown so fast is really difficult, but Notion AI helps everyone get the latest updates and context of what\u0027s going on across the company instantly.”\u003ccite\u003eMichael Truell, Co-founder \u0026amp; CEO\u003c/cite\u003e\u003c/blockquote\u003e",
+                                                                          "sling:resourceType":  "demo-ai-site/components/text",
+                                                                          "textIsRich":  "true"
+                                                                      },
+                                                     "section4title":  {
+                                                                           "jcr:primaryType":  "nt:unstructured",
+                                                                           "jcr:title":  "The modern stack: 5x fewer tools required",
+                                                                           "text":  "The modern stack: 5x fewer tools required",
+                                                                           "type":  "h2",
+                                                                           "sling:resourceType":  "demo-ai-site/components/title"
+                                                                       },
+                                                     "section4body":  {
+                                                                          "jcr:primaryType":  "nt:unstructured",
+                                                                          "text":  "\u003cp\u003eWhere most companies accumulate tools that slow them down, Cursor consolidated to stay fast. Instead of buying a docs editor, an AI note-taking app, specialized knowledge bases, project management software, and enterprise search tools to stitch them all together, they get it all in one connected AI workspace.\u003c/p\u003e\u003cp\u003eThis consolidation delivers real savings: Cursor estimates their current setup would have cost 5x more if assembled from individual point solutions. But the real win isn\u0027t financial—it\u0027s that everyone can actually find what they need without jumping between five different apps. With a leaner approach to how their teams operate, everyone avoids the context-switching that kills momentum and gains clarity often elusive at high-growth companies.\u003c/p\u003e\u003cp\u003eFor a company building the future of code, their tools had to match their philosophy: simple, accessible, and smart enough to handle the boring stuff. As they continue to scale, Cursor recently moved onto Notion\u0027s Enterprise plan for the advanced controls, security, and dedicated support they need. Cursor doesn\u0027t just move fast on Notion—they stay aligned, stay focused, and keep building what matters most.\u003c/p\u003e\u003cblockquote\u003e“We\u0027re moving away from a world where communication is siloed towards one where everything\u0027s accessible, and people up and down the org chart can contribute. Notion helps you do that in a low-overhead way.”\u003ccite\u003eMichael Truell, Co-founder \u0026amp; CEO\u003c/cite\u003e\u003c/blockquote\u003e",
+                                                                          "sling:resourceType":  "demo-ai-site/components/text",
+                                                                          "textIsRich":  "true"
+                                                                      },
+                                                     "ctatitle":  {
+                                                                      "jcr:primaryType":  "nt:unstructured",
+                                                                      "jcr:title":  "Build with less tool sprawl and more focus",
+                                                                      "text":  "Build with less tool sprawl and more focus",
+                                                                      "type":  "h2",
+                                                                      "sling:resourceType":  "demo-ai-site/components/title"
+                                                                  },
+                                                     "ctatext":  {
+                                                                     "jcr:primaryType":  "nt:unstructured",
+                                                                     "text":  "\u003cp\u003eSee how Notion keeps companies nimble at any size—book your personalized demo below to learn more\u003c/p\u003e",
+                                                                     "sling:resourceType":  "demo-ai-site/components/text",
+                                                                     "textIsRich":  "true"
+                                                                 },
+                                                     "ctabutton":  {
+                                                                       "jcr:primaryType":  "nt:unstructured",
+                                                                       "jcr:title":  "Request a demo",
+                                                                       "link":  "https://www.notion.com/contact-sales",
+                                                                       "text":  "Request a demo",
+                                                                       "sling:resourceType":  "demo-ai-site/components/button"
+                                                                   },
+                                                     "relatedtitle":  {
+                                                                          "jcr:primaryType":  "nt:unstructured",
+                                                                          "jcr:title":  "How other teams use Notion",
+                                                                          "text":  "How other teams use Notion",
+                                                                          "type":  "h2",
+                                                                          "sling:resourceType":  "demo-ai-site/components/title"
+                                                                      },
+                                                     "relatedtext":  {
+                                                                         "jcr:primaryType":  "nt:unstructured",
+                                                                         "text":  "\u003cul\u003e\u003cli\u003e\u003cstrong\u003eFigma\u003c/strong\u003e — Figma’s knowledge base keeps everyone informed and aligned.\u003c/li\u003e\u003cli\u003e\u003cstrong\u003eRemote\u003c/strong\u003e — Remote built a world-class IT help desk with orchestrated Notion custom agents.\u003c/li\u003e\u003c/ul\u003e",
+                                                                         "sling:resourceType":  "demo-ai-site/components/text",
+                                                                         "textIsRich":  "true"
+                                                                     },
+                                                     "container":  {
+                                                                       "jcr:primaryType":  "nt:unstructured",
+                                                                       "section1image":  {
+                                                                                             "jcr:primaryType":  "nt:unstructured",
+                                                                                             "fileReference":  "/content/dam/demo-ai-site/customers/cursor/michael-truell.png",
+                                                                                             "alt":  "Michael Truell, Co-founder and CEO of Cursor",
+                                                                                             "sling:resourceType":  "demo-ai-site/components/image"
+                                                                                         },
+                                                                       "section2image":  {
+                                                                                             "jcr:primaryType":  "nt:unstructured",
+                                                                                             "fileReference":  "/content/dam/demo-ai-site/customers/cursor/ryo-lu.png",
+                                                                                             "alt":  "Ryo Lu, Head of Design at Cursor",
+                                                                                             "sling:resourceType":  "demo-ai-site/components/image"
+                                                                                         },
+                                                                       "relatedimage1":  {
+                                                                                             "jcr:primaryType":  "nt:unstructured",
+                                                                                             "fileReference":  "/content/dam/demo-ai-site/customers/cursor/figma-thumbnail.png",
+                                                                                             "alt":  "Figma\u0027s knowledge base keeps everyone informed and aligned",
+                                                                                             "sling:resourceType":  "demo-ai-site/components/image"
+                                                                                         }
+                                                                   }
+                                                 }
+                               }
+             }
+}

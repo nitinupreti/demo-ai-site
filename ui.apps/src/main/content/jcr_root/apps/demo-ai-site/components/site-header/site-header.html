@@ -1,0 +1,22 @@
+<sly data-sly-use.model="com.demo.core.models.SiteHeaderModel"/>
+<header class="siteheader" data-cmp-is="site-header">
+    <div class="siteheader__inner">
+        <a class="siteheader__logo" data-sly-test="${model.logo}" href="${model.logoLink || '#'}">
+            <img class="siteheader__logo-image" src="${model.logo}" alt="${model.logoAlt}"/>
+        </a>
+        <nav class="siteheader__nav" data-sly-test="${model.navItems}" aria-label="${'Primary' @ i18n}">
+            <ul class="siteheader__nav-list">
+                <li class="siteheader__nav-item" data-sly-repeat.item="${model.navItems}" data-index="${itemList.index}">
+                    <a class="siteheader__nav-link" href="${item.link || '#'}">${item.label}</a>
+                </li>
+            </ul>
+        </nav>
+        <div class="siteheader__actions">
+            <a class="siteheader__action siteheader__action--secondary" data-sly-test="${model.secondaryCtaLabel}" href="${model.secondaryCtaLink || '#'}">${model.secondaryCtaLabel}</a>
+            <a class="siteheader__action siteheader__action--primary" data-sly-test="${model.ctaLabel}" href="${model.ctaLink || '#'}">${model.ctaLabel}</a>
+        </div>
+    </div>
+</header>
+<sly data-sly-test="${wcmmode.edit && !model.hasContent}">
+    <div class="cq-placeholder" data-emptytext="${'Site Header' @ i18n}"></div>
+</sly>

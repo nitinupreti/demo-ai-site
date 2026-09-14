@@ -1,24 +1,38 @@
 # Visual Parity Gate
 
-Owns screenshot scoring, comparisons, and bounded remediation. Entry requires accepted Stage 1–3 results, frozen denominators, verified source/target selector maps, deployed URLs, and the same `run_id`. Execute [capture gates](references/capture-gates.md) freshly before EVERY measurement/capture. Validate source, disabled target, and author target at every runtime breakpoint; measure author page content, not editor chrome.
+Owns screenshot scoring, comparisons, and bounded remediation. Entry requires accepted Stage 1–3 results, frozen denominators, verified source/target selector maps, deployed URLs, and the same `run_id`. Execute [capture gates](references/capture-gates.md) freshly before EVERY measurement/capture, at the page-state scope they define. Validate source, disabled target, and author target at every runtime breakpoint; measure author page content, not editor chrome.
 
 ## Deterministic Runner
 
-Select one existing project Node.js Playwright/Chromium runner or create one under `<EVIDENCE_DIR>/parity/runner/`. No bundled runner is assumed. It must:
+Use the bundled [parity runner](tools/parity-runner.mjs) unless this run proves it insufficient; otherwise select another existing project Node.js Playwright/Chromium runner or create one under `<EVIDENCE_DIR>/parity/runner/`. Whichever is used must:
 
 - Consume run-specific selectors, instance IDs, URLs, target modes, and breakpoints; no fixed component list.
 - Use `locator.screenshot()` for homologous instance crops, `page.screenshot({ fullPage: true })` for complete documents, and `pixelmatch` with `pngjs` or `sharp` for counts, diff masks, and labeled side-by-side images at BOTH levels.
+- Navigate once per (mode, breakpoint) page state and take every instance crop from that one loaded state; re-navigating per instance is waste, not rigor.
+- Capture only the requested instance subset when remediation recaptures an affected set, and run independent breakpoint/mode contexts with bounded concurrency.
 - Emit machine-readable validation/score records; keep credentials in environment variables and generated files under `<EVIDENCE_DIR>/parity/`.
 
 Preflight one component at EVERY breakpoint in BOTH target modes: selectors/signatures resolve correctly, URLs/viewport/DPR match, fonts/media/geometry are ready, crops are comparable and nonblank, artifacts exist. Repair preflight before scoring.
+
+After preflight and before the full instance sweep, run one diagnostic full-page comparison at the largest required breakpoint in `disabled` mode. A systemic geometry, token, or container failure is far cheaper to fix there than after capturing every instance at every breakpoint in both modes. This ordering is diagnostic only: it never substitutes for, reduces, or pre-satisfies the complete score matrix or the independent final full-page gate below.
 
 Freeze SHA-256 hashes of runner, config, and dependency lockfile after preflight. Necessary changes create a new revision: invalidate old-revision scores, rerun preflight, and recapture affected components/breakpoints/modes. No mixed-revision scores; unaffected artifacts need explicit revalidation/provenance under the new revision. Manual clipping, DOM serialization, and CSS-only comparisons are not screenshot evidence.
 
 Record pixelmatch options (threshold, includeAA, masks/exclusions) in frozen config. Do not relax them to improve a score or because `MODEL`/`THINKING_EFFORT` changed; no masking of required content or mismatches.
 
+## Systemic Alignment Before Scoring
+
+A shared-rule edit consumes one attempt from EVERY component it affects, so remove shared causes before any component holds a failing score.
+
+1. After preflight, diff computed styles and geometry between each mapped source root and its target owner at one required breakpoint.
+2. Fix only the shared causes: font stack and loaded faces, base spacing scale, container width and gutters, color tokens, and page-level layout containers.
+3. Deploy that alignment once through [Stage 3](03-assets-runtime.md), then begin scoring.
+
+Exactly one alignment batch with one deployment is permitted, and it consumes no attempt because no component has a failing score yet. Anything beyond it is remediation and consumes attempts normally. This pass never substitutes for a comparison, a gate, or a score.
+
 ## Exact Checks And Interaction
 
-Verify the live source fingerprint against Stage 1; source drift returns to discovery. Map each source instance exactly once to its intended target owner; missing, duplicated, orphaned, wrongly combined/split regions fail. Verify intentional hidden states rather than scoring empty crops.
+Verify the live source fingerprint against Stage 1; source drift returns to discovery. Source captures then stay valid for the rest of the run while that fingerprint re-verifies unchanged and the breakpoint, viewport, DPR, pixelmatch configuration, and runner revision are all unchanged, so remediation recaptures the target only; any drift, configuration change, or new runner revision invalidates them and forces a fresh source capture. Map each source instance exactly once to its intended target owner; missing, duplicated, orphaned, wrongly combined/split regions fail. Verify intentional hidden states rather than scoring empty crops.
 
 Record source/target raw rectangles and deltas, full-bleed flags, typography, and exhaustive spacing using capture gates; no relaxed height allowance. Compare ALL frozen roles: exact RGBA colors (Delta E <=3 only for antialiased/compressed raster pixels), backgrounds, borders/radii/shadows/opacity, flex/grid/display/position/overflow/fit/aspect, counts/order/semantics/attributes/behavior. Token declarations and deployed resolved values must agree. Section/CTA background, foreground, border, and radius mismatches are hard failures.
 
@@ -65,6 +79,8 @@ Every raw instance, type minimum, and page composite must meet the router's stri
 Use the router's per-component cap across the ENTIRE run: Round 1 has three attempts; Round 2 one final attempt. Counters never reset on stage returns, compaction, runner changes, or regressions.
 
 ### Each Batch (single procedure for both rounds)
+
+One batch per round covers EVERY component with a current failure whose fixes do not conflict. Opening a batch per component multiplies builds, deploys, and recaptures without improving any gate. Split a round into more than one batch only when two fixes genuinely conflict in the same file region, and record that conflict.
 
 1. Read current `run-state.json` component rows: counters, best/latest scores, runner revision, diagnostics. Capture a live source/target diagnostic pair and persist `deltas` BEFORE edits; refresh after any regression. Wrong/missing selector returns to its Stage 1/2 owner, not speculative CSS.
 2. Group non-conflicting fixes by owning layer/module. For EACH changed component, record one falsifiable hypothesis, diagnostic, layer trace (discovery/content/dialog/model/HTL/CSS-token/container-template/behavior/asset), expected movement, cheapest falsifying validation, and files. A shared hypothesis must name the common rule and all affected components. Nonzero width/height deltas take priority over typography/color in attempt 1.

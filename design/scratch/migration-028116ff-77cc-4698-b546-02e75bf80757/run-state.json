@@ -1,0 +1,29 @@
+{
+  "run_id": "028116ff-77cc-4698-b546-02e75bf80757",
+  "site_url": "https://www.notion.com/customers/cursor",
+  "target_page_path": "/content/demo-ai-site/us/en/customers/cursor",
+  "aem_host": "localhost",
+  "aem_port": 4506,
+  "breakpoints": [375, 768, 1440],
+  "current_stage": "02-component-authoring",
+  "status": "IN_PROGRESS",
+  "stage_results": {
+    "01-source-discovery": {
+      "stage": "01-source-discovery",
+      "result_id": "stage1-028116ff-r1",
+      "run_id": "028116ff-77cc-4698-b546-02e75bf80757",
+      "status": "PASS",
+      "evidence": "stage1/STAGE1-RESULT.md",
+      "next_stage": "02-component-authoring"
+    },
+    "02-component-authoring": {
+      "stage": "02-component-authoring",
+      "result_id": "stage2-028116ff-r1",
+      "run_id": "028116ff-77cc-4698-b546-02e75bf80757",
+      "status": "IN_PROGRESS",
+      "evidence": "stage2/STAGE2-REUSE-MATRIX.md",
+      "notes": "Reuse decision matrix + target selector map published for all 18 Stage 1 instances (none tier:null). hero component built (content.xml, dialog, HTL, clientlib, wired into clientlib-base embed) and mvn -pl ui.apps validate passes (BUILD SUCCESS). Still PLANNED/not yet implemented: site-header, insights-list, video-intro, cta-band, site-footer (Tier 4 code); full content-tree authoring (existing target page content is STALE relative to freshly discovered 9-section source and needs reconciliation, not just addition). Tier 1 reuse (testimonial x4, teaser x2, title/text) and Tier 3 (embed for youtube iframe) not yet authored on the target.",
+      "next_stage": null
+    }
+  }
+}

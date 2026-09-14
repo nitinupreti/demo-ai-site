@@ -1,0 +1,11 @@
+{
+  "name": "aem-migration-parity-runner",
+  "private": true,
+  "type": "module",
+  "description": "Reusable Stage 4 visual parity runner for design/site-url migrations.",
+  "dependencies": {
+    "pixelmatch": "7.2.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  }
+}

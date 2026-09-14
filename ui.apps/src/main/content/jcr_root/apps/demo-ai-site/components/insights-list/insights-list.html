@@ -1,0 +1,16 @@
+<sly data-sly-use.model="com.demo.core.models.InsightsListModel"/>
+<aside class="insights" data-cmp-is="insights-list" data-sly-test="${model.hasContent}">
+    <p class="insights__heading" data-sly-test="${model.heading}">${model.heading}</p>
+    <ul class="insights__list" data-sly-test="${model.people}">
+        <li class="insights__item" data-sly-repeat.person="${model.people}" data-index="${personList.index}">
+            <img class="insights__avatar" data-sly-test="${person.avatar}" src="${person.avatar}" alt="" loading="lazy"/>
+            <span class="insights__person">
+                <span class="insights__name">${person.name}</span>
+                <span class="insights__role" data-sly-test="${person.role}">${person.role}</span>
+            </span>
+        </li>
+    </ul>
+</aside>
+<sly data-sly-test="${wcmmode.edit && !model.hasContent}">
+    <div class="cq-placeholder" data-emptytext="${'Insights List' @ i18n}"></div>
+</sly>

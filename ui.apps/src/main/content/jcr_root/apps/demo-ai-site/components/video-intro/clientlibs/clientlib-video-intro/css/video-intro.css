@@ -1,0 +1,35 @@
+/**
+ * Component: video-intro
+ */
+.videointro {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.videointro__frame {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f4f4f2;
+}
+
+.videointro__video {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.videointro__caption {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .videointro__video {
+        animation: none;
+    }
+}

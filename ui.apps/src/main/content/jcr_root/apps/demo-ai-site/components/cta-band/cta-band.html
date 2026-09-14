@@ -1,0 +1,21 @@
+<sly data-sly-use.model="com.demo.core.models.CtaBandModel"/>
+<sly data-sly-test="${model.hasContent}">
+    <sly data-sly-set.customStyle="${[
+            model.backgroundColorCustom ? '--cmp-cta-band-background:' : '',
+            model.backgroundColorCustom, model.backgroundColorCustom ? ';' : '',
+            model.foregroundColorCustom ? '--cmp-cta-band-foreground:' : '',
+            model.foregroundColorCustom, model.foregroundColorCustom ? ';' : ''
+        ] @ join=''}"/>
+    <section class="ctaband ctaband--bg-${model.backgroundColor @ context='attribute'} ctaband--fg-${model.foregroundColor @ context='attribute'}"
+             data-cmp-is="cta-band"
+             style="${customStyle @ context='styleToken'}">
+        <div class="ctaband__inner">
+            <h2 class="ctaband__heading">${model.heading}</h2>
+            <p class="ctaband__description" data-sly-test="${model.description}">${model.description}</p>
+            <a class="ctaband__cta" data-sly-test="${model.ctaLabel}" href="${model.ctaLink || '#'}">${model.ctaLabel}</a>
+        </div>
+    </section>
+</sly>
+<sly data-sly-test="${wcmmode.edit && !model.hasContent}">
+    <div class="cq-placeholder" data-emptytext="${'CTA Band' @ i18n}"></div>
+</sly>

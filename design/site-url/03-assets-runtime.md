@@ -1,6 +1,6 @@
 # Assets, Build, Deployment, And Runtime
 
-Owns asset acquisition, build/deploy scope, and live runtime validation. Consume accepted Stages 1/2 and their asset/file/content/selector manifests. Follow [skill routing](references/skill-routing.md) for code assessment and [capture gates](references/capture-gates.md) for deployed assets/media. Run checks; listing commands is not execution.
+Owns asset acquisition, build/deploy scope, and live runtime validation. Consume accepted Stages 1/2 and their asset/file/content/selector manifests. Apply [verified project facts](references/project-facts.md) for package mode, clientlib order, and build hygiene instead of rediscovering them. Follow [skill routing](references/skill-routing.md) for code assessment and [capture gates](references/capture-gates.md) for deployed assets/media. Run checks; listing commands is not execution.
 
 ## Assets
 
@@ -14,7 +14,7 @@ Owns asset acquisition, build/deploy scope, and live runtime validation. Consume
 
 Run focused component/model tests (for example `mvn -pl core test`), required module builds, and local `code-assessment` on generated/changed Java/OSGi/Maven files. Keep FileVault validation and relevant analyzers enabled. Record commands, exit codes, logs, and assessment limitations; fix applicable blocking findings before PASS.
 
-Batch non-conflicting diagnosed fixes per module. Build/deploy each changed module once per batch in dependency order, never concurrently against one AEM instance. Use the smallest applicable scope below; all Maven deploys include quoted runtime `"-Daem.host=<HOST>" "-Daem.port=<PORT>"`, never an implicit 4502.
+Batch non-conflicting diagnosed fixes per module. Build/deploy each changed module once per batch in dependency order, never concurrently against one AEM instance. A second deploy of the same module inside one batch means the batch was cut too small: enlarge the batch instead of repeating the round trip, and never deploy merely to observe something a local check already answers. Use the smallest applicable scope below; all Maven deploys include quoted runtime `"-Daem.host=<HOST>"` `"-Daem.port=<PORT>"`, never an implicit 4502.
 
 | Changed scope | Deployment (append host/port above) |
 |---|---|

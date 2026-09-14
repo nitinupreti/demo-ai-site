@@ -1,0 +1,5 @@
+$env:JAVA_HOME = "C:\Program Files\Zulu\zulu-26"
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+Set-Location "C:\projects\Trainings\new\demo-ai-site"
+cmd /c "mvn.cmd -pl ui.apps validate -o > design\scratch\migration-028116ff-77cc-4698-b546-02e75bf80757\stage2\ui-apps-validate.log 2>&1"
+Select-String -Path "design\scratch\migration-028116ff-77cc-4698-b546-02e75bf80757\stage2\ui-apps-validate.log" -Pattern "BUILD SUCCESS|BUILD FAILURE"

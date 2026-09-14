@@ -2,12 +2,14 @@
 
 Single owner of capture readiness, exact assets, typography, and geometry. Required in Stage 1 before freezing source evidence, Stage 3 for deployed media checks, and Stage 4 immediately before each geometry measurement or screenshot. Stage 1 checks source only; target checks begin after implementation. Apply at every runtime breakpoint to source, disabled target, and author target. Instructions may be reused; readiness evidence MUST be fresh.
 
+Readiness is scoped to a page state, not to an individual crop. One pass covers every measurement and screenshot taken from that same loaded page at that same viewport while DOM, scroll position, hover/focus state, and media state stay unchanged. Navigation, viewport change, scroll or state change, DOM mutation, or a new deployment invalidates the pass and requires a fresh one. Re-navigating per instance produces no additional evidence.
+
 ## Readiness
 
 1. Assert requested `window.innerWidth`; record final URL, timestamp, viewport, DPR, `visualViewport.scale`, `innerWidth`, `documentElement.clientWidth`, and `scrollWidth`.
 2. Await `document.fonts.ready` and `document.fonts.check(...)` for every custom face/weight actually used. Confirm font/background/media HTTP responses (HEAD with GET fallback where needed). Decode visible images: `complete`, `naturalWidth > 0`, `naturalHeight > 0`; visible audio requires `readyState >= 2`.
 3. Trigger natural scroll/lazy loading. Run the video procedure below BEFORE motion-freeze CSS. Then disable animation, transition, and smooth scrolling for static captures; restore source-equivalent motion for interaction/playback tests.
-4. Sample `documentElement`, `body`, `main`, every discovered root and layout-defining child three times at least 500 ms apart. Require x/y/width/height stability within the router's geometry tolerance. Rerun after discovery's final candidate union. Wrong viewport, unresolved resources, or unstable layout invalidates capture.
+4. Sample `documentElement`, `body`, `main`, every discovered root and layout-defining child three times at least 500 ms apart. Sample the entire element set together within each pass rather than one element at a time: three batched passes cost about 1.5 s for the whole page, and serializing per element buys no extra evidence. Require x/y/width/height stability within the router's geometry tolerance. Rerun after discovery's final candidate union. Wrong viewport, unresolved resources, or unstable layout invalidates capture.
 
 ## Video: Decoded Frame AND Playback
 

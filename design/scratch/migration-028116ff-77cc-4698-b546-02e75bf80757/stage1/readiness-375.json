@@ -1,0 +1,70 @@
+{
+  "breakpoint": 375,
+  "requestedWidth": 375,
+  "innerWidthCheck1": 375,
+  "innerWidthCheck2": 375,
+  "readinessOk": true,
+  "geometrySamples": [
+    {
+      "html": {
+        "x": 0,
+        "y": -135,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "body": {
+        "x": 0,
+        "y": -135,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "main": {
+        "x": 0,
+        "y": -71,
+        "width": 375,
+        "height": 9994.09375
+      }
+    },
+    {
+      "html": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "body": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "main": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 9994.09375
+      }
+    },
+    {
+      "html": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "body": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 10767.09375
+      },
+      "main": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 9994.09375
+      }
+    }
+  ],
+  "timestamp": "2026-09-14T08:58:50.876Z"
+}

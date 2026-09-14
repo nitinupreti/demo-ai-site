@@ -1,0 +1,35 @@
+/**
+ * Component: hero
+ */
+.hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+    padding: 2.5rem 1.5rem 1.5rem;
+}
+
+.hero__logo {
+    max-width: 320px;
+}
+
+.hero__logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.hero__heading {
+    font-size: clamp(1.75rem, 3vw, 2.75rem);
+    line-height: 1.15;
+    margin: 0;
+    max-width: 46rem;
+}
+
+.hero__description {
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    max-width: 40rem;
+    margin: 0;
+}

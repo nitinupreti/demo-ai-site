@@ -1,0 +1,224 @@
+{
+  "footerDetail": {
+    "linkCount": 47,
+    "links": [
+      {
+        "text": "",
+        "href": "https://www.notion.com/product"
+      },
+      {
+        "text": "Features",
+        "href": "https://www.notion.com/product/features"
+      },
+      {
+        "text": "What's New",
+        "href": "https://www.notion.com/releases"
+      },
+      {
+        "text": "Notion AI",
+        "href": "https://www.notion.com/product/ai"
+      },
+      {
+        "text": "Pricing",
+        "href": "https://www.notion.com/pricing"
+      },
+      {
+        "text": "Request a demo",
+        "href": "https://www.notion.com/contact-sales"
+      },
+      {
+        "text": "Download",
+        "href": "https://www.notion.com/download"
+      },
+      {
+        "text": "Explore more→",
+        "href": "https://www.notion.com/explore"
+      },
+      {
+        "text": "Customer stories",
+        "href": "https://www.notion.com/customers"
+      },
+      {
+        "text": "Connections",
+        "href": "https://www.notion.com/connections"
+      },
+      {
+        "text": "Marketplace",
+        "href": "https://www.notion.com/templates"
+      },
+      {
+        "text": "Help Center",
+        "href": "https://www.notion.com/help"
+      },
+      {
+        "text": "Academy",
+        "href": "https://academy.notion.com/"
+      },
+      {
+        "text": "Community",
+        "href": "https://www.notion.com/community"
+      },
+      {
+        "text": "About us",
+        "href": "https://www.notion.com/about"
+      },
+      {
+        "text": "Careers",
+        "href": "https://www.notion.com/careers"
+      },
+      {
+        "text": "Security",
+        "href": "https://www.notion.com/security"
+      },
+      {
+        "text": "Status",
+        "href": "https://www.notion-status.com/"
+      },
+      {
+        "text": "Terms & privacy",
+        "href": "https://www.notion.so/28ffdd083dc3473e9c2da6ec011b58ac"
+      },
+      {
+        "text": "Your privacy rights",
+        "href": "https://www.notion.com/trust/privacy-policy#california"
+      },
+      {
+        "text": "Enterprise",
+        "href": "https://www.notion.com/enterprise"
+      },
+      {
+        "text": "Small businesses",
+        "href": "https://www.notion.com/teams"
+      },
+      {
+        "text": "Startups",
+        "href": "https://www.notion.com/startups"
+      },
+      {
+        "text": "Developers",
+        "href": "https://developers.notion.com/"
+      },
+      {
+        "text": "Explore more→",
+        "href": "https://www.notion.com/explore"
+      },
+      {
+        "text": "English (US)",
+        "href": "https://www.notion.com/en-US/customers/cursor"
+      },
+      {
+        "text": "Bahasa Indonesia",
+        "href": "https://www.notion.com/id/customers/cursor"
+      },
+      {
+        "text": "Dansk",
+        "href": "https://www.notion.com/da/customers/cursor"
+      },
+      {
+        "text": "Deutsch",
+        "href": "https://www.notion.com/de/customers/cursor"
+      },
+      {
+        "text": "English (UK)",
+        "href": "https://www.notion.com/en-GB/customers/cursor"
+      },
+      {
+        "text": "Español (España)",
+        "href": "https://www.notion.com/es-ES/customers/cursor"
+      },
+      {
+        "text": "Español (Latinoamérica)",
+        "href": "https://www.notion.com/es/customers/cursor"
+      },
+      {
+        "text": "Français (France)",
+        "href": "https://www.notion.com/fr/customers/cursor"
+      },
+      {
+        "text": "Italiano",
+        "href": "https://www.notion.com/it/customers/cursor"
+      },
+      {
+        "text": "Nederlands",
+        "href": "https://www.notion.com/nl/customers/cursor"
+      },
+      {
+        "text": "Norsk",
+        "href": "https://www.notion.com/nb/customers/cursor"
+      },
+      {
+        "text": "Português (Brasil)",
+        "href": "https://www.notion.com/pt/customers/cursor"
+      },
+      {
+        "text": "Suomi",
+        "href": "https://www.notion.com/fi/customers/cursor"
+      },
+      {
+        "text": "Svenska",
+        "href": "https://www.notion.com/sv/customers/cursor"
+      },
+      {
+        "text": "Tiếng Việt",
+        "href": "https://www.notion.com/vi/customers/cursor"
+      }
+    ],
+    "svgCount": 5,
+    "copyrightText": "We shape our tools, and thereafter our tools shape us.Marshall McLuhanProductFeaturesWhat's NewNotion AIPricingRequest a"
+  },
+  "heroDetail": {
+    "h1": "How the world's fastest-growing startup stays fast with Notion",
+    "buttons": [
+      {
+        "tag": "BUTTON",
+        "text": "",
+        "href": null
+      }
+    ],
+    "leadPara": null,
+    "closeIcon": true
+  },
+  "skipLink": null,
+  "logoStrip": [
+    {
+      "tag": "DIV",
+      "class": "globalNavigation-module-scss-module__HWB10a__logoContainer",
+      "text": ""
+    },
+    {
+      "tag": "A",
+      "class": "globalNavigation-module-scss-module__HWB10a__logo",
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "class": {},
+      "text": ""
+    },
+    {
+      "tag": "DIV",
+      "class": "[slug]-module-scss-module__rdykIW__heroLogoLockup",
+      "text": "×"
+    },
+    {
+      "tag": "IMG",
+      "class": "next-image logo-module-scss-module__TGvlAa__logo",
+      "text": ""
+    },
+    {
+      "tag": "DIV",
+      "class": "card-module-scss-module__uD7svG__cardLogo",
+      "text": ""
+    },
+    {
+      "tag": "DIV",
+      "class": "card-module-scss-module__uD7svG__cardLogo",
+      "text": ""
+    },
+    {
+      "tag": "A",
+      "class": "footer-module-scss-module__cwVo7a__logo",
+      "text": ""
+    }
+  ]
+}

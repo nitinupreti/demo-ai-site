@@ -2,13 +2,15 @@
 
 Use installed skills, not copies of their implementation guides. Relevant workspace entrypoints are [create-component](../../../.agents/skills/create-component/SKILL.md) and [code-assessment](../../../.agents/skills/code-assessment/SKILL.md). The convention is `SKILL.md` (singular); no aggregate `SKILLS.md` is needed.
 
-Read an invoked entrypoint once per active context. Follow its mandatory references at the applicable step; never preload the entire reference tree or skip a mandatory dependency to save tokens. Record loaded paths/revisions and component IDs in the run ledger; reload after compaction or file changes.
+Read an invoked entrypoint once per active context, and each of its mandatory references once per active context, then reuse both for every component in that context. Re-reading a reference already loaded in the same context is waste, not diligence; skipping a mandatory dependency to save tokens is a defect. Never preload the entire reference tree. Record loaded paths/revisions and component IDs in the run ledger; reload after compaction or file changes.
+
+Load per component SET, not per component: plan the set and its tiers first, take the union of references those tiers require, load that union once, then implement the set. A later component needing an unloaded reference loads only that reference.
 
 | Stage / trigger | Load |
 |---|---|
 | 1: source discovery | No component implementation skill |
-| 2: every Tier 2/3/4 component | `create-component`; validate root configuration first, then conventions and no-hallucination rules |
-| Dialog / HTL / model / tests / clientlib being authored | The skill's corresponding dialog, HTL, model + Java, test, or clientlib reference |
+| 2: component set containing any Tier 2/3/4 | `create-component` once for the whole set; validate root configuration first, then conventions and no-hallucination rules |
+| Dialog / HTL / model / tests / clientlib being authored | The skill's corresponding dialog, HTL, model + Java, test, or clientlib reference, once for every component that needs it |
 | Extension | Extension reference; worked example only when needed |
 | Servlet / Figma input / troubleshooting | Corresponding reference only when that feature/input/problem exists |
 | 3: generated/modified Java, OSGi, Maven review | `code-assessment` and its runbook; supply changed paths, run the local analyzer, then only applicable pattern guides |

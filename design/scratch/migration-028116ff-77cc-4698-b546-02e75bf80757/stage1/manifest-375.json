@@ -1,0 +1,1473 @@
+{
+  "url": "https://www.notion.com/customers/cursor",
+  "title": "How the world's fastest-growing startup stays fast with Notion",
+  "metadata": {
+    "description": "Cursor uses Notion as their central operating system to maintain velocity while scaling to 100+ employees. Learn how they avoided tool sprawl, minimized busywork, and empowered teams to customize workflows—all while using 5x fewer tools.",
+    "canonical": "https://www.notion.com/customers/cursor",
+    "ogTitle": "Inside Cursor’s OS: How the world’s fastest-growing startup stays fast",
+    "ogDescription": "Cursor uses Notion as their central operating system to maintain velocity while scaling to 100+ employees. Learn how they avoided tool sprawl, minimized busywork, and empowered teams to customize workflows—all while using 5x fewer tools.",
+    "ogImage": "https://images.ctfassets.net/spoqsaf9291f/47LSGjgCkt6iuqpdIawmG6/73b1a8768b28646a08ffd8b6272ed805/Cursor_MetaImage.png"
+  },
+  "viewport": {
+    "innerWidth": 375,
+    "innerHeight": 900,
+    "dpr": 1,
+    "scrollWidth": 375,
+    "scrollHeight": 10767,
+    "clientWidth": 375
+  },
+  "candidates": [
+    {
+      "tag": "footer",
+      "id": "site-footer",
+      "classes": "surface surfaceBase surface-module-scss-module__CFFfpW__surfaceBase footer-module-scss-module__U-iC1W__footer footer-module-scss-module__cwVo7a__footer footer-module-scss-module__cwVo7a__hideSeparator",
+      "role": null,
+      "selector": "footer#site-footer",
+      "rect": {
+        "x": 0,
+        "y": 10058.09,
+        "width": 375,
+        "height": 709
+      },
+      "text": "We shape our tools, and thereafter our tools shape us.Marsha",
+      "signals": [
+        "landmark:footer",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "main",
+      "id": null,
+      "classes": "layout-module-scss-module__18xgza__main layout-module-scss-module__18xgza__withoutPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 9994.09
+      },
+      "text": "×How the world's fastest-growing startup stays fast with Not",
+      "signals": [
+        "landmark:main"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "nav",
+      "id": null,
+      "classes": "globalNavigation-module-scss-module__HWB10a__globalNavigation",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 64
+      },
+      "text": "ProductNotion AIAI tools for workAgentsAutomate busyworkAI M",
+      "signals": [
+        "landmark:nav",
+        "class-family",
+        "animation"
+      ],
+      "position": "relative",
+      "zIndex": "100"
+    },
+    {
+      "tag": "nav",
+      "id": null,
+      "classes": "footer-module-scss-module__U-iC1W__nav",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10177.09,
+        "width": 343,
+        "height": 400
+      },
+      "text": "ProductFeaturesWhat's NewNotion AIPricingRequest a demoDownl",
+      "signals": [
+        "landmark:nav",
+        "class-family",
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "aside",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__metaArea",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 849,
+        "width": 317.41,
+        "height": 196
+      },
+      "text": "Insights fromMichael TruellCo-founder & CEORyo LuHead of Des",
+      "signals": [
+        "landmark:aside",
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__hero [slug]-module-scss-module__rdykIW__withBgColor",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 737
+      },
+      "text": "×How the world's fastest-growing startup stays fast with Not",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "relative",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "HeroStories-module-scss-module__sP_DKq__heroStories [slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__removeBgColor [slug]-module-scss-module__rdykIW__ultraWide",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 737
+      },
+      "text": "×How the world's fastest-growing startup stays fast with Not",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2)",
+      "rect": {
+        "x": 0,
+        "y": 833,
+        "width": 375,
+        "height": 1603.91
+      },
+      "text": "Cursor became the fastest-growing company in history by givi",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3)",
+      "rect": {
+        "x": 0,
+        "y": 2468.91,
+        "width": 375,
+        "height": 1975.81
+      },
+      "text": "Why they build instead of buyWhile Cursor's rapid growth has",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4)",
+      "rect": {
+        "x": 0,
+        "y": 4476.72,
+        "width": 375,
+        "height": 292
+      },
+      "text": "I honestly can't imagine running a design team without Notio",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5)",
+      "rect": {
+        "x": 0,
+        "y": 4800.72,
+        "width": 375,
+        "height": 1777.31
+      },
+      "text": "AI is strongest where work flows and knowledge growsFast-mov",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6)",
+      "rect": {
+        "x": 0,
+        "y": 6610.03,
+        "width": 375,
+        "height": 264
+      },
+      "text": "Keeping people in the loop as we’ve grown so fast is really ",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7)",
+      "rect": {
+        "x": 0,
+        "y": 6906.03,
+        "width": 375,
+        "height": 1111.81
+      },
+      "text": "The modern stack: 5x fewer tools requiredWhere most companie",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding [slug]-module-scss-module__rdykIW__sectionNarrow",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8)",
+      "rect": {
+        "x": 0,
+        "y": 8049.84,
+        "width": 375,
+        "height": 292
+      },
+      "text": "We’re moving away from a world where communication is siloed",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9)",
+      "rect": {
+        "x": 0,
+        "y": 8373.84,
+        "width": 375,
+        "height": 406
+      },
+      "text": "Build with less tool sprawl and more focusSee how Notion kee",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "section",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__section [slug]-module-scss-module__rdykIW__sectionWithPadding",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 8843.84,
+        "width": 375,
+        "height": 1214.25
+      },
+      "text": "How other teams use Notion Customer storyRemote Built a Worl",
+      "signals": [
+        "landmark:section",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4) > figure:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 4476.72,
+        "width": 317.41,
+        "height": 292
+      },
+      "text": "I honestly can't imagine running a design team without Notio",
+      "signals": [
+        "landmark:figure",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "classes": "mediaWithCaption-module-scss-module__UO8Rxq__figure",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(3) > figure:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 6244.53,
+        "width": 317.41,
+        "height": 333.5
+      },
+      "text": "With Notion AI built into where Cursor teams work and collab",
+      "signals": [
+        "landmark:figure"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6) > figure:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 6610.03,
+        "width": 317.41,
+        "height": 264
+      },
+      "text": "Keeping people in the loop as we’ve grown so fast is really ",
+      "signals": [
+        "landmark:figure",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "figure",
+      "id": null,
+      "classes": "quote-module-scss-module__2NYrkq__quote [slug]-module-scss-module__rdykIW__quote",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8) > figure:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 8049.84,
+        "width": 317.41,
+        "height": 292
+      },
+      "text": "We’re moving away from a world where communication is siloed",
+      "signals": [
+        "landmark:figure",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h1",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > h1:nth-of-type(1)",
+      "rect": {
+        "x": 32,
+        "y": 170,
+        "width": 311,
+        "height": 192
+      },
+      "text": "How the world's fastest-growing startup stays fast with Noti",
+      "signals": [
+        "heading:h1"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > h2:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 1413,
+        "width": 317.41,
+        "height": 72
+      },
+      "text": "Simplicity solves for the complexities of scale",
+      "signals": [
+        "heading:h2"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > h2:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 2488.81,
+        "width": 317.41,
+        "height": 72
+      },
+      "text": "Why they build instead of buy",
+      "signals": [
+        "heading:h2"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2) > div:nth-of-type(2) > h2:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 4820.63,
+        "width": 317.41,
+        "height": 108
+      },
+      "text": "AI is strongest where work flows and knowledge grows",
+      "signals": [
+        "heading:h2"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7) > div:nth-of-type(2) > div:nth-of-type(2) > h2:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 6925.94,
+        "width": 317.41,
+        "height": 72
+      },
+      "text": "The modern stack: 5x fewer tools required",
+      "signals": [
+        "heading:h2"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalHeadingSubtle Endcap-module-scss-module__0m6-va__endcapTitle [slug]-module-scss-module__rdykIW__constrainedFooterWidth",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9) > div:nth-of-type(1) > h2:nth-of-type(1)",
+      "rect": {
+        "x": 60.8,
+        "y": 8437.84,
+        "width": 253.41,
+        "height": 96
+      },
+      "text": "Build with less tool sprawl and more focus",
+      "signals": [
+        "heading:h2",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h2",
+      "id": "_R_in4bm_",
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalTitleSubtle [slug]-module-scss-module__rdykIW__relatedCaseStudiesHeader",
+      "role": null,
+      "selector": "h2#_R_in4bm_",
+      "rect": {
+        "x": 28.8,
+        "y": 8843.84,
+        "width": 317.41,
+        "height": 192
+      },
+      "text": "How other teams use Notion",
+      "signals": [
+        "heading:h2",
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle",
+      "role": null,
+      "selector": "div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > h3:nth-of-type(1)",
+      "rect": {
+        "x": 29.8,
+        "y": 9389.97,
+        "width": 315.41,
+        "height": 112
+      },
+      "text": "Remote Built a World-Class IT Help Desk with Orchestrated No",
+      "signals": [
+        "heading:h3"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "h3",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantCardTitle card-module-scss-module__uD7svG__cardTitle",
+      "role": null,
+      "selector": "div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > h3:nth-of-type(1)",
+      "rect": {
+        "x": 29.8,
+        "y": 9865.09,
+        "width": 315.41,
+        "height": 112
+      },
+      "text": "How Rakuten France turned every team into AI builders with C",
+      "signals": [
+        "heading:h3"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "globalNavigation-module-scss-module__HWB10a__globalNavigationWrapper globalNavigation-module-scss-module__HWB10a__stickyWrapper",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > div:nth-of-type(2)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 64
+      },
+      "text": "ProductNotion AIAI tools for workAgentsAutomate busyworkAI M",
+      "signals": [
+        "class-family",
+        "floating:sticky"
+      ],
+      "position": "sticky",
+      "zIndex": "100"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "globalNavigation-module-scss-module__HWB10a__container",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 64
+      },
+      "text": "ProductNotion AIAI tools for workAgentsAutomate busyworkAI M",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "HeroStories-module-scss-module__sP_DKq__content",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 64,
+        "width": 375,
+        "height": 362
+      },
+      "text": "×How the world's fastest-growing startup stays fast with Not",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__heroLogoLockup",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 79.22,
+        "y": 128,
+        "width": 216.55,
+        "height": 30
+      },
+      "text": "×",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "HeroStories-module-scss-module__sP_DKq__media HeroStories-module-scss-module__sP_DKq__mediaVariantBleed",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2)",
+      "rect": {
+        "x": 0,
+        "y": 426,
+        "width": 375,
+        "height": 375
+      },
+      "text": "",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "HeroStories-module-scss-module__sP_DKq__mediaInner",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 426,
+        "width": 375,
+        "height": 375
+      },
+      "text": "",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "button",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__videoButtonContainer",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > button:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 426,
+        "width": 375,
+        "height": 375
+      },
+      "text": "",
+      "signals": [
+        "class-family"
+      ],
+      "position": "relative",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent [slug]-module-scss-module__rdykIW__firstContentSection",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 833,
+        "width": 317.41,
+        "height": 1603.91
+      },
+      "text": "Cursor became the fastest-growing company in history by givi",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "p",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1) > p:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 849,
+        "width": 317.41,
+        "height": 16
+      },
+      "text": "Insights from",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "p",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantNavigationHeading",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1) > p:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 1001,
+        "width": 317.41,
+        "height": 16
+      },
+      "text": "Use cases",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 2468.91,
+        "width": 317.41,
+        "height": 1975.81
+      },
+      "text": "Why they build instead of buyWhile Cursor's rapid growth has",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4) > figure:nth-of-type(1) > blockquote:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 4492.72,
+        "width": 317.41,
+        "height": 196
+      },
+      "text": "I honestly can't imagine running a design team without Notio",
+      "signals": [
+        "class-family",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 4800.72,
+        "width": 317.41,
+        "height": 1379.81
+      },
+      "text": "AI is strongest where work flows and knowledge growsFast-mov",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__sectionMedia",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(3)",
+      "rect": {
+        "x": 28.8,
+        "y": 6244.53,
+        "width": 317.41,
+        "height": 333.5
+      },
+      "text": "With Notion AI built into where Cursor teams work and collab",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6) > figure:nth-of-type(1) > blockquote:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 6626.03,
+        "width": 317.41,
+        "height": 168
+      },
+      "text": "Keeping people in the loop as we’ve grown so fast is really ",
+      "signals": [
+        "class-family",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__sectionContent",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7) > div:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 6906.03,
+        "width": 317.41,
+        "height": 1111.81
+      },
+      "text": "The modern stack: 5x fewer tools requiredWhere most companie",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "blockquote",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalQuote quote-module-scss-module__2NYrkq__blockquote",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8) > figure:nth-of-type(1) > blockquote:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 8065.84,
+        "width": 317.41,
+        "height": 196
+      },
+      "text": "We’re moving away from a world where communication is siloed",
+      "signals": [
+        "class-family",
+        "missable:quote"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "p",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalDeck Endcap-module-scss-module__0m6-va__endcapDeck [slug]-module-scss-module__rdykIW__constrainedFooterWidth",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9) > div:nth-of-type(1) > p:nth-of-type(1)",
+      "rect": {
+        "x": 60.8,
+        "y": 8549.84,
+        "width": 253.41,
+        "height": 96
+      },
+      "text": "See how Notion keeps companies nimble at any size—book your ",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__relatedCaseStudiesContainer",
+      "role": null,
+      "selector": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 0,
+        "y": 8843.84,
+        "width": 375,
+        "height": 1214.25
+      },
+      "text": "How other teams use Notion Customer storyRemote Built a Worl",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "grid-module-scss-module__lgnKUW__grid footer-module-scss-module__U-iC1W__grid",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10098.09,
+        "width": 343,
+        "height": 657
+      },
+      "text": "We shape our tools, and thereafter our tools shape us.Marsha",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "footer-module-scss-module__U-iC1W__brand footer-module-scss-module__cwVo7a__brand",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10098.09,
+        "width": 343,
+        "height": 39
+      },
+      "text": "We shape our tools, and thereafter our tools shape us.Marsha",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "a",
+      "id": null,
+      "classes": "footer-module-scss-module__cwVo7a__logo",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10098.09,
+        "width": 343,
+        "height": 39
+      },
+      "text": "",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "footer-module-scss-module__U-iC1W__locale footer-module-scss-module__cwVo7a__locale",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+      "rect": {
+        "x": 16,
+        "y": 10617.09,
+        "width": 343,
+        "height": 38
+      },
+      "text": "English (US)English (US)Bahasa IndonesiaDanskDeutschEnglish ",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantInteractionMenuListItemLabel footer-module-scss-module__U-iC1W__legal footer-module-scss-module__cwVo7a__legal",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3)",
+      "rect": {
+        "x": 16,
+        "y": 10695.09,
+        "width": 343,
+        "height": 20
+      },
+      "text": "Cookie settings",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "p",
+      "id": null,
+      "classes": "semanticTypography-module-scss-module__Db2fhq__semanticTypography semanticTypography-module-scss-module__Db2fhq__variantGlobalContext footer-module-scss-module__U-iC1W__copyright footer-module-scss-module__cwVo7a__copyright",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > p:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10731.09,
+        "width": 343,
+        "height": 24
+      },
+      "text": "© 2026 Notion Labs, Inc.",
+      "signals": [
+        "class-family"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "video",
+      "id": null,
+      "classes": "Video-module-scss-module__D671CW__video Video-module-scss-module__D671CW__videoAspectRatio",
+      "role": null,
+      "selector": "div:nth-of-type(3) > figure:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > video:nth-of-type(1)",
+      "rect": {
+        "x": 29.8,
+        "y": 6245.53,
+        "width": 315.41,
+        "height": 150
+      },
+      "text": "",
+      "signals": [
+        "media:video"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "animation--running appear-instantly",
+      "role": null,
+      "selector": "section:nth-of-type(5) > div:nth-of-type(3) > figure:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 29.8,
+        "y": 6245.53,
+        "width": 315.41,
+        "height": 150
+      },
+      "text": "",
+      "signals": [
+        "animation"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "svg",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) > svg:nth-of-type(1)",
+      "rect": {
+        "x": 14,
+        "y": 15,
+        "width": 33,
+        "height": 34
+      },
+      "text": "",
+      "signals": [
+        "repetition-parent",
+        "missable:ticker"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "svg",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > svg:nth-of-type(1)",
+      "rect": {
+        "x": 79.22,
+        "y": 128,
+        "width": 87,
+        "height": 30
+      },
+      "text": "",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__bodyCopy",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 1504.91,
+        "width": 317.41,
+        "height": 916
+      },
+      "text": "Most fast-growing companies slow down as they scale because ",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__metaPeople",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1) > div:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 877,
+        "width": 317.41,
+        "height": 108
+      },
+      "text": "Michael TruellCo-founder & CEORyo LuHead of Design",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__bodyCopy",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 2580.72,
+        "width": 317.41,
+        "height": 1848
+      },
+      "text": "While Cursor's rapid growth has captured headlines over the ",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "markdownRenderer-module-scss-module__LwslzW__list",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > ul:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 3288.72,
+        "width": 317.41,
+        "height": 896
+      },
+      "text": "Engineering and research maintain connected roadmaps and pro",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__bodyCopy",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 4948.53,
+        "width": 317.41,
+        "height": 1212
+      },
+      "text": "Fast-moving teams don’t have time to dig for information, bu",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "markdownRenderer-module-scss-module__LwslzW__list",
+      "role": null,
+      "selector": "div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > ul:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 5432.53,
+        "width": 317.41,
+        "height": 728
+      },
+      "text": "Onboarding without friction: Notion AI serves as an onboardi",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__bodyCopy",
+      "role": null,
+      "selector": "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "rect": {
+        "x": 28.8,
+        "y": 7017.84,
+        "width": 317.41,
+        "height": 984
+      },
+      "text": "Where most companies accumulate tools that slow them down, C",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "classes": "[slug]-module-scss-module__rdykIW__relatedCaseStudies",
+      "role": null,
+      "selector": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2)",
+      "rect": {
+        "x": 28.8,
+        "y": 9035.84,
+        "width": 317.41,
+        "height": 1022.25
+      },
+      "text": "Customer storyRemote Built a World-Class IT Help Desk with O",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "g",
+      "id": null,
+      "classes": null,
+      "role": null,
+      "selector": "div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) > svg:nth-of-type(1) > g:nth-of-type(1) > g:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10098.09,
+        "width": 37.32,
+        "height": 38.91
+      },
+      "text": "",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "flex flex-col items-stretch justify-start flex-nowrap inline-full gap-0 ps-0 mt-0 mb-0 menuList-module-scss-module__qf-KyW__menuList",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1)",
+      "rect": {
+        "x": 16,
+        "y": 10177.09,
+        "width": 165.5,
+        "height": 180
+      },
+      "text": "ProductFeaturesWhat's NewNotion AIPricingRequest a demoDownl",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "flex flex-col items-stretch justify-start flex-nowrap inline-full gap-0 ps-0 mt-0 mb-0 menuList-module-scss-module__qf-KyW__menuList",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(2)",
+      "rect": {
+        "x": 193.5,
+        "y": 10177.09,
+        "width": 165.5,
+        "height": 180
+      },
+      "text": "ResourcesCustomer storiesConnectionsMarketplaceHelp CenterAc",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "flex flex-col items-stretch justify-start flex-nowrap inline-full gap-0 ps-0 mt-0 mb-0 menuList-module-scss-module__qf-KyW__menuList",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(3)",
+      "rect": {
+        "x": 16,
+        "y": 10397.09,
+        "width": 165.5,
+        "height": 180
+      },
+      "text": "CompanyAbout usCareersSecurityStatusTerms & privacyYour priv",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    },
+    {
+      "tag": "ul",
+      "id": null,
+      "classes": "flex flex-col items-stretch justify-start flex-nowrap inline-full gap-0 ps-0 mt-0 mb-0 menuList-module-scss-module__qf-KyW__menuList",
+      "role": null,
+      "selector": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(4)",
+      "rect": {
+        "x": 193.5,
+        "y": 10397.09,
+        "width": 165.5,
+        "height": 180
+      },
+      "text": "Notion forEnterpriseSmall businessesStartupsDevelopersExplor",
+      "signals": [
+        "repetition-parent"
+      ],
+      "position": "static",
+      "zIndex": "auto"
+    }
+  ],
+  "repetitionParents": [
+    "div:nth-of-type(1) > nav:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) > svg:nth-of-type(1)",
+    "div:nth-of-type(1) > section:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > svg:nth-of-type(1)",
+    "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+    "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1)",
+    "div:nth-of-type(1) > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > aside:nth-of-type(1) > div:nth-of-type(1)",
+    "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+    "div:nth-of-type(1) > section:nth-of-type(3) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > ul:nth-of-type(1)",
+    "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+    "div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > ul:nth-of-type(1)",
+    "main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1)",
+    "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2)",
+    "div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) > svg:nth-of-type(1) > g:nth-of-type(1) > g:nth-of-type(1)",
+    "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)",
+    "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(1)",
+    "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(2)",
+    "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(3)",
+    "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1) > ul:nth-of-type(4)"
+  ],
+  "media": [
+    {
+      "tag": "video",
+      "selector": "div:nth-of-type(3) > figure:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > video:nth-of-type(1)",
+      "src": "https://videos.ctfassets.net/spoqsaf9291f/4ssXrWk0KsGxeJq9o74F9k/b5e1ab6e38cfc7375fc3d8792186b20c/Cursor_NotionAI.mp4",
+      "rect": {
+        "x": 29.8,
+        "y": 6245.53,
+        "width": 315.41,
+        "height": 150
+      },
+      "autoplay": null,
+      "loop": null,
+      "muted": true,
+      "controls": null,
+      "poster": null,
+      "objectFit": "contain"
+    },
+    {
+      "tag": "iframe",
+      "selector": "iframe#\\38 13784749",
+      "src": "https://www.youtube-nocookie.com/embed/txuTNgghan0?enablejsapi=1&autoplay=0&mute=0&playsinline=1&controls=1&loop=0&modestbranding=1&rel=0&origin=https%3A%2F%2Fwww.notion.com",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "autoplay": null,
+      "loop": null,
+      "muted": null,
+      "controls": null,
+      "poster": null,
+      "objectFit": "fill"
+    },
+    {
+      "tag": "iframe",
+      "selector": "html:nth-of-type(1) > body:nth-of-type(1) > iframe:nth-of-type(1)",
+      "src": null,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "autoplay": null,
+      "loop": null,
+      "muted": null,
+      "controls": null,
+      "poster": null,
+      "objectFit": "fill"
+    }
+  ],
+  "thirdPartyHosts": [
+    "www.youtube-nocookie.com"
+  ],
+  "inventoryHayLength": 148775
+}

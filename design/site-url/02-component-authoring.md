@@ -1,6 +1,6 @@
 # Component Architecture And Authoring
 
-Owns reuse, authoring contracts, implementation coverage, and `design-facts`. Consume accepted Stage 1 artifacts and project configuration. Read [skill routing](references/skill-routing.md); invoke `create-component` for EVERY Tier 2/3/4 component. Use its implementation references rather than duplicating their templates here.
+Owns reuse, authoring contracts, implementation coverage, and `design-facts`. Consume accepted Stage 1 artifacts and project configuration. Read [verified project facts](references/project-facts.md) once before authoring. Read [skill routing](references/skill-routing.md); `create-component` governs EVERY Tier 2/3/4 component and loads once per context for the whole set, not once per component. Use its implementation references rather than duplicating their templates here.
 
 ## Component Coverage Gate
 
@@ -20,6 +20,17 @@ Use generic semantic kebab-case names. Brand, campaign, project, version, and Fi
 | 4 | Higher tiers proven insufficient | full component/model/dialog/clientlib/test |
 
 Reuse templates and policies. Do not fork them only for a variant. More than 80% dialog overlap between sibling components is a duplication defect.
+
+## Batched Implementation
+
+Decide every tier and write every component contract BEFORE the first file edit; a complete contract set is what lets one skill load serve the whole run.
+
+1. Publish the full `component_file_matrix` and per-component field contracts first.
+2. Implement in tier groups rather than one component at a time. Components in a tier share the same file shape, so author the group together.
+3. Validate the first component of each NEW pattern with the cheapest focused executable check. Components reusing an already-proven pattern do not each repeat it.
+4. Deploy at most once per changed module per batch through [Stage 3](03-assets-runtime.md), never once per component.
+
+Batching changes sequencing and loading only. Per-component coverage, authorability, exact field contracts, and every gate are unchanged.
 
 ## Design Facts (durable handoff)
 

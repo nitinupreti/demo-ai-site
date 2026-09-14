@@ -1,0 +1,5 @@
+<div class="hero" data-cmp-is="hero">
+    <div class="hero__logo" data-sly-resource="${'logo' @ resourceType='demo-ai-site/components/image'}"></div>
+    <h1 class="hero__heading" data-sly-test="${properties.heading}">${properties.heading}</h1>
+    <div class="hero__description" data-sly-test="${properties.description}">${properties.description @ context='html'}</div>
+</div>

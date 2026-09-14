@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="Video Intro"
+    sling:resourceType="cq/gui/components/authoring/dialog">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Properties"
+                        sling:resourceType="granite/ui/components/coral/foundation/container"
+                        margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <videoAsset
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                fieldLabel="Video asset"
+                                fieldDescription="DAM path to the video file"
+                                rootPath="/content/dam"
+                                required="{Boolean}true"
+                                name="./videoAsset"/>
+                            <poster
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                fieldLabel="Poster image"
+                                rootPath="/content/dam"
+                                name="./poster"/>
+                            <caption
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                fieldLabel="Caption"
+                                name="./caption"/>
+                            <accessibilityLabel
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Accessibility label"
+                                name="./accessibilityLabel"/>
+                        </items>
+                    </properties>
+                    <playback
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Style"
+                        sling:resourceType="granite/ui/components/coral/foundation/container"
+                        margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <autoplay
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                text="Autoplay"
+                                value="{Boolean}true"
+                                uncheckedValue="{Boolean}false"
+                                name="./autoplay"/>
+                            <muted
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                text="Muted"
+                                value="{Boolean}true"
+                                uncheckedValue="{Boolean}false"
+                                name="./muted"/>
+                            <loop
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                text="Loop"
+                                value="{Boolean}true"
+                                uncheckedValue="{Boolean}false"
+                                name="./loop"/>
+                            <playsInline
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                text="Play inline on mobile"
+                                value="{Boolean}true"
+                                uncheckedValue="{Boolean}false"
+                                name="./playsInline"/>
+                            <controls
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                text="Show controls"
+                                value="{Boolean}true"
+                                uncheckedValue="{Boolean}false"
+                                name="./controls"/>
+                            <preload
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Preload"
+                                name="./preload">
+                                <items jcr:primaryType="nt:unstructured">
+                                    <metadata
+                                        jcr:primaryType="nt:unstructured"
+                                        text="metadata"
+                                        value="metadata"/>
+                                    <auto
+                                        jcr:primaryType="nt:unstructured"
+                                        text="auto"
+                                        value="auto"/>
+                                    <none
+                                        jcr:primaryType="nt:unstructured"
+                                        text="none"
+                                        value="none"/>
+                                </items>
+                            </preload>
+                        </items>
+                    </playback>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>

@@ -1,0 +1,198 @@
+{
+  "bp": 1440,
+  "scrollHeight": 6646,
+  "rows": [
+    {
+      "from": 0,
+      "to": 80,
+      "owner": "div#__next > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > nav:nth-of-type(1)"
+    },
+    {
+      "from": 80,
+      "to": 660,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1)"
+    },
+    {
+      "from": 660,
+      "to": 680,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 680,
+      "to": 1440,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(2)"
+    },
+    {
+      "from": 1440,
+      "to": 1480,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 1480,
+      "to": 2500,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(3)"
+    },
+    {
+      "from": 2500,
+      "to": 2520,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 2520,
+      "to": 2560,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4)"
+    },
+    {
+      "from": 2560,
+      "to": 2680,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4) > figure:nth-of-type(1) > blockquote:nth-of-type(1)"
+    },
+    {
+      "from": 2680,
+      "to": 2780,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(4)"
+    },
+    {
+      "from": 2780,
+      "to": 2800,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 2800,
+      "to": 3540,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(2)"
+    },
+    {
+      "from": 3540,
+      "to": 3600,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5)"
+    },
+    {
+      "from": 3600,
+      "to": 3740,
+      "owner": "div:nth-of-type(3) > figure:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > video:nth-of-type(1)"
+    },
+    {
+      "from": 3740,
+      "to": 3840,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(5) > div:nth-of-type(3) > figure:nth-of-type(1)"
+    },
+    {
+      "from": 3840,
+      "to": 3860,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 3860,
+      "to": 3900,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6)"
+    },
+    {
+      "from": 3900,
+      "to": 4020,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6) > figure:nth-of-type(1) > blockquote:nth-of-type(1)"
+    },
+    {
+      "from": 4020,
+      "to": 4120,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(6)"
+    },
+    {
+      "from": 4120,
+      "to": 4140,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 4140,
+      "to": 4780,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(7)"
+    },
+    {
+      "from": 4780,
+      "to": 4800,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 4800,
+      "to": 4840,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8)"
+    },
+    {
+      "from": 4840,
+      "to": 4960,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8) > figure:nth-of-type(1) > blockquote:nth-of-type(1)"
+    },
+    {
+      "from": 4960,
+      "to": 5060,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(8)"
+    },
+    {
+      "from": 5060,
+      "to": 5080,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 5080,
+      "to": 5220,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9)"
+    },
+    {
+      "from": 5220,
+      "to": 5260,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9) > div:nth-of-type(1) > h2:nth-of-type(1)"
+    },
+    {
+      "from": 5260,
+      "to": 5280,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9)"
+    },
+    {
+      "from": 5280,
+      "to": 5340,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9) > div:nth-of-type(1) > p:nth-of-type(1)"
+    },
+    {
+      "from": 5340,
+      "to": 5540,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(9)"
+    },
+    {
+      "from": 5540,
+      "to": 5600,
+      "owner": "div#__next > div:nth-of-type(1) > main:nth-of-type(1)"
+    },
+    {
+      "from": 5600,
+      "to": 5700,
+      "owner": "h2#_R_in4bm_"
+    },
+    {
+      "from": 5700,
+      "to": 6260,
+      "owner": "div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > section:nth-of-type(1) > div:nth-of-type(2)"
+    },
+    {
+      "from": 6260,
+      "to": 6340,
+      "owner": "footer#site-footer"
+    },
+    {
+      "from": 6340,
+      "to": 6560,
+      "owner": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)"
+    },
+    {
+      "from": 6560,
+      "to": 6640,
+      "owner": "footer#site-footer > div:nth-of-type(1) > div:nth-of-type(1)"
+    },
+    {
+      "from": 6640,
+      "to": 6646,
+      "owner": "footer#site-footer"
+    }
+  ],
+  "gaps": [],
+  "bandCount": 46
+}

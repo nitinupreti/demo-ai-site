@@ -8,6 +8,10 @@ Production deployments are done through Adobe Cloud Manager using Full Stack Pip
 
 The Java version used in Cloud Manager pipelines is defined in the `.cloudmanager/java-version` file. Assume the same is used for local builds.
 
+## Migration execution rules
+
+For requests to execute or resume a page/site migration using this project's prompt, load the [mandatory migration instructions](.github/instructions/aem-migration.instructions.md) and [canonical stage router](design/site-url/prompt_new.md) before acting. This includes plain-language requests to migrate a source URL, not only edits to prompt files. Visual parity is mandatory; neither memory nor agent discretion authorizes skipping stages or substituting weaker checks. Discussions or maintenance of instructions alone do not start a migration.
+
 ## Modules
 
 - `core`: OSGi bundle. Contains the Java code for backend services, models, and business logic. Uses OSGi for dependency injection, Sling models for exposing content to Sling scripts and JUnit for unit testing.

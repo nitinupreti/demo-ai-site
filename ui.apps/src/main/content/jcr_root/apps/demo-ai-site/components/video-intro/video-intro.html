@@ -1,0 +1,19 @@
+<figure class="videointro" data-cmp-is="video-intro" data-sly-test="${properties.videoAsset}">
+    <div class="videointro__frame">
+        <video class="videointro__video"
+               src="${properties.videoAsset}"
+               poster="${properties.poster}"
+               autoplay="${properties.autoplay}"
+               loop="${properties.loop}"
+               muted="${properties.muted}"
+               controls="${properties.controls}"
+               playsinline="${properties.playsInline}"
+               preload="${properties.preload || 'metadata'}"
+               aria-label="${properties.accessibilityLabel}">
+        </video>
+    </div>
+    <figcaption class="videointro__caption" data-sly-test="${properties.caption}">${properties.caption}</figcaption>
+</figure>
+<sly data-sly-test="${wcmmode.edit && !properties.videoAsset}">
+    <div class="cq-placeholder" data-emptytext="${'Video Intro' @ i18n}"></div>
+</sly>

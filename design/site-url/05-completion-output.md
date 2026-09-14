@@ -7,6 +7,7 @@ Read only after Stage 4 reaches terminal PASS, FAIL, or BLOCKED. Use upstream ar
 - Validate Stage 1–4 envelopes, outputs/checks, `run_id`, dependency result IDs, and evidence revisions. Stages 1–3 must be accepted PASS; Stage 4 may be terminal FAIL/BLOCKED for reporting only.
 - Missing/stale prerequisites return to their owner. Never invent a result; restart Stage 1 only for invalid source discovery/denominators, not exhausted retries.
 - COMPLETE requires all four stages PASS, all coverage/files/assets/scores reconciled, strict visual minima, and empty `residual_gaps`. FAIL/BLOCKED closes an incomplete run and explicitly identifies missing evidence and its owner.
+- COMPLETE additionally requires a zero exit from `node design/site-url/verify-run.mjs <EVIDENCE_DIR>`, run after the final `run-state.json` write and reported with its output. Non-zero exit forces FAIL/BLOCKED.
 - Never label partial delivery "migration complete", even with disclosed gaps. Record start/end/elapsed timing; incomplete runs have stop times, not successful completion times.
 
 ## Durable Report
@@ -21,7 +22,7 @@ Write the complete report under `EVIDENCE_DIR`; link it from the final response 
 6. Color authorability: role, token key, custom hex, conditional visibility, sanitized model value, deployed CSS property, round-trip result.
 7. Assets: source/local/DAM paths, MIME, bytes, deployment method, reachability, decode status, and exactness evidence.
 
-Publish the full-page and every instance's source/target/side-by-side/mask files using Stage 4's mode-specific artifact index. Every score row includes Live/AEM URL, viewport, DPR, runner revision, readiness, screenshot paths/validation, matched/differing/total pixels, and `visualMatchPercent`. Invalid evidence means all numeric scores are omitted and the Stage 4 withheld reason is shown. No historical or estimated scores.
+Publish the full-page and every instance's source/target/side-by-side/mask files using Stage 4's mode-specific artifact index. Every score row carries Stage 4's citation set unchanged, including `visualMatchPercent`. Invalid evidence means all numeric scores are omitted and the Stage 4 withheld reason is shown. No historical or estimated scores.
 
 ## Status Line
 

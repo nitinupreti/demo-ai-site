@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:granite="http://www.adobe.com/jcr/granite/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="nt:unstructured"
+    jcr:title="CTA Band"
+    sling:resourceType="cq/gui/components/authoring/dialog"
+    extraClientlibs="[demo-ai-site.cta-band.dialog]">
+    <content
+        jcr:primaryType="nt:unstructured"
+        sling:resourceType="granite/ui/components/coral/foundation/container">
+        <items jcr:primaryType="nt:unstructured">
+            <tabs
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="granite/ui/components/coral/foundation/tabs"
+                maximized="{Boolean}true">
+                <items jcr:primaryType="nt:unstructured">
+                    <properties
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Properties"
+                        sling:resourceType="granite/ui/components/coral/foundation/container"
+                        margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <heading
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Heading"
+                                required="{Boolean}true"
+                                name="./heading"/>
+                            <description
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textarea"
+                                fieldLabel="Description"
+                                name="./description"/>
+                            <ctaLabel
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="CTA label"
+                                name="./ctaLabel"/>
+                            <ctaLink
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/pathfield"
+                                fieldLabel="CTA link"
+                                rootPath="/content"
+                                name="./ctaLink"/>
+                        </items>
+                    </properties>
+                    <style
+                        jcr:primaryType="nt:unstructured"
+                        jcr:title="Style"
+                        sling:resourceType="granite/ui/components/coral/foundation/container"
+                        margin="{Boolean}true">
+                        <items jcr:primaryType="nt:unstructured">
+                            <backgroundColor
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Background color"
+                                name="./backgroundColor">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    cq-dialog-dropdown-showhide-target=".cta-band-background-showhide"/>
+                                <items jcr:primaryType="nt:unstructured">
+                                    <neutral
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Neutral"
+                                        value="neutral"/>
+                                    <inverse
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Inverse"
+                                        value="inverse"/>
+                                    <accent
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Accent"
+                                        value="accent"/>
+                                    <other
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Other (custom hex)"
+                                        value="other"/>
+                                </items>
+                            </backgroundColor>
+                            <backgroundColorHex
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Custom background hex"
+                                fieldDescription="Accepts #RGB, #RRGGBB, or #RRGGBBAA"
+                                class="hide cta-band-background-showhide"
+                                name="./backgroundColorHex">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    showhidetargetvalue="other"/>
+                            </backgroundColorHex>
+                            <foregroundColor
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/select"
+                                fieldLabel="Foreground color"
+                                name="./foregroundColor">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    cq-dialog-dropdown-showhide-target=".cta-band-foreground-showhide"/>
+                                <items jcr:primaryType="nt:unstructured">
+                                    <onNeutral
+                                        jcr:primaryType="nt:unstructured"
+                                        text="On neutral"
+                                        value="on-neutral"/>
+                                    <onInverse
+                                        jcr:primaryType="nt:unstructured"
+                                        text="On inverse"
+                                        value="on-inverse"/>
+                                    <other
+                                        jcr:primaryType="nt:unstructured"
+                                        text="Other (custom hex)"
+                                        value="other"/>
+                                </items>
+                            </foregroundColor>
+                            <foregroundColorHex
+                                jcr:primaryType="nt:unstructured"
+                                sling:resourceType="granite/ui/components/coral/foundation/form/textfield"
+                                fieldLabel="Custom foreground hex"
+                                fieldDescription="Accepts #RGB, #RRGGBB, or #RRGGBBAA"
+                                class="hide cta-band-foreground-showhide"
+                                name="./foregroundColorHex">
+                                <granite:data
+                                    jcr:primaryType="nt:unstructured"
+                                    showhidetargetvalue="other"/>
+                            </foregroundColorHex>
+                        </items>
+                    </style>
+                </items>
+            </tabs>
+        </items>
+    </content>
+</jcr:root>
