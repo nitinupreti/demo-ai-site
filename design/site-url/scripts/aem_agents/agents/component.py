@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
+from ..envelope import AgentResult, EnvelopeError
 from ..render import bullet_list
 from .base import Agent
 
@@ -18,6 +19,16 @@ class ComponentAgent(Agent):
     """Implements exactly one component; several run in parallel."""
 
     agent_id = "component"
+
+    def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        super().validate_result(result, **kwargs)
+        if self.context.dry_run:
+            return
+        if result.output("component_id") != (kwargs.get("component") or {}).get("id"):
+            raise EnvelopeError("Component result does not belong to the assigned component.")
+        paths = result.output("changed_files")
+        if not isinstance(paths, list) or any(not isinstance(path, str) or not path for path in paths):
+            raise EnvelopeError("Component changed_files must be a list of paths.")
 
     def slug(self, component: Mapping[str, Any] | None = None, attempt: int = 1, **_: Any) -> str:
         component_id = str((component or {}).get("id", "unknown"))

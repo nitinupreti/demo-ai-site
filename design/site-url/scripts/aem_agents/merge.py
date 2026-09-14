@@ -14,6 +14,7 @@ whichever agent happened to finish first.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +39,8 @@ class Contribution:
     nodes: list[dict[str, Any]] = field(default_factory=list)
     filter_roots: list[str] = field(default_factory=list)
     path: Path | None = None
+    template_path: str | None = None
+    page_properties: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -117,14 +120,22 @@ def _parse_fragment(xml: str, namespaces: Mapping[str, str]) -> ElementTree.Elem
     return children[0]
 
 
+def latest_contribution_path(settings: Settings, evidence_dir: Path, component_id: str) -> Path | None:
+    workspace = evidence_dir / str(settings.migration.get("run.agent_workspace_dir", "agents"))
+    filename = str(settings.migration.get("shared_files.contribution_file", "contributions.json"))
+    pattern = re.compile(rf"component-{re.escape(component_id)}-attempt-(\d+)$")
+    candidates = [
+        (int(match.group(1)), directory / filename)
+        for directory in workspace.glob(f"component-{component_id}-attempt-*")
+        if directory.is_dir() and (match := pattern.fullmatch(directory.name))
+    ]
+    return max(candidates, key=lambda item: item[0])[1] if candidates else None
+
+
 def read_contributions(
     settings: Settings, evidence_dir: Path, components: list[Mapping[str, Any]]
 ) -> tuple[list[Contribution], list[str]]:
     """Collect one contribution per planned component, newest attempt wins."""
-    migration = settings.migration
-    workspace_root = evidence_dir / str(migration.get("run.agent_workspace_dir", "agents"))
-    filename = str(migration.get("shared_files.contribution_file", "contributions.json"))
-
     order_by_id = {
         str(component["id"]): int(component.get("source_order", index))
         for index, component in enumerate(components)
@@ -133,26 +144,36 @@ def read_contributions(
     contributions: list[Contribution] = []
     missing: list[str] = []
     for component_id, source_order in order_by_id.items():
-        candidates = sorted(workspace_root.glob(f"component-{component_id}-attempt-*/{filename}"))
-        if not candidates:
+        raw = latest_contribution_path(settings, evidence_dir, component_id)
+        if raw is None or not raw.is_file():
             missing.append(component_id)
             continue
-        raw = candidates[-1]
         try:
             data = json.loads(raw.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise MergeError(f"Could not read {raw}: {error}") from error
-        contributions.append(
-            Contribution(
-                component_id=component_id,
-                source_order=int(data.get("source_order", source_order)),
-                page_path=data.get("page_path"),
-                parent_path=data.get("parent_path"),
-                nodes=list(data.get("nodes") or []),
-                filter_roots=[str(item) for item in (data.get("filter_roots") or [])],
-                path=raw,
+        if not isinstance(data, Mapping) or data.get("component_id") != component_id:
+            raise MergeError(f"Contribution identity does not match {component_id}: {raw}")
+        if data.get("source_order", source_order) != source_order:
+            raise MergeError(f"Contribution from {component_id} changed the planner's source_order.")
+        pages = data.get("pages", [data])
+        if not isinstance(pages, list) or not pages:
+            raise MergeError(f"Contribution from {component_id} has no page targets.")
+        for page in pages:
+            if not isinstance(page, Mapping) or not isinstance(page.get("nodes"), list) or not page["nodes"]:
+                raise MergeError(f"Contribution from {component_id} has no authored nodes.")
+            properties = page.get("page_properties", {})
+            if not isinstance(properties, Mapping) or any(not isinstance(value, str) for value in properties.values()):
+                raise MergeError(f"Invalid page_properties in {raw}.")
+            contributions.append(
+                Contribution(
+                    component_id=component_id, source_order=source_order,
+                    page_path=page.get("page_path"), parent_path=page.get("parent_path"),
+                    nodes=list(page["nodes"]),
+                    filter_roots=[str(item) for item in page.get("filter_roots", data.get("filter_roots", []))],
+                    path=raw, template_path=page.get("template_path"), page_properties=dict(properties),
+                )
             )
-        )
     contributions.sort(key=lambda item: (item.source_order, item.component_id))
     return contributions, missing
 
@@ -177,32 +198,42 @@ def merge_authored_page(
             )
         by_page.setdefault(contribution.page_path, []).append(contribution)
 
+    prepared: list[tuple[Path, ElementTree.ElementTree]] = []
     for page_path, page_contributions in by_page.items():
+        if not page_path.startswith("/content/") or any(part in (".", "..") for part in page_path.split("/")) or "\\" in page_path:
+            raise MergeError(f"Invalid authored page path: {page_path}")
         target = settings.resolve(template.format(page_path=page_path.rstrip("/")))
-        if not target.is_file():
-            raise MergeError(f"Authored page content file not found: {target}")
-
-        tree = ElementTree.parse(target)
+        properties: dict[str, str] = {}
+        for contribution in page_contributions:
+            for name, value in contribution.page_properties.items():
+                if name in properties and properties[name] != value:
+                    raise MergeError(f"Conflicting page property {name} for {page_path}.")
+                properties[name] = value
+        if target.is_file():
+            tree = ElementTree.parse(target)
+        else:
+            templates = {entry.template_path for entry in page_contributions if entry.template_path}
+            if len(templates) != 1 or not properties.get("jcr:title"):
+                raise MergeError(f"New page {page_path} needs one template_path and an authored jcr:title.")
+            selected = templates.pop()
+            if not selected.startswith("/conf/") or any(part in (".", "..") for part in selected.split("/")) or "\\" in selected:
+                raise MergeError(f"Invalid template_path: {selected}")
+            initial = settings.resolve(template.format(page_path=selected + "/initial"))
+            if not initial.is_file():
+                raise MergeError(f"Selected template initial content is missing: {initial}")
+            tree = ElementTree.parse(initial)
+            properties["cq:template"] = selected
         root = tree.getroot()
-        contributed_names = {
-            str(node.get("name"))
-            for contribution in page_contributions
-            for node in contribution.nodes
-            if node.get("name")
-        }
-
+        content = _find_parent(root, "jcr:content", namespaces)
+        for name, value in properties.items():
+            content.set(_qualify(name, namespaces), value)
+        grouped_nodes: dict[str, dict[str, ElementTree.Element]] = {}
         for contribution in page_contributions:
             parent_path = contribution.parent_path or default_parent
-            parent = _find_parent(root, parent_path, namespaces)
-
-            # Idempotency: drop any previous copy before re-inserting in order.
-            for existing in list(parent):
-                if _tag_name(existing, namespaces) in contributed_names:
-                    parent.remove(existing)
-
-        for contribution in page_contributions:
-            parent = _find_parent(root, contribution.parent_path or default_parent, namespaces)
+            owned = grouped_nodes.setdefault(parent_path, {})
             for node in contribution.nodes:
+                if not isinstance(node, Mapping):
+                    raise MergeError(f"Invalid node from {contribution.component_id}.")
                 name = str(node.get("name") or "")
                 xml = str(node.get("xml") or "")
                 if not name or not xml:
@@ -210,11 +241,25 @@ def merge_authored_page(
                         f"Contribution from '{contribution.component_id}' has a node "
                         "without a name or xml."
                     )
-                parent.append(_parse_fragment(xml, namespaces))
+                fragment = _parse_fragment(xml, namespaces)
+                if _tag_name(fragment, namespaces) != name or name in owned:
+                    raise MergeError(f"Duplicate or mismatched node name {name} in {page_path}/{parent_path}.")
+                owned[name] = fragment
                 report.nodes_written.append(f"{contribution.component_id}:{name}")
-
+        for parent_path, nodes in grouped_nodes.items():
+            parent = _find_parent(root, parent_path, namespaces)
+            for existing in list(parent):
+                if _tag_name(existing, namespaces) in nodes:
+                    parent.remove(existing)
+            parent.extend(nodes.values())
         ElementTree.indent(tree, space="    ")
-        tree.write(target, encoding="UTF-8", xml_declaration=True)
+        prepared.append((target, tree))
+
+    for target, tree in prepared:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(target.name + ".merge.tmp")
+        tree.write(temporary, encoding="UTF-8", xml_declaration=True)
+        os.replace(temporary, target)
         report.merged_files.append(settings.relative_to_repo(target))
 
 
@@ -224,29 +269,32 @@ def merge_vault_filter(
     """Append any missing filter roots without rewriting the existing entries."""
     config = settings.migration.section("shared_files.vault_filter")
     target = settings.resolve(str(config.require("file")))
-    if not target.is_file():
-        return
-    entry_template = str(config.get("entry", '<filter root="{root}" mode="merge"/>'))
-
-    text = target.read_text(encoding="utf-8")
+    tree = ElementTree.parse(target, parser=ElementTree.XMLParser(target=ElementTree.TreeBuilder(insert_comments=True))) if target.is_file() else ElementTree.ElementTree(ElementTree.Element("workspaceFilter", version="1.0"))
+    root_element = tree.getroot()
     rejected = tuple(str(prefix) for prefix in config.get("reject_prefixes", []))
     wanted = sorted(
         {
             root
             for contribution in contributions
-            for root in contribution.filter_roots
-            # DAM is uploaded over HTTP; packaging it would defeat that.
-            if not (rejected and str(root).startswith(rejected))
+            for root in [*contribution.filter_roots, contribution.page_path]
+            if root
         }
     )
-    additions = [root for root in wanted if f'root="{root}"' not in text]
+    if any(root == "/content/dam" or (rejected and root.startswith(rejected)) for root in wanted):
+        raise MergeError("DAM roots cannot be packaged in ui.content.")
+    existing_roots = [entry.get("root", "").rstrip("/") for entry in root_element.findall("filter")]
+    additions = [root for root in wanted if not any(root == existing or root.startswith(existing + "/") for existing in existing_roots)]
     if not additions:
         return
 
-    indent = "    "
-    block = "\n".join(f"{indent}{entry_template.format(root=root)}" for root in additions)
-    text = text.replace("</workspaceFilter>", f"{block}\n</workspaceFilter>")
-    target.write_text(text, encoding="utf-8")
+    entry_template = str(config.get("entry", '<filter root="{root}" mode="merge"/>'))
+    for root in additions:
+        entry = ElementTree.fromstring(entry_template.format(root="placeholder"))
+        entry.set("root", root)
+        root_element.append(entry)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    ElementTree.indent(tree, space="    ")
+    tree.write(target, encoding="UTF-8", xml_declaration=True)
     report.filter_roots_added.extend(additions)
     report.merged_files.append(settings.relative_to_repo(target))
 
@@ -260,7 +308,10 @@ def merge_contributions(
     report.missing_components = missing
     report.skipped_components = [c.component_id for c in contributions if not c.nodes]
 
-    if contributions:
-        merge_authored_page(settings, contributions, report)
-        merge_vault_filter(settings, contributions, report)
+    if contributions and not missing:
+        try:
+            merge_authored_page(settings, contributions, report)
+            merge_vault_filter(settings, contributions, report)
+        except (OSError, ElementTree.ParseError, TypeError, ValueError) as error:
+            raise MergeError(f"Could not merge authored content: {error}") from error
     return report

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..envelope import AgentResult, EnvelopeError
 from .base import Agent
 
 
@@ -13,6 +14,19 @@ class ReporterAgent(Agent):
     """Reads only persisted artifacts; it never re-runs the migration."""
 
     agent_id = "reporter"
+
+    def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        super().validate_result(result, **kwargs)
+        if self.context.dry_run:
+            return
+        path = self.context.evidence_file(result.output("report_path"))
+        if path != self.report_path.resolve():
+            raise EnvelopeError("Reporter wrote a different report path than configured.")
+        gaps = result.output("residual_gaps")
+        if not isinstance(gaps, list):
+            raise EnvelopeError("Reporter residual_gaps must be a list.")
+        if result.status == "COMPLETE" and (kwargs.get("pipeline_status") != "COMPLETE" or gaps):
+            raise EnvelopeError("Reporter cannot complete a failed pipeline or leave residual gaps.")
 
     def slug(self, **_: Any) -> str:
         return "reporter"

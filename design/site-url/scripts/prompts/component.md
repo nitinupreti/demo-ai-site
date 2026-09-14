@@ -80,7 +80,9 @@ apply it. A single-threaded merge writes every contribution once, in source orde
   "component_id": "{{component_id}}",
   "source_order": {{source_order}},
   "page_path": "<JCR page path, no .html>",
-  "parent_path": "jcr:content/root",
+  "parent_path": "<actual editable container path from the selected template>",
+  "template_path": "<selected /conf/.../settings/wcm/templates/... path>",
+  "page_properties": {"jcr:title": "<authored page title>"},
   "nodes": [
     {
       "name": "{{component_id}}",
@@ -96,6 +98,13 @@ apply it. A single-threaded merge writes every contribution once, in source orde
 
 - `nodes[].xml` is one complete, well-formed element — the exact node you would have
   written into the page. Use `jcr:`, `sling:`, `cq:`, and `nt:` prefixes normally.
+- For a new page, provide `template_path` and `page_properties.jcr:title`; merge
+  copies the selected template's existing initial content. Do not create a page
+  skeleton yourself or guess the editable container depth.
+- If you own content on multiple pages (for example an XF variation and its page
+  reference), put each target's `page_path`, `parent_path`, `template_path`,
+  `page_properties`, and `nodes` in a top-level `pages` array instead of the single
+  page fields. Keep `component_id`, `source_order`, and `assets` at the top level.
 - `assets[]` drives the asset phase. Author the `dam_path` you declare here; it will
   exist in DAM before the page is deployed.
 - `filter_roots` is for non-DAM content roots only. A `/content/dam/` root is

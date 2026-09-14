@@ -14,7 +14,7 @@ from .contract import ContractError, load_contract
 from .orchestrator import Orchestrator, PipelineError
 from .runner import BackendError
 
-_EXIT = {"COMPLETE": 0, "FAIL": 1, "BLOCKED": 2}
+_EXIT = {"COMPLETE": 0, "DRY_RUN": 0, "FAIL": 1, "BLOCKED": 2}
 
 
 def build_parser() -> argparse.ArgumentParser:

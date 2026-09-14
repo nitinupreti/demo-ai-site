@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .config import Settings
+from .merge import latest_contribution_path
 
 
 class AssetError(RuntimeError):
@@ -95,6 +96,8 @@ class AemClient:
                 return int(response.status), response.read()
         except urllib.error.HTTPError as error:
             return int(error.code), error.read()
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            raise AssetError(f"AEM {method} request failed: {error}") from error
 
     def csrf_token(self) -> str:
         """AEM rejects writes without both a CSRF token and a Referer header."""
@@ -104,7 +107,10 @@ class AemClient:
         status, body = self._request(f"{self.base_url}{path}")
         if status != 200:
             raise AssetError(f"Could not fetch a CSRF token from {path} (HTTP {status}).")
-        self._csrf = str(json.loads(body.decode("utf-8")).get("token", ""))
+        try:
+            self._csrf = str(json.loads(body.decode("utf-8"))["token"])
+        except (ValueError, KeyError, TypeError) as error:
+            raise AssetError("AEM returned an invalid CSRF response.") from error
         if not self._csrf:
             raise AssetError("AEM returned an empty CSRF token.")
         return self._csrf
@@ -169,34 +175,40 @@ def _declared_assets(
     settings: Settings, evidence_dir: Path, components: list[Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
     """Union of planner-declared and contribution-declared assets, deduplicated."""
-    migration = settings.migration
-    workspace = evidence_dir / str(migration.get("run.agent_workspace_dir", "agents"))
-    filename = str(migration.get("shared_files.contribution_file", "contributions.json"))
-
-    declared: dict[str, dict[str, Any]] = {}
+    declared: dict[tuple[str, str], dict[str, Any]] = {}
+    destinations: dict[str, str] = {}
 
     def add(entry: Any, owner: str) -> None:
         if not isinstance(entry, Mapping):
-            return
+            raise AssetError(f"Invalid asset declaration from {owner}.")
         url = str(entry.get("source_url") or "").strip()
         if not url or urllib.parse.urlparse(url).scheme not in ("http", "https"):
-            return
+            raise AssetError(f"Invalid asset source URL from {owner}.")
+        dam_path = _dam_path(settings, entry)
+        if dam_path in destinations and destinations[dam_path] != url:
+            raise AssetError(f"Different sources request the same DAM destination: {dam_path}")
+        destinations[dam_path] = url
         declared.setdefault(
-            url,
-            {"source_url": url, "dam_path": entry.get("dam_path"), "owners": []},
+            (url, dam_path),
+            {"source_url": url, "dam_path": dam_path, "owners": []},
         )["owners"].append(owner)
 
     for component in components:
-        for entry in component.get("assets") or []:
-            add(entry, str(component.get("id", "?")))
-
-    for path in workspace.glob(f"component-*/{filename}"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        for entry in data.get("assets") or []:
-            add(entry, str(data.get("component_id", path.parent.name)))
+        owner = str(component.get("id", "?"))
+        entries = component.get("assets") or []
+        path = latest_contribution_path(settings, evidence_dir, owner)
+        if path is not None:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise AssetError(f"Could not read current asset declarations: {path}") from error
+            if not isinstance(data, Mapping) or data.get("component_id") != owner:
+                raise AssetError(f"Asset contribution identity does not match {owner}.")
+            entries = data.get("assets", entries)
+        if not isinstance(entries, list):
+            raise AssetError(f"Asset declarations from {owner} must be a list.")
+        for entry in entries:
+            add(entry, owner)
 
     return list(declared.values())
 
@@ -204,10 +216,14 @@ def _declared_assets(
 def _dam_path(settings: Settings, entry: Mapping[str, Any]) -> str:
     configured = entry.get("dam_path")
     if configured:
-        return str(configured)
+        path = str(configured)
+        if not path.startswith("/content/dam/") or any(part in ("", ".", "..") for part in path.split("/")[1:]) or any(character in path for character in "\\\r\n\"?#"):
+            raise AssetError(f"Invalid DAM destination: {path}")
+        return path
     root = str(settings.migration.require("assets.dam_root")).rstrip("/")
     name = posixpath.basename(urllib.parse.urlparse(str(entry["source_url"])).path) or "asset"
-    return f"{root}/{name}"
+    digest = hashlib.sha256(str(entry["source_url"]).encode("utf-8")).hexdigest()[:12]
+    return _dam_path(settings, {"dam_path": f"{root}/{digest}-{name}"})
 
 
 def _download(url: str, config: Mapping[str, Any]) -> tuple[bytes, str]:
@@ -248,9 +264,6 @@ def fetch_assets(
     report = AssetReport()
 
     entries = _declared_assets(settings, evidence_dir, components)
-    if not entries:
-        return report
-
     credentials_env = str(migration.get("aem.credentials_env", "AEM_CREDENTIALS"))
     credentials = os.environ.get(credentials_env) or str(
         migration.get("aem.default_credentials", "")
@@ -264,6 +277,7 @@ def fetch_assets(
     staging = evidence_dir / str(config.get("staging_dir", "assets"))
     staging.mkdir(parents=True, exist_ok=True)
     timeout = int(config.get("timeout_seconds", 60))
+    downloads: dict[str, tuple[bytes, str, str, Path]] = {}
 
     for entry in entries:
         url = str(entry["source_url"])
@@ -274,10 +288,13 @@ def fetch_assets(
             sha256="", status="PENDING",
         )
         try:
-            payload, mime = _download(url, config.data)
-            digest = hashlib.sha256(payload).hexdigest()
-            local = staging / name
-            local.write_bytes(payload)
+            if url not in downloads:
+                payload, mime = _download(url, config.data)
+                digest = hashlib.sha256(payload).hexdigest()
+                local = staging / (digest + (mimetypes.guess_extension(mime) or ""))
+                local.write_bytes(payload)
+                downloads[url] = (payload, mime, digest, local)
+            payload, mime, digest, local = downloads[url]
 
             record.local_path = settings.relative_to_repo(local)
             record.mime = mime
@@ -296,15 +313,15 @@ def fetch_assets(
                 raise AssetError("upload reported success but the asset is not readable")
             record.status = "UPLOADED"
             report.uploaded.append(record)
-        except AssetError as error:
+        except (AssetError, OSError, ValueError) as error:
             record.status = "FAILED"
             record.detail = str(error)
             report.failed.append(record)
 
     manifest = evidence_dir / str(config.get("manifest_file", "assets/manifest.json"))
     manifest.parent.mkdir(parents=True, exist_ok=True)
+    report.manifest_path = settings.relative_to_repo(manifest)
     manifest.write_text(
         json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    report.manifest_path = settings.relative_to_repo(manifest)
     return report

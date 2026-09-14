@@ -30,7 +30,7 @@ class AgentResult:
 
     @property
     def passed(self) -> bool:
-        return self.status in {"PASS", "COMPLETE"}
+        return self.status in {"PASS", "COMPLETE"} and not self.failures and not self.failed_checks()
 
     @property
     def blocked(self) -> bool:
@@ -120,7 +120,10 @@ def read_result(path: Path, spec: AgentSpec, run_id: str) -> AgentResult:
             f"Agent '{spec.id}' returned status {status!r}; allowed values are {sorted(allowed)}."
         )
 
-    reported_run = str(data.get("run_id", run_id))
+    if data.get("agent") != spec.id:
+        raise EnvelopeError(f"Expected agent '{spec.id}', got {data.get('agent')!r}.")
+
+    reported_run = str(data.get("run_id", ""))
     if reported_run != run_id:
         raise EnvelopeError(
             f"Agent '{spec.id}' reported run_id {reported_run!r} but this run is {run_id!r}."
@@ -130,19 +133,34 @@ def read_result(path: Path, spec: AgentSpec, run_id: str) -> AgentResult:
     if not isinstance(outputs, Mapping):
         raise EnvelopeError(f"Agent '{spec.id}' result 'outputs' must be an object.")
 
-    checks = data.get("checks") or []
-    failures = data.get("failures") or []
+    checks = data.get("checks", [])
+    failures = data.get("failures", [])
+    if not isinstance(checks, list) or any(
+        not isinstance(check, Mapping) or not check.get("name") or not check.get("status")
+        for check in checks
+    ):
+        raise EnvelopeError(f"Agent '{spec.id}' checks must be a list of named check results.")
+    if not isinstance(failures, list):
+        raise EnvelopeError(f"Agent '{spec.id}' failures must be a list.")
 
-    return AgentResult(
-        agent=str(data.get("agent", spec.id)),
+    result = AgentResult(
+        agent=spec.id,
         run_id=run_id,
         status=status,
         outputs=dict(outputs),
-        checks=[dict(check) for check in checks if isinstance(check, Mapping)],
-        failures=list(failures) if isinstance(failures, list) else [failures],
+        checks=[dict(check) for check in checks],
+        failures=list(failures),
         raw=data,
         path=str(path),
     )
+    if status in {"PASS", "COMPLETE"}:
+        if not result.passed or not checks:
+            raise EnvelopeError(f"Agent '{spec.id}' reported success without passing checks or with failures.")
+        required_checks = set(spec.get("required_checks", []))
+        missing_checks = required_checks - {str(check["name"]) for check in checks}
+        if missing_checks:
+            raise EnvelopeError(f"Agent '{spec.id}' omitted checks: {', '.join(sorted(missing_checks))}.")
+    return result
 
 
 def validate_components(

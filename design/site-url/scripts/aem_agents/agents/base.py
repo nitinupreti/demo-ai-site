@@ -38,6 +38,14 @@ class RunContext:
     def rel(self, path: Path) -> str:
         return self.settings.relative_to_repo(path)
 
+    def evidence_file(self, value: Any) -> Path:
+        if not isinstance(value, str) or not value.strip():
+            raise EnvelopeError("An evidence file path is required.")
+        path = self.settings.resolve(value).resolve()
+        if not path.is_relative_to(self.evidence_dir.resolve()) or not path.is_file() or not path.stat().st_size:
+            raise EnvelopeError(f"Missing, empty, or out-of-run evidence file: {value}")
+        return path
+
     @property
     def aem_host(self) -> str:
         return self.settings.env_value("aem.host_env", "aem.default_host")
@@ -151,6 +159,11 @@ class Agent:
         """Workspace sub-directory name; fan-out agents make this unique."""
         return self.agent_id
 
+    def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        if result.passed and not self.context.dry_run:
+            for check in result.checks:
+                self.context.evidence_file(check.get("evidence"))
+
     # -- execution ---------------------------------------------------------
 
     def workspace(self, slug: str) -> Path:
@@ -199,7 +212,9 @@ class Agent:
 
         if context.dry_run:
             emit(f"  -- {label} skipped (dry run)", "dim")
-            return AgentResult(agent=self.agent_id, run_id=context.run_id, status="PASS")
+            result = AgentResult(agent=self.agent_id, run_id=context.run_id, status="PASS")
+            self.validate_result(result, **kwargs)
+            return result
 
         run = context.backend.run(
             prompt=prompt,
@@ -225,7 +240,16 @@ class Agent:
                 f"{label} exited with code {run.exit_code}. See {run.stderr_path}"
             )
 
-        result = read_result(result_path, self.spec, context.run_id)
+        try:
+            result = read_result(result_path, self.spec, context.run_id)
+            self.validate_result(result, **kwargs)
+        except EnvelopeError as error:
+            result = AgentResult(
+                agent=self.agent_id, run_id=context.run_id, status="FAIL",
+                failures=[str(error)], path=str(result_path),
+            )
+            context.state.record_agent_result(slug, result.to_dict())
+            raise
         color = "green" if result.passed else ("yellow" if result.blocked else "red")
         emit(f"  <- {label} {result.summary()}", color)
         context.state.record_agent_result(slug, {**result.to_dict(), "duration_seconds": run.duration_seconds})

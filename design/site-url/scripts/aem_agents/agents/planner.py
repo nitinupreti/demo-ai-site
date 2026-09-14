@@ -13,6 +13,7 @@ _DRY_RUN_PLAN = [
         "id": "dry-run-component",
         "name": "Dry run component",
         "tier": 4,
+        "delivery": "component",
         "source_order": 0,
         "resource_type": "dry-run/components/example",
         "source_selectors": [{"instance_id": "dry-run-1", "selector": "main", "match_index": 0}],
@@ -27,14 +28,12 @@ class PlannerAgent(Agent):
 
     agent_id = "planner"
 
-    def run(self, **kwargs: Any) -> AgentResult:
-        result = super().run(**kwargs)
+    def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        super().validate_result(result, **kwargs)
         if self.context.dry_run:
             result.outputs["components"] = _DRY_RUN_PLAN
-            return result
-        if result.passed:
+        elif result.passed:
             result.outputs["components"] = self.validate_plan(result)
-        return result
 
     def validate_plan(self, result: AgentResult) -> list[dict[str, Any]]:
         """Fail fast on a malformed plan, before any implementation agent starts."""

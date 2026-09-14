@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from .config import Settings
+from .config import ConfigError, Settings
 from .console import emit
 from .contract import RunContract
 from .envelope import AgentResult, EnvelopeError
@@ -40,7 +40,7 @@ class PhaseOutcome:
 
     @property
     def passed(self) -> bool:
-        return self.status == "PASS"
+        return self.status in {"PASS", "COMPLETE"} and all(result.passed for result in self.results)
 
 
 def probe(url: str, label: str, timeout: int) -> int:
@@ -189,8 +189,14 @@ class Orchestrator:
     def run_single(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         phase_id = str(phase["id"])
         self.state.set_phase(phase_id, "RUNNING")
-        emit(f"\n[{phase_id}] {self._agent(phase).spec.title}", "cyan")
-        result = self._agent(phase).run(**kwargs)
+        agent = self._agent(phase)
+        emit(f"\n[{phase_id}] {agent.spec.title}", "cyan")
+        try:
+            result = agent.run(**kwargs)
+        except (EnvelopeError, BackendError, OSError, ValueError) as error:
+            result = AgentResult(str(phase["agent"]), self.run_id, "FAIL", failures=[str(error)])
+            self.state.record_agent_result(agent.slug(**kwargs), result.to_dict())
+            emit(f"  !! {phase_id}: {error}", "red")
         self.state.set_phase(phase_id, result.status)
         return PhaseOutcome(phase_id=phase_id, status=result.status, results=[result])
 
@@ -261,7 +267,8 @@ class Orchestrator:
             )
             status = "FAIL"
         self.state.set_phase(phase_id, status, **report.to_dict())
-        return PhaseOutcome(phase_id=phase_id, status=status)
+        result = AgentResult("merge", self.run_id, status, outputs={"changed_files": report.merged_files})
+        return PhaseOutcome(phase_id=phase_id, status=status, results=[result])
 
     def run_fanout(
         self,
@@ -299,7 +306,8 @@ class Orchestrator:
                 component_id = str(component.get("id"))
                 try:
                     result = future.result()
-                except (EnvelopeError, BackendError) as error:
+                except (EnvelopeError, BackendError, ConfigError, OSError, ValueError,
+                    concurrent.futures.CancelledError) as error:
                     errors.append(f"{component_id}: {error}")
                     self.state.update_component(component_id, status="ERROR", error=str(error))
                     emit(f"  !! {component_id} failed: {error}", "red")
@@ -325,7 +333,6 @@ class Orchestrator:
     # -- pipeline ----------------------------------------------------------
 
     def run(self) -> str:
-        self.preflight()
         emit(f"\nRun ID:   {self.run_id}")
         emit(f"Evidence: {self.evidence_dir}")
         emit(f"Source:   {self.contract.site_url}")
@@ -343,6 +350,7 @@ class Orchestrator:
         pipeline_status = "FAIL"
 
         try:
+            self.preflight()
             # 1 — plan
             plan_phase = self._phase(phases, "plan", remediation_ids)
             if self._wants(plan_phase["id"]):
@@ -359,12 +367,21 @@ class Orchestrator:
             pipeline_status = self._implement_and_gate(
                 phases, components, remediation_ids, terminal_status
             )
-        except (PipelineError, EnvelopeError, BackendError) as error:
+        except (PipelineError, EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
             emit(f"\nERROR: {error}", "red")
             if self.logger:
                 self.logger.exception("Pipeline error")
             self.state.update(status="FAIL", error=str(error))
+            current = self.state.get("current_phase")
+            if current:
+                self.state.set_phase(current, "FAIL", error=str(error))
             pipeline_status = "FAIL"
+        except KeyboardInterrupt:
+            self.state.update(status="INTERRUPTED")
+            current = self.state.get("current_phase")
+            if current:
+                self.state.set_phase(current, "INTERRUPTED")
+            raise
 
         return self._finish(phases, pipeline_status, terminal_status)
 
@@ -396,6 +413,7 @@ class Orchestrator:
         feedback: dict[str, Mapping[str, Any]] = {}
         attempts: dict[str, int] = {str(component["id"]): 0 for component in components}
         changed_files: set[str] = set()
+        needs_implementation = True
 
         for attempt in range(1, self.max_attempts + 1):
             if not pending:
@@ -403,14 +421,20 @@ class Orchestrator:
             for component in pending:
                 attempts[str(component["id"])] = attempt
 
-            if self._wants(implement["id"]):
+            if needs_implementation and self._wants(implement["id"]):
                 outcome = self.run_fanout(implement, pending, feedback, attempt)
                 if outcome.status == "BLOCKED":
                     return "BLOCKED"
                 for result in outcome.results:
                     changed_files.update(result.output("changed_files", []) or [])
-                if not outcome.results:
-                    return "FAIL"
+                if not outcome.passed:
+                    self._record_attempt(attempt, pending, "IMPLEMENT_FAILED")
+                    failed_ids = {row["id"] for row in self.state.component_rows() if row.get("status") != "PASS"}
+                    pending = [component for component in pending if component["id"] in failed_ids]
+                    if not pending:
+                        return "FAIL"
+                    continue
+                needs_implementation = False
 
             if assets is not None and self._wants(str(assets["id"])):
                 outcome = self.run_assets(assets, components)
@@ -424,7 +448,10 @@ class Orchestrator:
                 if not outcome.passed:
                     emit("  merge failed; deploying now would ship a page missing components.", "red")
                     self._record_attempt(attempt, pending, "MERGE_FAILED")
+                    needs_implementation = True
                     continue
+                for result in outcome.results:
+                    changed_files.update(result.output("changed_files", []))
 
             if self._wants(deploy["id"]):
                 outcome = self.run_single(deploy, changed_files=sorted(changed_files), attempt=attempt)
@@ -443,10 +470,10 @@ class Orchestrator:
             if outcome.status == "BLOCKED":
                 return "BLOCKED"
 
-            failing = list(outcome.results[0].output("failing_components") or [])
+            failing = list(outcome.results[0].output("failing_components") or []) if outcome.results else []
             self._record_attempt(attempt, pending, outcome.status, failing)
 
-            if not failing:
+            if outcome.passed and outcome.results and not failing:
                 for component_id in by_id:
                     self.state.update_component(component_id, status="PASS")
                 emit(
@@ -455,6 +482,9 @@ class Orchestrator:
                     "green",
                 )
                 return "COMPLETE"
+
+            if not failing:
+                continue
 
             feedback = {
                 str(item.get("component_id")): item
@@ -472,7 +502,9 @@ class Orchestrator:
                     + ", ".join(sorted(unknown)),
                     "yellow",
                 )
+                return "FAIL"
             pending = [by_id[component_id] for component_id in feedback]
+            needs_implementation = any(item.get("owning_layer") != "evidence" for item in feedback.values())
             emit(
                 f"  {len(pending)} component(s) below threshold: "
                 + ", ".join(sorted(feedback)),
@@ -510,19 +542,33 @@ class Orchestrator:
     def _finish(
         self, phases: Mapping[str, Any], pipeline_status: str, terminal_status: str
     ) -> str:
+        if pipeline_status == "COMPLETE" and not self.dry_run:
+            statuses = {phase["id"]: phase["status"] for phase in self.state.get("phases", [])}
+            missing = [phase_id for phase_id in phases if phase_id != "report" and statuses.get(phase_id) != "PASS"]
+            rows = self.state.component_rows()
+            if missing or not rows or any(row.get("status") != "PASS" for row in rows):
+                pipeline_status = "FAIL"
+                self.state.update(error=f"Completion prerequisites not satisfied: {missing or 'components'}")
         self.state.update(status=pipeline_status)
         report_phase = phases.get("report")
-        if report_phase and self._wants("report") and not self.dry_run:
+        if report_phase and self._wants("report") and not self.dry_run and self.context is not None:
             try:
                 outcome = self.run_single(report_phase, pipeline_status=pipeline_status)
-                final = outcome.results[0].status if outcome.results else pipeline_status
-                if pipeline_status == "COMPLETE" and final != "COMPLETE":
-                    # The reporter validates the evidence; its verdict wins on a downgrade.
-                    pipeline_status = final
-            except (EnvelopeError, BackendError) as error:
+                if pipeline_status == "COMPLETE" and (
+                    not outcome.passed or not outcome.results or outcome.results[0].status != "COMPLETE"
+                    or outcome.results[0].output("residual_gaps", [])
+                ):
+                    pipeline_status = "FAIL"
+            except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
                 emit(f"  !! reporter failed: {error}", "red")
                 if self.logger:
                     self.logger.exception("Reporter failed")
+                pipeline_status = "FAIL"
+        elif pipeline_status == "COMPLETE" and not self.dry_run:
+            pipeline_status = "FAIL"
+
+        if self.dry_run and pipeline_status == "COMPLETE":
+            pipeline_status = "DRY_RUN"
 
         self.state.update(status=pipeline_status)
         color = {"COMPLETE": "green", "BLOCKED": "yellow"}.get(pipeline_status, "red")
