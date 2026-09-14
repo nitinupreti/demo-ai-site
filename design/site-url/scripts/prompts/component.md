@@ -87,12 +87,19 @@ apply it. A single-threaded merge writes every contribution once, in source orde
       "xml": "<{{component_id}} jcr:primaryType=\"nt:unstructured\" sling:resourceType=\"<your resource type>\" ... />"
     }
   ],
-  "filter_roots": ["/content/dam/<any new DAM folder you added>"]
+  "assets": [
+    { "source_url": "<exact URL from the planner's media manifest>", "dam_path": "<target DAM path>" }
+  ],
+  "filter_roots": []
 }
 ```
 
 - `nodes[].xml` is one complete, well-formed element — the exact node you would have
   written into the page. Use `jcr:`, `sling:`, `cq:`, and `nt:` prefixes normally.
+- `assets[]` drives the asset phase. Author the `dam_path` you declare here; it will
+  exist in DAM before the page is deployed.
+- `filter_roots` is for non-DAM content roots only. A `/content/dam/` root is
+  rejected: DAM is uploaded over HTTP, not packaged.
 - Emit one entry per authored instance. Give repeated instances distinct names
   (`{{component_id}}-1`, `{{component_id}}-2`).
 - `source_order` places your node on the page; keep the value you were given.
@@ -165,11 +172,15 @@ glyph such as `⌄`, `▼`, `→`, `×`, or `▶` appended to an authored label.
 labels contain text only. Ship licensed source fonts as deployable WOFF2 or an
 approved CDN font and verify readiness. Preserve WCAG focus and contrast.
 
-**Assets.** Fetch only the exact URLs observed in the source DOM, CSS, or network
-traffic. Store them under `/content/dam/{{project_name}}/design/` and author the DAM
-path — never a remote URL, data URI, placeholder, or one asset reused for distinct
-source slots. Preserve media class: video stays video, animation stays animation, a
-poster is not a substitute.
+**Assets.** Do **not** download, convert, or upload any asset, and never write a
+binary into `ui.content` — binaries in the FileVault package make every build and
+deploy heavier. Declare each asset your component needs in your contribution file and
+a deterministic assets phase fetches it once and uploads it straight to DAM. Author
+the resulting DAM path in your dialog defaults and content — never a remote URL, data
+URI, or placeholder. Take the exact source URLs from the planner's media manifest.
+Preserve media class: video stays video, animation stays animation, a poster is not a
+substitute. If two components need the same file, both declare it; it is downloaded
+once.
 
 **Authored content.** Place every instance in frozen source order in the best
 existing editable container and populate exact content, variants, assets, metadata,

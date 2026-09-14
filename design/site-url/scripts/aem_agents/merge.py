@@ -229,7 +229,16 @@ def merge_vault_filter(
     entry_template = str(config.get("entry", '<filter root="{root}" mode="merge"/>'))
 
     text = target.read_text(encoding="utf-8")
-    wanted = sorted({root for contribution in contributions for root in contribution.filter_roots})
+    rejected = tuple(str(prefix) for prefix in config.get("reject_prefixes", []))
+    wanted = sorted(
+        {
+            root
+            for contribution in contributions
+            for root in contribution.filter_roots
+            # DAM is uploaded over HTTP; packaging it would defeat that.
+            if not (rejected and str(root).startswith(rejected))
+        }
+    )
     additions = [root for root in wanted if f'root="{root}"' not in text]
     if not additions:
         return

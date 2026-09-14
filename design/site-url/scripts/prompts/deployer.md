@@ -62,9 +62,11 @@ defect in this run.
 2. Run the focused tests reported by the component agents for every touched model or
    component. A failing focused test blocks the deploy.
 3. Run `code-assessment` on generated Java/OSGi/Maven code.
-4. Verify every DAM asset referenced by an authored instance: source HEAD (GET
-   fallback), non-zero bytes, correct MIME, and a successful upload to the project
-   DAM folder.
+4. Verify every DAM asset referenced by an authored instance is already readable in
+   AEM — the assets phase uploaded them over HTTP before you ran. Do not download,
+   upload, or package any binary: assets are deliberately outside the FileVault
+   package. A missing asset is an assets-phase failure to report, not something to
+   fix by adding it to `filter.xml`.
 
 ## After deploying
 

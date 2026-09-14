@@ -196,6 +196,35 @@ reuse:
   experience_fragment_component: demo-ai-site/components/experiencefragment
 
 # ---------------------------------------------------------------------------
+# Assets
+# ---------------------------------------------------------------------------
+# Assets are uploaded straight to AEM over the Assets HTTP API and are NEVER
+# written into ui.content. A FileVault package carrying binaries makes every
+# build, install, and remediation cycle heavier for no benefit.
+#
+# This phase is deterministic Python, not an agent: downloading a URL and POSTing
+# it to DAM needs no model, and doing it centrally downloads each asset once
+# instead of once per component that references it.
+assets:
+  dam_root: /content/dam/demo-ai-site/design
+  staging_dir: assets                 # under EVIDENCE_DIR, git-ignored
+  manifest_file: assets/manifest.json
+  timeout_seconds: 60
+  max_bytes: 26214400                 # 25 MB per asset
+  user_agent: "aem-migration-assets/1.0"
+  allowed_mime_prefixes:
+    - image/
+    - video/
+    - audio/
+    - font/
+    - application/font
+    - application/pdf
+    - text/css
+  upload:
+    csrf_token_path: /libs/granite/csrf/token.json
+    create_asset_path: "{folder}.createasset.html"
+
+# ---------------------------------------------------------------------------
 # Shared files and the merge phase
 # ---------------------------------------------------------------------------
 # Component agents run in parallel against one working tree, so any file that
@@ -221,6 +250,10 @@ shared_files:
   vault_filter:
     file: "ui.content/src/main/content/META-INF/vault/filter.xml"
     entry: '<filter root="{root}" mode="merge"/>'
+    # DAM lives outside the package on purpose; adding a DAM root here would pull
+    # every binary back into the build.
+    reject_prefixes:
+      - /content/dam/
 
 # ---------------------------------------------------------------------------
 # Build and deploy
@@ -329,6 +362,11 @@ pipeline:
     - id: implement
       agent: component
       fan_out: true
+    # Deterministic Python, not agents: fetch every declared asset once and push it
+    # straight to DAM, keeping binaries out of the build package.
+    - id: assets
+      handler: fetch_assets
+      fan_out: false
     # Deterministic Python, not an agent: one writer for every shared file.
     - id: merge
       handler: merge_contributions
@@ -345,7 +383,7 @@ pipeline:
       always_run: true
   remediation:
     # Re-run these phases for the failing components only.
-    phases: [implement, merge, deploy, parity]
+    phases: [implement, assets, merge, deploy, parity]
     # Budget comes from contract.max_attempts_per_component unless overridden.
     max_attempts: null
     terminal_status: FAILED-FINAL

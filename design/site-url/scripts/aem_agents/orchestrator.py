@@ -20,6 +20,7 @@ from .config import Settings
 from .console import emit
 from .contract import RunContract
 from .envelope import AgentResult, EnvelopeError
+from .assets import AssetError, fetch_assets
 from .merge import MergeError, merge_contributions
 from .runner import BackendError, create_backend
 from .state import RunState
@@ -193,6 +194,40 @@ class Orchestrator:
         self.state.set_phase(phase_id, result.status)
         return PhaseOutcome(phase_id=phase_id, status=result.status, results=[result])
 
+    def run_assets(
+        self, phase: Mapping[str, Any], components: list[Mapping[str, Any]]
+    ) -> PhaseOutcome:
+        """Download every declared asset once and upload it straight to DAM."""
+        phase_id = str(phase["id"])
+        self.state.set_phase(phase_id, "RUNNING")
+        emit(f"\n[{phase_id}] fetching and uploading assets", "cyan")
+        if self.dry_run:
+            emit("  -- assets skipped (dry run)", "dim")
+            self.state.set_phase(phase_id, "PASS")
+            return PhaseOutcome(phase_id=phase_id, status="PASS")
+
+        host = self.settings.env_value("aem.host_env", "aem.default_host")
+        port = self.settings.env_value("aem.port_env", "aem.default_port")
+        try:
+            report = fetch_assets(
+                self.settings, self.evidence_dir, components, f"http://{host}:{port}"
+            )
+        except AssetError as error:
+            emit(f"  !! asset phase failed: {error}", "red")
+            self.state.set_phase(phase_id, "FAIL", error=str(error))
+            return PhaseOutcome(phase_id=phase_id, status="FAIL")
+
+        emit(
+            f"  {len(report.uploaded)} uploaded, {len(report.skipped)} already present, "
+            f"{len(report.failed)} failed",
+            "green" if report.ok else "yellow",
+        )
+        for record in report.failed:
+            emit(f"  !! {record.source_url} -> {record.detail}", "red")
+        status = "PASS" if report.ok else "FAIL"
+        self.state.set_phase(phase_id, status, **report.to_dict())
+        return PhaseOutcome(phase_id=phase_id, status=status)
+
     def run_merge(
         self, phase: Mapping[str, Any], components: list[Mapping[str, Any]]
     ) -> PhaseOutcome:
@@ -351,6 +386,7 @@ class Orchestrator:
         terminal_status: str,
     ) -> str:
         implement = self._phase(phases, "implement", remediation_ids)
+        assets = phases.get("assets")
         merge = phases.get("merge")
         deploy = self._phase(phases, "deploy", remediation_ids)
         parity = self._phase(phases, "parity", remediation_ids)
@@ -375,6 +411,13 @@ class Orchestrator:
                     changed_files.update(result.output("changed_files", []) or [])
                 if not outcome.results:
                     return "FAIL"
+
+            if assets is not None and self._wants(str(assets["id"])):
+                outcome = self.run_assets(assets, components)
+                if not outcome.passed:
+                    emit("  asset upload failed; the page would render broken media.", "red")
+                    self._record_attempt(attempt, pending, "ASSETS_FAILED")
+                    continue
 
             if merge is not None and self._wants(str(merge["id"])):
                 outcome = self.run_merge(merge, components)
