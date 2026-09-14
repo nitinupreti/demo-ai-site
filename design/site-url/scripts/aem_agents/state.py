@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -156,4 +158,22 @@ class RunState:
         temporary.write_text(
             json.dumps(self._data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
-        os.replace(temporary, self.path)
+        # os.replace can hit WinError 5 when an indexer or scanner briefly holds the
+        # destination; losing run state to a transient lock is not acceptable.
+        last_error: OSError | None = None
+        for delay in (0, 0.05, 0.15, 0.4, 1.0):
+            if delay:
+                time.sleep(delay)
+            try:
+                os.replace(temporary, self.path)
+                return
+            except PermissionError as error:
+                last_error = error
+        self.path.write_text(
+            json.dumps(self._data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        temporary.unlink(missing_ok=True)
+        if last_error is not None:
+            logging.getLogger("aem_agents").warning(
+                "Atomic run-state write failed (%s); wrote in place instead.", last_error
+            )

@@ -94,7 +94,16 @@ already resolved as `{{java_home}}`; do not probe for it.
    Layout 15%, Section order 10%, Media/interaction 5%. `N/A` only when source
    evidence proves the role absent.
 
-8. **Component plan.** Collapse the discovered blocks into the smallest correct set
+8. **Source token system.** The component agents build against a shared token layer,
+   so extract it once here rather than letting nine agents each invent their own
+   values. Emit a `design_tokens` artifact holding the source's distinct colours,
+   font families, type scale, line heights, spacing steps, radii, shadows, and
+   breakpoints — each with the roles that use it and how many times it appears. A
+   value used by more than one block is a site token; a value used once is a
+   component value. Name them with the `{{token_prefix}}` prefix so they can be
+   dropped straight into `{{token_clientlib}}`.
+
+9. **Component plan.** Collapse the discovered blocks into the smallest correct set
    of reusable AEM components. Different appearances of one concept are **variants
    of one component**, not separate components. Use generic semantic kebab-case
    names — brand, campaign, project, version, and design-tool slug names are
@@ -156,6 +165,7 @@ your discovery artifacts under `{{evidence_dir}}`.
     "source_selector_map": "<path under evidence dir>",
     "inventory_audit": "<path under evidence dir>",
     "media_manifest": "<path under evidence dir>",
+    "design_tokens": "<path under evidence dir>",
     "frozen_denominators": "<path under evidence dir>",
     "components": []
   },

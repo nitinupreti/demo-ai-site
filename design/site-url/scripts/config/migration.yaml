@@ -153,8 +153,8 @@ backend:
 # Model selection
 # ---------------------------------------------------------------------------
 model:
-  default: claude-opus-4.8   # null = let the CLI choose
-  effort: high             # null = omit the flag entirely
+  default: claude-sonnet-5   # null = let the CLI choose
+  effort: high               # null = omit the flag entirely
   max_ai_credits: null
   max_continues: 2000
 
@@ -162,7 +162,7 @@ model:
 # Fan-out
 # ---------------------------------------------------------------------------
 fanout:
-  max_parallel: 3
+  max_parallel: 5
   # Hard ceiling so a bad plan cannot spawn an unbounded number of agents.
   max_components: 40
   min_components: 1
@@ -194,6 +194,59 @@ reuse:
   experience_fragment_root: /content/experience-fragments/demo-ai-site/us/en/site
   experience_fragment_variation: master
   experience_fragment_component: demo-ai-site/components/experiencefragment
+
+# ---------------------------------------------------------------------------
+# Adobe skills
+# ---------------------------------------------------------------------------
+# Adobe's skills are the source of truth for HTL, Sling Model, clientlib, dialog,
+# and OSGi standards. Do NOT restate their rules here — a hand-written copy is
+# less authoritative and drifts. Configure only which skills are mandatory and
+# which reference files to open.
+#
+# Loading is a precondition, not a suggestion: when the prompt merely said "use
+# create-component", 7 of 9 agents skipped it.
+skills:
+  component:
+    required: [create-component, code-assessment]
+    # Reference files inside create-component that carry the standards.
+    references:
+      - htl-patterns.md
+      - model-patterns.md
+      - clientlib-patterns.md
+      - dialog-patterns.md
+      - java-standards.md
+      - aem-conventions.md
+      - extending-core-components.md
+  planner:
+    required: [create-component]
+    references: [core-components.md, aem-conventions.md]
+  deployer:
+    required: [code-assessment, best-practices]
+    references: []
+
+# ---------------------------------------------------------------------------
+# CSS tokens
+# ---------------------------------------------------------------------------
+# A component may not invent a colour, size, font, or spacing value. Every
+# declared value resolves through a token, so a design change is one edit in the
+# token layer instead of a hunt through component stylesheets — and two
+# components cannot drift to slightly different greys for the same role.
+css:
+  token_layer:
+    clientlib: ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site
+    scss_source: ui.frontend/src/main/webpack/site/_variables.scss
+    prefix: "--site-"
+  component_property_prefix: "--cmp-"
+  # Values that may appear as literals because they carry no design decision.
+  literal_exceptions: ["0", "1", "auto", "none", "inherit", "initial", "unset",
+                       "currentColor", "transparent", "100%", "50%", "1px"]
+  rules:
+    - "Declare every colour, font family, font size, line height, letter spacing, radius, shadow, spacing step, and breakpoint as a token in the site token layer. Component CSS consumes tokens; it never defines the palette."
+    - "Component CSS must not contain a raw hex/rgb/hsl colour, a hardcoded font stack, or a magic px value for type and spacing. If a value has no token yet, add the token to the site layer first, then reference it."
+    - "Expose per-component overrides as `--cmp-<component>-<role>` and always resolve them against a site token: `var(--cmp-hero-background, var(--site-color-surface))`. A component property with no site-token fallback is incomplete."
+    - "Define `--cmp-*` properties only inside that component's own stylesheet. Never add them to the shared site clientlib — that is shared state and other components will collide with it."
+    - "When the source uses a value repeatedly across components, it is a site token, not a component value. Promote it."
+    - "Keep the SCSS source and the emitted custom properties in agreement so a webpack rebuild cannot silently revert the token layer."
 
 # ---------------------------------------------------------------------------
 # Assets

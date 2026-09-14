@@ -110,10 +110,17 @@ Report the same paths in `outputs.authored_paths` so the merge can be verified.
 
 ## Implementation contract
 
-**MUST load the `create-component` skill before writing any Tier 2/3/4 file.** It
-carries this project's component conventions; implementing without it produces
-components that do not match the codebase. Loading it is a precondition, not a
-suggestion. Run `code-assessment` on any Java you generate.
+;**MUST load these skills before writing any file: {{required_skills}}.**
+They are the source of truth for this project's HTL, Sling Model, clientlib, dialog,
+and OSGi standards — follow them rather than improvising. Loading is a precondition,
+not a suggestion; list what you loaded in your result.
+
+Open these `create-component` reference files for the areas you touch:
+{{skill_references}}
+
+Run `code-assessment` on every Java file you generate and fix what it reports before
+you finish. Treat its findings as blocking — especially bare `@Inject` in Sling
+Models, deprecated APIs, unbounded queries, and outbound calls without timeouts.
 
 **Delivery mechanism.** Your component's `delivery` field decides where the work
 lands. Do not change it — the planner owns that decision.
@@ -144,9 +151,10 @@ repeat counts.
 `other`, plus a `<role>ColorHex` field revealed only by `cq-dialog-dropdown-showhide`
 when `other` is selected, accepting `#RGB`, `#RRGGBB`, or `#RRGGBBAA` only. The model
 sanitizes the custom value and returns `null` when invalid. HTL exposes it through a
-protected CSS custom property (`context='styleToken'`). CSS resolves via
-`var(--cmp-{{component_id}}-<role>, var(--site-token-fallback))`. Ignore a stored hex
-when the select is not `other`.
+protected CSS custom property (`context='styleToken'`). The curated options are site
+tokens — not per-component colours — and CSS resolves through
+`var({{component_property_prefix}}{{component_id}}-<role>, var({{token_prefix}}<token>))`.
+Ignore a stored hex when the select is not `other`.
 
 **Dialog and model.** One field per independent author intent. Content under
 Properties, visual controls under Style. Required source content is required;
@@ -164,13 +172,31 @@ Behaviour is rooted in `data-cmp-is`, scoped per instance, initialized once, wit
 globals or inline handlers and server-rendered initial state and ARIA. Preserve the
 source's keyboard, focus, hover, active, and screen-reader behaviour.
 
-**CSS.** BEM-scoped, token-consuming, no unexplained design literals. Map source
-flex/grid direction, sizing, alignment, wrapping, spacing, and positioning directly.
-Use the observed breakpoints. Preserve media aspect, `object-fit`, radius, overflow,
-and source motion. Use real SVG/icon assets with `currentColor` — never a Unicode
-glyph such as `⌄`, `▼`, `→`, `×`, or `▶` appended to an authored label. Authored
-labels contain text only. Ship licensed source fonts as deployable WOFF2 or an
-approved CDN font and verify readiness. Preserve WCAG focus and contrast.
+**CSS — tokens always, literals never.** Component CSS is BEM-scoped and
+token-driven. The site token layer is the single source of truth:
+
+- tokens live in `{{token_clientlib}}`, prefixed `{{token_prefix}}`
+- the SCSS source is `{{token_scss}}` — update both so a webpack rebuild cannot
+  silently revert the token layer
+- per-component overrides are `{{component_property_prefix}}<component>-<role>` and
+  are defined **only** in that component's own stylesheet
+
+{{css_rules}}
+
+The only values that may appear as literals are ones carrying no design decision:
+{{literal_exceptions}}. Everything else — colours, font families, font sizes, line
+heights, letter spacing, radii, shadows, spacing steps, breakpoints — resolves
+through `var(...)`. If the source uses a value you have no token for, **add the token
+to the site layer first**, then reference it. A raw hex, a hardcoded font stack, or a
+magic px value for type or spacing in component CSS is a defect even when the
+rendering is pixel-perfect.
+
+Map source flex/grid direction, sizing, alignment, wrapping, spacing, and positioning
+directly. Use the observed breakpoints. Preserve media aspect, `object-fit`, radius,
+overflow, and source motion. Use real SVG/icon assets with `currentColor` — never a
+Unicode glyph such as `⌄`, `▼`, `→`, `×`, or `▶` appended to an authored label.
+Authored labels contain text only. Ship licensed source fonts as deployable WOFF2 or
+an approved CDN font and verify readiness. Preserve WCAG focus and contrast.
 
 **Assets.** Do **not** download, convert, or upload any asset, and never write a
 binary into `ui.content` — binaries in the FileVault package make every build and
@@ -209,6 +235,7 @@ Write valid JSON to `{{result_path}}`:
     "authored_paths": ["<jcr path of each authored instance>"],
     "dam_assets": [{"source_url": "<url>", "dam_path": "<path>", "bytes": 0, "mime": "<type>"}],
     "focused_test": {"command": "<command>", "status": "PASS", "evidence": "<path>"},
+    "skills_loaded": ["<each skill you actually loaded>"],
     "authorability_matrix": "<path under evidence dir>",
     "design_facts": "<path under evidence dir>"
   },

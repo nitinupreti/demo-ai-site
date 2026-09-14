@@ -61,7 +61,10 @@ defect in this run.
    deploy command runs.
 2. Run the focused tests reported by the component agents for every touched model or
    component. A failing focused test blocks the deploy.
-3. Run `code-assessment` on generated Java/OSGi/Maven code.
+3. Run `code-assessment` on generated Java/OSGi/Maven code. Treat its findings as
+   blocking, not advisory — in particular bare `@Inject` in Sling Models, deprecated
+   APIs, unbounded queries, and outbound calls without timeouts. MUST load:
+   {{required_skills}}.
 4. Verify every DAM asset referenced by an authored instance is already readable in
    AEM — the assets phase uploaded them over HTTP before you ran. Do not download,
    upload, or package any binary: assets are deliberately outside the FileVault

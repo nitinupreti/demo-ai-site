@@ -109,7 +109,23 @@ class RunContext:
             "xf_component": str(migration.get("reuse.experience_fragment_component", "")),
             "java_home": str(self.toolchain.java_home) if self.toolchain else "",
             "browser_tools_dir": str(migration.get("parity.tools_dir", "")),
+            "token_clientlib": str(migration.get("css.token_layer.clientlib", "")),
+            "token_scss": str(migration.get("css.token_layer.scss_source", "")),
+            "token_prefix": str(migration.get("css.token_layer.prefix", "--site-")),
+            "component_property_prefix": str(migration.get("css.component_property_prefix", "--cmp-")),
+            "css_rules": "\n".join(f"- {rule}" for rule in migration.get("css.rules", [])),
+            "literal_exceptions": ", ".join(
+                f"`{value}`" for value in migration.get("css.literal_exceptions", [])
+            ),
         }
+
+    def required_skills(self, agent_id: str) -> str:
+        skills = self.settings.migration.get(f"skills.{agent_id}.required", [])
+        return ", ".join(f"`{skill}`" for skill in skills) if skills else "none"
+
+    def skill_references(self, agent_id: str) -> str:
+        references = self.settings.migration.get(f"skills.{agent_id}.references", [])
+        return ", ".join(f"`{name}`" for name in references) if references else ""
 
 
 class Agent:
@@ -126,7 +142,10 @@ class Agent:
 
     def prompt_values(self, **kwargs: Any) -> dict[str, Any]:
         """Template placeholders for this agent. Subclasses add their own."""
-        return self.context.base_values()
+        values = self.context.base_values()
+        values["required_skills"] = self.context.required_skills(self.agent_id)
+        values["skill_references"] = self.context.skill_references(self.agent_id)
+        return values
 
     def slug(self, **kwargs: Any) -> str:
         """Workspace sub-directory name; fan-out agents make this unique."""
