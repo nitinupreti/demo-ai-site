@@ -15,7 +15,8 @@ from PIL import Image
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
-from aem_agents.config import AgentSpec, Settings
+from aem_agents.config import AgentSpec, ConfigError, Settings
+from aem_agents.cli import main as cli_main
 from aem_agents.browser import browser_paths
 from aem_agents.contract import load_contract
 from aem_agents.envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
@@ -368,15 +369,30 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_dry_run_preflight_never_probes_external_tools(self):
         self.engine.dry_run = True
-        with patch("aem_agents.orchestrator.create_backend") as backend, patch("aem_agents.orchestrator.resolve_java_home") as java, patch("aem_agents.orchestrator.PixelScorer") as scorer, patch("aem_agents.orchestrator.probe") as probe, patch("aem_agents.orchestrator.check_browser") as browser:
+        with patch("aem_agents.orchestrator.create_backend") as backend, patch("aem_agents.orchestrator.resolve_java_home") as java, patch("aem_agents.orchestrator.check_maven") as maven, patch("aem_agents.orchestrator.check_node") as node, patch("aem_agents.orchestrator.PixelScorer") as scorer, patch("aem_agents.orchestrator.probe") as probe, patch("aem_agents.orchestrator.ensure_browser") as browser:
             self.engine.preflight()
-            for operation in (backend, java, scorer, probe, browser):
+            for operation in (backend, java, maven, node, scorer, probe, browser):
                 operation.assert_not_called()
         self.assertIsNone(self.engine.context.backend)
 
     def test_missing_browser_fails_before_starting_copilot(self):
-        with patch("aem_agents.orchestrator.check_browser", side_effect=EnvelopeError("Browser missing")), patch("aem_agents.orchestrator.create_backend") as backend, self.assertRaises(EnvelopeError):
+        with patch("aem_agents.orchestrator.check_node", return_value="v22.14.0"), patch("aem_agents.orchestrator.resolve_java_home"), patch("aem_agents.orchestrator.check_maven", return_value=Toolchain(self.engine.evidence_dir / "jdk", "fixture")), patch("aem_agents.orchestrator.ensure_browser", side_effect=EnvelopeError("Browser missing")), patch("aem_agents.orchestrator.create_backend") as backend, self.assertRaises(EnvelopeError):
             self.engine.preflight()
+        backend.assert_not_called()
+
+    def test_preflight_passes_bootstrap_policy_to_browser_setup(self):
+        for enabled in (True, False):
+            self.engine.bootstrap = enabled
+            with self.subTest(enabled=enabled), patch("aem_agents.orchestrator.check_node", return_value="v22.14.0"), patch("aem_agents.orchestrator.resolve_java_home"), patch("aem_agents.orchestrator.check_maven", return_value=Toolchain(self.engine.evidence_dir / "jdk", "fixture")), patch("aem_agents.orchestrator.ensure_browser", side_effect=EnvelopeError("fixture stop")) as prepare:
+                with self.assertRaises(EnvelopeError):
+                    self.engine.preflight()
+                prepare.assert_called_once_with(self.engine.settings, bootstrap=enabled)
+
+    def test_missing_system_prerequisite_stops_before_downloads(self):
+        with patch("aem_agents.orchestrator.check_node", side_effect=ConfigError("Node.js missing")), patch("aem_agents.orchestrator.ensure_browser") as prepare, patch("aem_agents.orchestrator.create_backend") as backend:
+            with self.assertRaisesRegex(ConfigError, "Node.js missing"):
+                self.engine.preflight()
+        prepare.assert_not_called()
         backend.assert_not_called()
 
     def test_dry_run_validates_reporter_without_claiming_completion(self):
@@ -515,6 +531,19 @@ class ConfigurationTests(unittest.TestCase):
         args = backend.build_args("test", options)
         self.assertEqual(args[args.index("--name") + 1], "test-planner")
         self.assertNotIn("{session_name}", args)
+
+    def test_launcher_enables_setup_unless_explicitly_disabled(self):
+        for arguments, enabled in (([], True), (["--no-bootstrap"], False)):
+            with self.subTest(arguments=arguments), patch("aem_agents.cli.Orchestrator") as factory, patch("aem_agents.cli.RunLock"), patch("aem_agents.cli.get_logger"), patch("aem_agents.cli.emit"):
+                factory.return_value.run.return_value = "COMPLETE"
+                factory.return_value.evidence_dir = self.evidence
+                self.assertEqual(cli_main(arguments), 0)
+                self.assertEqual(factory.call_args.kwargs["bootstrap"], enabled)
+
+    def test_show_plan_does_not_construct_runtime_or_install_dependencies(self):
+        with patch("aem_agents.cli.Orchestrator") as factory, patch("aem_agents.cli.emit"):
+            self.assertEqual(cli_main(["--show-plan"]), 0)
+        factory.assert_not_called()
 
     def test_browser_roles_use_verified_shared_module(self):
         self.context.browser = browser_paths(self.settings)
@@ -710,7 +739,7 @@ class EndToEndTests(unittest.TestCase):
             fixture_manifest = evidence / "collector.json"
             fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
             prepared = DiscoveryEvidence(fixture_manifest, fixture_manifest, fixture_manifest, (fixture_manifest,), .1, False)
-            with patch("aem_agents.orchestrator.create_backend", return_value=backend), patch("aem_agents.orchestrator.resolve_java_home", return_value=Toolchain(root / "jdk", "fixture")), patch("aem_agents.orchestrator.check_browser", return_value=browser_paths(original)), patch("aem_agents.agents.planner.collect_discovery", return_value=prepared) as collect, patch("aem_agents.agents.planner.validate_collection", return_value=({}, (fixture_manifest,))), patch("aem_agents.orchestrator.emit"), patch("aem_agents.agents.base.emit"):
+            with patch("aem_agents.orchestrator.create_backend", return_value=backend), patch("aem_agents.orchestrator.check_node", return_value="v22.14.0"), patch("aem_agents.orchestrator.resolve_java_home", return_value=Toolchain(root / "jdk", "fixture")), patch("aem_agents.orchestrator.check_maven", side_effect=lambda tools: tools), patch("aem_agents.orchestrator.ensure_browser", return_value=browser_paths(original)), patch("aem_agents.agents.planner.collect_discovery", return_value=prepared) as collect, patch("aem_agents.agents.planner.validate_collection", return_value=({}, (fixture_manifest,))), patch("aem_agents.orchestrator.emit"), patch("aem_agents.agents.base.emit"):
                 with self.assertRaises(KeyboardInterrupt):
                     engine.run()
                 self.assertEqual(engine.state.get("status"), "INTERRUPTED")

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .config import ConfigError, Settings
-from .browser import check_browser
+from .browser import ensure_browser
 from .checkpoints import capture_checkpoint, evidence_paths, validate_artifacts, validate_checkpoint
 from .console import emit
 from .contract import RunContract
@@ -28,7 +28,7 @@ from .merge import MergeError, latest_contribution_path, merge_contributions
 from .runner import BackendError, create_backend
 from .scoring import PixelScorer
 from .state import RunState
-from .toolchain import ToolchainError, resolve_java_home
+from .toolchain import check_maven, check_node, resolve_java_home
 from .agents import AGENT_CLASSES, RunContext
 from .agents.base import dump_json
 from .workspaces import ChangeSet, WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, foundation_scopes, source_manifest, validate_ownership
@@ -81,6 +81,7 @@ class Orchestrator:
         evidence_dir: Path | None = None,
         logger: Any = None,
         resume: bool = False,
+        bootstrap: bool = True,
     ) -> None:
         self.settings = settings
         self.contract = contract
@@ -90,6 +91,7 @@ class Orchestrator:
         self.only_phases = only_phases
         self.logger = logger
         self.resume = resume
+        self.bootstrap = bootstrap
         if run_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
             raise ConfigError("run_id must contain only letters, digits, dots, underscores, and hyphens.")
         if resume and (dry_run or not (run_id or evidence_dir)):
@@ -205,7 +207,15 @@ class Orchestrator:
                 self.evidence_dir, self.logger, dry_run=True,
             )
             return
-        browser = check_browser(self.settings)
+        node_version = check_node()
+        toolchain = check_maven(resolve_java_home(self.settings))
+        emit(f"  Node.js: {node_version}; Maven: {toolchain.maven_version}", "green")
+        emit(f"  JAVA_HOME: {toolchain.java_home} (from {toolchain.source})", "green")
+        self.state.update(toolchain={
+            "java_home": str(toolchain.java_home), "source": toolchain.source,
+            "node_version": node_version, "maven_version": toolchain.maven_version,
+        })
+        browser = ensure_browser(self.settings, bootstrap=self.bootstrap)
         emit(f"  Playwright {browser.playwright_version}: cached Chromium {browser.chromium_revision} ready ({browser.elapsed_ms} ms)", "green")
         scorer = PixelScorer()
         timeout = int(self.settings.migration.get("run.source_probe_timeout_seconds", 20))
@@ -226,10 +236,6 @@ class Orchestrator:
 
         backend = create_backend(self.settings)
         emit(f"  agent backend: {backend.version}", "green")
-
-        toolchain = resolve_java_home(self.settings)
-        emit(f"  JAVA_HOME: {toolchain.java_home} (from {toolchain.source})", "green")
-        self.state.update(toolchain={"java_home": str(toolchain.java_home), "source": toolchain.source})
 
         self.context = RunContext(
             settings=self.settings,

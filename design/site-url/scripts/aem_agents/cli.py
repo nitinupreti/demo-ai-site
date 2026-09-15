@@ -64,8 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-bootstrap",
         action="store_true",
         help=(
-            "Do not create or reuse the launcher's virtual environment; "
-            "handled before argument parsing, listed here so --help documents it."
+            "Disable automatic Python, Node-package and Chromium setup; "
+            "use only existing installed dependencies."
         ),
     )
     parser.add_argument("--verbose", action="store_true", help="Debug logging to the log file.")
@@ -149,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
                 evidence_dir=evidence_dir,
                 logger=get_logger(None, args.verbose),
                 resume=args.resume,
+                bootstrap=not args.no_bootstrap,
             )
             orchestrator.logger = get_logger(
                 orchestrator.evidence_dir / str(settings.migration.get("run.log_file", "orchestrator.log")),

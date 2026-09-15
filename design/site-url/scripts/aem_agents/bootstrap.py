@@ -1,9 +1,9 @@
 """Self-bootstrapping Python environment.
 
-Imported by ``run_migration.py`` before any third-party import so the launcher is
-the only entry point a user needs. If the dependencies are missing it creates the
-virtual environment, installs the pinned requirements, and re-launches the same
-command inside that environment.
+Imported by ``run_migration.py`` before third-party imports. The launcher uses a
+managed virtual environment with exact requirements and isolated Python startup,
+regardless of packages installed globally. Missing or mismatched libraries are
+installed before re-launching the command inside that environment.
 
 Deliberately standard-library only, and deliberately shell-free: every subprocess
 is an explicit argument list with ``shell=False``, so nothing here resembles the
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import importlib.metadata
 import os
 import subprocess
 import sys
@@ -44,6 +45,37 @@ def _note(message: str) -> None:
 
 def _missing_modules() -> list[str]:
     return [name for name in REQUIRED_MODULES if importlib.util.find_spec(name) is None]
+
+
+def _dependency_issues(requirements: Path) -> list[str]:
+    issues = _missing_modules()
+    for line in requirements.read_text(encoding="utf-8").splitlines():
+        requirement = line.strip()
+        if not requirement or requirement.startswith("#"):
+            continue
+        parts = requirement.split("==")
+        if len(parts) != 2 or not all(parts) or any(character in requirement for character in "<>;[]@ "):
+            raise BootstrapError(f"Runtime dependencies must use exact name==version pins: {requirement}")
+        distribution, expected = parts
+        try:
+            installed = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            installed = "missing"
+        if installed != expected:
+            issues.append(f"{distribution}=={expected} (found {installed})")
+    return issues
+
+
+def _stamp_value(requirements: Path) -> str:
+    return f"{_digest(requirements)}:{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def _isolated_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    for name in ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE"):
+        environment.pop(name, None)
+    environment["PYTHONNOUSERSITE"] = "1"
+    return environment
 
 
 def venv_dir(scripts_dir: Path) -> Path:
@@ -84,16 +116,25 @@ def _install(python: Path, requirements: Path) -> None:
     completed = subprocess.run(  # noqa: S603 - explicit argv, shell=False
         [
             str(python),
+            "-I",
             "-m",
             "pip",
             "install",
             "--requirement",
             str(requirements),
             "--disable-pip-version-check",
+            "--no-input",
+            "--only-binary=:all:",
+            "--timeout",
+            "30",
+            "--retries",
+            "2",
             "--quiet",
         ],
         shell=False,
         check=False,
+        env=_isolated_environment(),
+        timeout=300,
     )
     if completed.returncode != 0:
         raise BootstrapError(
@@ -106,7 +147,7 @@ def _install(python: Path, requirements: Path) -> None:
 def _manual_hint(scripts_dir: Path, missing: list[str]) -> str:
     target = venv_python(venv_dir(scripts_dir))
     return (
-        f"Missing Python dependency: {', '.join(missing)}.\n"
+        f"Python dependency mismatch: {', '.join(missing)}.\n"
         f"  Automatic setup is disabled ({SKIP_FLAG} or {SKIP_ENV}). Install manually with:\n"
         f"    {sys.executable} -m pip install -r {_requirements(scripts_dir)}\n"
         f"  or let the launcher build its own environment at:\n"
@@ -117,9 +158,9 @@ def _manual_hint(scripts_dir: Path, missing: list[str]) -> str:
 def ensure_environment(script: Path, argv: list[str]) -> None:
     """Guarantee the dependencies are importable, re-launching in a venv if needed.
 
-    Returns normally when the current interpreter is already usable. Otherwise it
-    prepares the environment, runs the same command inside it, and exits with that
-    command's status.
+    Return only in the verified isolated environment, or when the caller explicitly
+    opts out and already has the exact dependencies. Otherwise prepare/re-launch
+    the managed interpreter and preserve the child's exit status.
     """
     if sys.version_info < MINIMUM_PYTHON:
         running = ".".join(str(part) for part in sys.version_info[:3])
@@ -132,23 +173,37 @@ def ensure_environment(script: Path, argv: list[str]) -> None:
             f"    Debian/Ubuntu  sudo apt-get install python3 python3-venv python3-pip"
         )
 
-    missing = _missing_modules()
-    if not missing:
-        return
-
     scripts_dir = script.parent
-    if os.environ.get(MARKER_ENV):
-        raise BootstrapError(
-            f"Dependencies are still missing after setup: {', '.join(missing)}.\n"
-            f"  The environment at {venv_dir(scripts_dir)} did not install correctly.\n"
-            f"  Delete it and re-run, or install manually:\n"
-            f"    {sys.executable} -m pip install -r {_requirements(scripts_dir)}"
-        )
+    requirements = _requirements(scripts_dir)
     if os.environ.get(SKIP_ENV) or SKIP_FLAG in argv:
-        raise BootstrapError(_manual_hint(scripts_dir, missing))
+        issues = _dependency_issues(requirements)
+        if issues:
+            raise BootstrapError(_manual_hint(scripts_dir, issues))
+        return
 
     target = venv_dir(scripts_dir)
     python = venv_python(target)
+    in_target = Path(sys.prefix).resolve() == target.resolve() and sys.prefix != sys.base_prefix
+    stamp = target / _STAMP_NAME
+    expected_stamp = _stamp_value(requirements)
+    if in_target:
+        issues = _dependency_issues(requirements)
+        stamp_current = stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == expected_stamp
+        if not issues and (stamp_current or os.environ.get(MARKER_ENV)):
+            if not stamp_current:
+                stamp.write_text(expected_stamp + "\n", encoding="utf-8")
+            if sys.flags.isolated:
+                return
+        else:
+            if os.environ.get(MARKER_ENV):
+                raise BootstrapError(f"Pinned Python dependencies are still unavailable after setup: {', '.join(issues)}")
+            try:
+                _install(python, requirements)
+            except (OSError, subprocess.SubprocessError) as error:
+                raise BootstrapError(f"Python dependency installation failed: {error}") from error
+    elif os.environ.get(MARKER_ENV):
+        raise BootstrapError("The managed Python environment did not activate. Recreate the environment at " + str(target))
+
     if not python.is_file():
         _note(f"First run: preparing the Python environment for {script.name}.")
         _create_venv(target)
@@ -157,18 +212,15 @@ def ensure_environment(script: Path, argv: list[str]) -> None:
                 f"Expected a Python interpreter at {python} after creating the venv."
             )
 
-    requirements = _requirements(scripts_dir)
-    stamp = target / _STAMP_NAME
-    digest = _digest(requirements)
-    if not stamp.is_file() or stamp.read_text(encoding="utf-8").strip() != digest:
-        _install(python, requirements)
-        stamp.write_text(digest + "\n", encoding="utf-8")
-
     _note(f"  running in {target}\n")
-    command = [str(python), str(script), *argv]
-    environment = {**os.environ, MARKER_ENV: "1"}
+    command = [str(python), "-I", str(script), *argv]
+    environment = _isolated_environment()
+    if in_target:
+        environment[MARKER_ENV] = "1"
     try:
         completed = subprocess.run(command, shell=False, check=False, env=environment)  # noqa: S603
+    except (OSError, subprocess.SubprocessError) as error:
+        raise BootstrapError(f"Could not start the managed Python environment at {python}: {error}") from error
     except KeyboardInterrupt:
         sys.exit(130)
     sys.exit(completed.returncode)

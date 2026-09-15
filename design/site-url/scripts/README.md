@@ -8,26 +8,42 @@ reads.
 
 ## Quick start
 
-The launcher bootstraps its own Python environment on first run. Set up the pinned
-Node tooling and matching Chromium once before a real migration (repeat when the
-lockfile or Playwright version changes):
+With Python 3.10+, Node.js 20+ (including npm), JDK 21, Maven and Copilot CLI available, run
+the normal migration command. No separate npm or browser-install command is needed:
 
 ```powershell
-npm ci --prefix design/site-url/scripts/tools --ignore-scripts
-npm --prefix design/site-url/scripts/tools run browser:install
+python design/site-url/scripts/run_migration.py --url https://example.com/page
 ```
 
-This installs Playwright, Pixelmatch and pngjs in one checked-in, locked package.
-The browser setup command first tries a headless launch. If the matching browser
-already works, it returns without downloading anything. The current Playwright pin
-is 1.63.0, which uses Chromium headless-shell revision 1243.
+The launcher always enters its isolated project virtual environment and verifies
+the exact versions in [requirements.txt](requirements.txt), rather than using global
+Python packages. It creates the environment and installs or repairs dependencies
+as needed. Normal migration preflight checks Node, project-matched Java and Maven,
+then prepares the shared Node/browser runtime before starting any agents:
 
-Normal migrations do not install Node packages or browsers. Preflight launches the
-cached browser against a small offline page before starting Copilot. A missing,
-incompatible or unlaunchable browser fails with explicit setup instructions. The
-launch timeout defaults to 15 seconds, with a 25-second outer process limit;
-`parity.browser_check_timeout_seconds` controls it. The verifier's integrity check
-remains separate and unchanged.
+1. Read [tools/package.json](tools/package.json) and [tools/package-lock.json](tools/package-lock.json).
+2. Run a locked `npm ci --ignore-scripts` when dependencies are missing, inconsistent,
+  or the package/lockfile fingerprint changed. A successful installation is stamped
+  inside `tools/node_modules`; unchanged installations are reused.
+3. Try a headless browser launch. If the matching executable is missing, install
+  Chromium into the shared cache once, then verify the launch again. An executable
+  rejected with `EFTYPE` and missing Playwright's installation-complete marker is
+  treated as an interrupted download and repaired using Playwright's own installer.
+4. Continue to the planner only after setup and verification pass.
+
+Playwright, Pixelmatch and pngjs remain one pinned project package. The current
+Playwright pin is 1.63.0, which uses Chromium headless-shell revision 1243. Missing
+downloads require network/proxy access, so a cold first run can take longer; warm
+runs skip installation. System Node.js and operating-system libraries are prerequisites,
+not installed with elevation by this launcher.
+
+Use `--no-bootstrap` or `AEM_AGENTS_SKIP_BOOTSTRAP=1` to disable automatic Python,
+Node-package and browser installation. In that mode existing dependencies are checked
+and missing dependencies fail with manual setup hints. `--dry-run` and `--show-plan`
+never run Node/browser setup. Other browser launch failures (for example a timeout,
+a rejected complete installation or a missing system library) are reported without reinstall loops.
+The launch timeout defaults to 15 seconds, with a 25-second outer process limit;
+`parity.browser_check_timeout_seconds` controls it.
 
 ### Shared Playwright runtime
 
@@ -37,12 +53,12 @@ by all runs in this repository. Both paths are configured in
 [config/migration.yaml](config/migration.yaml). The old `.tools/browser` package is
 no longer used by the Python agents; existing files there are left untouched.
 
-To share browser binaries across repositories on Windows, set the same environment
-variable during setup and migration runs:
+To share browser binaries across repositories on Windows, set the environment
+variable before running the launcher:
 
 ```powershell
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:LOCALAPPDATA 'ms-playwright'
-npm --prefix design/site-url/scripts/tools run browser:install
+python design/site-url/scripts/run_migration.py --url https://example.com/page
 ```
 
 An absolute `PLAYWRIGHT_BROWSERS_PATH` overrides the configured cache path. Different
@@ -59,11 +75,14 @@ const browser = await chromium.launch({ headless: true });
 ```
 
 This works from an evidence directory without a local `node_modules` or `NODE_PATH`.
-Agent prompts prohibit package/browser installs and cache/lock deletion. These are
-agent instructions, not an OS sandbox. Explicit setup refuses an existing installer
+Agent prompts still prohibit package/browser installs and cache/lock deletion;
+setup belongs to the launcher, not the planner LLM. These are agent instructions,
+not an OS sandbox. Automatic setup holds a separate setup lock and refuses an existing browser-installer
 lock when a download is needed; inspect the installer before clearing a confirmed
-stale lock. Setup has a five-minute installer deadline and a 30-second download
-connection timeout, and never installs system packages or requests elevation.
+stale lock. Package setup has a five-minute deadline; browser setup has a 330-second
+outer deadline, a five-minute installer deadline and a 30-second download connection
+timeout. Timeout or cancellation cleans up only the setup process tree. Failed
+installs are not marked ready. No setup step requests elevation or deletes locks.
 
 A standalone check never downloads anything:
 
@@ -89,16 +108,48 @@ First run: preparing the Python environment for run_migration.py.
   running in .../design/site-url/scripts/.venv
 ```
 
-It then re-launches itself inside that environment and continues. Later runs reuse
-it and skip the install — a stamp file records the `requirements.txt` hash, so pip
-only runs again when the requirements actually change. If the dependencies are
-already importable (you activated the venv yourself, or installed them globally),
-the bootstrap is skipped entirely and costs nothing.
+It re-launches Python with `-I` and excludes user-site packages and inherited
+`PYTHONPATH`, `PYTHONHOME` and `PYTHONUSERBASE`. Later runs reuse the environment and
+verify exact installed versions. Pip runs only for missing/mismatched dependencies
+or changed requirements. PyYAML 6.0.3 and Pillow 12.3.0 are pinned; binary wheels avoid
+requiring a local C compiler. If a supported wheel is unavailable for the selected
+Python/OS combination, setup fails rather than silently using a different version.
+`--no-bootstrap` permits a self-managed environment but still checks exact versions.
+
+### Running on another machine
+
+Clone the repository, including the manifests and lockfiles. Do not copy `.venv`,
+`node_modules`, browser binaries or another run's evidence between operating systems.
+Run the same launcher command; its folders and executables are resolved locally.
+On systems where the executable is named `python3`, substitute `python3` for `python`.
+
+| Dependency | How it is provided |
+|---|---|
+| Python interpreter with `venv`/pip support | Host prerequisite; a Python command cannot install the interpreter needed to start itself. |
+| PyYAML and Pillow | Installed automatically in `scripts/.venv` at the exact committed versions. |
+| Node.js 20+ and npm | Host prerequisite, version checked before Node-package setup. |
+| Playwright, Pixelmatch and pngjs | Installed automatically from the shared npm lockfile. |
+| Matching Chromium and its bundled support binaries | Installed automatically into the configured platform-specific browser cache. |
+| JDK | Host prerequisite, matched to [.cloudmanager/java-version](../../../.cloudmanager/java-version), currently 21; a newer arbitrary JDK is not substituted. |
+| Apache Maven | Host prerequisite; startup is verified with the selected JDK before agents run. |
+| Copilot CLI and authentication | Host prerequisite; install a compatible CLI and authenticate on that machine. Credentials are not copied or generated by bootstrap. |
+| AEM instance and credentials | External prerequisite; set `AEM_HOST`, `AEM_PORT` and `AEM_CREDENTIALS` for that target. Defaults refer to a local SDK, not production. |
+| Linux browser shared libraries and fonts | OS prerequisites; bootstrap never invokes sudo or an elevation prompt. |
+
+Project dependency versions and setup behavior are reproducible, but native Windows,
+macOS and Linux are not identical environments. Browser fonts/rasterization, CPU
+architecture, Python/Node/JDK patch versions, live content and model responses can
+still differ. Use the same provisioned container/CI image, toolchain versions, fonts
+and AEM target when identical execution environments are required. The current
+bootstrap does not silently install those system runtimes or promise identical AI
+output. Windows is the locally verified platform; macOS/Linux still require native
+smoke testing before claiming support for a particular OS/runtime combination.
 
 ### Optional: check the external tooling too
 
-The bootstrap only covers Python. `setup.ps1` / `setup.sh` additionally verify
-Node.js, the GitHub Copilot CLI, Maven, Java, and that AEM author is reachable:
+The launcher handles Python and shared Node/browser dependencies automatically.
+`setup.ps1` / `setup.sh` are optional checks for Node.js, Copilot CLI, Maven, Java
+and AEM author availability:
 
 ```powershell
 powershell -File design/site-url/scripts/setup.ps1                           # Windows
@@ -143,7 +194,7 @@ python run_migration.py --show-plan --no-bootstrap
 | Variable | Effect |
 |---|---|
 | `AEM_AGENTS_VENV` | Use this path for the virtual environment instead of `scripts/.venv`. |
-| `AEM_AGENTS_SKIP_BOOTSTRAP` | Same as `--no-bootstrap`; never create or re-launch into a venv. |
+| `AEM_AGENTS_SKIP_BOOTSTRAP` | Same as `--no-bootstrap`; disable automatic Python, Node-package and browser setup. |
 
 ## How it works
 
@@ -397,16 +448,15 @@ parity/verified/verification-*/   coordinator-owned images and hashed receipts
 
 ## Prerequisites
 
-The launcher installs its own Python dependencies. Everything else must already be
-on the machine — `setup.ps1` / `setup.sh` check each one and tell you what is missing:
+Normal launcher execution installs its project dependencies automatically. These
+host runtimes and external services must be available first:
 
 - Python 3.10+ (the launcher creates the venv and installs
   [requirements.txt](requirements.txt) itself)
 - GitHub Copilot CLI (`npm install -g @github/copilot`, then `copilot login`)
-- Node.js 18+ for the agents' Playwright and pixelmatch work
-- Pinned shared tooling: `npm ci --prefix design/site-url/scripts/tools --ignore-scripts`
-- Matching Chromium: `npm --prefix design/site-url/scripts/tools run browser:install` (explicit setup only)
-- Java and Maven for the scoped module deploys
+- Node.js 20+ with npm for the pinned Playwright and pixelmatch runtime
+- Shared Node packages and matching Chromium: automatically prepared by normal launcher preflight
+- JDK matching `.cloudmanager/java-version` (currently 21) and Maven for scoped module deploys
 - A running local AEM author instance
 
 ## Relationship to the Node launcher

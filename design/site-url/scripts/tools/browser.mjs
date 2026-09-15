@@ -64,7 +64,9 @@ async function main() {
   try {
     return await checkBrowser(timeout);
   } catch (error) {
-    if (!options.install || !error.message.includes("Executable doesn't exist")) throw error;
+    const marker = path.join(cacheDirectory, `chromium_headless_shell-${chromiumRevision}`, 'INSTALLATION_COMPLETE');
+    const incomplete = error.message.includes('spawn EFTYPE') && !existsSync(marker);
+    if (!options.install || (!error.message.includes("Executable doesn't exist") && !incomplete)) throw error;
   }
   if (existsSync(path.join(cacheDirectory, '__dirlock'))) {
     throw new Error('Browser installer lock exists. Check the other installer before retrying; the lock was not deleted.');

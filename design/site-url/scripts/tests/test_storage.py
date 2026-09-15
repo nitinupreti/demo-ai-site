@@ -19,7 +19,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from aem_agents.config import Settings
-from aem_agents.browser import browser_paths, check_browser
+from aem_agents.browser import browser_paths, check_browser, ensure_browser
 from aem_agents.assets import AemClient, AssetError, _declared_assets, fetch_assets
 from aem_agents.merge import latest_contribution_path, read_contributions, merge_contributions, MergeError
 from aem_agents.state import RunLock, RunState, StateError
@@ -29,7 +29,150 @@ from aem_agents.envelope import EnvelopeError
 from aem_agents.checkpoints import capture_checkpoint, validate_checkpoint
 from aem_agents.config import ConfigError
 from aem_agents.contract import load_contract
+from aem_agents import bootstrap
+from aem_agents.toolchain import Toolchain, ToolchainError, check_maven, check_node, resolve_java_home
 from aem_agents.discovery import collect_discovery, repository_inventory, validate_collection
+
+
+class PythonBootstrapTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.script = self.root / "run_migration.py"
+        self.script.write_text("", encoding="utf-8")
+        self.requirements = self.root / "requirements.txt"
+        self.requirements.write_text("PyYAML==6.0.3\nPillow==12.3.0\n", encoding="utf-8")
+        self.target = self.root / ".venv"
+        self.python = bootstrap.venv_python(self.target)
+        self.python.parent.mkdir(parents=True)
+        self.python.write_text("fixture", encoding="utf-8")
+        environment = patch.dict(os.environ, {bootstrap.SKIP_ENV: "", bootstrap.MARKER_ENV: "", bootstrap.VENV_ENV: str(self.target)})
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def test_global_dependencies_do_not_bypass_managed_environment(self):
+        with patch.object(bootstrap, "_dependency_issues", return_value=[]), patch.object(bootstrap, "_install") as install, patch("aem_agents.bootstrap.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as execute:
+            with self.assertRaises(SystemExit) as exited:
+                bootstrap.ensure_environment(self.script, ["--show-plan"])
+        self.assertEqual(exited.exception.code, 0)
+        self.assertEqual(execute.call_args.args[0], [str(self.python), "-I", str(self.script), "--show-plan"])
+        install.assert_not_called()
+
+    def test_warm_managed_environment_never_installs(self):
+        (self.target / bootstrap._STAMP_NAME).write_text(bootstrap._stamp_value(self.requirements), encoding="utf-8")
+        with patch("aem_agents.bootstrap.sys.prefix", str(self.target)), patch("aem_agents.bootstrap.sys.flags", SimpleNamespace(isolated=1)), patch.object(bootstrap, "_dependency_issues", return_value=[]), patch.object(bootstrap, "_install") as install, patch("aem_agents.bootstrap.subprocess.run") as execute:
+            bootstrap.ensure_environment(self.script, [])
+        install.assert_not_called()
+        execute.assert_not_called()
+
+    def test_wrong_version_repairs_then_restarts_before_stamping(self):
+        with patch("aem_agents.bootstrap.sys.prefix", str(self.target)), patch.object(bootstrap, "_dependency_issues", return_value=["Pillow mismatch"]), patch.object(bootstrap, "_install") as install, patch("aem_agents.bootstrap.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as execute:
+            with self.assertRaises(SystemExit):
+                bootstrap.ensure_environment(self.script, [])
+        install.assert_called_once_with(self.python, self.requirements)
+        self.assertEqual(execute.call_args.kwargs["env"][bootstrap.MARKER_ENV], "1")
+        self.assertFalse((self.target / bootstrap._STAMP_NAME).exists())
+
+    def test_restarted_environment_is_validated_before_stamp(self):
+        with patch("aem_agents.bootstrap.sys.prefix", str(self.target)), patch("aem_agents.bootstrap.sys.flags", SimpleNamespace(isolated=1)), patch.dict(os.environ, {bootstrap.MARKER_ENV: "1"}), patch.object(bootstrap, "_dependency_issues", return_value=[]):
+            bootstrap.ensure_environment(self.script, [])
+        self.assertEqual((self.target / bootstrap._STAMP_NAME).read_text().strip(), bootstrap._stamp_value(self.requirements))
+
+    def test_activated_venv_restarts_isolated_without_reinstalling(self):
+        (self.target / bootstrap._STAMP_NAME).write_text(bootstrap._stamp_value(self.requirements), encoding="utf-8")
+        with patch("aem_agents.bootstrap.sys.prefix", str(self.target)), patch.object(bootstrap, "_dependency_issues", return_value=[]), patch.object(bootstrap, "_install") as install, patch("aem_agents.bootstrap.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as execute:
+            with self.assertRaises(SystemExit):
+                bootstrap.ensure_environment(self.script, [])
+        install.assert_not_called()
+        self.assertIn("-I", execute.call_args.args[0])
+
+    def test_opt_out_validates_pins_without_installing(self):
+        with patch.object(bootstrap, "_dependency_issues", return_value=["Pillow==12.3.0 (found 11.3.0)"]), patch.object(bootstrap, "_install") as install:
+            with self.assertRaisesRegex(bootstrap.BootstrapError, "dependency mismatch"):
+                bootstrap.ensure_environment(self.script, ["--no-bootstrap"])
+        install.assert_not_called()
+
+    def test_python_environment_does_not_leak_into_child(self):
+        with patch.dict(os.environ, {"PYTHONPATH": "wrong", "PYTHONHOME": "wrong", "PYTHONUSERBASE": "wrong"}):
+            environment = bootstrap._isolated_environment()
+        self.assertEqual(environment["PYTHONNOUSERSITE"], "1")
+        for variable in ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE"):
+            self.assertNotIn(variable, environment)
+
+    def test_runtime_requirements_use_exact_pins(self):
+        with patch.object(bootstrap, "_missing_modules", return_value=[]), patch("aem_agents.bootstrap.importlib.metadata.version", side_effect=["6.0.3", "12.3.0"]):
+            self.assertEqual(bootstrap._dependency_issues(self.requirements), [])
+        self.requirements.write_text("Pillow>=11\n", encoding="utf-8")
+        with patch.object(bootstrap, "_missing_modules", return_value=[]), self.assertRaisesRegex(bootstrap.BootstrapError, "exact"):
+            bootstrap._dependency_issues(self.requirements)
+
+
+class PortableToolchainTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        self.settings.repo_root = self.root
+        self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home_candidates": [str(self.root / "jdks/*")]}})
+        version = self.root / ".cloudmanager/java-version"
+        version.parent.mkdir()
+        version.write_text("21", encoding="utf-8")
+
+    def jdk(self, name, version):
+        home = self.root / "jdks" / name
+        (home / "bin").mkdir(parents=True)
+        suffix = ".exe" if os.name == "nt" else ""
+        for executable in ("java", "javac"):
+            (home / "bin" / (executable + suffix)).write_text("fixture", encoding="utf-8")
+        (home / "release").write_text(f'JAVA_VERSION="{version}.0.1"', encoding="utf-8")
+        return home
+
+    def test_selects_project_java_not_highest_installed_version(self):
+        expected = self.jdk("jdk-21", 21)
+        wrong = self.jdk("jdk-26", 26)
+        with patch.dict(os.environ, {"JAVA_HOME": str(wrong)}), patch("aem_agents.toolchain.shutil.which", return_value=None):
+            self.assertEqual(resolve_java_home(self.settings).java_home, expected)
+
+    def test_relative_configured_java_home_is_workspace_relative(self):
+        expected = self.jdk("jdk-21", 21)
+        self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home": "jdks/jdk-21"}})
+        self.assertEqual(resolve_java_home(self.settings).java_home, expected)
+
+    def test_wrong_java_or_jre_only_install_is_rejected(self):
+        home = self.jdk("jdk-26", 26)
+        self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home": str(home)}})
+        with self.assertRaisesRegex(ToolchainError, "requires JDK 21"):
+            resolve_java_home(self.settings)
+
+    def test_maven_is_checked_via_java_without_shell_shims(self):
+        jdk = Toolchain(self.jdk("jdk-21", 21), "fixture")
+        maven = self.root / "maven"
+        (maven / "bin").mkdir(parents=True)
+        (maven / "boot").mkdir()
+        (maven / "bin/m2.conf").write_text("fixture", encoding="utf-8")
+        (maven / "boot/plexus-classworlds-2.8.0.jar").write_text("fixture", encoding="utf-8")
+        executable = maven / "bin" / ("mvn.cmd" if os.name == "nt" else "mvn")
+        executable.write_text("fixture", encoding="utf-8")
+        with patch("aem_agents.toolchain.shutil.which", return_value=str(executable)), patch("aem_agents.toolchain.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "Apache Maven 3.9.9", "")) as execute:
+            tools = check_maven(jdk)
+        self.assertEqual(tools.maven_version, "3.9.9")
+        self.assertFalse(execute.call_args.kwargs["shell"])
+        self.assertEqual(execute.call_args.kwargs["env"]["JAVA_HOME"], str(jdk.java_home))
+
+    def test_missing_maven_fails_with_actionable_message(self):
+        with patch("aem_agents.toolchain.shutil.which", return_value=None), self.assertRaisesRegex(ToolchainError, "Apache Maven is required"):
+            check_maven(Toolchain(self.root, "fixture"))
+
+    def test_unsupported_node_fails_before_package_installation(self):
+        for version, accepted in (("v18.20.0", False), ("v22.14.0", True), ("unknown", False)):
+            with self.subTest(version=version), patch("aem_agents.toolchain.shutil.which", return_value="node"), patch("aem_agents.toolchain.subprocess.run", return_value=subprocess.CompletedProcess([], 0, version, "")):
+                if accepted:
+                    self.assertEqual(check_node(), version)
+                else:
+                    with self.assertRaisesRegex(ToolchainError, "Node.js 20"):
+                        check_node()
 
 
 class DiscoveryCollectorTests(unittest.TestCase):
@@ -195,7 +338,7 @@ class BrowserTests(unittest.TestCase):
 
     def test_real_shared_import_works_outside_tool_directory(self):
         settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
-        runtime = check_browser(settings)
+        runtime = ensure_browser(settings)
         probe = self.root / "probe.mjs"
         probe.write_text("const { checkBrowser } = await import(process.env.MIGRATION_BROWSER_MODULE);\nconsole.log(JSON.stringify(await checkBrowser()));\n", encoding="utf-8")
         response = subprocess.run(["node", str(probe)], cwd=self.root, env={**os.environ, **runtime.environment()}, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
@@ -229,6 +372,122 @@ class BrowserTests(unittest.TestCase):
         self.assertIn("Browser installer lock exists", response.stderr)
         self.assertTrue(lock.is_dir())
         self.assertEqual(list(cache.iterdir()), [lock])
+
+
+class AutomaticBrowserSetupTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        self.settings.repo_root = self.root
+        self.settings.migration = self.settings.migration.merged({"parity": {"tools_dir": "tools", "browsers_path": "cache"}})
+        environment = patch.dict(os.environ, {"PLAYWRIGHT_BROWSERS_PATH": "", "AEM_AGENTS_SKIP_BOOTSTRAP": ""})
+        environment.start()
+        self.addCleanup(environment.stop)
+        self.runtime = browser_paths(self.settings)
+        self.runtime.tools_dir.mkdir()
+        self.runtime.module_path.write_text("fixture", encoding="utf-8")
+        self.package = {"dependencies": {"playwright": "1.63.0"}}
+        self.lock = {"packages": {"": self.package, "node_modules/playwright": {"version": "1.63.0"}}}
+        (self.runtime.tools_dir / "package.json").write_text(json.dumps(self.package), encoding="utf-8")
+        self.lock_path = self.runtime.tools_dir / "package-lock.json"
+        self.lock_path.write_text(json.dumps(self.lock), encoding="utf-8")
+
+    def install(self, arguments, runtime, label, timeout):
+        package = runtime.tools_dir / "node_modules/playwright/package.json"
+        package.parent.mkdir(parents=True, exist_ok=True)
+        package.write_text(json.dumps({"version": "1.63.0"}), encoding="utf-8")
+
+    def test_first_run_installs_then_warm_run_reuses_packages(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._npm_cli", return_value=Path("npm-cli.js")), patch("aem_agents.browser._run_setup", side_effect=self.install) as setup, patch("aem_agents.browser.check_browser", return_value=self.runtime) as check:
+            self.assertEqual(ensure_browser(self.settings), self.runtime)
+            self.assertEqual(ensure_browser(self.settings), self.runtime)
+        setup.assert_called_once()
+        self.assertEqual(setup.call_args.args[0][2:], ["ci", "--ignore-scripts", "--engine-strict", "--no-audit", "--no-fund"])
+        self.assertEqual(check.call_count, 2)
+
+    def test_missing_package_or_changed_lock_triggers_repair(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._npm_cli", return_value=Path("npm-cli.js")), patch("aem_agents.browser._run_setup", side_effect=self.install) as setup, patch("aem_agents.browser.check_browser", return_value=self.runtime):
+            ensure_browser(self.settings)
+            (self.runtime.tools_dir / "node_modules/playwright/package.json").unlink()
+            ensure_browser(self.settings)
+            self.lock["packages"]["node_modules/playwright"]["integrity"] = "changed"
+            self.lock_path.write_text(json.dumps(self.lock), encoding="utf-8")
+            ensure_browser(self.settings)
+        self.assertEqual(setup.call_count, 3)
+
+    def test_missing_browser_is_installed_once_before_rechecking(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._ensure_packages"), patch("aem_agents.browser._run_setup") as setup, patch("aem_agents.browser.check_browser", side_effect=[EnvelopeError("Executable doesn't exist"), self.runtime]) as check:
+            self.assertEqual(ensure_browser(self.settings), self.runtime)
+        setup.assert_called_once()
+        self.assertIn("--install", setup.call_args.args[0])
+        self.assertEqual(check.call_count, 2)
+
+    def test_interrupted_browser_download_uses_official_repair(self):
+        metadata = self.runtime.tools_dir / "node_modules/playwright-core/browsers.json"
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text(json.dumps({"browsers": [{"name": "chromium-headless-shell", "revision": "1243"}]}), encoding="utf-8")
+        browser_directory = self.runtime.browsers_path / "chromium_headless_shell-1243"
+        browser_directory.mkdir(parents=True)
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._ensure_packages"), patch("aem_agents.browser._run_setup") as setup, patch("aem_agents.browser.check_browser", side_effect=[EnvelopeError("spawn EFTYPE"), self.runtime]):
+            self.assertEqual(ensure_browser(self.settings), self.runtime)
+        setup.assert_called_once()
+        (browser_directory / "INSTALLATION_COMPLETE").write_text("", encoding="utf-8")
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._ensure_packages"), patch("aem_agents.browser._run_setup") as setup, patch("aem_agents.browser.check_browser", side_effect=EnvelopeError("spawn EFTYPE")):
+            with self.assertRaisesRegex(EnvelopeError, "EFTYPE"):
+                ensure_browser(self.settings)
+        setup.assert_not_called()
+
+    def test_failed_install_never_marks_packages_ready(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._npm_cli", return_value=Path("npm-cli.js")), patch("aem_agents.browser._run_setup", side_effect=EnvelopeError("network unavailable")) as setup, patch("aem_agents.browser.check_browser") as check:
+            with self.assertRaisesRegex(EnvelopeError, "network unavailable"):
+                ensure_browser(self.settings)
+        setup.assert_called_once()
+        check.assert_not_called()
+        self.assertFalse((self.runtime.tools_dir / "node_modules/.migration-package-stamp").exists())
+
+    def test_opt_out_never_installs(self):
+        with patch("aem_agents.browser._ensure_packages") as packages, patch("aem_agents.browser._run_setup") as setup, patch("aem_agents.browser.check_browser", return_value=self.runtime):
+            ensure_browser(self.settings, bootstrap=False)
+            with patch.dict(os.environ, {"AEM_AGENTS_SKIP_BOOTSTRAP": "1"}):
+                ensure_browser(self.settings)
+        packages.assert_not_called()
+        setup.assert_not_called()
+
+    def test_non_installation_errors_are_not_retried(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser._ensure_packages"), patch("aem_agents.browser._run_setup") as setup, patch("aem_agents.browser.check_browser", side_effect=EnvelopeError("Browser launch timeout")) as check:
+            with self.assertRaisesRegex(EnvelopeError, "launch timeout"):
+                ensure_browser(self.settings)
+        setup.assert_not_called()
+        check.assert_called_once()
+
+    def test_installers_use_argument_arrays_without_a_shell(self):
+        from aem_agents.browser import _run_setup
+        command = ["node", "path with spaces/npm-cli.js", "ci", "--ignore-scripts"]
+        with patch("aem_agents.browser.subprocess.Popen") as start:
+            start.return_value.wait.return_value = 0
+            start.return_value.poll.return_value = 0
+            _run_setup(command, self.runtime, "fixture", 300)
+        self.assertEqual(start.call_args.args[0], command)
+        self.assertFalse(start.call_args.kwargs["shell"])
+        self.assertEqual(start.call_args.kwargs["cwd"], self.runtime.tools_dir)
+
+    def test_timeout_stops_setup_process_tree(self):
+        from aem_agents.browser import _run_setup
+        with patch("aem_agents.browser.subprocess.Popen") as start, patch("aem_agents.browser.subprocess.run") as terminate, patch("aem_agents.browser.os.killpg", create=True) as kill_group:
+            process = start.return_value
+            process.pid = 4321
+            process.poll.return_value = None
+            process.wait.side_effect = [subprocess.TimeoutExpired("setup", 1), 0]
+            with self.assertRaisesRegex(EnvelopeError, "exceeded 1s"):
+                _run_setup(["node", "fixture.js"], self.runtime, "fixture", 1)
+            if os.name == "nt":
+                self.assertIn("/T", terminate.call_args.args[0])
+                self.assertIn("4321", terminate.call_args.args[0])
+            else:
+                kill_group.assert_called_once()
+            self.assertEqual(process.wait.call_count, 2)
 
 
 class CheckpointTests(unittest.TestCase):

@@ -10,7 +10,7 @@
 # Or run the bootstrap script, which does all of the above and also verifies the
 # external tooling:
 #
-#   powershell -ExecutionPolicy Bypass -File design/site-url/scripts/setup.ps1   (Windows)
+#   powershell -File design/site-url/scripts/setup.ps1                           (Windows)
 #   bash design/site-url/scripts/setup.sh                                        (macOS / Linux)
 #
 # Requires Python 3.10 or newer.
@@ -20,8 +20,8 @@
 # ---------------------------------------------------------------------------
 # Parses design/site-url/scripts/config/*.yaml and the fenced yaml contract
 # blocks in design/site-url/prompt_new.md.
-PyYAML>=6.0,<7.0
-Pillow>=11.3,<13
+PyYAML==6.0.3
+Pillow==12.3.0
 
 # ---------------------------------------------------------------------------
 # Everything else the pipeline uses ships with Python:
@@ -35,7 +35,7 @@ Pillow>=11.3,<13
 # them separately. setup.ps1 / setup.sh check for each one:
 #
 #   GitHub Copilot CLI   npm install -g @github/copilot   then   copilot login
-#   Node.js 18+          the agents' Playwright / pixelmatch parity work
+#   Node.js 20+          the agents' Playwright / pixelmatch parity work
 #   Java + Maven         scoped module builds and deploys
 #   AEM SDK author       a running local author instance to deploy into
 # ---------------------------------------------------------------------------

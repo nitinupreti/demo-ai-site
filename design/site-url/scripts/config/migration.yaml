@@ -84,17 +84,20 @@ aem:
 # every agent rediscovers the same problem and pays for it in tool calls.
 #
 # Leave java_home null to auto-detect — the environment variable is used only
-# when it really points at a JDK, otherwise the candidate globs are searched and
-# the highest version wins. Set an absolute path to pin one.
+# when it points at the required JDK, otherwise PATH and candidate globs are searched.
+# Only the major version declared by the project is accepted.
 toolchain:
   java_home: null
   java_home_env: JAVA_HOME
+  java_version_file: .cloudmanager/java-version
   java_home_candidates:
     - "C:/Program Files/Zulu/zulu-*"
     - "C:/Program Files/Java/jdk*"
     - "C:/Program Files/Eclipse Adoptium/jdk*"
     - "C:/Program Files/Microsoft/jdk*"
     - "/usr/lib/jvm/*"
+    - "/opt/homebrew/opt/openjdk*/libexec/openjdk.jdk/Contents/Home"
+    - "/usr/local/opt/openjdk*/libexec/openjdk.jdk/Contents/Home"
     - "/Library/Java/JavaVirtualMachines/*/Contents/Home"
 
 # ---------------------------------------------------------------------------

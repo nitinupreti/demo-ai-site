@@ -5,9 +5,11 @@ Usage:
     python design/site-url/scripts/run_migration.py --show-plan
     python design/site-url/scripts/run_migration.py --url https://example.com/page
 
-No separate setup step is required. On first run this creates its own virtual
-environment, installs the pinned dependencies, and re-launches itself inside it.
-Pass --no-bootstrap to manage the environment yourself.
+With the documented host runtimes available, no separate project-dependency setup
+is required. The launcher enters its isolated Python environment with exact library
+versions. Migration preflight checks the required Node/Java/Maven tools and prepares
+locked Node packages and matching Chromium before agents. --no-bootstrap disables
+installation but still validates dependencies.
 
 setup.ps1 / setup.sh remain available and additionally check the external tooling
 the agents drive: Node.js, GitHub Copilot CLI, Maven, Java, and a running AEM author.

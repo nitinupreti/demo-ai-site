@@ -2,7 +2,7 @@
   "name": "aem-migration-verification",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20" },
   "scripts": {
     "browser:check": "node browser.mjs",
     "browser:install": "node browser.mjs --install"

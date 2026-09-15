@@ -63,7 +63,7 @@ const { chromium } = await import(process.env.MIGRATION_BROWSER_MODULE);
 
 `PLAYWRIGHT_BROWSERS_PATH` is set to the verified shared cache. Use the default
 headless launch, without a custom browser channel or executable. If it becomes
-unavailable, return `BLOCKED` with the error; installation belongs to explicit setup.
+unavailable, return `BLOCKED` with the error; installation belongs to launcher setup.
 
 The runner must:
 
