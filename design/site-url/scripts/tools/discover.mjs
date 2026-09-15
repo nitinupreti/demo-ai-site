@@ -223,6 +223,37 @@ function writeJSON(file, value) {
   writeFileSync(file, JSON.stringify(value, null, 2), { flag: 'wx' });
 }
 
+const STAGE_LABELS = {
+  navigate: 'Load source page',
+  dynamic_injection: 'Wait for dynamically loaded content',
+  scroll_and_bands: 'Scan page and lazy-loaded content',
+  interaction_discovery: 'Check hover and focus states',
+  media_and_fonts: 'Check media and fonts',
+  static_stability: 'Check layout stability and save evidence',
+  COLLECTED: 'Collection complete',
+  FAIL: 'Collection failed',
+};
+
+function logText(value, limit = 180) {
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
+export function formatDiscoveryProgress(event) {
+  const width = event.breakpoint == null ? 'all viewports' : `${event.breakpoint}px`;
+  const status = event.status || (['COLLECTED', 'FAIL'].includes(event.stage) ? event.stage : 'START');
+  const elapsed = (Math.max(0, event.elapsed_ms || 0) / 1000).toFixed(1);
+  const label = STAGE_LABELS[event.stage] || event.stage;
+  const parts = [`[discovery ${width} +${elapsed}s] ${status}: ${label}`];
+  if (event.message) parts.push(logText(event.message));
+  if (Number.isInteger(event.current) && Number.isInteger(event.total)) {
+    parts.push(`${event.current}/${event.total} ${logText(event.unit || 'items')}`);
+  }
+  if (event.selector) parts.push(`selector=${logText(event.selector)}`);
+  if (Number.isFinite(event.stage_elapsed_ms)) parts.push(`stage ${(event.stage_elapsed_ms / 1000).toFixed(1)}s`);
+  if (Number.isFinite(event.remaining_ms)) parts.push(`viewport budget ${(Math.max(0, event.remaining_ms) / 1000).toFixed(1)}s remaining`);
+  return parts.join(' | ');
+}
+
 async function collectBreakpoint(browser, config, width, progress) {
   const started = performance.now();
   const directory = path.join(config.output_dir, String(width));
@@ -432,10 +463,11 @@ export async function collectSource(input) {
   if (existsSync(config.output_dir) && readdirSync(config.output_dir).length) throw new Error('Discovery output directory is not empty.');
   mkdirSync(config.output_dir, { recursive: true });
   const started = performance.now();
-  const progress = (width, stage) => {
-    const line = JSON.stringify({ event: 'discovery', breakpoint: width, stage, at: new Date().toISOString() });
-    appendFileSync(path.join(config.output_dir, 'progress.jsonl'), `${line}\n`);
-    console.log(line);
+  const progress = (width, stage, details = {}) => {
+    const event = { ...details, event: 'discovery', run_id: config.run_id, breakpoint: width, stage,
+      at: new Date().toISOString(), elapsed_ms: Math.round(performance.now() - started) };
+    appendFileSync(path.join(config.output_dir, 'progress.jsonl'), `${JSON.stringify(event)}\n`);
+    console.log(formatDiscoveryProgress(event));
   };
   const results = await usingBrowser(async browser => {
     const results = [];

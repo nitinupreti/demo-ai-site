@@ -207,6 +207,25 @@ class PortableToolchainTests(unittest.TestCase):
 
 
 class DiscoveryCollectorTests(unittest.TestCase):
+    def test_progress_formatter_names_work_and_elapsed_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "logging-test.mjs"
+            module_uri = (SCRIPTS / "tools/discover.mjs").as_uri()
+            script.write_text(
+                "import assert from 'node:assert/strict';\n"
+                f"const {{ formatDiscoveryProgress }} = await import({json.dumps(module_uri)});\n"
+                "const output = formatDiscoveryProgress({ breakpoint: 375, stage: 'interaction_discovery', status: 'WAIT', elapsed_ms: 12500, stage_elapsed_ms: 6200, remaining_ms: 107500, current: 2, total: 9, unit: 'known controls', selector: '#menu\\nbutton', message: 'Waiting for hover' });\n"
+                "assert(output.startsWith('[discovery 375px +12.5s] WAIT: Check hover and focus states'));\n"
+                "assert(output.includes('2/9 known controls'));\n"
+                "assert(output.includes('selector=#menu button'));\n"
+                "assert(output.includes('stage 6.2s'));\n"
+                "assert(output.includes('107.5s remaining'));\n"
+                "assert(!output.includes('\\n'));\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_inventory_is_reused_until_its_sources_change(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
