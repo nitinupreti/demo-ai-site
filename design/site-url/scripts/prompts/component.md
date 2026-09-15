@@ -175,7 +175,11 @@ contexts and an edit-mode empty placeholder. Guard optional regions. `data-sly-l
 on one container or `data-sly-repeat` on the repeated item, exposing `data-index`.
 Behaviour is rooted in `data-cmp-is`, scoped per instance, initialized once, with no
 globals or inline handlers and server-rendered initial state and ARIA. Preserve the
-source's keyboard, focus, hover, active, and screen-reader behaviour.
+source's keyboard, focus, hover, active, and screen-reader behaviour within the
+contract's scope. For header navigation, author the default visible links and base
+styling from `header-links.json`; do not invent or open hidden dropdowns/submenus.
+Keep ordinary link semantics and accessibility. Header menu interaction verification
+is intentionally excluded, not a completed check.
 
 **CSS — tokens always, literals never.** Component CSS is BEM-scoped and
 token-driven. The site token layer is the single source of truth:

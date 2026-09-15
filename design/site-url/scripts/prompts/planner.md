@@ -37,8 +37,12 @@ scans at every requested breakpoint. The manifest indexes checksummed raw files:
    band observations and batched rectangle samples;
 - `media.json`, `network.json`, `tokens.json`, `source.png`: decoded media metadata,
    observed resource MIME/status, measured token values and the source screenshot.
-- `interactions.json`: observed hover/focus states and revealed content. This is
-   discovery evidence, not a substitute for final keyboard/media interaction tests.
+- `header-links.json`: default visible header links, text, destinations and geometry
+   at this breakpoint. Header hover/focus and hidden submenus are intentionally
+   excluded; do not add unseen menu links or treat absent submenu evidence as a gap.
+- `interactions.json`: observed hover/focus states outside document headers and
+   top-level navigation. This is discovery evidence, not a substitute for the
+   remaining final keyboard/media interaction tests.
 
 **Do not generate or run discovery scripts, revisit the live page, or repeat the
 browser scans.** Do not install Node packages or browsers. Do not edit collector
@@ -69,7 +73,8 @@ resolved as `{{java_home}}`; do not probe for it.
    layout invalidates the capture.
 
 2. **Exhaustive block discovery.** Build the candidate set from the **union** of
-   every signal below at **every** breakpoint. Headings alone are insufficient.
+   every signal below at **every** breakpoint, within the contract's visible-header-only
+   scope. Headings alone are insufficient.
    Skipping a signal invalidates discovery.
 
    1. Semantic landmarks and ARIA roles.

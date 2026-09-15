@@ -242,6 +242,15 @@ clicks links. It records all eleven discovery signal categories, raw DOM text an
 styles, media/font readiness, hover/focus observations, 20px page bands, batched
 rectangle samples, token measurements and full-page source screenshots.
 
+Header navigation uses **visible-links-only** discovery, as requested. The collector
+records default-state header link text, URLs and geometry in `header-links.json` at
+each breakpoint. It never hovers/focuses document header/banner controls or top-level
+navigation to open dropdowns or submenus. Hidden header menu content is intentionally
+out of scope, not silently marked verified. Main-content and footer interactions
+remain enabled; visible header links and styling still participate in visual parity.
+The collector logs this exclusion and records `header_navigation_scope` in its
+manifest and summaries. Planner, component and parity prompts use the same scope.
+
 Defaults under `discovery` in [config/migration.yaml](config/migration.yaml):
 
 | Setting | Default | Purpose |

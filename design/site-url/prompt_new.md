@@ -54,6 +54,13 @@ is not completion — the visual parity gate controls completion.
 
 ## Non-Negotiable Rules
 
+- **Header navigation scope: visible links only.** At each required breakpoint,
+  capture and reproduce the header's default visible links and styling. Do not
+  hover or focus header controls to reveal menus, or open header dropdowns and
+  submenus. Hidden submenu content and its interactions are out of scope. This
+  exception applies to document headers/banners and top-level navigation, not
+  main-content or footer interaction checks. Visible links remain authored and
+  part of visual parity; do not claim hidden-menu verification was performed.
 - `MUST`, `FAIL`, and `STOP` are completion-blocking. STOP only for unreadable or
   missing sources, conflicting authorities, unresolved external blockers, or explicit
   user-input requirements. Every other failure requires in-run remediation.

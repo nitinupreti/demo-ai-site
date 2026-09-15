@@ -102,6 +102,8 @@ def validate_collection(manifest_path: Path, run_id: str, site_url: str, breakpo
             raise ValueError("Discovery manifest identity does not match this run")
         if manifest.get("collector_sha256") != collector_sha256:
             raise ValueError("Discovery collector revision changed")
+        if manifest.get("header_navigation_scope") != "visible-links-only":
+            raise ValueError("Discovery header navigation scope does not match this run")
         if manifest.get("status") != "COLLECTED":
             failures = [{"breakpoint": row.get("breakpoint"), "issues": row.get("issues")} for row in manifest.get("results", []) if row.get("status") != "COLLECTED"]
             raise ValueError(f"Source discovery is incomplete: {failures}")
@@ -123,6 +125,9 @@ def validate_collection(manifest_path: Path, run_id: str, site_url: str, breakpo
             missing = {f"{width}/{name}" for name in REQUIRED_FILES} - artifacts.keys()
             if missing:
                 raise ValueError(f"Discovery artifacts missing: {sorted(missing)}")
+            header = json.loads(artifacts[f"{width}/header-links.json"].read_text(encoding="utf-8"))
+            if header.get("scope") != "visible-links-only" or header.get("breakpoint") != width or not isinstance(header.get("links"), list):
+                raise ValueError(f"Invalid visible-header link evidence at {width}")
             signals = json.loads(artifacts[f"{width}/signals.json"].read_text(encoding="utf-8"))
             if len(signals.get("executed", [])) != len(SIGNALS) or set(signals["executed"]) != SIGNALS or set(signals.get("signals", {})) != SIGNALS:
                 raise ValueError(f"Not all discovery signals were executed at {width}")

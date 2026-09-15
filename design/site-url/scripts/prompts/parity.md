@@ -155,11 +155,18 @@ Every raw instance, component-type minimum, and page composite must satisfy
 
 ## Interaction gate
 
-For every source hover/focus/active/transition role, use real pointer and keyboard
+Header navigation is visible-links-only. Compare the default rendered header and
+its visible links at each breakpoint without hovering/focusing header controls or
+opening dropdowns/submenus. Keep the pointer outside the header during captures.
+Hidden menu contents and their interaction states are excluded by the contract;
+record that scope instead of claiming they were verified.
+
+For other source hover/focus/active/transition roles, use real pointer and keyboard
 events and capture before/after computed styles, nested icon transforms, and
 screenshots. Compare color, background, border, shadow, opacity, transform, and
 decoration. Capture one full carousel transition or marquee cycle. Skip hover only
-where the source explicitly gates it off for non-hover input.
+where the source explicitly gates it off for non-hover input or the header scope
+above excludes it.
 
 ## Diagnose, do not guess
 
