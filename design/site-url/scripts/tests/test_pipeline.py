@@ -230,6 +230,16 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("Planning | Checking existing component reuse", text)
         self.assertNotIn("AEM_PROGRESS", text)
 
+    def test_progress_accepts_unknown_section_counts_from_live_planner(self):
+        event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"evidence","subject":"Startup","action":"Reading contract, discovery summary, manifest and repository inventory","current":null,"total":null}\n\nBeginning by reading the contract and evidence files to establish scope before any planning work.'}}
+        with patch("aem_agents.agents.base.emit") as output:
+            self.agent._on_event("Planner [planner]", event)
+        text = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertIn("Startup | Evidence | Reading contract, discovery summary, manifest and repository inventory", text)
+        self.assertNotIn("Section", text)
+        self.assertNotIn("null", text)
+        self.assertNotIn("Beginning by", text)
+
     def test_progress_displays_component_identity_and_step(self):
         agent = AGENT_CLASSES["component"](self.context)
         event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"dialog","subject":"Hero banner","action":"Adding authored image and title fields"}'}}
@@ -246,6 +256,89 @@ class EvidenceTests(unittest.TestCase):
             with self.subTest(verbose=verbose), patch("aem_agents.agents.base.emit") as output:
                 self.agent._on_event("Planner [planner]", event)
                 self.assertEqual(output.called, verbose)
+
+    def test_progress_displays_actual_tool_activity_without_milestones(self):
+        for role in ("planner", "component"):
+            agent = AGENT_CLASSES[role](self.context)
+            self.context.logger.isEnabledFor.return_value = False
+            start = {"type": "tool.execution_start", "data": {
+                "toolCallId": "readiness-check", "toolName": "powershell",
+                "arguments": {"description": "Verify all fonts ready at each breakpoint", "command": "sensitive command text"},
+            }}
+            end = {"type": "tool.execution_complete", "data": {"toolCallId": "readiness-check", "success": True, "result": "sensitive result text"}}
+            with self.subTest(role=role), patch("aem_agents.agents.base.emit") as output:
+                agent._on_event(f"Worker [{role}]", start)
+                agent._on_event(f"Worker [{role}]", end)
+                text = "\n".join(call.args[0] for call in output.call_args_list)
+                self.assertIn("activity: Started | Verify all fonts ready at each breakpoint", text)
+                self.assertIn("activity: Finished | Verify all fonts ready at each breakpoint", text)
+                self.assertNotIn("sensitive", text)
+                self.assertNotIn("PASS", text)
+            self.context.state.record_agent_result.assert_not_called()
+            self.context.state.update.assert_not_called()
+
+    def test_progress_heartbeat_identifies_active_tool_and_model_wait(self):
+        with patch("aem_agents.agents.base.time.monotonic", return_value=100):
+            agent = PlannerAgent(self.context)
+        start = {"type": "tool.execution_start", "data": {"toolCallId": "fonts", "toolName": "powershell", "arguments": {"description": "Checking fonts at 375px"}}}
+        with patch("aem_agents.agents.base.emit") as output:
+            with patch("aem_agents.agents.base.time.monotonic", return_value=110):
+                agent._on_event("planner", start)
+            with patch("aem_agents.agents.base.time.monotonic", return_value=150):
+                agent._on_event("planner", {"type": "tool.execution_partial_result", "data": {"toolCallId": "fonts", "partialOutput": "private tool output"}})
+                agent._on_event("planner", {"type": "aem.heartbeat"})
+                self.assertEqual(output.call_count, 1)
+            with patch("aem_agents.agents.base.time.monotonic", return_value=155):
+                agent._on_event("planner", {"type": "aem.heartbeat"})
+                self.assertIn("Tool active for 45s | Checking fonts at 375px", output.call_args.args[0])
+            with patch("aem_agents.agents.base.time.monotonic", return_value=170):
+                agent._on_event("planner", {"type": "tool.execution_complete", "data": {"toolCallId": "fonts", "success": True}})
+            with patch("aem_agents.agents.base.time.monotonic", return_value=171):
+                agent._on_event("planner", {"type": "model.call_start", "data": {"turnId": "next"}})
+            with patch("aem_agents.agents.base.time.monotonic", return_value=215):
+                agent._on_event("planner", {"type": "aem.heartbeat"})
+                self.assertIn("Waiting for model response for 44s | 1 tool calls completed", output.call_args.args[0])
+        text = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertNotIn("No milestone reported yet", text)
+        self.assertNotIn("private tool output", text)
+
+    def test_progress_runtime_events_keep_workers_and_concurrent_tools_separate(self):
+        first = AGENT_CLASSES["component"](self.context)
+        second = AGENT_CLASSES["component"](self.context)
+        events = [{"type": "tool.execution_start", "data": {"toolCallId": identity, "toolName": "view", "arguments": {"path": f"core/models/{identity}.java"}}} for identity in ("hero", "card")]
+        with patch("aem_agents.agents.base.emit") as output:
+            first._on_event("Component [component-hero-attempt-1]", events[0])
+            first._on_event("Component [component-hero-attempt-1]", events[0])
+            first._on_event("Component [component-hero-attempt-1]", events[1])
+            second._on_event("Component [component-card-attempt-1]", events[0])
+            end = {"type": "tool.execution_complete", "data": {"toolCallId": "hero", "success": False}}
+            first._on_event("Component [component-hero-attempt-1]", end)
+            first._on_event("Component [component-hero-attempt-1]", end)
+            self.assertEqual(output.call_count, 4)
+            self.assertIn("Failed | Reading file: models/hero.java", output.call_args.args[0])
+            self.assertEqual(list(first._active_tools), ["card"])
+            self.assertEqual(list(second._active_tools), ["hero"])
+            self.assertEqual(first._completed_tools, 1)
+            self.assertEqual(second._completed_tools, 0)
+        first._reset_progress()
+        self.assertEqual(first._active_tools, {})
+        self.assertEqual(first._completed_tools, 0)
+
+    def test_progress_runtime_fallbacks_never_display_raw_payloads(self):
+        starts = [
+            {"toolCallId": "one", "toolName": "powershell", "arguments": {"command": "SECRET"}},
+            {"toolCallId": "two", "toolName": "view", "arguments": {"path": "https://user:SECRET@example.invalid/file"}},
+            {"toolCallId": "three", "toolName": "view", "arguments": {"description": "SECRET\u001b[2J", "path": "bad\npath"}},
+            {"toolCallId": "four", "toolName": [], "arguments": "SECRET"},
+        ]
+        with patch("aem_agents.agents.base.emit") as output:
+            for data in starts:
+                self.agent._on_event("planner", {"type": "tool.execution_start", "data": data})
+                self.agent._on_event("planner", {"type": "tool.execution_complete", "data": {"toolCallId": data["toolCallId"], "result": "SECRET"}})
+            text = "\n".join(call.args[0] for call in output.call_args_list)
+            self.assertNotIn("SECRET", text)
+            self.assertIn("Ended (outcome unknown)", text)
+            self.assertNotIn("Finished", text)
 
     def test_progress_ignores_malformed_messages_without_changing_state(self):
         content = [
@@ -844,6 +937,22 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual([call.args[0]["type"] for call in on_event.call_args_list], ["aem.heartbeat", "aem.heartbeat", "assistant.message", "aem.heartbeat"])
         self.assertEqual((self.workspace / "stream.jsonl").read_text(encoding="utf-8"), json.dumps(event) + "\n")
+
+    def test_progress_stream_is_readable_before_event_callback(self):
+        event = {"type": "tool.execution_start", "data": {"toolCallId": "one", "toolName": "view", "arguments": {"path": "summary.json"}}}
+        incoming = MagicMock()
+        incoming.get.side_effect = [json.dumps(event), None]
+        process = MagicMock()
+        process.wait.return_value = 0
+        stream = self.workspace / "stream.jsonl"
+
+        def on_event(received):
+            if received["type"] == event["type"]:
+                self.assertEqual(stream.read_text(encoding="utf-8"), json.dumps(event) + "\n")
+
+        with patch("aem_agents.runner.queue.Queue", return_value=incoming), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", return_value=0):
+            result = self.backend._pump(process, stream, self.workspace / "stderr.log", None, on_event)
+        self.assertTrue(result.ok)
 
     def test_interrupted_or_failed_pump_always_stops_process(self):
         for error in (KeyboardInterrupt(), RuntimeError("callback failed")):

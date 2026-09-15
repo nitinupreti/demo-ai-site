@@ -203,6 +203,11 @@ class Agent:
         self._progress_updated = self._progress_started
         self._progress_notified = self._progress_started
         self._progress_activity = ""
+        self._active_tools: dict[str, tuple[str, float]] = {}
+        self._completed_tools = 0
+        self._runtime_activity = ""
+        self._runtime_updated = self._progress_started
+        self._model_started: float | None = None
 
     # -- overridable -------------------------------------------------------
 
@@ -370,6 +375,61 @@ class Agent:
         emit(text, "cyan")
         self.context.logger.info("%s", text.strip())
 
+    @staticmethod
+    def _tool_description(data: Mapping[str, Any]) -> str:
+        arguments = data.get("arguments")
+        arguments = arguments if isinstance(arguments, Mapping) else {}
+        description = arguments.get("description")
+        if isinstance(description, str) and description.strip() and description.isprintable():
+            return " ".join(description.split())[:180]
+        name = data.get("toolName")
+        action = {
+            "view": "Reading file", "read_file": "Reading file", "create": "Writing file",
+            "edit": "Editing file", "apply_patch": "Editing files", "grep": "Searching files",
+            "glob": "Finding files", "powershell": "Running command", "shell": "Running command",
+        }.get(name if isinstance(name, str) else "", "Executing tool")
+        if name in ("view", "read_file", "create", "edit", "grep", "glob"):
+            target = arguments.get("path") or arguments.get("file_path")
+            if isinstance(target, str) and target.strip() and target.isprintable() and "://" not in target:
+                filename = "/".join(target.replace("\\", "/").rstrip("/").split("/")[-2:])
+                return f"{action}: {filename[:120]}"
+        return action
+
+    def _runtime_progress(self, label: str, event_type: str, data: Mapping[str, Any]) -> None:
+        if self.agent_id not in {"planner", "component"}:
+            return
+        now = time.monotonic()
+        if event_type == "model.call_start":
+            self._model_started = now
+            self._runtime_activity = "Waiting for model response"
+            self._runtime_updated = now
+            return
+        if event_type == "model.call_finished":
+            self._model_started = None
+            self._runtime_activity = "Model response received"
+            self._runtime_updated = now
+            return
+        tool_id = data.get("toolCallId")
+        if not isinstance(tool_id, str) or not tool_id:
+            return
+        if event_type == "tool.execution_start":
+            if tool_id in self._active_tools:
+                return
+            description = self._tool_description(data)
+            self._active_tools[tool_id] = (description, now)
+            message = f"Started | {description}"
+        else:
+            active = self._active_tools.pop(tool_id, None)
+            if active is None:
+                return
+            description, started = active
+            self._completed_tools += 1
+            outcome = "Finished" if data.get("success") is True else "Failed" if data.get("success") is False else "Ended (outcome unknown)"
+            message = f"{outcome} | {description} | {max(0, int(now - started))}s | {self._completed_tools} tool calls completed"
+        self._runtime_activity = message
+        self._runtime_updated = self._progress_notified = now
+        self._progress_line(label, f"activity: {message}", now)
+
     def _report_progress(self, label: str, content: str) -> None:
         if self.agent_id not in {"planner", "component"}:
             return
@@ -389,8 +449,8 @@ class Agent:
                 continue
             subject = " ".join(subject.split())[:120]
             action = " ".join(action.split())[:240]
-            if "current" in progress or "total" in progress:
-                current, total = progress.get("current"), progress.get("total")
+            current, total = progress.get("current"), progress.get("total")
+            if current is not None or total is not None:
                 if self.agent_id != "planner" or stage not in {"evidence", "planning", "reuse"}:
                     continue
                 if type(current) is not int or type(total) is not int or not 0 < current <= total:
@@ -410,9 +470,18 @@ class Agent:
         now = time.monotonic()
         if now - self._progress_notified < 45:
             return
-        quiet = max(0, int(now - self._progress_updated))
-        activity = f"Last reported activity: {self._progress_activity}" if self._progress_activity else "No milestone reported yet"
-        self._progress_line(label, f"Still running | {activity} | No progress update for {quiet}s", now)
+        if self._active_tools:
+            description, started = next(reversed(self._active_tools.values()))
+            activity = f"Tool active for {max(0, int(now - started))}s | {description} | {len(self._active_tools)} active, {self._completed_tools} completed"
+        elif self._model_started is not None:
+            activity = f"Waiting for model response for {max(0, int(now - self._model_started))}s | {self._completed_tools} tool calls completed"
+        elif self._runtime_activity and self._runtime_updated >= self._progress_updated:
+            activity = f"Last activity: {self._runtime_activity} | No new activity for {max(0, int(now - self._runtime_updated))}s"
+        else:
+            quiet = max(0, int(now - self._progress_updated))
+            reported = f"Last reported activity: {self._progress_activity}" if self._progress_activity else "No milestone reported yet"
+            activity = f"{reported} | No progress update for {quiet}s"
+        self._progress_line(label, f"Still running | {activity}", now)
         self._progress_notified = now
 
     def _on_event(self, label: str, event: Mapping[str, Any]) -> None:
@@ -424,6 +493,10 @@ class Agent:
 
         if event_type == "aem.heartbeat":
             self._progress_heartbeat(label)
+            return
+
+        if event_type in {"tool.execution_start", "tool.execution_complete", "model.call_start", "model.call_finished"}:
+            self._runtime_progress(label, event_type, data)
             return
 
         if event_type == events.get("error", "session.error"):

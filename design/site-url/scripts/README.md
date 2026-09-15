@@ -262,16 +262,31 @@ are not a time estimate. Component workers report only the development steps the
 component needs. The `reported:` label distinguishes agent activity from accepted
 results: milestones never change checks, completion status or the remediation budget.
 
-After 45 seconds without a new milestone, the coordinator prints `Still running`
-with the last reported activity and time since the update. If none has arrived,
-it says `No milestone reported yet`. Tool traffic does not imply progress or reset
-this timer. Repeated identical milestones are suppressed. A heartbeat confirms
-the backend is still being monitored, not that a task has completed or is healthy.
+Progress does not depend solely on the model following the milestone format.
+The coordinator also displays real `tool.execution_start` and
+`tool.execution_complete` events in normal mode:
 
-Normal output hides technical tool requests; `--verbose` shows them and enables
-debug logging. Milestones and waiting notices are written to the existing run log.
-The raw backend event stream is retained for diagnosis. No new agent or prompt
-file is involved; both existing role prompts use `AEM_PROGRESS` JSON messages.
+```text
+[planner 02:15] activity: Started | Verify all fonts ready at each breakpoint
+[planner 02:17] activity: Finished | Verify all fonts ready at each breakpoint | 2s | 12 tool calls completed
+```
+
+Only the tool description or short filename is shown, never raw command/result
+payloads. `Finished` means the tool reported success, not that the component or
+pipeline passed validation. Duplicate tool events are suppressed per invocation.
+Null section counters are treated as unknown, with no fabricated count or percentage.
+
+After 45 seconds without a displayed update, `Still running` identifies active
+tools and their duration, a pending model response, or the last observed/reported
+activity. `No milestone reported yet` appears only when none of that information
+has arrived. Partial output and reasoning events are not presented as milestones.
+A heartbeat confirms monitoring, not completion or forward progress.
+
+Technical tool-request details remain under `--verbose`. Activity and waiting
+notices are written to the existing run log; raw stream events are flushed as
+they arrive for live inspection. No new agent or prompt file is involved.
+Already-running Python processes keep their loaded logger until they exit; editing
+these files does not hot-reload an active migration.
 
 ## Runtime deadlines
 

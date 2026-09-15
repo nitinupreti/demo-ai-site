@@ -309,6 +309,7 @@ class CopilotBackend:
                 if line is None:
                     break
                 stream_file.write(line + "\n")
+                stream_file.flush()
                 if not line.strip():
                     continue
                 try:
