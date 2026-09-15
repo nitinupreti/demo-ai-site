@@ -356,4 +356,5 @@ for an external prerequisite such as an unreachable `SITE_URL`. Never emit `PASS
 with an unanswered coverage row, a missing selector, or a dropped block.
 
 Do not ask interactive questions. Do not commit, branch, reset, or revert.
-Do not modify `target/`, `dist/`, `node_modules/`, or Core Component libraries.
+Do not hand-edit `target/`, `dist/`, `node_modules/`, or Core Component libraries.
+Permitted build tools may create normal generated output under the shared policy.

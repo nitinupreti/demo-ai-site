@@ -93,8 +93,9 @@ is not completion — the visual parity gate controls completion.
   authorability results.
 - **User rejection invalidates evidence.** Recapture and remediate; do not defend a
   stale score.
-- **Never modify generated or vendor paths:** `target/`, `dist/`, `node_modules/`,
-  `.m2/`, Core Component libraries, or template `initial`/`structure` trees.
+- **Never hand-edit generated or vendor paths:** `target/`, `dist/`, `node_modules/`,
+  `.m2/` or Core Component libraries. Permitted build tools may generate normal output
+  under the shared validation policy. Never edit template `initial`/`structure` trees.
 - **Never rewrite the user's git history.** No commit, push, reset, clean, checkout,
   switch, or rebase.
 
@@ -143,7 +144,7 @@ instance_authoring_map:
 | 2 | [component](scripts/prompts/component.md) | One component per isolated checkout; explicit file ownership and dependency barriers; authored content contributions. |
 | 3 | Deterministic Python assets handler | Asset downloads and DAM uploads from declared manifests. |
 | 4 | Deterministic Python merge handler | Authored page/XF nodes and Vault filters in source order. |
-| 5 | [deployer](scripts/prompts/deployer.md) | Focused tests, scoped Maven deploy, runtime and repository sweep. |
+| 5 | Coordinator build handler, then [deployer](scripts/prompts/deployer.md) | Serialize shared frontend generation from merged source, then focused checks, scoped Maven deploy, runtime and repository sweep. |
 | 6 | [parity](scripts/prompts/parity.md) and pinned scorer | Fresh Playwright captures and qualitative diagnostics; coordinator-owned Pixelmatch acceptance and receipts. |
 | 7 | Deterministic orchestrator report handler | The completion report, persisted report result, and terminal gate status from recorded evidence. No agent invocation. |
 

@@ -232,7 +232,8 @@ class CopilotBackend:
         run.duration_seconds = time.monotonic() - started
         return run
 
-    def _stop_process(self, process: subprocess.Popen[str]) -> None:
+    @staticmethod
+    def _stop_process(process: subprocess.Popen[str]) -> None:
         if process.poll() is not None:
             return
         try:
@@ -347,6 +348,26 @@ class CopilotBackend:
             timed_out=timed_out,
             session_id=session_id,
         )
+
+
+def run_command(command: Sequence[str], directory: Path, log_path: Path, environment: Mapping[str, str]) -> int:
+    executable = shutil.which(command[0])
+    if not executable:
+        raise BackendError(f"Required build executable is unavailable: {command[0]}")
+    argv = [executable, *command[1:]]
+    if os.name == "nt" and Path(executable).suffix.lower() in _WINDOWS_SHIMS:
+        argv = ["cmd", "/d", "/c", *argv]
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("w", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            argv, cwd=directory, env={**os.environ, **environment}, stdout=log, stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL, shell=False, start_new_session=os.name != "nt",
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+        )
+        try:
+            return process.wait()
+        finally:
+            CopilotBackend._stop_process(process)
 
 
 def create_backend(settings: Settings) -> CopilotBackend:

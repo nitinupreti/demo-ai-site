@@ -214,6 +214,7 @@ Python + pinned collector: source evidence and cached repository inventory
   -> Coordinator: validate actual diffs and apply owned changes
   -> Assets: deterministic downloads and DAM upload
   -> Merge: deterministic page/XF contributions and Vault filters
+  -> Coordinator: serialized frontend build and verified clientlib application
   -> Deployer: scoped builds, deployment and runtime checks
   -> Parity agent: fresh browser captures and qualitative checks
   -> Pinned scorer: independent pixels, composites and hash receipts
@@ -443,8 +444,57 @@ files have not changed meanwhile, and applies accepted changes serially. Each wa
 sees its prerequisites' applied files. Maven output stays in the worker checkout.
 Page and XF content are applied separately through the existing contribution merge.
 
+### Shared Validation Policy
+
+Common rules live once in `validation.rules` in
+[config/migration.yaml](config/migration.yaml). The base agent appends the same
+policy and resolved output paths to each role prompt. No separate policy prompt,
+new role or per-component configuration file is needed.
+
+Each invocation gets an evidence workspace under `agents/<slug>/validation`:
+
+| Environment | Purpose |
+|---|---|
+| `MIGRATION_VALIDATION_DIR` | Explicit compiler output, coverage and check logs |
+| `REPORTS_PATH` | Cypress screenshots, videos and JUnit reports |
+| `TMP`, `TEMP`, `TMPDIR` | Temporary files for tools honoring OS temp settings |
+
+Paths are absolute, scoped per worker/attempt and checked to remain inside the
+current run's evidence directory. Use `tsc --noEmit` for type checking and the
+existing lockfile with `npm ci` for permitted dependency installation. Workers do
+not run shared clientlib generation for compile checks. Lockfiles, source files
+and deployable assets remain protected; failure to obey the policy is not fixed
+by automatically expanding ownership or deleting user changes.
+
+Native build output remains excluded, along with exact legacy module-root output
+locations: `ui.frontend/dist_validate`, `ui.frontend/build`, `ui.frontend/coverage`,
+`ui.frontend/reports` and `ui.tests/test-module/cypress/results`. These compatibility
+exclusions are not the preferred validation destination. Similarly named source
+directories remain checked, and Git ignore rules do not determine ownership.
+
+### Serialized Shared Build
+
+If frontend source changed, the coordinator runs `deploy.frontend.install` and
+`deploy.frontend.build` after component waves and content merging, before starting
+the deployer. Defaults are `npm ci` and `npm run prod` in an isolated source
+snapshot. Only configured site/dependency clientlib outputs may change; generated
+source is copied back only after success, ownership validation and checkout-conflict
+checks. No frontend module or full project build is run for a dry run.
+
+The run records input hashes, output hashes, command exit codes, logs and a protected
+receipt. Unchanged inputs and outputs reuse that successful build on deployment
+retries or resume. Source repairs or changed outputs require a new build. This is
+per-run reuse, not a cross-machine reproducible-build guarantee. Each new isolated
+build installs dependencies again, so it can require registry access.
+
+The deployer receives the prepared clientlib paths, not a command to build the
+frontend again. A failed shared build stops deployment and appears in the report;
+source or clientlib changes made during deployment invalidate acceptance. Runtime
+deployment and parity checks still run on retries even when a build is reused.
+
 Shared paths are configured in `isolation.foundation_paths`. Missing tokens are
-reported as `foundation_requests`; the coordinator schedules the planner in repair
+reported as `foundation_requests`; shared styles and policy requests use the same
+owner-directed mechanism. The coordinator schedules the planner in repair
 mode within the existing retry budget. Repairs also include transitive dependents.
 Snapshots are retained under the evidence directory for inspection, so budget disk
 space along with parallelism. On Windows, a short `--evidence-dir` helps avoid long
@@ -455,6 +505,9 @@ paths when copying deeply nested component files.
 Snapshots and path validation prevent conflicting code application; they are not
 an OS security sandbox. Copilot tools still run with the invoking user's permissions.
 Use a dedicated restricted account or container when processing untrusted inputs.
+Environment variables redirect only tools that honor them; explicit compiler flags
+must also use the validation workspace. Do not edit shared repository files while
+a migration is active: the checkout guard deliberately rejects concurrent changes.
 
 Browser capture, selector choice, semantic/authorability checks and runtime deployment
 checks remain agent-assisted. The deterministic scorer proves the comparison of the

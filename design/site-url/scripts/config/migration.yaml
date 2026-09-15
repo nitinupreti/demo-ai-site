@@ -179,9 +179,20 @@ fanout:
   priority_prefixes: [site-header, site-footer, global-, nav-]
   stop_on_first_failure: false
 
+validation:
+  rules:
+    - "Write disposable compiler output, coverage, caches and check logs into MIGRATION_VALIDATION_DIR; quote the absolute environment paths in commands. Never invent output folders in source trees or add temporary output to changed_files."
+    - "REPORTS_PATH routes Cypress screenshots, videos and JUnit XML to this invocation. TMP, TEMP and TMPDIR route cooperative tools' temporary files there. Do not change these paths or write another worker's evidence. Tool-specific output flags must also point inside this workspace."
+    - "Use the installed TypeScript compiler with --noEmit for type checking. Use focused Sass or webpack-only compile checks with output explicitly directed into the validation workspace. Never emit JavaScript or source maps beside TypeScript source."
+    - "For permitted dependency setup use npm ci with the existing lockfile. Never run npm install, rewrite or delete manifests/lockfiles, or let npx download missing packages. Report missing or inconsistent dependencies as a setup prerequisite."
+    - "Planner and component workers validate source only: do not run clientlib, npm run dev or npm run prod. The coordinator serializes the shared frontend build before deployment. Deployable clientlibs must remain tracked source, never ignored as disposable output."
+    - "Shared token, style and policy changes have one owner: the planner. Component workers return foundation_requests with paths, measured values and evidence; never edit shared source or broaden ownership to pass a check. The coordinator reruns affected components after shared repairs."
+    - "Retain command, exit code and nonempty logs under the evidence workspace. Passing a command is not permission to skip ownership, readiness, deployment or visual-parity checks. These instructions and environment settings do not provide an OS sandbox."
+
 isolation:
   foundation_paths:
     - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/**
+    - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-dependencies/**
     - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-base/**
     - ui.frontend/src/main/webpack/site/**
     - ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/policies/**
@@ -329,6 +340,13 @@ shared_files:
 # The deployer agent receives this table verbatim. Scoped deploys keep the
 # remediation loop fast; the full reactor build is opt-in.
 deploy:
+  frontend:
+    root: ui.frontend
+    install: [npm, ci]
+    build: [npm, run, prod]
+    outputs:
+      - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/**
+      - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-dependencies/**
   scoped:
     - id: ui-apps
       match: ["ui.apps/**"]
@@ -346,11 +364,6 @@ deploy:
       match: ["ui.config/**"]
       description: "OSGi configuration"
       command: 'mvn install -pl ui.config -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
-    - id: ui-frontend
-      match: ["ui.frontend/**"]
-      description: "Webpack sources; output is copied into ui.apps"
-      command: 'npm --prefix ui.frontend run prod'
-      then: ui-apps
   full:
     id: reactor
     description: "Only for a new cross-module artifact or a proven scoped-deploy mismatch"

@@ -711,15 +711,77 @@ class WorkspaceTests(unittest.TestCase):
             worker.collect()
 
     def test_build_outputs_are_not_copied_or_applied(self):
-        generated = self.root / "core/target/classes/old.class"
-        generated.parent.mkdir(parents=True)
-        generated.write_bytes(b"old")
-        worker = self.worker()
-        self.assertFalse((worker.root / "core/target").exists())
-        generated = worker.root / "core/target/classes/new.class"
-        generated.parent.mkdir(parents=True)
-        generated.write_bytes(b"new")
-        self.assertEqual(worker.collect().changed, {})
+        for output in (
+            "core/target/classes/output.class",
+            "ui.frontend/dist_validate/main.css", "ui.frontend/dist_validate/nested/main.css.map",
+            "ui.frontend/build/check.css", "ui.frontend/coverage/coverage-final.json", "ui.frontend/reports/lint.json",
+            "ui.tests/test-module/cypress/results/screenshots/example.png", "ui.tests/test-module/cypress/results/videos/example.mp4",
+        ):
+            with self.subTest(output=output):
+                generated = self.root / output
+                generated.parent.mkdir(parents=True, exist_ok=True)
+                generated.write_bytes(b"old")
+                worker = self.worker()
+                self.assertFalse((worker.root / output).exists())
+                artifact = worker.root / output
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                artifact.write_bytes(b"new")
+                (worker.root / self.scope).write_text("accepted source change", encoding="utf-8")
+                changes = worker.collect()
+                self.assertEqual(set(changes.changed), {self.scope})
+                self.assertEqual(apply_changes(self.root, [changes]), [self.scope])
+                self.assertEqual(generated.read_bytes(), b"old")
+                self.source.write_text("user's uncommitted source", encoding="utf-8")
+
+    def test_validation_output_exclusion_does_not_hide_source_edits(self):
+        paths = (
+            "ui.frontend/src/main/webpack/site/main.scss",
+            "ui.frontend/src/main/webpack/dist_validate/main.scss",
+            "core/src/main/java/dist_validate/Other.java",
+            "ui.frontend/dist_validate_extra/main.css",
+            "ui.frontend/src/main/webpack/build/main.ts",
+            "ui.frontend/src/main/webpack/coverage/index.ts",
+            "ui.frontend/src/main/webpack/reports/index.ts",
+            "ui.frontend/reports_extra/lint.json",
+            "ui.tests/test-module/cypress/fixtures/results/example.json",
+            "ui.tests/test-module/cypress/results_extra/test.json",
+            "ui.frontend/package-lock.json",
+            "ui.frontend/package.json",
+            "ui.frontend/src/main/webpack/components/example.js",
+            "ui.frontend/src/main/webpack/components/example.js.map",
+        )
+        for source in paths:
+            with self.subTest(source=source):
+                worker = self.worker()
+                generated = worker.root / "ui.frontend/dist_validate/main.css"
+                generated.parent.mkdir(parents=True)
+                generated.write_text("compiled output", encoding="utf-8")
+                unowned = worker.root / source
+                unowned.parent.mkdir(parents=True, exist_ok=True)
+                unowned.write_text("unowned edit", encoding="utf-8")
+                with self.assertRaisesRegex(WorkspaceError, "unowned"):
+                    worker.collect()
+
+    def test_dependency_clientlib_is_deployable_foundation_not_ignored_output(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        output = "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-dependencies/js/dependencies.js"
+        source = self.root / output
+        source.parent.mkdir(parents=True)
+        source.write_text("original library", encoding="utf-8")
+        scopes = settings.migration.get("isolation.foundation_paths")
+        worker = WorkerWorkspace.create(self.root, self.workers, scopes)
+        self.assertEqual((worker.root / output).read_text(encoding="utf-8"), "original library")
+        (worker.root / output).write_text("rebuilt library", encoding="utf-8")
+        changes = worker.collect()
+        self.assertEqual(set(changes.changed), {output})
+        self.assertEqual(apply_changes(self.root, [changes]), [output])
+        self.assertEqual(source.read_text(encoding="utf-8"), "rebuilt library")
+        component_worker = self.worker()
+        (component_worker.root / output).write_text("component tried to rebuild library", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "unowned"):
+            component_worker.collect()
+        with self.assertRaisesRegex(WorkspaceError, "shared or outside"):
+            validate_ownership(settings, [{"id": "hero", "owned_paths": [output]}])
 
     def test_intervening_user_edit_is_never_overwritten(self):
         worker = self.worker()

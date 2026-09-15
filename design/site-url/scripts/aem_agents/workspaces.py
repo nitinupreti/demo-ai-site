@@ -14,7 +14,11 @@ from .config import Settings
 from .envelope import EnvelopeError
 
 _GENERATED = {".git", ".venv", "venv", ".tools", "node_modules", "__pycache__", "target", "dist", "node", ".pytest_cache", ".mypy_cache", ".idea", ".vscode"}
-_EXCLUDED = ("design/scratch", ".copilot", ".claude/projects")
+_EXCLUDED = (
+    "design/scratch", ".copilot", ".claude/projects",
+    "ui.frontend/dist_validate", "ui.frontend/build", "ui.frontend/coverage", "ui.frontend/reports",
+    "ui.tests/test-module/cypress/results",
+)
 
 
 class WorkspaceError(EnvelopeError):

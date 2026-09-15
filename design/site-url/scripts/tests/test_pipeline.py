@@ -25,7 +25,7 @@ from aem_agents.agents.base import Agent, RunContext
 from aem_agents.agents.parity import ParityAgent
 from aem_agents.orchestrator import Orchestrator, PhaseOutcome, PipelineError
 from aem_agents.merge import MergeReport
-from aem_agents.runner import CopilotBackend, BackendError
+from aem_agents.runner import CopilotBackend, BackendError, run_command
 from aem_agents.agents.planner import PlannerAgent
 from aem_agents.agents.deployer import DeployerAgent
 from aem_agents.state import RunState
@@ -587,6 +587,7 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.state.set_components(self.components)
         self.engine.state.update(foundations={"attempt": 0, "changed_files": []})
         self.phases = {phase["id"]: phase for phase in settings.phases()}
+        self.engine.prepare_frontend = MagicMock(return_value=AgentResult("frontend-build", "test", "PASS", outputs={"changed_files": []}))
         self.engine.run_planner = MagicMock(return_value=PhaseOutcome("plan", "PASS", [
             AgentResult("planner", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
         ]))
@@ -653,8 +654,122 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_foundation_changes_reach_deployment(self):
         self.engine.state.update(foundations={"attempt": 0, "changed_files": ["ui.frontend/src/main/webpack/site/_variables.scss"]})
+        output = "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/css/site.css"
+        self.engine.prepare_frontend.return_value.outputs["changed_files"] = [output]
         self.assertEqual(self.run_gate(), "COMPLETE")
-        self.assertIn("ui.frontend/src/main/webpack/site/_variables.scss", self.engine.run_single.call_args_list[0].kwargs["changed_files"])
+        self.assertIn("ui.frontend/src/main/webpack/site/_variables.scss", self.engine.prepare_frontend.call_args.args[0])
+        self.assertIn(output, self.engine.run_single.call_args_list[0].kwargs["changed_files"])
+        self.assertNotIn("ui.frontend/src/main/webpack/site/_variables.scss", self.engine.run_single.call_args_list[0].kwargs["changed_files"])
+
+    def test_shared_frontend_failure_never_deploys_or_scores(self):
+        self.engine.prepare_frontend.return_value = AgentResult("frontend-build", "test", "FAIL", failures=["Build failed"])
+        self.assertEqual(self.run_gate(), "FAIL")
+        self.engine.run_single.assert_not_called()
+        self.engine.prepare_frontend.assert_called_once()
+
+    def test_shared_frontend_is_after_merge_and_before_deployment(self):
+        events = []
+        self.engine.run_merge.side_effect = lambda *args, **kwargs: events.append("merge") or PhaseOutcome("merge", "PASS")
+        self.engine.prepare_frontend.side_effect = lambda *args, **kwargs: events.append("frontend") or AgentResult("frontend-build", "test", "PASS")
+        self.engine.run_single.side_effect = lambda phase, **kwargs: events.append(phase["id"]) or PhaseOutcome(phase["id"], "PASS", [
+            AgentResult(phase["agent"], "test", "PASS", outputs={"target_url": "http://test.invalid", "failing_components": []}),
+        ])
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual(events, ["merge", "frontend", "deploy", "parity"])
+
+    def prepare_frontend_fixture(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        self.frontend_source = "ui.frontend/src/main/webpack/site/main.scss"
+        self.frontend_output = "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/css/site.css"
+        source = self.engine.settings.repo_root / self.frontend_source
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("source style", encoding="utf-8")
+
+    def build_frontend_fixture(self, command, directory, log, environment):
+        log.write_text("Build log", encoding="utf-8")
+        self.assertTrue(directory.is_relative_to(self.engine.evidence_dir))
+        self.assertTrue(Path(environment["TMPDIR"]).is_dir())
+        if command[-1] == "prod":
+            output = directory.parent / self.frontend_output
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text((directory.parent / self.frontend_source).read_text(encoding="utf-8"), encoding="utf-8")
+        return 0
+
+    def test_shared_frontend_build_is_reused_until_inputs_or_outputs_change(self):
+        self.prepare_frontend_fixture()
+        with patch("aem_agents.orchestrator.run_command", side_effect=self.build_frontend_fixture) as command:
+            for attempt in (1, 2):
+                result = Orchestrator.prepare_frontend(self.engine, [self.frontend_source], attempt)
+                self.assertTrue(result.passed)
+                self.assertIn(self.frontend_output, result.output("changed_files"))
+            self.assertEqual(command.call_count, 2)
+            (self.engine.settings.repo_root / self.frontend_source).write_text("repaired source", encoding="utf-8")
+            self.assertTrue(Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 3).passed)
+            self.assertEqual(command.call_count, 4)
+            (self.engine.settings.repo_root / self.frontend_output).write_text("other output", encoding="utf-8")
+            self.assertTrue(Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 4).passed)
+            self.assertEqual(command.call_count, 6)
+        self.assertEqual((self.engine.settings.repo_root / self.frontend_output).read_text(encoding="utf-8"), "repaired source")
+
+    def test_shared_frontend_rejects_build_failure_and_unowned_mutations(self):
+        self.prepare_frontend_fixture()
+        def execute(command, directory, log, environment):
+            self.build_frontend_fixture(command, directory, log, environment)
+            (directory / "package-lock.json").write_text("unowned lockfile rewrite", encoding="utf-8")
+            return 0
+        for effect in (lambda *args: 1, execute):
+            with self.subTest(effect=effect), patch("aem_agents.orchestrator.run_command", side_effect=effect):
+                result = Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 1)
+                self.assertFalse(result.passed)
+                self.assertFalse((self.engine.settings.repo_root / self.frontend_output).exists())
+                self.assertFalse((self.engine.settings.repo_root / "ui.frontend/package-lock.json").exists())
+
+    def test_shared_frontend_skips_unneeded_and_dry_run_work(self):
+        with patch("aem_agents.orchestrator.run_command") as command:
+            self.assertTrue(Orchestrator.prepare_frontend(self.engine, ["core/Model.java"], 1).passed)
+            self.engine.dry_run = True
+            self.assertTrue(Orchestrator.prepare_frontend(self.engine, ["ui.frontend/site.scss"], 1).passed)
+            command.assert_not_called()
+
+    def test_shared_frontend_receipt_is_protected(self):
+        self.prepare_frontend_fixture()
+        with patch("aem_agents.orchestrator.run_command", side_effect=self.build_frontend_fixture):
+            Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 1)
+        receipt = Path(self.engine.state.get("frontend_build")["receipt"])
+        receipt.write_text("tampered", encoding="utf-8")
+        with self.assertRaisesRegex(PipelineError, "receipt changed"), patch("aem_agents.orchestrator.run_command") as command:
+            Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 2)
+        command.assert_not_called()
+
+    def test_shared_frontend_rejects_intervening_source_edits(self):
+        self.prepare_frontend_fixture()
+        source = self.engine.settings.repo_root / self.frontend_source
+        def execute(command, directory, log, environment):
+            status = self.build_frontend_fixture(command, directory, log, environment)
+            source.write_text("user edit during build", encoding="utf-8")
+            return status
+        with patch("aem_agents.orchestrator.run_command", side_effect=execute):
+            result = Orchestrator.prepare_frontend(self.engine, [self.frontend_source], 1)
+        self.assertFalse(result.passed)
+        self.assertIn("Shared source changed", result.failures[0])
+        self.assertEqual(source.read_text(encoding="utf-8"), "user edit during build")
+        self.assertFalse((self.engine.settings.repo_root / self.frontend_output).exists())
+
+    def test_component_shared_requests_are_repaired_before_rebuild(self):
+        self.engine.max_attempts = 2
+        request = {"path": "ui.frontend/src/main/webpack/site/_variables.scss", "name": "--site-spacing", "value": "24px", "evidence": "measurement.json"}
+        self.engine.run_fanout.side_effect = [
+            PhaseOutcome("implement", "FAIL", [AgentResult("component", "test", "FAIL", outputs={"component_id": "hero", "foundation_requests": [request]})]),
+            PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})]),
+        ]
+        self.engine.run_planner.return_value.results[0].outputs["changed_files"] = [request["path"]]
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_planner.assert_called_once()
+        self.assertTrue(self.engine.run_planner.call_args.kwargs["repair"])
+        self.assertEqual(self.engine.run_planner.call_args.kwargs["feedback"]["hero"]["requests"], [request])
+        self.assertEqual(self.engine.run_fanout.call_count, 2)
+        self.engine.prepare_frontend.assert_called_once()
 
     def test_shared_repairs_use_planner_and_keep_prior_changes(self):
         self.engine.max_attempts = 2
@@ -901,6 +1016,25 @@ class RunnerTests(unittest.TestCase):
         with patch.object(CopilotBackend, "_resolve_executable", return_value="test"), patch.object(CopilotBackend, "_probe_version", return_value="test"):
             self.backend = CopilotBackend(settings)
 
+    def test_shared_build_command_logs_and_cleans_up_on_cancellation(self):
+        process = MagicMock()
+        process.wait.side_effect = KeyboardInterrupt()
+        log = self.workspace / "build.log"
+        with patch("aem_agents.runner.shutil.which", return_value="npm.cmd"), patch("aem_agents.runner.subprocess.Popen", return_value=process) as start, patch.object(CopilotBackend, "_stop_process") as stop:
+            with self.assertRaises(KeyboardInterrupt):
+                run_command(["npm", "run", "prod"], self.workspace, log, {"TMPDIR": str(self.workspace / "temp")})
+        stop.assert_called_once_with(process)
+        self.assertFalse(start.call_args.kwargs["shell"])
+        self.assertEqual(start.call_args.kwargs["env"]["TMPDIR"], str(self.workspace / "temp"))
+        self.assertTrue(start.call_args.kwargs["stdout"].closed)
+
+    def test_shared_build_command_preserves_nonzero_exit_code(self):
+        process = MagicMock()
+        process.wait.return_value = 7
+        with patch("aem_agents.runner.shutil.which", return_value="npm"), patch("aem_agents.runner.subprocess.Popen", return_value=process), patch.object(CopilotBackend, "_stop_process"):
+            self.assertEqual(run_command(["npm", "ci"], self.workspace, self.workspace / "install.log", {}), 7)
+        process.wait.assert_called_once_with()
+
     def test_disabled_timeout_does_not_stop_agent_after_elapsed_time(self):
         for timeout in (None, 0):
             incoming = MagicMock()
@@ -994,6 +1128,77 @@ class ConfigurationTests(unittest.TestCase):
         self.settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
         self.state = RunState.create(self.evidence / "state.json", run_id="test", contract={}, inputs={}, phases=[], orchestrator={})
         self.context = RunContext(self.settings, load_contract(self.settings), MagicMock(), self.state, "test", self.evidence, MagicMock())
+
+    def test_shared_validation_policy_is_rendered_once_for_every_role(self):
+        rule = "Shared validation policy fixture: keep outputs separate from source."
+        settings = Settings(self.settings.repo_root, self.settings.migration.merged({"validation": {"rules": [rule]}}), self.settings._agents_config)
+        self.context.settings = settings
+        for role in AGENT_CLASSES:
+            agent = AGENT_CLASSES[role](self.context)
+            component = {"id": "hero", "source_order": 0}
+            with self.subTest(role=role):
+                prompt = agent.render_prompt(agent.slug(component=component), component=component)
+                self.assertEqual(prompt.count("## Shared Validation Policy"), 1)
+                self.assertEqual(prompt.count(rule), 1)
+                self.assertIn(str((agent.workspace(agent.slug(component=component)) / "validation").resolve()), prompt)
+
+    def test_validation_outputs_are_isolated_per_agent_and_attempt(self):
+        component = {"id": "hero", "source_order": 0}
+        cases = [
+            ("planner", {}), ("planner", {"repair": True, "attempt": 2}),
+            ("component", {"component": component, "attempt": 1}),
+            ("component", {"component": component, "attempt": 2}),
+            ("component", {"component": {"id": "card", "source_order": 1}, "attempt": 1}),
+            ("deployer", {"attempt": 1}), ("parity", {"attempt": 1}),
+        ]
+        directories = set()
+        for role, kwargs in cases:
+            agent = AGENT_CLASSES[role](self.context)
+            self.context.backend.run.reset_mock()
+            self.context.backend.run.return_value = SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=0)
+            result = AgentResult(role, "test", "PASS")
+            with self.subTest(role=role, kwargs=kwargs), patch("aem_agents.agents.base.read_result", return_value=result), patch.object(agent, "validate_result"), patch("aem_agents.agents.base.emit"):
+                Agent.run(agent, **kwargs)
+            environment = self.context.backend.run.call_args.kwargs["env_extra"]
+            validation = Path(environment["MIGRATION_VALIDATION_DIR"])
+            reports = Path(environment["REPORTS_PATH"])
+            self.assertEqual(validation, (agent.workspace(agent.slug(**kwargs)) / "validation").resolve())
+            self.assertTrue(validation.is_absolute())
+            self.assertTrue(validation.is_relative_to(self.evidence.resolve()))
+            self.assertTrue(reports.is_dir())
+            self.assertEqual(reports, validation / "reports")
+            for variable in ("TMP", "TEMP", "TMPDIR"):
+                self.assertEqual(Path(environment[variable]), validation / "tmp")
+                self.assertTrue(Path(environment[variable]).is_dir())
+            self.assertEqual(environment["MIGRATION_BROWSER_MODULE"], agent.env_extra()["MIGRATION_BROWSER_MODULE"])
+            self.assertNotIn(validation, directories)
+            directories.add(validation)
+
+    def test_validation_workspace_rejects_escape_and_dry_render_writes_nothing(self):
+        agent = PlannerAgent(self.context)
+        environment = agent.validation_environment("planner")
+        self.assertFalse(Path(environment["MIGRATION_VALIDATION_DIR"]).exists())
+        with self.assertRaises(ConfigError):
+            agent.validation_environment("../../../outside", prepare=True)
+        self.assertFalse((self.evidence.parent / "outside/validation").exists())
+
+    def test_shared_validation_policy_rejects_malformed_rules(self):
+        for rules in ("do checks", [None], [""]):
+            self.context.settings = Settings(self.settings.repo_root, self.settings.migration.merged({"validation": {"rules": rules}}), self.settings._agents_config)
+            with self.subTest(rules=rules), self.assertRaises(ConfigError):
+                PlannerAgent(self.context).render_prompt("planner")
+
+    def test_worker_prompts_keep_validation_from_changing_dependency_sources(self):
+        for role in ("planner", "component", "deployer"):
+            agent = AGENT_CLASSES[role](self.context)
+            prompt = agent.render_prompt(agent.slug(component={"id": "hero"}), component={"id": "hero"})
+            with self.subTest(role=role):
+                self.assertIn("MIGRATION_VALIDATION_DIR", prompt)
+                self.assertIn("REPORTS_PATH", prompt)
+                self.assertIn("--noEmit", prompt)
+                self.assertIn("npm ci", prompt)
+                self.assertIn("lockfile", prompt)
+                self.assertIn("clientlib", prompt)
 
     def test_all_agent_timeouts_are_disabled_by_default(self):
         for role in AGENT_CLASSES:
@@ -1142,8 +1347,20 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_frontend_command_uses_an_existing_script(self):
         package = json.loads((SCRIPTS.parents[2] / "ui.frontend" / "package.json").read_text(encoding="utf-8"))
-        command = next(row["command"] for row in self.settings.migration.get("deploy.scoped") if row["id"] == "ui-frontend")
-        self.assertIn(command.split()[-1], package["scripts"])
+        command = self.settings.migration.get("deploy.frontend.build")
+        self.assertIn(command[-1], package["scripts"])
+        self.assertEqual(self.settings.migration.get("deploy.frontend.install"), ["npm", "ci"])
+        self.assertFalse(any(row["id"] == "ui-frontend" for row in self.settings.migration.get("deploy.scoped")))
+
+    def test_deployer_rejects_source_changes_after_shared_frontend_build(self):
+        self.context.settings = Settings(self.evidence, self.settings.migration, self.settings._agents_config)
+        self.context.state.update(frontend_build={"status": "PASS", "inputs": {}, "outputs": {}})
+        changed = self.evidence / "ui.frontend/main.scss"
+        changed.parent.mkdir()
+        changed.write_text("modified during deployment", encoding="utf-8")
+        current = {"ui.frontend/main.scss": digest(changed)}
+        with patch("aem_agents.agents.deployer.source_manifest", return_value=current), self.assertRaisesRegex(EnvelopeError, "changed after the serialized build"):
+            DeployerAgent(self.context).validate_result(AgentResult("deployer", "test", "PASS"))
 
     def test_configured_check_names_match_rendered_prompts(self):
         component = {"id": "hero", "source_order": 0}
@@ -1272,6 +1489,17 @@ class EndToEndTests(unittest.TestCase):
                     return SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=.01)
 
             backend = FixtureBackend()
+            def frontend_command(command, directory, log, environment):
+                log.write_text("Offline frontend build", encoding="utf-8")
+                if command[-1] == "prod":
+                    output = directory.parent / "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/css/site.css"
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_text(":root { --site-color-text: #111; }", encoding="utf-8")
+                return 0
+
+            build_patch = patch("aem_agents.orchestrator.run_command", side_effect=frontend_command)
+            build_mock = build_patch.start()
+            self.addCleanup(build_patch.stop)
             engine = Orchestrator(settings, contract, run_id="integration", skip_probe=True, evidence_dir=evidence, logger=MagicMock())
             fixture_manifest = evidence / "collector.json"
             fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
@@ -1286,6 +1514,7 @@ class EndToEndTests(unittest.TestCase):
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")
                 collect.assert_called_once()
+                self.assertEqual(build_mock.call_count, 2)
             self.assertEqual(calls, ["deployer", "parity"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
             accepted = next(row["plan"] for row in engine.state.component_rows() if row["id"] == "hero")

@@ -82,8 +82,9 @@ If a required token is missing, return `FAIL` with `outputs.foundation_requests`
 listing its name, measured source value and evidence. Never edit shared files.
 Declare page and XF content through the contribution file below.
 
-Never touch `target/`, `dist/`, `node_modules/`, `.m2/`, Core Component libraries, or
-template `initial`/`structure` trees.
+Never hand-edit `target/`, `dist/`, `node_modules/`, `.m2/`, or Core Component libraries.
+Permitted build tools may create normal generated output under the shared policy.
+Never edit template `initial`/`structure` trees.
 
 ## MUST — Never edit a shared file
 

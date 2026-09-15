@@ -27,13 +27,13 @@ from .envelope import AgentResult, EnvelopeError, affected_components, dependenc
 from .assets import AssetError, fetch_assets
 from .merge import MergeError, latest_contribution_path, merge_contributions
 from .render import markdown_table, to_text
-from .runner import BackendError, create_backend
+from .runner import BackendError, create_backend, run_command
 from .scoring import PixelScorer
 from .state import RunState
 from .toolchain import check_maven, check_node, resolve_java_home
 from .agents import AGENT_CLASSES, RunContext
 from .agents.base import dump_json
-from .workspaces import ChangeSet, WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, digest, foundation_scopes, source_manifest, validate_ownership
+from .workspaces import ChangeSet, WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, digest, foundation_scopes, normalize_scope, owns, relative_path, source_manifest, validate_ownership
 
 
 class PipelineError(RuntimeError):
@@ -175,6 +175,8 @@ class Orchestrator:
         for slug, result in self.state.get("agent_results", {}).items():
             if slug in active and result.get("status") in {"PASS", "COMPLETE"}:
                 artifacts.update(evidence_paths(result, self.settings, self.evidence_dir))
+        if self.state.get("frontend_build", {}).get("status") == "PASS":
+            artifacts.update(evidence_paths(self.state.get("frontend_build"), self.settings, self.evidence_dir))
         plan = self.evidence_dir / str(self.settings.migration.get("run.plan_file", "component-plan.json"))
         if plan.is_file():
             artifacts.add(plan.resolve())
@@ -418,6 +420,69 @@ class Orchestrator:
         self.state.record_agent_result(slug, {**saved, **result.to_dict()})
         self.state.set_phase(phase_id, result.status, error="; ".join(result.failures) if result.failures else None)
         return PhaseOutcome(phase_id, result.status, [result])
+
+    def prepare_frontend(self, changed_files: Iterable[str], attempt: int) -> AgentResult:
+        config = self.settings.migration.get("deploy.frontend", {})
+        module = relative_path(config.get("root", "ui.frontend"))
+        needed = any(owns(path, module + "/**") for path in changed_files)
+        if not needed or self.dry_run:
+            return AgentResult("frontend-build", self.run_id, "PASS", outputs={"changed_files": [], "skipped": True})
+        outputs = config.get("outputs", [])
+        if not isinstance(outputs, list) or not outputs:
+            raise ConfigError("deploy.frontend.outputs must declare generated clientlib ownership.")
+        scopes = [normalize_scope(path) for path in outputs]
+        clientlibs = f"ui.apps/src/main/content/jcr_root/apps/{self.settings.migration.require('project.name')}/clientlibs/"
+        if any(not scope.startswith(clientlibs) for scope in scopes):
+            raise ConfigError("Frontend output ownership must be restricted to deployable clientlibs.")
+        commands = [config.get(name) for name in ("install", "build")]
+        if any(not isinstance(command, list) or not command or any(not isinstance(arg, str) or not arg for arg in command) for command in commands):
+            raise ConfigError("Frontend install/build must be nonempty argv lists.")
+        baseline = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir])
+        inputs = {path: value for path, value in baseline.items() if owns(path, module + "/**")}
+        output_hashes = {path: value for path, value in baseline.items() if any(owns(path, scope) for scope in scopes)}
+        saved = self.state.get("frontend_build", {})
+        if saved.get("status") == "PASS" and saved.get("run_id") == self.run_id and saved.get("inputs") == inputs and saved.get("outputs") == output_hashes and saved.get("commands") == commands:
+            receipt = self.context.evidence_file(saved.get("receipt"))
+            if digest(receipt) != saved.get("receipt_sha256"):
+                raise PipelineError("The shared frontend build receipt changed; cannot reuse it.")
+            emit("  shared frontend: reusing unchanged generated clientlibs", "dim")
+            return AgentResult("frontend-build", self.run_id, "PASS", outputs={"changed_files": saved["changed_files"]})
+
+        agent = self._agent({"agent": "deployer"})
+        slug = f"frontend-build-attempt-{attempt}"
+        environment = {**agent.env_extra(), **agent.validation_environment(slug, prepare=True)}
+        workspace = WorkerWorkspace.create(self.settings.repo_root, self.evidence_dir / "workspaces" / slug, scopes, evidence_dir=self.evidence_dir)
+        logs = []
+        self.state.update(frontend_build={"status": "RUNNING", "changed_files": saved.get("changed_files", [])})
+        emit(f"\n[deploy] building shared frontend from merged source (attempt {attempt})", "cyan")
+        try:
+            for name, command in zip(("install", "build"), commands):
+                log = Path(environment["MIGRATION_VALIDATION_DIR"]) / f"{name}.log"
+                emit(f"  frontend {name}: {' '.join(command)}; log: {log}", "dim")
+                exit_code = run_command(command, workspace.root / module, log, environment)
+                logs.append({"command": command, "exit_code": exit_code, "log": str(log)})
+                if exit_code:
+                    raise PipelineError(f"Shared frontend {name} failed with exit code {exit_code}. See {log}")
+            changes = workspace.collect()
+            current = source_manifest(workspace.root)
+            generated = {path: value for path, value in current.items() if any(owns(path, scope) for scope in scopes)}
+            if not generated:
+                raise PipelineError("Frontend build produced no deployable clientlibs.")
+            if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
+                raise WorkspaceError("Shared source changed during the frontend build; no generated files were applied.")
+            applied = apply_changes(self.settings.repo_root, [changes])
+        except (PipelineError, EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
+            self.state.update(frontend_build={"status": "FAIL", "failures": [str(error)], "logs": logs, "changed_files": saved.get("changed_files", [])})
+            emit(f"  !! shared frontend: {error}", "red")
+            return AgentResult("frontend-build", self.run_id, "FAIL", failures=[str(error)])
+        changed = sorted(set(applied) | set(generated) | set(saved.get("changed_files", [])))
+        receipt = agent.workspace(slug) / "build-result.json"
+        record = {"status": "PASS", "run_id": self.run_id, "inputs": inputs, "outputs": generated,
+                  "commands": commands, "logs": logs, "changed_files": changed, "receipt": str(receipt)}
+        dump_json(receipt, record)
+        self.state.update(frontend_build={**record, "receipt_sha256": digest(receipt)})
+        self._save_checkpoint()
+        return AgentResult("frontend-build", self.run_id, "PASS", outputs={"changed_files": changed})
 
     def _persist_worker(self, result: AgentResult, component: Mapping[str, Any], attempt: int) -> None:
         slug = f"component-{component['id']}-attempt-{attempt}"
@@ -733,7 +798,15 @@ class Orchestrator:
                     changed_files.update(result.output("changed_files", []))
 
             if self._wants(deploy["id"]):
-                outcome = self.run_single(deploy, changed_files=sorted(changed_files), attempt=attempt)
+                frontend = self.prepare_frontend(changed_files, attempt)
+                if not frontend.passed:
+                    self.state.set_phase(deploy["id"], "FAIL", error="; ".join(frontend.failures))
+                    self._record_attempt(attempt, pending, "FRONTEND_BUILD_FAILED")
+                    return "FAIL"
+                changed_files.update(frontend.output("changed_files", []))
+                module = str(self.settings.migration.get("deploy.frontend.root", "ui.frontend"))
+                deploy_files = [path for path in sorted(changed_files) if not owns(path, module + "/**")]
+                outcome = self.run_single(deploy, changed_files=deploy_files, attempt=attempt)
                 if outcome.status == "BLOCKED":
                     return "BLOCKED"
                 if not outcome.passed:
@@ -968,6 +1041,10 @@ class Orchestrator:
             failures.append({"invocation": "orchestrator", "failure": self.state.get("error")})
         if receipt_error:
             failures.append({"invocation": parity_slug, "failure": receipt_error})
+        frontend = state.get("frontend_build", {})
+        failures.extend({"invocation": "frontend-build", "failure": failure} for failure in frontend.get("failures", []))
+        table("Shared Frontend Build", [frontend] if frontend else [],
+              [("Status", "status"), ("Receipt", "receipt"), ("Commands and logs", "logs"), ("Deployable changes", "changed_files")])
         table("Coverage, Geometry, Authorability and Asset Evidence", artifacts, [("Invocation", "invocation"), ("Kind", "kind"), ("Recorded evidence", "evidence")])
         asset_phase = next((entry for entry in state["phases"] if entry["id"] == "assets"), {})
         table("Asset Transfers", [{"kind": name, "records": asset_phase[name]} for name in ("uploaded", "skipped", "failed") if name in asset_phase], [("Outcome", "kind"), ("Records", "records")])

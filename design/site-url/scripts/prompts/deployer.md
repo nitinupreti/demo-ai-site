@@ -31,6 +31,20 @@ or prefix commands with `$env:JAVA_HOME=...`.
 {{changed_files_json}}
 ```
 
+## Prepared Shared Frontend
+
+```json
+{{frontend_build_json}}
+```
+
+When frontend source changed, the coordinator has already run the configured
+frontend install/build in isolation, applied the verified clientlibs and included
+them in your changed-file list. Read its receipt/logs for evidence. Do not rerun
+the frontend build, invoke the clientlib generator or modify those inputs/outputs;
+deploy the prepared `ui.apps` package after normal compile and HTL checks. A failed
+frontend build prevents this agent from starting. Report frontend defects to the
+coordinator instead of repairing or rebuilding them during deployment.
+
 ## MUST — Pre-deploy hygiene (once, before any build)
 
 {{deploy_hygiene}}

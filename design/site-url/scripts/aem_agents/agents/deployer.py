@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
-from ..envelope import AgentResult
+from ..envelope import AgentResult, EnvelopeError
 from ..render import bullet_list, markdown_table
+from ..workspaces import owns, source_manifest
 from .base import Agent
 
 
@@ -18,6 +19,14 @@ class DeployerAgent(Agent):
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
         super().validate_result(result, **kwargs)
         if result.passed and not self.context.dry_run:
+            frontend = self.context.state.get("frontend_build", {})
+            if frontend.get("status") == "PASS":
+                current = source_manifest(self.context.repo_root, excluded=[self.context.evidence_dir])
+                module = str(self.context.settings.migration.get("deploy.frontend.root", "ui.frontend"))
+                inputs = {path: value for path, value in current.items() if owns(path, module + "/**")}
+                outputs = {path: value for path, value in current.items() if any(owns(path, scope) for scope in self.context.settings.migration.get("deploy.frontend.outputs", []))}
+                if inputs != frontend.get("inputs") or outputs != frontend.get("outputs"):
+                    raise EnvelopeError("Frontend source or generated clientlibs changed after the serialized build; deployment cannot be accepted.")
             self.context.record_target_url(result.output("target_url"))
             result.outputs["target_url"] = self.context.disabled_url
             result.outputs["author_url"] = self.context.author_url
@@ -38,6 +47,7 @@ class DeployerAgent(Agent):
                 "changed_files_json": json.dumps(sorted(set(changed_files or [])), indent=2),
                 "deploy_table": self.deploy_table(),
                 "deploy_hygiene": self.deploy_hygiene(),
+                "frontend_build_json": json.dumps(self.context.state.get("frontend_build", {}), indent=2),
                 "deploy_rules": bullet_list(
                     list(self.context.settings.migration.get("deploy.rules", []))
                 ),

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import unquote, urlparse
 
-from ..config import AgentSpec, Settings
+from ..config import AgentSpec, ConfigError, Settings
 from ..browser import BrowserToolchain, browser_paths
 from ..console import emit
 from ..contract import RunContract
@@ -252,6 +252,27 @@ class Agent:
             self.context.settings.migration.get("run.result_file", "result.json")
         )
 
+    def validation_environment(self, slug: str, *, prepare: bool = False) -> dict[str, str]:
+        root = (self.workspace(slug) / "validation").resolve()
+        directories = {"MIGRATION_VALIDATION_DIR": root, "REPORTS_PATH": root / "reports",
+                       "TMP": root / "tmp", "TEMP": root / "tmp", "TMPDIR": root / "tmp"}
+        for directory in set(directories.values()):
+            if not directory.resolve().is_relative_to(self.context.evidence_dir.resolve()):
+                raise ConfigError("Validation output must remain inside this run's evidence directory.")
+            if prepare:
+                directory.mkdir(parents=True, exist_ok=True)
+        return {key: str(directory) for key, directory in directories.items()}
+
+    def validation_policy(self, slug: str) -> str:
+        rules = self.context.settings.migration.get("validation.rules", [])
+        if not isinstance(rules, list) or any(not isinstance(rule, str) or not rule.strip() for rule in rules):
+            raise ConfigError("validation.rules must contain nonempty instruction strings.")
+        environment = self.validation_environment(slug)
+        return "\n\n## Shared Validation Policy\n\n" + "\n".join([
+            *(f"- `{key}`: `{value}`" for key, value in environment.items()),
+            "", *(f"- {rule}" for rule in rules),
+        ]) + "\n"
+
     def backend_options(self, slug: str | None = None) -> dict[str, Any]:
         migration = self.context.settings.migration
         return {
@@ -276,7 +297,7 @@ class Agent:
             ],
             "details": "Describe the measurements or validation performed here.",
         }
-        return render_file(template, values) + (
+        return render_file(template, values) + self.validation_policy(slug) + (
             "\n\n## Machine-readable check evidence\n\n"
             "Each checks[].evidence must be a single file path string or a nonempty JSON array of file path strings. "
             "Every referenced file must exist, be nonempty, and resolve inside this run's evidence directory. "
@@ -323,7 +344,7 @@ class Agent:
             stderr_name=str(context.settings.migration.get("run.stderr_file", "stderr.log")),
             timeout_seconds=self.spec.timeout_seconds,
             working_directory=context.repo_root,
-            env_extra=self.env_extra(),
+            env_extra={**self.env_extra(), **self.validation_environment(slug, prepare=True)},
             on_event=lambda event: self._on_event(label, event),
         )
         context.logger.info(
