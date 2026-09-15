@@ -7,8 +7,8 @@ prompts under `design/site-url/scripts/prompts/`.
 Both entry points read this file:
 
 - `python design/site-url/scripts/run_migration.py` — the multi-agent pipeline
-  (planner, shared foundations, isolated component workers, assets, merge, deployer,
-  parity and reporter). See
+  (combined planner/foundations, isolated component workers, assets, merge, deployer,
+  parity and orchestrator-owned reporting). See
   [scripts/README.md](scripts/README.md).
 - `design/site-url/run-migration.cmd` — the original single-agent launcher.
 
@@ -139,14 +139,13 @@ instance_authoring_map:
 
 | Phase | Agent prompt | Owns |
 |---|---|---|
-| 1 | [planner](scripts/prompts/planner.md) | Source readiness, 11-signal discovery, coverage proof, frozen denominators, and the component plan. |
-| 2 | [foundations](scripts/prompts/foundations.md) | Single writer for shared tokens, site styles and policies before component workers start. |
-| 3 | [component](scripts/prompts/component.md) | One component per isolated checkout; explicit file ownership and dependency barriers; authored content contributions. |
-| 4 | Deterministic Python assets handler | Asset downloads and DAM uploads from declared manifests. |
-| 5 | Deterministic Python merge handler | Authored page/XF nodes and Vault filters in source order. |
-| 6 | [deployer](scripts/prompts/deployer.md) | Focused tests, scoped Maven deploy, runtime and repository sweep. |
-| 7 | [parity](scripts/prompts/parity.md) and pinned scorer | Fresh Playwright captures and qualitative diagnostics; coordinator-owned Pixelmatch acceptance and receipts. |
-| 8 | [reporter](scripts/prompts/reporter.md) | The completion report and the single status line. |
+| 1 | [planner](scripts/prompts/planner.md) | Source evidence, coverage proof, frozen denominators, component plan, and sole ownership of shared tokens, site styles and policies. Repairs reuse this agent without replanning. |
+| 2 | [component](scripts/prompts/component.md) | One component per isolated checkout; explicit file ownership and dependency barriers; authored content contributions. |
+| 3 | Deterministic Python assets handler | Asset downloads and DAM uploads from declared manifests. |
+| 4 | Deterministic Python merge handler | Authored page/XF nodes and Vault filters in source order. |
+| 5 | [deployer](scripts/prompts/deployer.md) | Focused tests, scoped Maven deploy, runtime and repository sweep. |
+| 6 | [parity](scripts/prompts/parity.md) and pinned scorer | Fresh Playwright captures and qualitative diagnostics; coordinator-owned Pixelmatch acceptance and receipts. |
+| 7 | Deterministic orchestrator report handler | The completion report, persisted report result, and terminal gate status from recorded evidence. No agent invocation. |
 
 This dispatch describes the Python pipeline. The legacy single-agent entry point
 must satisfy the same acceptance contract without assuming Python's isolation or

@@ -221,9 +221,6 @@ reuse:
 # Loading is a precondition, not a suggestion: when the prompt merely said "use
 # create-component", 7 of 9 agents skipped it.
 skills:
-  foundations:
-    required: [create-component, best-practices]
-    references: [clientlib-patterns.md, aem-conventions.md]
   component:
     required: [create-component, code-assessment]
     # Reference files inside create-component that carry the standards.
@@ -236,8 +233,8 @@ skills:
       - aem-conventions.md
       - extending-core-components.md
   planner:
-    required: [create-component]
-    references: [core-components.md, aem-conventions.md]
+    required: [create-component, best-practices]
+    references: [core-components.md, clientlib-patterns.md, aem-conventions.md]
   deployer:
     required: [code-assessment, best-practices]
     references: []
@@ -431,9 +428,6 @@ pipeline:
     - id: plan
       agent: planner
       fan_out: false
-    - id: foundations
-      agent: foundations
-      fan_out: false
     - id: implement
       agent: component
       fan_out: true
@@ -453,12 +447,12 @@ pipeline:
       agent: parity
       fan_out: false
     - id: report
-      agent: reporter
+      handler: write_report
       fan_out: false
       always_run: true
   remediation:
     # Re-run these phases for the failing components only.
-    phases: [foundations, implement, assets, merge, deploy, parity]
+    phases: [plan, implement, assets, merge, deploy, parity]
     # Budget comes from contract.max_attempts_per_component unless overridden.
     max_attempts: null
     terminal_status: FAILED-FINAL

@@ -30,7 +30,7 @@ from aem_agents.agents.deployer import DeployerAgent
 from aem_agents.state import RunState
 from aem_agents.toolchain import Toolchain
 from aem_agents.agents import AGENT_CLASSES
-from aem_agents.workspaces import WorkspaceError
+from aem_agents.workspaces import WorkspaceError, digest
 from aem_agents.discovery import DiscoveryEvidence
 
 
@@ -140,6 +140,19 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("nonempty JSON array of file path strings", prompt)
         self.assertIn("details", prompt)
         self.assertIn("comma-separated", prompt)
+
+    def test_planner_is_the_only_shared_foundations_role(self):
+        self.assertNotIn("foundations", AGENT_CLASSES)
+        self.assertNotIn("foundations", self.context.settings.agents)
+        prompt = self.agent.render_prompt("planner")
+        self.assertIn("shared_tokens_ready", prompt)
+        self.assertIn("shared_policies_ready", prompt)
+        self.assertIn("token_manifest", prompt)
+        self.assertIn("ui.frontend/src/main/webpack/site", prompt)
+
+    def test_planner_repairs_have_separate_attempt_identity(self):
+        self.assertEqual(self.agent.slug(), "planner")
+        self.assertEqual(self.agent.slug(repair=True, attempt=2), "planner-repair-attempt-2")
 
 
 class DependencyTests(unittest.TestCase):
@@ -314,8 +327,11 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.max_attempts = 1
         self.components = [{"id": "hero"}]
         self.engine.state.set_components(self.components)
+        self.engine.state.update(foundations={"attempt": 0, "changed_files": []})
         self.phases = {phase["id"]: phase for phase in settings.phases()}
-        self.engine.run_foundations = MagicMock(return_value=PhaseOutcome("foundations", "PASS"))
+        self.engine.run_planner = MagicMock(return_value=PhaseOutcome("plan", "PASS", [
+            AgentResult("planner", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
+        ]))
         self.engine.run_assets = MagicMock(return_value=PhaseOutcome("assets", "PASS"))
         self.engine.run_fanout = MagicMock(return_value=PhaseOutcome("implement", "PASS", [
             AgentResult("component", "test", "PASS", outputs={"changed_files": ["ui.apps/hero.html"]}),
@@ -338,11 +354,17 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.run_gate(), "FAIL")
         self.engine.run_single.assert_not_called()
 
-    def test_failed_foundations_never_start_components(self):
-        self.engine.run_foundations.return_value.status = "FAIL"
-        self.assertEqual(self.run_gate(), "FAIL")
+    def test_failed_planner_never_starts_components(self):
+        self.engine.preflight = MagicMock()
+        self.engine.run_planner.return_value.status = "FAIL"
+        self.assertEqual(self.engine.run(), "FAIL")
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
+
+    def test_initial_foundations_do_not_start_a_second_agent(self):
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_planner.assert_not_called()
+        self.assertNotIn("foundations", self.phases)
 
     def test_apply_conflict_never_advances_checkpoint(self):
         result = AgentResult("component", "test", "PASS", outputs={"component_id": "hero", "changed_files": []})
@@ -353,9 +375,44 @@ class OrchestratorTests(unittest.TestCase):
         save.assert_not_called()
 
     def test_foundation_changes_reach_deployment(self):
-        self.engine.run_foundations.return_value.results = [AgentResult("foundations", "test", "PASS", outputs={"changed_files": ["ui.frontend/src/main/webpack/site/_variables.scss"]})]
+        self.engine.state.update(foundations={"attempt": 0, "changed_files": ["ui.frontend/src/main/webpack/site/_variables.scss"]})
         self.assertEqual(self.run_gate(), "COMPLETE")
         self.assertIn("ui.frontend/src/main/webpack/site/_variables.scss", self.engine.run_single.call_args_list[0].kwargs["changed_files"])
+
+    def test_shared_repairs_use_planner_and_keep_prior_changes(self):
+        self.engine.max_attempts = 2
+        original = "ui.frontend/src/main/webpack/site/_variables.scss"
+        repaired = "ui.frontend/src/main/webpack/site/main.scss"
+        self.engine.state.update(foundations={"attempt": 0, "changed_files": [original]})
+        self.engine.run_planner.return_value.results[0].outputs["changed_files"] = [repaired]
+
+        def run_single(phase, **kwargs):
+            failing = phase["id"] == "parity" and kwargs["attempt"] == 1
+            status = "FAIL" if failing else "PASS"
+            return PhaseOutcome(phase["id"], status, [AgentResult(phase["agent"], "test", status, outputs={
+                "target_url": "http://test.invalid",
+                "failing_components": [{"component_id": "hero", "owning_layer": "foundation"}] if failing else [],
+            })])
+
+        self.engine.run_single.side_effect = run_single
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_planner.assert_called_once()
+        self.assertEqual(self.engine.run_planner.call_args.args[0]["id"], "plan")
+        self.assertTrue(self.engine.run_planner.call_args.kwargs["repair"])
+        self.assertEqual(self.engine.run_planner.call_args.kwargs["attempt"], 2)
+        self.assertEqual(self.engine.run_fanout.call_count, 2)
+        self.assertEqual(set(self.engine.state.get("foundations")["changed_files"]), {original, repaired})
+
+    def test_failed_shared_repairs_never_restart_components(self):
+        self.engine.resume = True
+        self.engine.max_attempts = 2
+        self.engine.state.append_remediation({"attempt": 1, "status": "FAIL", "failing": [
+            {"component_id": "hero", "owning_layer": "foundation"},
+        ]})
+        self.engine.run_planner.return_value.status = "FAIL"
+        self.assertEqual(self.run_gate(), "FAIL")
+        self.engine.run_fanout.assert_not_called()
+        self.engine.run_single.assert_not_called()
 
     def test_failed_parity_without_component_ids_is_not_complete(self):
         self.engine.run_single.side_effect = lambda phase, **kwargs: PhaseOutcome(phase["id"], "FAIL" if phase["id"] == "parity" else "PASS", [
@@ -395,12 +452,89 @@ class OrchestratorTests(unittest.TestCase):
         prepare.assert_not_called()
         backend.assert_not_called()
 
-    def test_dry_run_validates_reporter_without_claiming_completion(self):
+    def test_report_is_owned_by_orchestrator(self):
+        self.assertNotIn("reporter", AGENT_CLASSES)
+        self.assertNotIn("reporter", self.engine.settings.agents)
+        self.assertEqual(self.phases["report"]["handler"], "write_report")
+        self.assertNotIn("agent", self.phases["report"])
+
+    def test_orchestrator_reports_without_agent_backend(self):
+        self.engine.context = None
+        self.assertEqual(self.engine._finish(self.phases, "FAIL", "FAILED-FINAL"), "FAIL")
+        report = self.engine.evidence_dir / "completion-report.md"
+        self.assertTrue(report.is_file())
+        self.assertIn("hero", report.read_text(encoding="utf-8"))
+        self.assertEqual(self.engine.state.get("agent_results")["report"]["outputs"]["residual_gaps"][0]["component_id"], "hero")
+        self.engine.run_single.assert_not_called()
+
+    def test_report_withholds_invalid_screenshot_scores(self):
+        for validation, with_receipt in (("FAIL", False), ("PASS", False), ("PASS", True)):
+            with self.subTest(validation=validation, with_receipt=with_receipt):
+                outputs = {
+                    "scores": [{"component_id": "hero", "instance_id": "hero-1", "breakpoint": 375,
+                                "mode": "disabled", "screenshot_validation": validation, "ratio": .987654321}],
+                }
+                if with_receipt:
+                    receipt = self.engine.evidence_dir / "incomplete-receipt.json"
+                    receipt.write_text(json.dumps({"run_id": "test", "measurements": outputs["scores"]}), encoding="utf-8")
+                    outputs["verification"] = {"path": str(receipt), "sha256": digest(receipt)}
+                self.engine.state.record_agent_result("parity-attempt-1", AgentResult("parity", "test", "FAIL", outputs=outputs).to_dict())
+                self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+                text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+                self.assertIn("SCORE WITHHELD", text)
+                self.assertNotIn("987654321", text)
+
+    def test_report_uses_verified_measurements_and_rejects_changed_receipt(self):
+        score = {"component_id": "hero", "instance_id": "hero-1", "breakpoint": 375,
+                 "mode": "disabled", "screenshot_validation": "PASS", "ratio": .8,
+                 "matched_pixels": 80, "total_pixels": 100}
+        receipt = self.engine.evidence_dir / "receipt.json"
+        receipt.write_text(json.dumps({"run_id": "test", "measurements": [score]}), encoding="utf-8")
+        self.engine.state.record_agent_result("parity-attempt-1", AgentResult("parity", "test", "FAIL", outputs={
+            "scores": [score], "verification": {"path": str(receipt), "sha256": digest(receipt)},
+        }).to_dict())
+        self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+        text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+        self.assertIn("| 80 | 20 | 100 |", text)
+        receipt.write_text("{}", encoding="utf-8")
+        self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+        text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+        self.assertIn("SCORE WITHHELD", text)
+        self.assertNotIn("| 80 | 20 | 100 |", text)
+
+    def test_report_does_not_reuse_scores_from_an_older_parity_attempt(self):
+        self.engine.state.record_agent_result("parity-attempt-1", AgentResult("parity", "test", "PASS", outputs={
+            "scores": [{"component_id": "hero", "instance_id": "old-capture", "ratio": 1, "screenshot_validation": "PASS"}],
+        }).to_dict())
+        self.engine.state.record_agent_result("parity-attempt-2", AgentResult("parity", "test", "FAIL", failures=["Capture failed"]).to_dict())
+        self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+        text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+        self.assertIn("Latest persisted parity result: parity-attempt-2", text)
+        self.assertNotIn("old-capture", text)
+
+    def test_report_cannot_complete_without_passing_upstream_envelopes(self):
+        for phase in self.phases:
+            self.engine.state.set_phase(phase, "PASS")
+        self.engine.state.update_component("hero", status="PASS")
+        self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
+        report = self.engine.state.get("agent_results")["report"]["outputs"]
+        self.assertEqual(report["pipeline_status"], "FAIL")
+        self.assertNotIn("PASSED", report["status_line"])
+
+    def test_report_preserves_blocked_status(self):
+        self.engine.state.update(error="AEM author unavailable")
+        self.assertEqual(self.engine._finish(self.phases, "BLOCKED", "FAILED-FINAL"), "BLOCKED")
+        text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+        self.assertIn("VISUAL PARITY GATE: BLOCKED", text)
+        self.assertIn("AEM author unavailable", text)
+
+    def test_dry_run_writes_report_without_claiming_completion(self):
         self.engine.dry_run = True
         self.assertEqual(self.engine._finish(self.phases, "DRY_RUN", "FAILED-FINAL"), "DRY_RUN")
-        self.assertEqual(self.engine.run_single.call_args.args[0]["id"], "report")
-        self.engine.run_single.side_effect = EnvelopeError("invalid reporter prompt")
-        self.assertEqual(self.engine._finish(self.phases, "DRY_RUN", "FAILED-FINAL"), "FAIL")
+        report = self.engine.state.get("agent_results")["report"]
+        self.assertEqual(report["outputs"]["pipeline_status"], "DRY_RUN")
+        self.assertIn("NOT RUN", report["outputs"]["status_line"])
+        self.engine.run_single.assert_not_called()
 
     def test_merged_paths_reach_deployer(self):
         self.assertEqual(self.run_gate(), "COMPLETE")
@@ -413,12 +547,13 @@ class OrchestratorTests(unittest.TestCase):
             outcome = Orchestrator.run_merge(self.engine, self.phases["merge"], self.components)
         self.assertEqual(outcome.results[0].output("changed_files"), report.merged_files)
 
-    def test_reporter_failure_downgrades_complete(self):
+    def test_report_write_failure_downgrades_complete(self):
         for phase in self.phases:
             self.engine.state.set_phase(phase, "PASS")
         self.engine.state.update_component("hero", status="PASS")
-        self.engine.run_single.side_effect = EnvelopeError("missing report")
-        self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
+        with patch.object(self.engine, "run_report", side_effect=OSError("Disk full")):
+            self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
+        self.assertEqual(next(phase for phase in self.engine.state.get("phases") if phase["id"] == "report")["status"], "FAIL")
 
     def test_incomplete_prerequisites_cannot_complete(self):
         self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
@@ -441,6 +576,14 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.run_gate(), "COMPLETE")
         self.engine.run_fanout.assert_not_called()
         self.assertIn("ui.apps/cached.html", self.engine.run_single.call_args_list[0].kwargs["changed_files"])
+
+    def test_resume_revalidates_latest_planner_repair(self):
+        self.engine.resume = True
+        self.engine.state.update(foundations={"attempt": 1, "changed_files": []})
+        self.engine._cached_result = MagicMock(return_value=AgentResult("planner", "test", "PASS", outputs={"changed_files": []}))
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine._cached_result.assert_called_once_with(self.phases["plan"], components=self.components, repair=True, attempt=1)
+        self.engine.run_planner.assert_not_called()
 
     def test_resume_does_not_reset_attempt_budget(self):
         self.engine.resume = True
@@ -573,6 +716,48 @@ class ConfigurationTests(unittest.TestCase):
         collector.assert_not_called()
         self.context.backend.run.assert_not_called()
 
+    def test_planner_repairs_never_recollect_source(self):
+        result = AgentResult("planner", "test", "FAIL")
+        with patch("aem_agents.agents.planner.collect_discovery") as collector, patch.object(Agent, "run", return_value=result):
+            self.assertIs(PlannerAgent(self.context).run(repair=True, attempt=2), result)
+        collector.assert_not_called()
+
+    def test_planner_repairs_preserve_plan_and_require_token_evidence(self):
+        artifact = self.evidence / "frozen.json"
+        artifact.write_text("{}", encoding="utf-8")
+        components = [{"id": "hero"}]
+        discovery = {name: str(artifact) for name in ("discovery_manifest", "discovery_summary", "discovery_inventory")}
+        self.state.record_agent_result("planner", {"outputs": {**discovery, "components": components}})
+        agent = PlannerAgent(self.context)
+        self.assertEqual(agent.prompt_values(repair=True)["discovery_summary"], str(artifact))
+        for changed_plan, missing_token in ((False, False), (True, False), (False, True)):
+            result = AgentResult("planner", "test", "PASS", outputs={
+                "components": [{"id": "other"}] if changed_plan else components,
+                "token_manifest": str(self.evidence / "missing.json") if missing_token else str(artifact),
+            })
+            with self.subTest(changed_plan=changed_plan, missing_token=missing_token), patch("aem_agents.agents.planner.validate_collection", return_value=({}, (artifact,))), patch.object(agent, "validate_plan") as replan:
+                if changed_plan or missing_token:
+                    with self.assertRaises(EnvelopeError):
+                        agent.validate_result(result, repair=True, components=components)
+                else:
+                    agent.validate_result(result, repair=True, components=components)
+                    self.assertEqual(result.output("discovery_manifest"), str(artifact))
+                replan.assert_not_called()
+
+    def test_isolated_planner_uses_shared_inventory_cache(self):
+        engine = Orchestrator(self.settings, self.context.contract, run_id="test", dry_run=True,
+                              evidence_dir=self.evidence / "run", logger=MagicMock())
+        engine.dry_run = False
+        engine.context = self.context
+        worker = MagicMock()
+        worker.root = self.evidence / "checkout"
+        agent = PlannerAgent(self.context)
+        with patch.object(engine, "_agent", return_value=agent), patch("aem_agents.orchestrator.WorkerWorkspace.create", return_value=worker), patch.object(agent, "run", return_value=AgentResult("planner", "test", "PASS")):
+            engine._run_worker({"id": "plan", "agent": "planner"})
+        expected = self.settings.resolve(self.settings.migration.get("discovery.inventory_cache_dir"))
+        self.assertEqual(agent.context.settings.repo_root, worker.root)
+        self.assertEqual(agent.context.settings.migration.get("discovery.inventory_cache_dir"), str(expected))
+
     def test_isolated_worker_keeps_original_browser_paths(self):
         self.context.browser = browser_paths(self.settings)
         original_environment = self.context.browser.environment()
@@ -582,7 +767,7 @@ class ConfigurationTests(unittest.TestCase):
         for key, value in original_environment.items():
             self.assertEqual(environment[key], value)
 
-    def test_resolved_target_reaches_parity_and_reporter(self):
+    def test_resolved_target_reaches_parity_and_state(self):
         base = f"http://{self.context.aem_host}:{self.context.aem_port}"
         self.context.record_target_url(base + "/content/discovered.html")
         self.assertEqual(self.context.disabled_url, base + "/content/discovered.html?wcmmode=disabled")
@@ -674,10 +859,16 @@ class EndToEndTests(unittest.TestCase):
                     outputs = {}
                     status = "PASS"
                     if role == "planner":
-                        outputs = {"components": components, "coverage_report": str(check_log), "source_selector_map": str(check_log)}
-                    elif role == "foundations":
-                        outputs = {"changed_files": [], "token_manifest": str(check_log)}
+                        changed = settings.migration.get("css.token_layer.scss_source")
+                        code = kwargs["working_directory"] / changed
+                        test_case.assertNotEqual(kwargs["working_directory"], root)
+                        test_case.assertFalse((root / changed).exists())
+                        code.parent.mkdir(parents=True, exist_ok=True)
+                        code.write_text(":root { --site-color-text: #111; }", encoding="utf-8")
+                        outputs = {"components": components, "coverage_report": str(check_log), "source_selector_map": str(check_log),
+                                   "changed_files": [changed], "token_manifest": str(check_log)}
                     elif role == "component":
+                        test_case.assertTrue((kwargs["working_directory"] / settings.migration.get("css.token_layer.scss_source")).is_file())
                         component_id = workspace.name[len("component-"):].rsplit("-attempt-", 1)[0]
                         component = next(row for row in components if row["id"] == component_id)
                         if component_id == "body":
@@ -721,11 +912,6 @@ class EndToEndTests(unittest.TestCase):
                                 composite = next(row for row in rows if row["breakpoint"] == width and row["mode"] == mode)
                                 composites.append({**composite, "source_image": str(page_source), "target_image": str(page_target)})
                         outputs = {"scores": rows, "failing_components": [], "page_composites": composites}
-                    elif role == "reporter":
-                        report = evidence / settings.migration.get("run.report_file")
-                        report.write_text("Offline unit-test report", encoding="utf-8")
-                        status = "COMPLETE"
-                        outputs = {"report_path": str(report), "residual_gaps": []}
                     payload = {
                         "agent": role, "run_id": "integration", "status": status, "outputs": outputs,
                         "checks": [{"name": name, "status": "PASS", "evidence": str(check_log)} for name in settings.agent(role).get("required_checks")],
@@ -744,13 +930,19 @@ class EndToEndTests(unittest.TestCase):
                     engine.run()
                 self.assertEqual(engine.state.get("status"), "INTERRUPTED")
                 self.assertEqual(sum(row["status"] == "PASS" for row in engine.state.component_rows()), 2)
+                self.assertEqual(calls, ["planner", "component", "component", "deployer", "parity"])
                 calls.clear()
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")
                 collect.assert_called_once()
-            self.assertEqual(calls, ["deployer", "parity", "reporter"])
+            self.assertEqual(calls, ["deployer", "parity"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
             self.assertTrue((evidence / "completion-report.md").is_file())
+            report = engine.state.get("agent_results")["report"]["outputs"]
+            self.assertEqual(report["pipeline_status"], "COMPLETE")
+            self.assertEqual(report["residual_gaps"], [])
+            self.assertIn("VISUAL PARITY GATE: PASSED", (evidence / "completion-report.md").read_text(encoding="utf-8"))
+            self.assertTrue((evidence / "report-result.json").is_file())
 
 
 if __name__ == "__main__":

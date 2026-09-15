@@ -18,24 +18,28 @@ defaults:
 
 agents:
   planner:
-    title: Planner
+    title: Planner and shared foundations
     prompt: planner.md
     description: >-
-      Reads the canonical prompt contract, resolves SITE_URL, performs exhaustive
-      source discovery at every required breakpoint, and emits the component plan
-      that decides how many implementation agents are fanned out.
+      Interprets prepared source discovery, emits the component plan, and establishes
+      shared tokens, site styles and policies in one isolated invocation. Handles
+      shared-foundation repairs without repeating discovery or changing the plan.
     timeout_seconds: 7200
-    required_result_keys: [agent, run_id, status, components]
+    required_result_keys: [agent, run_id, status, components, changed_files, token_manifest]
     required_checks:
       - all_breakpoints_ready
       - all_discovery_signals_executed
       - exactly_once_coverage
       - no_unclaimed_gap_20px
       - every_instance_has_stable_source_selector
+      - shared_tokens_ready
+      - shared_policies_ready
     outputs:
       components: outputs.components
       coverage_report: outputs.coverage_report
       source_selector_map: outputs.source_selector_map
+      changed_files: outputs.changed_files
+      token_manifest: outputs.token_manifest
     # Shape each planned component must have. Missing required fields fail the
     # plan before a single implementation agent is started.
     component_schema:
@@ -54,13 +58,6 @@ agents:
       id_pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
       tier_values: [1, 2, 3, 4]
       delivery_values: [component, experience-fragment]
-
-  foundations:
-    title: Shared foundations
-    prompt: foundations.md
-    timeout_seconds: 5400
-    required_result_keys: [agent, run_id, status, changed_files, token_manifest]
-    required_checks: [shared_tokens_ready, shared_policies_ready]
 
   component:
     title: Component builder
@@ -122,21 +119,3 @@ agents:
       runner: outputs.runner
     score_schema:
       required: [component_id, instance_id, breakpoint, mode, source_image, target_image, live_url, aem_url, dpr, screenshot_validation]
-
-  reporter:
-    title: Completion reporter
-    prompt: reporter.md
-    description: >-
-      Reads only the persisted run state and agent envelopes and writes the
-      truthful completion report. Emits COMPLETE only when every gate passed.
-    timeout_seconds: 3600
-    result_status_values: [COMPLETE, FAIL, BLOCKED]
-    required_result_keys: [agent, run_id, status, report_path]
-    required_checks:
-      - all_upstream_results_present
-      - dependencies_same_run_and_current
-      - coverage_files_assets_scores_reconcile
-      - residual_gaps_consistent_with_status
-    outputs:
-      report_path: outputs.report_path
-      residual_gaps: outputs.residual_gaps

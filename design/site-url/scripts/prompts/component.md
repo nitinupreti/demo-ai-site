@@ -51,7 +51,7 @@ These are the only source paths the coordinator will accept:
 
 {{owned_paths}}
 
-The foundations stage exclusively owns shared tokens, site styles and policies.
+The planner exclusively owns shared tokens, site styles and policies.
 If a required token is missing, return `FAIL` with `outputs.foundation_requests`
 listing its name, measured source value and evidence. Never edit shared files.
 Declare page and XF content through the contribution file below.
@@ -185,14 +185,14 @@ is intentionally excluded, not a completed check.
 token-driven. The site token layer is the single source of truth:
 
 - tokens live in `{{token_clientlib}}`, prefixed `{{token_prefix}}`
-- the SCSS source is `{{token_scss}}`; the foundations stage keeps it in sync
+- the SCSS source is `{{token_scss}}`; the planner keeps it in sync
 - per-component overrides are `{{component_property_prefix}}<component>-<role>` and
   are defined **only** in that component's own stylesheet
 
 The only values that may appear as literals are ones carrying no design decision:
 {{literal_exceptions}}. Everything else — colours, font families, font sizes, line
 heights, letter spacing, radii, shadows, spacing steps, breakpoints — resolves
-through `var(...)`. Request a missing site token from the foundations owner; do not
+through `var(...)`. Request a missing site token from the planner; do not
 add it yourself. A raw hex, a hardcoded font stack, or a
 magic px value for type or spacing in component CSS is a defect even when the
 rendering is pixel-perfect.

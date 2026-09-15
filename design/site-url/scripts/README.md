@@ -209,8 +209,7 @@ python run_migration.py --show-plan --no-bootstrap
 
 ```text
 Python + pinned collector: source evidence and cached repository inventory
-  -> Planner: coverage mapping, reuse, ownership and dependency plan
-  -> Foundations: one writer for shared tokens, site styles and policies
+  -> Planner: coverage, reuse, ownership, dependencies, shared tokens/styles/policies
   -> Component workers: isolated snapshots, bounded dependency waves
   -> Coordinator: validate actual diffs and apply owned changes
   -> Assets: deterministic downloads and DAM upload
@@ -218,19 +217,33 @@ Python + pinned collector: source evidence and cached repository inventory
   -> Deployer: scoped builds, deployment and runtime checks
   -> Parity agent: fresh browser captures and qualitative checks
   -> Pinned scorer: independent pixels, composites and hash receipts
-  -> Reporter: completion report from persisted evidence
+  -> Orchestrator: deterministic completion report from persisted evidence
 
 Failed gates -> bounded repairs of owners and affected dependents
 ```
 
 | Agent | Role |
 |---|---|
-| `planner` | Consumes prepared source evidence and repository inventory; emits the complete coverage and component plan. **The number of components it returns is the fan-out width.** |
-| `foundations` | Sole worker for shared site tokens, site styles and policies; completes before components start. |
+| `planner` | Consumes prepared evidence, emits the coverage and component plan, and establishes shared tokens, site styles and policies in one isolated invocation. **The number of components it returns is the fan-out width.** |
 | `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
 | `deployer` | Chooses the smallest scoped Maven deploy covering the union of changed files and proves the change is live. |
 | `parity` | Captures fresh live-vs-AEM evidence and diagnoses geometry, properties, media and interactions. Python owns numeric acceptance. |
-| `reporter` | Writes the completion report from persisted evidence only. |
+
+There are four agent roles and four role prompts. Planning and foundations share
+[aem_agents/agents/planner.py](aem_agents/agents/planner.py) and
+[prompts/planner.md](prompts/planner.md). Later shared-file repairs use the same
+planner in repair mode, without collecting the source again or changing the plan.
+Repair results have separate `planner-repair-attempt-N` identities so the original
+plan and its frozen evidence remain reusable.
+
+The `report` phase is a deterministic orchestrator handler, not an agent invocation.
+It writes `completion-report.md` and `report-result.json` from persisted state,
+including failures before preflight completes and explicitly unverified dry runs.
+The report includes score tables, recorded screenshot minima, component and deploy
+ledgers, evidence references and residual gaps. Missing qualitative data is left
+unreported; numeric screenshot scores require a matching current-run scorer receipt.
+Invalid or unverified scores are withheld. Report generation cannot upgrade failed
+gates to completion, and a report-write failure prevents completion.
 
 ## Planner latency
 
@@ -348,8 +361,8 @@ sees its prerequisites' applied files. Maven output stays in the worker checkout
 Page and XF content are applied separately through the existing contribution merge.
 
 Shared paths are configured in `isolation.foundation_paths`. Missing tokens are
-reported as `foundation_requests`; the coordinator schedules the foundations owner
-within the existing retry budget. Repairs also include transitive dependents.
+reported as `foundation_requests`; the coordinator schedules the planner in repair
+mode within the existing retry budget. Repairs also include transitive dependents.
 Snapshots are retained under the evidence directory for inspection, so budget disk
 space along with parallelism. On Windows, a short `--evidence-dir` helps avoid long
 paths when copying deeply nested component files.
@@ -415,7 +428,7 @@ python run_migration.py --url https://example.com/page [options]
 --effort LEVEL         Reasoning effort, when the model advertises it
 --max-parallel N       Component agents running concurrently
 --max-attempts N       Remediation attempts per component
---only PHASES          Phase ids (plan,foundations,implement,assets,merge,deploy,parity,report)
+--only PHASES          Phase ids (plan,implement,assets,merge,deploy,parity,report)
 --evidence-dir PATH    Override the generated evidence directory (relative to the repo root)
 --run-id ID            Choose an id; an existing run requires --resume
 --resume               Reuse validated checkpoints from --run-id or --evidence-dir
@@ -433,7 +446,7 @@ from the repository root. Omitted URL, target path, and breakpoints are restored
 from that run. Source files, configuration and reusable evidence are fingerprinted.
 Changed source, inputs, configuration, AEM targets, attempt budgets or frozen evidence
 reject reuse without overwriting those changes. Start a new run to accept changed
-inputs. Valid planner/foundations/component results are reused; interrupted component
+inputs. Valid planner, shared-repair and component results are reused; interrupted component
 attempts still consume their budget. Assets, merge, deployment and fresh parity run
 again, even when an earlier parity attempt passed. A final passing attempt may be
 reverified without granting another component implementation attempt.
@@ -441,6 +454,10 @@ reverified without granting another component implementation attempt.
 Existing evidence is never silently reset, and skipping planning with `--only`
 requires a compatible checkpoint. **State schema is now version 3; older runs require
 a new run rather than an automatic conversion.** Only one migration may run per workspace.
+
+Runs created before the planner/foundations consolidation or reporter removal also
+require a new run: their configuration fingerprints and role envelopes are incompatible.
+Include `plan` in `--only` when shared-foundation repairs must be allowed.
 
 Regression tests (using the launcher's environment on Windows):
 `design/site-url/scripts/.venv/Scripts/python.exe -B -m unittest discover -s design/site-url/scripts/tests -v`
@@ -452,7 +469,8 @@ Everything lands under `design/scratch/migration-<run_id>/`:
 ```
 run-state.json                     orchestrator source of truth
 component-plan.json                the validated plan
-completion-report.md               the reporter's output
+completion-report.md               deterministic orchestrator report
+report-result.json                 report outcome, pipeline status and residual gaps
 orchestrator.log
 agents/<agent-slug>/prompt.md      exactly what the agent was told
 agents/<agent-slug>/result.json    the validated envelope

@@ -9,6 +9,7 @@ attempt budget before reporting.
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import re
 import urllib.error
 import urllib.request
@@ -25,13 +26,14 @@ from .contract import RunContract
 from .envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
 from .assets import AssetError, fetch_assets
 from .merge import MergeError, latest_contribution_path, merge_contributions
+from .render import markdown_table, to_text
 from .runner import BackendError, create_backend
 from .scoring import PixelScorer
 from .state import RunState
 from .toolchain import check_maven, check_node, resolve_java_home
 from .agents import AGENT_CLASSES, RunContext
 from .agents.base import dump_json
-from .workspaces import ChangeSet, WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, foundation_scopes, source_manifest, validate_ownership
+from .workspaces import ChangeSet, WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, digest, foundation_scopes, source_manifest, validate_ownership
 
 
 class PipelineError(RuntimeError):
@@ -162,8 +164,8 @@ class Orchestrator:
         active = {"planner"}
         artifacts = set()
         foundation = self.state.get("foundations", {})
-        if foundation:
-            active.add(f"foundations-attempt-{foundation['attempt']}")
+        if foundation.get("attempt"):
+            active.add(f"planner-repair-attempt-{foundation['attempt']}")
         for component in self.state.component_rows():
             if component.get("status") == "PASS":
                 active.add(f"component-{component['id']}-attempt-{component['attempts']}")
@@ -377,10 +379,14 @@ class Orchestrator:
         slug = agent.slug(**kwargs)
         worker = WorkerWorkspace.create(
             self.settings.repo_root, self.evidence_dir / "workspaces" / slug,
-            foundation_scopes(self.settings) if agent.agent_id == "foundations" else component_scopes(self.settings, kwargs["component"]),
+            foundation_scopes(self.settings) if agent.agent_id == "planner" else component_scopes(self.settings, kwargs["component"]),
             evidence_dir=self.evidence_dir,
         )
-        isolated_settings = Settings(worker.root, self.settings.migration, self.settings._agents_config)
+        migration = self.settings.migration
+        if agent.agent_id == "planner":
+            cache = self.settings.resolve(str(migration.get("discovery.inventory_cache_dir", "design/site-url/scripts/.tools/inventory")))
+            migration = migration.merged({"discovery": {"inventory_cache_dir": str(cache)}})
+        isolated_settings = Settings(worker.root, migration, self.settings._agents_config)
         agent.context = replace(agent.context, settings=isolated_settings)
         result = agent.run(**kwargs)
         changes = worker.collect()
@@ -388,24 +394,26 @@ class Orchestrator:
         result.outputs["worker_directory"] = str(worker.root)
         return result, changes if result.passed else None
 
-    def run_foundations(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
+    def run_planner(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         phase_id = str(phase["id"])
         self.state.set_phase(phase_id, "RUNNING")
-        emit(f"\n[{phase_id}] establishing shared tokens and policies", "cyan")
+        operation = "repairing shared foundations" if kwargs.get("repair") else "planning and establishing shared foundations"
+        emit(f"\n[{phase_id}] {operation}", "cyan")
         try:
             baseline = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) if not self.dry_run else {}
             result, changes = self._run_worker(phase, **kwargs)
             if not self.dry_run:
                 if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
-                    raise WorkspaceError("The shared checkout changed during foundations; no changes were applied.")
+                    raise WorkspaceError("The shared checkout changed during planning/foundation work; no changes were applied.")
                 if result.passed and changes is not None:
                     apply_changes(self.settings.repo_root, [changes])
         except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
-            result = AgentResult("foundations", self.run_id, "FAIL", failures=[str(error)])
+            result = AgentResult("planner", self.run_id, "FAIL", failures=[str(error)])
         if result.path:
             dump_json(Path(result.path), result.to_dict())
         slug = self._agent(phase).slug(**kwargs)
-        self.state.record_agent_result(slug, result.to_dict())
+        saved = self.state.get("agent_results", {}).get(slug, {})
+        self.state.record_agent_result(slug, {**saved, **result.to_dict()})
         self.state.set_phase(phase_id, result.status)
         return PhaseOutcome(phase_id, result.status, [result])
 
@@ -569,11 +577,14 @@ class Orchestrator:
                     raise PipelineError("Saved component state does not match the validated plan.")
                 self.state.set_phase("plan", "PASS")
             elif self._wants(plan_phase["id"]):
-                outcome = self.run_single(plan_phase)
+                outcome = self.run_planner(plan_phase)
                 if not outcome.passed:
                     return self._finish(phases, outcome.status, terminal_status)
-                components = list(outcome.results[0].output("components") or [])
+                result = outcome.results[0]
+                components = list(result.output("components") or [])
                 self.state.set_components(components)
+                self.state.update(foundations={"attempt": 0, "changed_files": result.output("changed_files", [])})
+                self._save_checkpoint()
                 emit(f"  plan: {len(components)} component(s)", "green")
             else:
                 raise PipelineError("There is no validated plan to resume.")
@@ -618,7 +629,7 @@ class Orchestrator:
         terminal_status: str,
     ) -> str:
         implement = self._phase(phases, "implement", remediation_ids)
-        foundations = self._phase(phases, "foundations", remediation_ids)
+        plan_phase = self._phase(phases, "plan", remediation_ids)
         assets = phases.get("assets")
         merge = phases.get("merge")
         deploy = self._phase(phases, "deploy", remediation_ids)
@@ -629,15 +640,17 @@ class Orchestrator:
         feedback: dict[str, Mapping[str, Any]] = {}
         attempts: dict[str, int] = {str(component["id"]): 0 for component in components}
         changed_files: set[str] = {path for row in self.state.component_rows() for path in row.get("changed_files", [])}
+        saved_foundations = self.state.get("foundations", {})
+        if not saved_foundations:
+            raise PipelineError("No validated planner foundations are available.")
+        changed_files.update(saved_foundations.get("changed_files", []))
         needs_implementation = True
-        foundations_ready = False
+        foundations_ready = True
         first_attempt = 1
         if self.resume:
-            saved_foundations = self.state.get("foundations", {})
-            if saved_foundations:
-                result = self._cached_result(foundations, components=components, attempt=saved_foundations["attempt"])
+            if saved_foundations["attempt"]:
+                result = self._cached_result(plan_phase, components=components, repair=True, attempt=saved_foundations["attempt"])
                 changed_files.update(result.output("changed_files", []))
-                foundations_ready = True
             history = self.state.get("remediation_history", [])
             first_attempt = max((int(entry["attempt"]) for entry in history), default=0) + 1
             if history:
@@ -659,9 +672,9 @@ class Orchestrator:
 
         for attempt in range(first_attempt, self.max_attempts + 1):
             if not foundations_ready:
-                if not self._wants(foundations["id"]):
+                if not self._wants(plan_phase["id"]):
                     return "FAIL"
-                outcome = self.run_foundations(foundations, components=components, feedback=feedback, attempt=attempt)
+                outcome = self.run_planner(plan_phase, components=components, feedback=feedback, repair=True, attempt=attempt)
                 if outcome.status == "BLOCKED":
                     return "BLOCKED"
                 if not outcome.passed:
@@ -669,7 +682,8 @@ class Orchestrator:
                     continue
                 foundation_changes = {path for result in outcome.results for path in result.output("changed_files", [])}
                 changed_files.update(foundation_changes)
-                self.state.update(foundations={"attempt": attempt, "changed_files": sorted(foundation_changes)})
+                shared_changes = set(self.state.get("foundations", {}).get("changed_files", [])) | foundation_changes
+                self.state.update(foundations={"attempt": attempt, "changed_files": sorted(shared_changes)})
                 self._save_checkpoint()
                 foundations_ready = True
                 if foundation_changes and (attempt > 1 or self.resume):
@@ -806,6 +820,174 @@ class Orchestrator:
             }
         )
 
+    def run_report(self, phase: Mapping[str, Any], *, pipeline_status: str) -> PhaseOutcome:
+        phase_id = str(phase["id"])
+        self.state.set_phase(phase_id, "RUNNING")
+        state = self.state.data
+        results = {key: value for key, value in state["agent_results"].items() if key != "report"}
+
+        def latest(agent_id: str) -> tuple[str, Mapping[str, Any]]:
+            candidates = [(key, value) for key, value in results.items() if value.get("agent") == agent_id]
+            def attempt(entry: tuple[str, Mapping[str, Any]]) -> int:
+                match = re.search(r"-attempt-(\d+)$", entry[0])
+                return int(match.group(1)) if match else 0
+            return max(candidates, key=attempt, default=("not recorded", {}))
+
+        def records(value: Any) -> list[Mapping[str, Any]]:
+            return [row for row in value if isinstance(row, Mapping)] if isinstance(value, list) else []
+
+        def valid_score(row: Mapping[str, Any]) -> bool:
+            ratio = row.get("ratio")
+            recorded = verified_rows.get(score_key(row))
+            return (
+                row.get("screenshot_validation") == "PASS" and type(ratio) in (int, float) and 0 <= ratio <= 1
+                and type(row.get("matched_pixels")) is int and type(row.get("total_pixels")) is int
+                and 0 <= row["matched_pixels"] <= row["total_pixels"] and row["total_pixels"] > 0
+                and recorded is not None
+                and all(row.get(key) == recorded.get(key) for key in ("ratio", "matched_pixels", "total_pixels", "image_hashes", "scorer_revision"))
+            )
+
+        parity_slug, parity_result = latest("parity")
+        parity = parity_result.get("outputs", {}) if parity_result.get("run_id") == self.run_id else {}
+        def score_key(row: Mapping[str, Any]) -> tuple[str, ...]:
+            return tuple(str(row.get(key, "")) for key in ("component_id", "instance_id", "breakpoint", "mode", "source_image", "target_image"))
+
+        verified_rows = {}
+        receipt_error = None
+        verification = parity.get("verification")
+        if isinstance(verification, Mapping):
+            try:
+                receipt_path = self.settings.resolve(verification["path"]).resolve()
+                if not receipt_path.is_relative_to(self.evidence_dir) or digest(receipt_path) != verification.get("sha256"):
+                    raise ValueError("The scoring receipt is missing, changed or outside this run.")
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                if not isinstance(receipt, Mapping) or receipt.get("run_id") != self.run_id:
+                    raise ValueError("The scoring receipt belongs to a different run.")
+                verified_rows = {score_key(row): row for row in records(receipt.get("measurements"))}
+            except (KeyError, TypeError, ValueError, OSError, WorkspaceError) as error:
+                receipt_error = str(error)
+        scores = records(parity.get("scores"))
+        composites = records(parity.get("page_composites"))
+        rows = state["components"]
+        expected = [results.get("planner", {}), latest("deployer")[1], parity_result]
+        expected.extend(results.get(f"component-{row['id']}-attempt-{row['attempts']}", {}) for row in rows)
+        if pipeline_status == "COMPLETE" and (
+            any(result.get("run_id") != self.run_id or result.get("status") != "PASS" for result in expected)
+            or not scores or not composites or not parity.get("verification") or parity.get("failing_components")
+            or any(not valid_score(row) or not self.contract.visual_pass_ratio.passes(row["ratio"]) for row in scores + composites)
+        ):
+            pipeline_status = "FAIL"
+            self.state.update(error="Completion report is missing current-run passing results or verified visual scores.")
+
+        diagnostics = {}
+        for entry in state["remediation_history"]:
+            diagnostics.update({row.get("component_id"): row for row in records(entry.get("failing"))})
+        diagnostics.update({row.get("component_id"): row for row in records(parity.get("failing_components"))})
+        gaps = []
+        if pipeline_status not in {"COMPLETE", "DRY_RUN"}:
+            for component in rows:
+                component_id = component["id"]
+                detail = diagnostics.get(component_id, {})
+                if component.get("status") == "PASS" and parity_result.get("run_id") == self.run_id and parity_result.get("status") == "PASS" and scores and composites and all(valid_score(row) for row in scores + composites) and not detail:
+                    continue
+                measured = [row["ratio"] for row in scores if row.get("component_id") == component_id and valid_score(row)]
+                gaps.append({
+                    "component_id": component_id, "status": component.get("status"),
+                    "attempts": component.get("attempts", 0), "breakpoints": detail.get("breakpoints", self.contract.breakpoints),
+                    "worst_ratio": min(measured) if measured else None,
+                    "owning_layer": detail.get("owning_layer", "evidence"),
+                    "reason": detail.get("hypothesis") or self.state.get("error") or f"Run ended with {pipeline_status}; visual completion was not established.",
+                    "evidence": detail.get("evidence", []),
+                })
+
+        attempts = max((entry.get("attempt", 0) for entry in state["remediation_history"]), default=0)
+        status_line = {
+            "COMPLETE": f"VISUAL PARITY GATE: PASSED at {self.contract.breakpoints} with {attempts} attempts (required {self.contract.visual_pass_ratio})",
+            "BLOCKED": "VISUAL PARITY GATE: BLOCKED - see recorded failures and evidence",
+            "DRY_RUN": "VISUAL PARITY GATE: NOT RUN - dry run; no live evidence collected",
+        }.get(pipeline_status, f"VISUAL PARITY GATE: FAILED - {len(gaps)} unresolved components - see residual gaps and failed phases")
+        sections = [
+            "# Migration Completion Report", f"Run: `{self.run_id}`", f"Status: **{pipeline_status}**",
+            status_line, f"Source: {self.contract.site_url}", f"AEM page: {state.get('target_url') or 'not recorded'}",
+            f"Run state: {self.state.path}", f"Latest persisted parity result: {parity_slug}",
+            "Only recorded evidence is shown. Missing values are not inferred. Ratios use the 0-1 scale.",
+        ]
+
+        def table(title: str, entries: list[Mapping[str, Any]], columns: list[tuple[str, str]]) -> None:
+            cells = [{key: to_text(value).replace("\r", "").replace("\n", "<br>") for key, value in entry.items()} for entry in entries]
+            sections.extend([f"## {title}", markdown_table(cells, columns)])
+
+        table("Phases", [entry for entry in state["phases"] if entry["id"] != phase_id],
+              [("Phase", "id"), ("Status", "status"), ("Error", "error")])
+        table("Component Ledger", rows, [("Component", "id"), ("Status", "status"), ("Attempts", "attempts"), ("Changed files", "changed_files")])
+        score_columns = [
+            ("Component", "component_id"), ("Instance", "instance_id"), ("Viewport", "breakpoint"), ("Mode", "mode"), ("DPR", "dpr"),
+            ("Content", "content_score"), ("Typography", "typography_score"), ("Color", "color_score"), ("Layout", "layout_score"),
+            ("Section order", "section_order_score"), ("Media/interaction", "media_interaction_score"), ("Property", "property_score"),
+            ("Screenshot ratio", "ratio"), ("Authorability", "authorability_score"), ("Final minimum (reported)", "final_minimum"),
+            ("Screenshot validation", "screenshot_validation"), ("Matched pixels", "matched_pixels"),
+            ("Differing pixels", "differing_pixels"), ("Total pixels", "total_pixels"),
+            ("Live URL", "live_url"), ("AEM URL", "aem_url"), ("Live screenshot", "source_image"), ("AEM screenshot", "target_image"),
+            ("Side-by-side", "side_by_side"), ("Diff mask", "diff_mask"),
+        ]
+        capture_keys = {"component_id", "instance_id", "breakpoint", "mode", "dpr", "live_url", "aem_url", "source_image", "target_image", "side_by_side", "diff_mask"}
+        for title, entries in (("Instance Scores", scores), ("Page Composites", composites)):
+            sanitized = [{**row, "differing_pixels": row["total_pixels"] - row["matched_pixels"]} if valid_score(row) else {
+                **{key: value for key, value in row.items() if key in capture_keys},
+                "screenshot_validation": "SCORE WITHHELD - INVALID OR MISSING SCREENSHOT EVIDENCE",
+            } for row in entries]
+            table(title, sanitized, score_columns)
+
+        minima = []
+        for group, entries, key in (("instance", scores, "instance_id"), ("component type", scores, "component_id"), ("page composite", composites, None)):
+            identities = sorted({str(row.get(key, "unknown")) if key else "page" for row in entries})
+            for identity in identities:
+                selected = [row for row in entries if key is None or str(row.get(key, "unknown")) == identity]
+                minima.append({"group": group, "id": identity, "ratio": min(row["ratio"] for row in selected) if all(valid_score(row) for row in selected) else "SCORE WITHHELD"})
+        table("Cross-Breakpoint Screenshot Minima", minima, [("Group", "group"), ("Identity", "id"), ("Minimum recorded ratio", "ratio")])
+
+        artifacts = []
+        ledger = []
+        failures = []
+        for slug, result in results.items():
+            outputs = result.get("outputs", {})
+            ledger.append({"invocation": slug, "status": result.get("status"), "run_id": result.get("run_id"),
+                           "result_path": result.get("result_path"), "changed_files": outputs.get("changed_files", []),
+                           "deploy_commands": outputs.get("deploy_commands", [])})
+            for name in ("coverage_report", "source_selector_map", "geometry_tables", "color_authorability_matrix", "authorability_matrix",
+                         "asset_manifest", "media_manifest", "token_manifest", "readiness_matrix", "screenshot_index", "runtime_sweep", "verification"):
+                if name in outputs:
+                    artifacts.append({"invocation": slug, "kind": name, "evidence": outputs[name]})
+            failures.extend({"invocation": slug, "failure": failure} for failure in result.get("failures", []))
+            failures.extend({"invocation": slug, "failure": check} for check in records(result.get("checks")) if check.get("status") != "PASS")
+        if self.state.get("error"):
+            failures.append({"invocation": "orchestrator", "failure": self.state.get("error")})
+        if receipt_error:
+            failures.append({"invocation": parity_slug, "failure": receipt_error})
+        table("Coverage, Geometry, Authorability and Asset Evidence", artifacts, [("Invocation", "invocation"), ("Kind", "kind"), ("Recorded evidence", "evidence")])
+        asset_phase = next((entry for entry in state["phases"] if entry["id"] == "assets"), {})
+        table("Asset Transfers", [{"kind": name, "records": asset_phase[name]} for name in ("uploaded", "skipped", "failed") if name in asset_phase], [("Outcome", "kind"), ("Records", "records")])
+        table("Invocation and Deployment Ledger", ledger, [("Invocation", "invocation"), ("Run", "run_id"), ("Status", "status"), ("Result", "result_path"), ("Changed files", "changed_files"), ("Deploy commands", "deploy_commands")])
+        table("Remediation History", state["remediation_history"], [("Attempt", "attempt"), ("Status", "status"), ("Components", "components")])
+        table("Recorded Failures", failures, [("Invocation", "invocation"), ("Failure", "failure")])
+        table("Residual Gaps", gaps, [("Component", "component_id"), ("Status", "status"), ("Attempts", "attempts"), ("Breakpoints", "breakpoints"),
+                                      ("Recorded ratio", "worst_ratio"), ("Owning layer", "owning_layer"), ("Reason", "reason"), ("Evidence", "evidence")])
+        report_path = (self.evidence_dir / str(self.settings.migration.get("run.report_file", "completion-report.md"))).resolve()
+        if not report_path.is_relative_to(self.evidence_dir):
+            raise PipelineError("The completion report must remain inside the run evidence directory.")
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text("\n\n".join(sections) + "\n", encoding="utf-8")
+        result = AgentResult("report", self.run_id, "PASS", outputs={
+            "report_path": str(report_path), "pipeline_status": pipeline_status,
+            "status_line": status_line, "residual_gaps": gaps,
+        })
+        result.path = str(self.evidence_dir / "report-result.json")
+        dump_json(Path(result.path), result.to_dict())
+        self.state.record_agent_result("report", result.to_dict())
+        self.state.set_phase(phase_id, "PASS", report_path=str(report_path))
+        emit(f"  report: {report_path}", "dim")
+        return PhaseOutcome(phase_id, "PASS", [result])
+
     def _finish(
         self, phases: Mapping[str, Any], pipeline_status: str, terminal_status: str
     ) -> str:
@@ -816,28 +998,29 @@ class Orchestrator:
             if missing or not rows or any(row.get("status") != "PASS" for row in rows):
                 pipeline_status = "FAIL"
                 self.state.update(error=f"Completion prerequisites not satisfied: {missing or 'components'}")
+        if self.dry_run and pipeline_status == "COMPLETE":
+            pipeline_status = "DRY_RUN"
         self.state.update(status=pipeline_status)
         report_phase = phases.get("report")
-        if report_phase and self._wants("report") and self.context is not None:
+        if report_phase and self._wants("report"):
             try:
-                outcome = self.run_single(report_phase, pipeline_status=pipeline_status)
-                if self.dry_run and not outcome.passed:
+                outcome = self.run_report(report_phase, pipeline_status=pipeline_status)
+                if not outcome.passed:
                     pipeline_status = "FAIL"
-                elif pipeline_status == "COMPLETE" and not self.dry_run and (
-                    not outcome.passed or not outcome.results or outcome.results[0].status != "COMPLETE"
-                    or outcome.results[0].output("residual_gaps", [])
+                elif pipeline_status == "COMPLETE" and (
+                    not outcome.results or outcome.results[0].output("pipeline_status") != "COMPLETE"
+                    or outcome.results[0].output("residual_gaps")
                 ):
                     pipeline_status = "FAIL"
-            except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
-                emit(f"  !! reporter failed: {error}", "red")
+            except (PipelineError, EnvelopeError, ConfigError, OSError, ValueError) as error:
+                emit(f"  !! report generation failed: {error}", "red")
                 if self.logger:
-                    self.logger.exception("Reporter failed")
+                    self.logger.exception("Report generation failed")
+                self.state.record_agent_result("report", AgentResult("report", self.run_id, "FAIL", failures=[str(error)]).to_dict())
+                self.state.set_phase("report", "FAIL", error=str(error))
                 pipeline_status = "FAIL"
         elif pipeline_status == "COMPLETE" and not self.dry_run:
             pipeline_status = "FAIL"
-
-        if self.dry_run and pipeline_status == "COMPLETE":
-            pipeline_status = "DRY_RUN"
 
         self.state.update(status=pipeline_status)
         color = {"COMPLETE": "green", "BLOCKED": "yellow"}.get(pipeline_status, "red")
