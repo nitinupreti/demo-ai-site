@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from urllib.parse import unquote, urlparse
 
 from ..config import AgentSpec, Settings
+from ..browser import BrowserToolchain, browser_paths
 from ..console import emit
 from ..contract import RunContract
 from ..envelope import AgentResult, EnvelopeError, read_result
@@ -33,6 +34,7 @@ class RunContext:
     dry_run: bool = False
     toolchain: Toolchain | None = None
     scorer: PixelScorer | None = None
+    browser: BrowserToolchain | None = None
 
     @property
     def repo_root(self) -> Path:
@@ -119,6 +121,7 @@ class RunContext:
     def base_values(self) -> dict[str, Any]:
         """Prompt placeholders every agent template may reference."""
         migration = self.settings.migration
+        browser = self.browser or browser_paths(self.settings)
         return {
             "run_id": self.run_id,
             "site_url": self.contract.site_url,
@@ -154,7 +157,8 @@ class RunContext:
             "xf_variation": str(migration.get("reuse.experience_fragment_variation", "master")),
             "xf_component": str(migration.get("reuse.experience_fragment_component", "")),
             "java_home": str(self.toolchain.java_home) if self.toolchain else "",
-            "browser_tools_dir": str(migration.get("parity.tools_dir", "")),
+            "browser_tools_dir": str(browser.tools_dir),
+            "browser_module_uri": browser.module_path.as_uri(),
             "token_clientlib": str(migration.get("css.token_layer.clientlib", "")),
             "token_scss": str(migration.get("css.token_layer.scss_source", "")),
             "token_prefix": str(migration.get("css.token_layer.prefix", "--site-")),
@@ -200,7 +204,19 @@ class Agent:
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
         if result.passed and not self.context.dry_run:
             for check in result.checks:
-                self.context.evidence_file(check.get("evidence"))
+                evidence = check.get("evidence")
+                paths = evidence if isinstance(evidence, list) else [evidence]
+                try:
+                    if not paths:
+                        raise EnvelopeError("At least one evidence file path is required.")
+                    for path in paths:
+                        self.context.evidence_file(path)
+                except (EnvelopeError, OSError, ValueError) as error:
+                    raise EnvelopeError(
+                        f"Agent '{self.agent_id}' check '{check.get('name', '?')}' has invalid evidence: {error}. "
+                        "Use a single file path or a nonempty JSON array of file path strings; "
+                        "put explanations in 'details', not in the paths."
+                    ) from error
 
     # -- execution ---------------------------------------------------------
 
@@ -230,7 +246,27 @@ class Agent:
         values = self.prompt_values(**kwargs)
         values.setdefault("result_path", self.context.rel(self.result_path(slug)))
         template = self.context.settings.resolve(str(self.spec.prompt_path))
-        return render_file(template, values)
+        evidence_example = {
+            "name": "required_check_name",
+            "status": "PASS",
+            "evidence": [
+                f"{values['evidence_dir']}/first-check.json",
+                f"{values['evidence_dir']}/second-check.json",
+            ],
+            "details": "Describe the measurements or validation performed here.",
+        }
+        return render_file(template, values) + (
+            "\n\n## Machine-readable check evidence\n\n"
+            "Each checks[].evidence must be a single file path string or a nonempty JSON array of file path strings. "
+            "Every referenced file must exist, be nonempty, and resolve inside this run's evidence directory. "
+            "Use complete repository-relative or absolute paths for every entry, not bare filenames relative to another entry. "
+            "Do not use comma-separated paths, globs, Markdown links, or explanatory prose in evidence. "
+            "Put explanations in a separate details field. For checks spanning multiple artifacts or breakpoints, "
+            "list every supporting file explicitly; the coordinator validates each one. "
+            "A malformed evidence field fails result validation even when the underlying files exist.\n\n"
+            "Example check (replace the check name and paths with the actual required check and files you produced):\n\n"
+            f"```json\n{json.dumps(evidence_example, indent=2)}\n```\n"
+        )
 
     def run(self, **kwargs: Any) -> AgentResult:
         context = self.context
@@ -298,7 +334,6 @@ class Agent:
         return result
 
     def env_extra(self) -> dict[str, str]:
-        migration = self.context.settings.migration
         environment = {
             "MIGRATION_RUN_ID": self.context.run_id,
             "MIGRATION_SITE_URL": self.context.contract.site_url,
@@ -308,11 +343,7 @@ class Agent:
         }
         if self.context.toolchain:
             environment.update(self.context.toolchain.environment())
-        browsers = migration.get("parity.browsers_path", None)
-        if browsers:
-            environment["PLAYWRIGHT_BROWSERS_PATH"] = str(
-                self.context.settings.resolve(str(browsers))
-            )
+        environment.update((self.context.browser or browser_paths(self.context.settings)).environment())
         return environment
 
     def _on_event(self, label: str, event: Mapping[str, Any]) -> None:

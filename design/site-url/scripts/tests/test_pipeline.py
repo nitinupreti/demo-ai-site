@@ -16,9 +16,10 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from aem_agents.config import AgentSpec, Settings
+from aem_agents.browser import browser_paths
 from aem_agents.contract import load_contract
 from aem_agents.envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
-from aem_agents.agents.base import RunContext
+from aem_agents.agents.base import Agent, RunContext
 from aem_agents.agents.parity import ParityAgent
 from aem_agents.orchestrator import Orchestrator, PhaseOutcome, PipelineError
 from aem_agents.merge import MergeReport
@@ -29,6 +30,7 @@ from aem_agents.state import RunState
 from aem_agents.toolchain import Toolchain
 from aem_agents.agents import AGENT_CLASSES
 from aem_agents.workspaces import WorkspaceError
+from aem_agents.discovery import DiscoveryEvidence
 
 
 class EnvelopeTests(unittest.TestCase):
@@ -80,6 +82,63 @@ class EnvelopeTests(unittest.TestCase):
     def test_in_memory_result_checks_affect_success(self):
         result = AgentResult("component", "test", "PASS", checks=[{"name": "test", "status": "FAIL"}])
         self.assertFalse(result.passed)
+
+
+class EvidenceTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.evidence = self.root / "evidence"
+        self.evidence.mkdir()
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        self.context = RunContext(settings, load_contract(settings), None, MagicMock(), "test", self.evidence, MagicMock())
+        self.agent = PlannerAgent(self.context)
+        self.paths = [self.evidence / f"stability-{width}.json" for width in (375, 768, 1440)]
+        for path in self.paths:
+            path.write_text("{}", encoding="utf-8")
+
+    def validate(self, evidence):
+        result = AgentResult("planner", "test", "PASS", checks=[{
+            "name": "all_breakpoints_ready", "status": "PASS", "evidence": evidence,
+            "details": "Viewport and layout stability checked at every breakpoint.",
+        }])
+        Agent.validate_result(self.agent, result)
+
+    def test_single_evidence_path_remains_supported(self):
+        self.validate(str(self.paths[0]))
+
+    def test_explicit_evidence_paths_are_all_validated(self):
+        self.validate([str(path) for path in self.paths])
+        self.paths[-1].unlink()
+        with self.assertRaisesRegex(EnvelopeError, "all_breakpoints_ready.*stability-1440"):
+            self.validate([str(path) for path in self.paths])
+
+    def test_empty_or_out_of_run_evidence_is_rejected(self):
+        empty = self.evidence / "empty.json"
+        empty.touch()
+        outside = self.root / "outside.json"
+        outside.write_text("{}", encoding="utf-8")
+        for invalid in (empty, outside):
+            with self.subTest(path=invalid), self.assertRaisesRegex(EnvelopeError, "all_breakpoints_ready"):
+                self.validate([str(self.paths[0]), str(invalid)])
+
+    def test_malformed_evidence_is_rejected_with_check_context(self):
+        annotated = f"{self.paths[0]}, stability-768.json, stability-1440.json (all blocks stable)"
+        for invalid in (None, "", [], [None], [[str(self.paths[0])]], {"path": str(self.paths[0])}, annotated):
+            with self.subTest(evidence=invalid), self.assertRaisesRegex(EnvelopeError, "all_breakpoints_ready.*details"):
+                self.validate(invalid)
+
+    def test_filename_punctuation_is_not_parsed_as_prose(self):
+        path = self.evidence / "stability, 375 (verified).json"
+        path.write_text("{}", encoding="utf-8")
+        self.validate(str(path))
+
+    def test_rendered_prompt_explains_structured_evidence(self):
+        prompt = self.agent.render_prompt("planner")
+        self.assertIn("nonempty JSON array of file path strings", prompt)
+        self.assertIn("details", prompt)
+        self.assertIn("comma-separated", prompt)
 
 
 class DependencyTests(unittest.TestCase):
@@ -309,11 +368,16 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_dry_run_preflight_never_probes_external_tools(self):
         self.engine.dry_run = True
-        with patch("aem_agents.orchestrator.create_backend") as backend, patch("aem_agents.orchestrator.resolve_java_home") as java, patch("aem_agents.orchestrator.PixelScorer") as scorer, patch("aem_agents.orchestrator.probe") as probe:
+        with patch("aem_agents.orchestrator.create_backend") as backend, patch("aem_agents.orchestrator.resolve_java_home") as java, patch("aem_agents.orchestrator.PixelScorer") as scorer, patch("aem_agents.orchestrator.probe") as probe, patch("aem_agents.orchestrator.check_browser") as browser:
             self.engine.preflight()
-            for operation in (backend, java, scorer, probe):
+            for operation in (backend, java, scorer, probe, browser):
                 operation.assert_not_called()
         self.assertIsNone(self.engine.context.backend)
+
+    def test_missing_browser_fails_before_starting_copilot(self):
+        with patch("aem_agents.orchestrator.check_browser", side_effect=EnvelopeError("Browser missing")), patch("aem_agents.orchestrator.create_backend") as backend, self.assertRaises(EnvelopeError):
+            self.engine.preflight()
+        backend.assert_not_called()
 
     def test_dry_run_validates_reporter_without_claiming_completion(self):
         self.engine.dry_run = True
@@ -451,6 +515,43 @@ class ConfigurationTests(unittest.TestCase):
         args = backend.build_args("test", options)
         self.assertEqual(args[args.index("--name") + 1], "test-planner")
         self.assertNotIn("{session_name}", args)
+
+    def test_browser_roles_use_verified_shared_module(self):
+        self.context.browser = browser_paths(self.settings)
+        for role in ("planner", "parity"):
+            agent = AGENT_CLASSES[role](self.context)
+            with self.subTest(role=role):
+                prompt = agent.render_prompt(agent.slug())
+                if role == "planner":
+                    self.assertIn("Do not generate or run discovery scripts", prompt)
+                else:
+                    self.assertIn("await import(process.env.MIGRATION_BROWSER_MODULE)", prompt)
+                self.assertIn(self.context.browser.module_path.as_uri(), prompt)
+                self.assertNotIn("Install its dependencies", prompt)
+                self.assertNotIn("Install any Node.js browser tooling", prompt)
+                self.assertEqual(agent.env_extra()["MIGRATION_BROWSER_MODULE"], self.context.browser.module_path.as_uri())
+
+    def test_planner_failure_during_collection_never_starts_llm(self):
+        with patch("aem_agents.agents.planner.collect_discovery", side_effect=EnvelopeError("Incomplete source readiness")):
+            with self.assertRaisesRegex(EnvelopeError, "Incomplete source"):
+                PlannerAgent(self.context).run()
+        self.context.backend.run.assert_not_called()
+
+    def test_planner_dry_run_never_collects_source(self):
+        self.context.dry_run = True
+        with patch("aem_agents.agents.planner.collect_discovery") as collector, patch("aem_agents.agents.base.emit"):
+            self.assertTrue(PlannerAgent(self.context).run().passed)
+        collector.assert_not_called()
+        self.context.backend.run.assert_not_called()
+
+    def test_isolated_worker_keeps_original_browser_paths(self):
+        self.context.browser = browser_paths(self.settings)
+        original_environment = self.context.browser.environment()
+        isolated = Settings(self.evidence / "checkout", self.settings.migration, self.settings._agents_config)
+        self.context.settings = isolated
+        environment = PlannerAgent(self.context).env_extra()
+        for key, value in original_environment.items():
+            self.assertEqual(environment[key], value)
 
     def test_resolved_target_reaches_parity_and_reporter(self):
         base = f"http://{self.context.aem_host}:{self.context.aem_port}"
@@ -606,7 +707,10 @@ class EndToEndTests(unittest.TestCase):
 
             backend = FixtureBackend()
             engine = Orchestrator(settings, contract, run_id="integration", skip_probe=True, evidence_dir=evidence, logger=MagicMock())
-            with patch("aem_agents.orchestrator.create_backend", return_value=backend), patch("aem_agents.orchestrator.resolve_java_home", return_value=Toolchain(root / "jdk", "fixture")), patch("aem_agents.orchestrator.emit"), patch("aem_agents.agents.base.emit"):
+            fixture_manifest = evidence / "collector.json"
+            fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
+            prepared = DiscoveryEvidence(fixture_manifest, fixture_manifest, fixture_manifest, (fixture_manifest,), .1, False)
+            with patch("aem_agents.orchestrator.create_backend", return_value=backend), patch("aem_agents.orchestrator.resolve_java_home", return_value=Toolchain(root / "jdk", "fixture")), patch("aem_agents.orchestrator.check_browser", return_value=browser_paths(original)), patch("aem_agents.agents.planner.collect_discovery", return_value=prepared) as collect, patch("aem_agents.agents.planner.validate_collection", return_value=({}, (fixture_manifest,))), patch("aem_agents.orchestrator.emit"), patch("aem_agents.agents.base.emit"):
                 with self.assertRaises(KeyboardInterrupt):
                     engine.run()
                 self.assertEqual(engine.state.get("status"), "INTERRUPTED")
@@ -614,6 +718,7 @@ class EndToEndTests(unittest.TestCase):
                 calls.clear()
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")
+                collect.assert_called_once()
             self.assertEqual(calls, ["deployer", "parity", "reporter"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
             self.assertTrue((evidence / "completion-report.md").is_file())

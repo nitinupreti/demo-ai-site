@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
+from ..envelope import AgentResult
 from ..render import bullet_list, markdown_table
 from .base import Agent
 
@@ -13,6 +14,13 @@ class DeployerAgent(Agent):
     """Builds, deploys, and proves the change is live on the target instance."""
 
     agent_id = "deployer"
+
+    def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        super().validate_result(result, **kwargs)
+        if result.passed and not self.context.dry_run:
+            self.context.record_target_url(result.output("target_url"))
+            result.outputs["target_url"] = self.context.disabled_url
+            result.outputs["author_url"] = self.context.author_url
 
     def slug(self, attempt: int = 1, **_: Any) -> str:
         return f"deployer-attempt-{attempt}"
@@ -69,6 +77,7 @@ class DeployerAgent(Agent):
     def deploy_table(self) -> str:
         """Render the scoped-deploy table from config so commands are never hardcoded."""
         port = self.context.aem_port
+        host = self.context.aem_host
         migration = self.context.settings.migration
         rows: list[dict[str, Any]] = []
         for entry in migration.get("deploy.scoped", []):
@@ -79,7 +88,7 @@ class DeployerAgent(Agent):
                 {
                     "scope": ", ".join(f"`{pattern}`" for pattern in entry.get("match", [])),
                     "description": description,
-                    "command": f"`{str(entry.get('command', '')).format(port=port)}`",
+                    "command": f"`{str(entry.get('command', '')).format(port=port, host=host)}`",
                 }
             )
         full = migration.get("deploy.full", {})
@@ -94,6 +103,6 @@ class DeployerAgent(Agent):
         if full:
             extra.append(
                 f"\nFull reactor build ({full.get('description', '')}):\n\n"
-                f"```\n{full.get('command', '')}\n```"
+                f"```\n{str(full.get('command', '')).format(port=port, host=host)}\n```"
             )
         return "\n".join(extra)

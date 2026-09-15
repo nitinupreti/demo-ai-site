@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .config import ConfigError, Settings
+from .browser import check_browser
 from .checkpoints import capture_checkpoint, evidence_paths, validate_artifacts, validate_checkpoint
 from .console import emit
 from .contract import RunContract
@@ -204,6 +205,8 @@ class Orchestrator:
                 self.evidence_dir, self.logger, dry_run=True,
             )
             return
+        browser = check_browser(self.settings)
+        emit(f"  Playwright {browser.playwright_version}: cached Chromium {browser.chromium_revision} ready ({browser.elapsed_ms} ms)", "green")
         scorer = PixelScorer()
         timeout = int(self.settings.migration.get("run.source_probe_timeout_seconds", 20))
         if self.skip_probe:
@@ -239,6 +242,7 @@ class Orchestrator:
             dry_run=self.dry_run,
             toolchain=toolchain,
             scorer=scorer,
+            browser=browser,
         )
 
     # -- phase dispatch ----------------------------------------------------

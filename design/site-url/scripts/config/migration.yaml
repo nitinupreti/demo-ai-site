@@ -161,6 +161,13 @@ model:
 # ---------------------------------------------------------------------------
 # Fan-out
 # ---------------------------------------------------------------------------
+discovery:
+  max_parallel: 2
+  page_timeout_seconds: 120
+  navigation_timeout_seconds: 30
+  readiness_timeout_seconds: 15
+  inventory_cache_dir: design/site-url/scripts/.tools/inventory
+
 fanout:
   max_parallel: 5
   # Hard ceiling so a bad plan cannot spawn an unbounded number of agents.
@@ -395,8 +402,9 @@ parity:
   # Installed once and reused across runs. A per-run install under the evidence
   # directory costs a fresh ~18 MB download every time and leaves a copy behind in
   # every retained evidence folder.
-  tools_dir: design/site-url/scripts/.tools/browser
+  tools_dir: design/site-url/scripts/tools
   browsers_path: design/site-url/scripts/.tools/ms-playwright
+  browser_check_timeout_seconds: 15
   diff_tooling:
     comparator: pixelmatch
     png_codec: pngjs

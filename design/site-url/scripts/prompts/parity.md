@@ -52,11 +52,18 @@ scorer after you finish, replaces any reported counts/ratios, creates the labele
 side-by-side and diff images, and persists a hashed verification receipt. Never
 modify `design/site-url/scripts/tools` or its dependencies.
 
-Install its dependencies in the shared, reusable location `{{browser_tools_dir}}`
-— never inside the evidence directory. `PLAYWRIGHT_BROWSERS_PATH` is already set for
-you, so browsers are downloaded once and reused across runs. If
-`{{browser_tools_dir}}/node_modules` already exists, reuse it rather than
-reinstalling.
+Playwright and the matching headless Chromium in `{{browser_tools_dir}}` have already
+passed the coordinator's launch check. Do not run npm install, npm ci, npx, browser
+installers, or global installs. Do not modify browser caches or installer locks.
+Use the exact shared module (`{{browser_module_uri}}`) from every capture script:
+
+```javascript
+const { chromium } = await import(process.env.MIGRATION_BROWSER_MODULE);
+```
+
+`PLAYWRIGHT_BROWSERS_PATH` is set to the verified shared cache. Use the default
+headless launch, without a custom browser channel or executable. If it becomes
+unavailable, return `BLOCKED` with the error; installation belongs to explicit setup.
 
 The runner must:
 

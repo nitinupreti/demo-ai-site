@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
+import threading
+from types import SimpleNamespace
 import unittest
 from PIL import Image
 from unittest.mock import patch
@@ -14,6 +19,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from aem_agents.config import Settings
+from aem_agents.browser import browser_paths, check_browser
 from aem_agents.assets import AemClient, AssetError, _declared_assets, fetch_assets
 from aem_agents.merge import latest_contribution_path, read_contributions, merge_contributions, MergeError
 from aem_agents.state import RunLock, RunState, StateError
@@ -23,6 +29,206 @@ from aem_agents.envelope import EnvelopeError
 from aem_agents.checkpoints import capture_checkpoint, validate_checkpoint
 from aem_agents.config import ConfigError
 from aem_agents.contract import load_contract
+from aem_agents.discovery import collect_discovery, repository_inventory, validate_collection
+
+
+class DiscoveryCollectorTests(unittest.TestCase):
+    def test_inventory_is_reused_until_its_sources_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+            settings.repo_root = root
+            settings.migration = settings.migration.merged({"reuse": {"survey_roots": {"components": "components"}}, "discovery": {"inventory_cache_dir": "cache"}})
+            component = root / "components/hero/.content.xml"
+            component.parent.mkdir(parents=True)
+            component.write_text('<root title="Hero"/>', encoding="utf-8")
+            target = root / "inventory.json"
+            self.assertFalse(repository_inventory(settings, target))
+            initial = target.read_bytes()
+            self.assertTrue(repository_inventory(settings, target))
+            self.assertEqual(target.read_bytes(), initial)
+            component.write_text('<root title="Changed Hero"/>', encoding="utf-8")
+            self.assertFalse(repository_inventory(settings, target))
+            self.assertNotEqual(target.read_bytes(), initial)
+
+    def test_offline_collection_covers_every_breakpoint_and_signal(self):
+        class FixtureHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                document = b'''<!doctype html><title>Discovery fixture</title>
+                <style>body{margin:0}main{min-height:1100px}section{height:220px;background:#ace}#late{display:none}a{display:block}
+                #hover-menu{display:none}#trigger:hover + #hover-menu,#trigger:focus + #hover-menu{display:block}</style>
+                <header id="header"><nav class="mega-menu"><a href="/one">One</a><a href="/two">Two</a><button id="trigger">Menu</button><div id="hover-menu">Hover content</div></nav></header>
+                <main id="main"><section id="hero" class="hero"><h1>Fixture heading</h1><p>Exact source copy.</p></section>
+                <div id="late" class="announcement">Scroll revealed</div></main><footer id="footer">Footer</footer>
+                <script>addEventListener('scroll',()=>{if(scrollY>100)document.querySelector('#late').style.display='block'});
+                setTimeout(()=>{const node=document.createElement('aside');node.id='injected';node.textContent='Late content';document.body.append(node)},1200);</script>'''
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(document)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), FixtureHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+                contract = load_contract(settings, {"site_url": f"http://127.0.0.1:{server.server_port}/"})
+                browser = browser_paths(settings)
+                settings.repo_root = root
+                context = SimpleNamespace(settings=settings, contract=contract, browser=browser, evidence_dir=root / "evidence", run_id="fixture")
+                prepared = collect_discovery(context)
+                output = prepared.manifest.parent
+                manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+                self.assertEqual(manifest["status"], "COLLECTED")
+                self.assertEqual(len(manifest["results"]), 3)
+                for width in (375, 768, 1440):
+                    signals = json.loads((output / str(width) / "signals.json").read_text(encoding="utf-8"))
+                    self.assertEqual(len(signals["executed"]), 11)
+                    self.assertIn("#late", signals["signals"]["scroll_triggered"])
+                    self.assertIn("#injected", signals["signals"]["dynamic_injection"])
+                    self.assertTrue(signals["signals"]["vertical_bands"])
+                    summary = json.loads((output / str(width) / "summary.json").read_text(encoding="utf-8"))
+                    self.assertEqual(summary["viewport"]["width"], width)
+                    self.assertTrue((output / str(width) / "source.png").is_file())
+                    interactions = json.loads((output / str(width) / "interactions.json").read_text(encoding="utf-8"))
+                    trigger = next(row for row in interactions if row["selector"] == "#trigger")
+                    self.assertIn("#hover-menu", [row["selector"] for row in trigger["hover"]])
+                self.assertIn('"stage":"COLLECTED"', (output / "progress.jsonl").read_text(encoding="utf-8"))
+                self.assertTrue(prepared.summary.is_file())
+                self.assertTrue(prepared.inventory.is_file())
+                checked, artifacts = validate_collection(output / "manifest.json", "fixture", f"http://127.0.0.1:{server.server_port}/", [375, 768, 1440], manifest["collector_sha256"])
+                self.assertEqual(checked["status"], "COLLECTED")
+                self.assertGreater(len(artifacts), 3)
+                (output / "375/signals.json").write_text('{}', encoding="utf-8")
+                with self.assertRaisesRegex(EnvelopeError, "changed or invalid"):
+                    validate_collection(output / "manifest.json", "fixture", f"http://127.0.0.1:{server.server_port}/", [375, 768, 1440], manifest["collector_sha256"])
+                print(f"\nOffline three-breakpoint collector: {manifest['elapsed_ms']} ms")
+                settings.migration = settings.migration.merged({"discovery": {"page_timeout_seconds": 1}})
+                with self.assertRaisesRegex(EnvelopeError, "Source discovery is incomplete"):
+                    collect_discovery(context)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_collector_regexes_and_browser_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "collector-test.mjs"
+            module_uri = (SCRIPTS / "tools/discover.mjs").as_uri()
+            script.write_text(
+                "import assert from 'node:assert/strict';\n"
+                f"const {{ snapshotDOM, usingBrowser, withDeadline }} = await import({json.dumps(module_uri)});\n"
+                "let captured;\n"
+                "await assert.rejects(usingBrowser(async browser => {\n"
+                "  captured = browser;\n"
+                "  const page = await browser.newPage();\n"
+                "  await page.setContent('<main id=main><section class=hero><h1>Heading</h1><p>Copy</p></section><nav class=mega-menu><a href=/one>One</a><a href=/two>Two</a></nav></main>');\n"
+                "  const snapshot = await page.evaluate(snapshotDOM);\n"
+                "  assert(snapshot.elements.some(row => row.signals.includes('class_family')));\n"
+                "  assert(snapshot.elements.some(row => row.signals.includes('missable')));\n"
+                "  assert(snapshot.elements.some(row => row.signals.includes('repetition')));\n"
+                "  for (const row of snapshot.elements) assert.equal(await page.locator(row.selector).count(), 1);\n"
+                "  assert(snapshot.tokens.length > 0);\n"
+                "  throw new Error('injected collection failure');\n"
+                "}), /injected collection failure/);\n"
+                "assert.equal(captured.isConnected(), false);\n"
+                "await assert.rejects(withDeadline(() => new Promise(() => {}), 10, 'fonts'), /fonts exceeded/);\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+
+class BrowserTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        self.settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        self.settings.repo_root = self.root
+        self.settings.migration = self.settings.migration.merged({"parity": {"tools_dir": "tools", "browsers_path": "browser-cache"}})
+        environment = patch.dict(os.environ, {"PLAYWRIGHT_BROWSERS_PATH": ""})
+        environment.start()
+        self.addCleanup(environment.stop)
+        runtime = browser_paths(self.settings)
+        runtime.tools_dir.mkdir(parents=True)
+        runtime.module_path.write_text("fixture", encoding="utf-8")
+        (runtime.tools_dir / "package.json").write_text(json.dumps({"dependencies": {"playwright": "1.63.0"}}), encoding="utf-8")
+        self.payload = {"status": "READY", "playwright_version": "1.63.0", "browser_version": "153.0.0.0", "chromium_revision": "1243", "elapsed_ms": 100,
+                        "browsers_path": str(runtime.browsers_path), "module_uri": runtime.module_path.as_uri()}
+
+    def test_preflight_checks_cache_without_installing(self):
+        response = subprocess.CompletedProcess([], 0, json.dumps(self.payload), "")
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", return_value=response) as execute:
+            runtime = check_browser(self.settings)
+        self.assertEqual(runtime.playwright_version, "1.63.0")
+        self.assertNotIn("--install", execute.call_args.args[0])
+        self.assertFalse(execute.call_args.kwargs["shell"])
+        self.assertEqual(execute.call_args.kwargs["timeout"], 25)
+        self.assertEqual(execute.call_args.kwargs["env"]["MIGRATION_BROWSER_MODULE"], runtime.module_path.as_uri())
+        execute.assert_called_once()
+
+    def test_timeout_reports_setup_hint_without_retrying(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", side_effect=subprocess.TimeoutExpired("node", 25)) as execute:
+            with self.assertRaisesRegex(EnvelopeError, "Install dependencies once"):
+                check_browser(self.settings)
+        execute.assert_called_once()
+
+    def test_wrong_version_or_cache_fails_closed(self):
+        for fields in ({"playwright_version": "1.48.0"}, {"browsers_path": str(self.root / "wrong-cache")}, {"module_uri": "file:///wrong/browser.mjs"}):
+            response = subprocess.CompletedProcess([], 0, json.dumps({**self.payload, **fields}), "")
+            with self.subTest(fields=fields), patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", return_value=response), self.assertRaises(EnvelopeError):
+                check_browser(self.settings)
+
+    def test_explicit_user_cache_is_respected(self):
+        cache = self.root / "shared user cache"
+        with patch.dict(os.environ, {"PLAYWRIGHT_BROWSERS_PATH": str(cache)}):
+            self.assertEqual(browser_paths(self.settings).browsers_path, cache)
+        with patch.dict(os.environ, {"PLAYWRIGHT_BROWSERS_PATH": "0"}), self.assertRaises(ConfigError):
+            browser_paths(self.settings)
+
+    def test_real_shared_import_works_outside_tool_directory(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        runtime = check_browser(settings)
+        probe = self.root / "probe.mjs"
+        probe.write_text("const { checkBrowser } = await import(process.env.MIGRATION_BROWSER_MODULE);\nconsole.log(JSON.stringify(await checkBrowser()));\n", encoding="utf-8")
+        response = subprocess.run(["node", str(probe)], cwd=self.root, env={**os.environ, **runtime.environment()}, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        self.assertEqual(response.returncode, 0, response.stderr)
+        payload = json.loads(response.stdout)
+        self.assertEqual(payload["status"], "READY")
+        self.assertEqual(Path(payload["browsers_path"]), runtime.browsers_path)
+
+    def test_missing_cache_does_not_trigger_an_install(self):
+        runtime = browser_paths(Settings.load(SCRIPTS.parents[2], SCRIPTS / "config"))
+        empty_cache = self.root / "empty-cache"
+        response = subprocess.run(
+            ["node", str(runtime.module_path), "--browsers-path", str(empty_cache), "--timeout-ms", "1000"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+        self.assertNotEqual(response.returncode, 0)
+        self.assertIn("Explicit setup", response.stderr)
+        self.assertNotIn("Installing pinned Chromium", response.stderr)
+        self.assertFalse(empty_cache.exists())
+
+    def test_explicit_install_preserves_existing_installer_lock(self):
+        runtime = browser_paths(Settings.load(SCRIPTS.parents[2], SCRIPTS / "config"))
+        cache = self.root / "locked-cache"
+        lock = cache / "__dirlock"
+        lock.mkdir(parents=True)
+        response = subprocess.run(
+            ["node", str(runtime.module_path), "--install", "--browsers-path", str(cache)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+        self.assertNotEqual(response.returncode, 0)
+        self.assertIn("Browser installer lock exists", response.stderr)
+        self.assertTrue(lock.is_dir())
+        self.assertEqual(list(cache.iterdir()), [lock])
 
 
 class CheckpointTests(unittest.TestCase):

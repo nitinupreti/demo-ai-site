@@ -8,16 +8,68 @@ reads.
 
 ## Quick start
 
-The launcher bootstraps its own Python environment on first run. Install the pinned
-numeric verifier once before a real migration (repeat when its lockfile changes):
+The launcher bootstraps its own Python environment on first run. Set up the pinned
+Node tooling and matching Chromium once before a real migration (repeat when the
+lockfile or Playwright version changes):
 
 ```powershell
 npm ci --prefix design/site-url/scripts/tools --ignore-scripts
+npm --prefix design/site-url/scripts/tools run browser:install
 ```
 
-This installs Pixelmatch and pngjs separately from the agents' browser tooling.
-Preflight checks the verifier before starting agents, and detects changes to its
-code or dependencies during the run.
+This installs Playwright, Pixelmatch and pngjs in one checked-in, locked package.
+The browser setup command first tries a headless launch. If the matching browser
+already works, it returns without downloading anything. The current Playwright pin
+is 1.63.0, which uses Chromium headless-shell revision 1243.
+
+Normal migrations do not install Node packages or browsers. Preflight launches the
+cached browser against a small offline page before starting Copilot. A missing,
+incompatible or unlaunchable browser fails with explicit setup instructions. The
+launch timeout defaults to 15 seconds, with a 25-second outer process limit;
+`parity.browser_check_timeout_seconds` controls it. The verifier's integrity check
+remains separate and unchanged.
+
+### Shared Playwright runtime
+
+The package is in `design/site-url/scripts/tools`, not in each evidence directory.
+Browser binaries default to `design/site-url/scripts/.tools/ms-playwright`, shared
+by all runs in this repository. Both paths are configured in
+[config/migration.yaml](config/migration.yaml). The old `.tools/browser` package is
+no longer used by the Python agents; existing files there are left untouched.
+
+To share browser binaries across repositories on Windows, set the same environment
+variable during setup and migration runs:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:LOCALAPPDATA 'ms-playwright'
+npm --prefix design/site-url/scripts/tools run browser:install
+```
+
+An absolute `PLAYWRIGHT_BROWSERS_PATH` overrides the configured cache path. Different
+Playwright versions may require different browser revisions in that cache. A global
+`npm install -g playwright` is neither necessary nor sufficient: evidence scripts
+must import the pinned project module rather than rely on global Node resolution.
+
+The coordinator exports `MIGRATION_BROWSER_MODULE` as an absolute file URL and
+preserves it for isolated workers. Planner/parity capture scripts use:
+
+```javascript
+const { chromium } = await import(process.env.MIGRATION_BROWSER_MODULE);
+const browser = await chromium.launch({ headless: true });
+```
+
+This works from an evidence directory without a local `node_modules` or `NODE_PATH`.
+Agent prompts prohibit package/browser installs and cache/lock deletion. These are
+agent instructions, not an OS sandbox. Explicit setup refuses an existing installer
+lock when a download is needed; inspect the installer before clearing a confirmed
+stale lock. Setup has a five-minute installer deadline and a 30-second download
+connection timeout, and never installs system packages or requests elevation.
+
+A standalone check never downloads anything:
+
+```powershell
+npm --prefix design/site-url/scripts/tools run browser:check
+```
 
 ```powershell
 # 1. credentials for this session - never commit them
@@ -96,7 +148,8 @@ python run_migration.py --show-plan --no-bootstrap
 ## How it works
 
 ```text
-Planner: frozen discovery, ownership and dependency plan
+Python + pinned collector: source evidence and cached repository inventory
+  -> Planner: coverage mapping, reuse, ownership and dependency plan
   -> Foundations: one writer for shared tokens, site styles and policies
   -> Component workers: isolated snapshots, bounded dependency waves
   -> Coordinator: validate actual diffs and apply owned changes
@@ -112,12 +165,61 @@ Failed gates -> bounded repairs of owners and affected dependents
 
 | Agent | Role |
 |---|---|
-| `planner` | Source discovery at every breakpoint; emits the component plan. **The number of components it returns is the fan-out width.** |
+| `planner` | Consumes prepared source evidence and repository inventory; emits the complete coverage and component plan. **The number of components it returns is the fan-out width.** |
 | `foundations` | Sole worker for shared site tokens, site styles and policies; completes before components start. |
 | `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
 | `deployer` | Chooses the smallest scoped Maven deploy covering the union of changed files and proves the change is live. |
 | `parity` | Captures fresh live-vs-AEM evidence and diagnoses geometry, properties, media and interactions. Python owns numeric acceptance. |
 | `reporter` | Writes the completion report from persisted evidence only. |
+
+## Planner latency
+
+The planner no longer starts by generating and debugging browser scripts. Before
+its Copilot invocation, Python runs [tools/discover.mjs](tools/discover.mjs) directly
+with the pinned shared browser. The collector visits only the supplied page and its
+loaded resources, uses fresh isolated browser contexts, and never submits forms or
+clicks links. It records all eleven discovery signal categories, raw DOM text and
+styles, media/font readiness, hover/focus observations, 20px page bands, batched
+rectangle samples, token measurements and full-page source screenshots.
+
+Defaults under `discovery` in [config/migration.yaml](config/migration.yaml):
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `max_parallel` | 2 | Concurrent breakpoint contexts, independent of component fan-out. |
+| `page_timeout_seconds` | 120 | Bound each breakpoint's complete collection. |
+| `navigation_timeout_seconds` | 30 | Bound navigation/loading of the source page. |
+| `readiness_timeout_seconds` | 15 | Bound individual font, media and interaction waits. |
+
+The collector closes each context on success or failure and closes its browser at
+the end. Python has an additional overall deadline and stops only that collector's
+process tree on interruption or timeout. Progress is printed by breakpoint/stage
+and persisted to `progress.jsonl`; partial evidence is retained for diagnosis, not
+accepted as complete. Missing readiness or artifacts stops planning before spending
+LLM calls. The mandatory dynamic-injection wait, stability samples, breakpoints and
+final visual thresholds have not been shortened or removed.
+
+Repository inventory is cached by the contents of the configured component, XF,
+template and policy roots. File additions, removals or edits invalidate the cache.
+Only this repository inventory is cached across new runs: live-page evidence is
+collected afresh. No old screenshot is substituted for a new source observation.
+
+The LLM reads a compact source summary and inventory first, then the specific raw
+artifacts needed for a decision. It must not create more discovery scripts or
+repeat live-page scans. It still owns exactly-once block coverage, source order,
+reuse decisions, field contracts and dependencies. `COLLECTED` means the collector
+finished its checks, not that the plan, authorability, semantic behavior or final
+visual parity has passed. Unhandled source behavior requires an explicit failure,
+not omission or guessed evidence; parity interaction tests remain separate.
+
+New planner results include `discovery_seconds` and `planner_total_seconds` alongside
+the existing backend `duration_seconds`. Discovery manifests include per-breakpoint
+stage timings and hashes. These allow collector time and LLM time to be compared
+without pretending that a faster dry run predicts live migration performance.
+
+Use a fresh run to pick up this change; it does not hot-reload an already running
+planner. Resuming a prior planner without the new collection manifest is rejected.
+No production-readiness sign-off is implied by the offline collector tests.
 
 ## The prompt contract is the source of truth
 
@@ -134,6 +236,32 @@ comparisons, and applies the unchanged contract threshold. Full-page composites
 must provide real source/target PNGs, URLs, breakpoint and DPR; a bare ratio fails.
 Unequal dimensions withhold scoring and request a layout repair. Exactly `0.90`
 still fails when the contract requires `> 0.90`.
+
+## Check evidence format
+
+For successful agent results, each `checks[].evidence` is one exact file path or a
+nonempty JSON array of file paths. Every path must be repository-relative or
+absolute and resolve to an existing, nonempty file inside the current run's evidence
+directory. Multi-file checks must list every supporting artifact explicitly.
+
+```json
+{
+  "name": "all_breakpoints_ready",
+  "status": "PASS",
+  "evidence": [
+    "design/scratch/migration-<run-id>/stability-375.json",
+    "design/scratch/migration-<run-id>/stability-768.json",
+    "design/scratch/migration-<run-id>/stability-1440.json"
+  ],
+  "details": "Viewport and layout stability checked at every breakpoint."
+}
+```
+
+Use `details` for explanations. Comma-separated paths, globs, Markdown links and
+paths with appended prose are not interpreted as evidence references. The shared
+prompt renderer supplies this contract to every agent; validation errors identify
+the agent and check that need correction. File validation does not certify the
+measurements inside an artifact or replace the required browser and parity gates.
 
 ## Ownership and dependencies
 
@@ -183,7 +311,7 @@ design/site-url/
     config/                  migration.yaml, agents.yaml
     prompts/                 one role prompt per agent
     aem_agents/              orchestrator + agent implementations
-    tools/                   pinned numeric scorer and npm lockfile
+    tools/                   shared browser, discovery collector, scorer and npm lockfile
     tests/                   offline orchestration and native scorer regressions
     .venv/                   created by setup, git-ignored
 ```
@@ -261,6 +389,8 @@ agents/<agent-slug>/prompt.md      exactly what the agent was told
 agents/<agent-slug>/result.json    the validated envelope
 agents/<agent-slug>/stream.jsonl   raw backend event stream
 workspaces/<agent-slug>/          isolated source snapshots
+discovery/collection-*/           prepared source summary, inventory and collector inputs
+discovery/collection-*/source/    checksummed source observations and progress by breakpoint
 parity/                            runner, screenshots, diffs, scores
 parity/verified/verification-*/   coordinator-owned images and hashed receipts
 ```
@@ -274,7 +404,8 @@ on the machine — `setup.ps1` / `setup.sh` check each one and tell you what is 
   [requirements.txt](requirements.txt) itself)
 - GitHub Copilot CLI (`npm install -g @github/copilot`, then `copilot login`)
 - Node.js 18+ for the agents' Playwright and pixelmatch work
-- Pinned scorer dependencies: `npm ci --prefix design/site-url/scripts/tools --ignore-scripts`
+- Pinned shared tooling: `npm ci --prefix design/site-url/scripts/tools --ignore-scripts`
+- Matching Chromium: `npm --prefix design/site-url/scripts/tools run browser:install` (explicit setup only)
 - Java and Maven for the scoped module deploys
 - A running local AEM author instance
 

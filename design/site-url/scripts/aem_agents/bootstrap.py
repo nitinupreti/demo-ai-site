@@ -23,7 +23,7 @@ from pathlib import Path
 MINIMUM_PYTHON = (3, 10)
 
 #: Imported by the pipeline itself; keep in sync with requirements.txt.
-REQUIRED_MODULES = ("yaml",)
+REQUIRED_MODULES = ("yaml", "PIL")
 
 MARKER_ENV = "AEM_AGENTS_BOOTSTRAPPED"
 SKIP_ENV = "AEM_AGENTS_SKIP_BOOTSTRAP"
