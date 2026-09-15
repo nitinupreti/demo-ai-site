@@ -86,15 +86,14 @@ def _sort_key(path: Path) -> tuple[int, str]:
 
 def resolve_java_home(settings: Settings) -> Toolchain:
     config = settings.migration.section("toolchain")
-    required = required_java_major(settings)
 
     configured = config.get("java_home", None)
     if configured:
         path = settings.resolve(Path(str(configured)).expanduser()).resolve()
-        if not _is_jdk(path) or _java_major(path) != required:
+        if not _is_jdk(path):
             raise ToolchainError(
-            f"toolchain.java_home is set to {path}, but this project requires JDK {required} "
-            "with java, javac and matching release metadata. Correct it in migration.yaml."
+                f"toolchain.java_home is set to {path}, which does not contain both java and javac. "
+                "Correct it in migration.yaml or leave it null to use JAVA_HOME or PATH."
             )
         return Toolchain(java_home=path, source="toolchain.java_home")
 
@@ -102,30 +101,31 @@ def resolve_java_home(settings: Settings) -> Toolchain:
     from_env = os.environ.get(env_name)
     if from_env:
         path = Path(from_env).expanduser().resolve()
-        if _is_jdk(path) and _java_major(path) == required:
+        if _is_jdk(path):
             return Toolchain(java_home=path, source=f"${env_name}")
 
-    discovered: list[Path] = []
     java = shutil.which("javac")
     if java:
         candidate = Path(java).resolve().parent.parent
-        if _is_jdk(candidate) and _java_major(candidate) == required:
-            discovered.append(candidate)
+        if _is_jdk(candidate):
+            return Toolchain(java_home=candidate, source="PATH")
+
+    discovered: list[Path] = []
     for pattern in config.get("java_home_candidates", []):
         for match in glob.glob(str(pattern)):
             candidate = Path(match)
-            if _is_jdk(candidate) and _java_major(candidate) == required:
+            if _is_jdk(candidate):
                 discovered.append(candidate)
     if discovered:
         best = sorted(discovered, key=_sort_key)[-1]
-        return Toolchain(java_home=best.resolve(), source="PATH / toolchain.java_home_candidates")
+        return Toolchain(java_home=best.resolve(), source="toolchain.java_home_candidates")
 
-    broken = f"\n  {env_name} is currently {from_env!r}, which is not a compatible JDK {required}." if from_env else ""
+    broken = f"\n  {env_name} is currently {from_env!r}, which does not contain both java and javac." if from_env else ""
     raise ToolchainError(
-        f"Could not resolve the required JDK {required}, and the agents must not spend turns "
+        "Could not resolve an installed JDK, and the agents must not spend turns "
         f"searching for one.{broken}\n"
-        f"  Install JDK {required} for this operating system and set JAVA_HOME to its home directory, "
-        "or set toolchain.java_home in migration.yaml. Do not copy a JDK from a different operating system."
+        "  Set JAVA_HOME to an existing JDK, put its bin directory on PATH, "
+        "or set toolchain.java_home in migration.yaml. No particular JDK version is enforced by the launcher."
     )
 
 

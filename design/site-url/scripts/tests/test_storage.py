@@ -129,22 +129,53 @@ class PortableToolchainTests(unittest.TestCase):
         (home / "release").write_text(f'JAVA_VERSION="{version}.0.1"', encoding="utf-8")
         return home
 
-    def test_selects_project_java_not_highest_installed_version(self):
-        expected = self.jdk("jdk-21", 21)
-        wrong = self.jdk("jdk-26", 26)
-        with patch.dict(os.environ, {"JAVA_HOME": str(wrong)}), patch("aem_agents.toolchain.shutil.which", return_value=None):
+    def test_uses_java_home_regardless_of_cloud_manager_version(self):
+        for version in (11, 21, 26):
+            expected = self.jdk(f"jdk-{version}", version)
+            with self.subTest(version=version), patch.dict(os.environ, {"JAVA_HOME": str(expected)}), patch("aem_agents.toolchain.shutil.which") as search:
+                resolved = resolve_java_home(self.settings)
+                self.assertEqual(resolved.java_home, expected)
+                self.assertEqual(resolved.source, "$JAVA_HOME")
+                search.assert_not_called()
+
+    def test_invalid_java_home_uses_path_before_other_installed_jdks(self):
+        expected = self.jdk("jdk-11", 11)
+        self.jdk("jdk-26", 26)
+        compiler = expected / "bin" / ("javac.exe" if os.name == "nt" else "javac")
+        for home in ("", str(self.root / "missing-jdk-21")):
+            with self.subTest(home=home), patch.dict(os.environ, {"JAVA_HOME": home}), patch("aem_agents.toolchain.shutil.which", return_value=str(compiler)):
+                resolved = resolve_java_home(self.settings)
+                self.assertEqual(resolved.java_home, expected)
+                self.assertEqual(resolved.source, "PATH")
+
+    def test_installed_jdk_fallback_is_used_only_without_environment_jdk(self):
+        expected = self.jdk("jdk-26", 26)
+        with patch.dict(os.environ, {"JAVA_HOME": ""}), patch("aem_agents.toolchain.shutil.which", return_value=None):
+            self.assertEqual(resolve_java_home(self.settings).java_home, expected)
+
+    def test_selection_does_not_require_release_or_cloud_manager_metadata(self):
+        expected = self.jdk("jdk-11", 11)
+        (expected / "release").unlink()
+        (self.root / ".cloudmanager/java-version").unlink()
+        with patch.dict(os.environ, {"JAVA_HOME": str(expected)}):
             self.assertEqual(resolve_java_home(self.settings).java_home, expected)
 
     def test_relative_configured_java_home_is_workspace_relative(self):
-        expected = self.jdk("jdk-21", 21)
-        self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home": "jdks/jdk-21"}})
+        expected = self.jdk("jdk-26", 26)
+        self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home": "jdks/jdk-26"}})
         self.assertEqual(resolve_java_home(self.settings).java_home, expected)
 
-    def test_wrong_java_or_jre_only_install_is_rejected(self):
-        home = self.jdk("jdk-26", 26)
+    def test_jre_only_install_is_rejected(self):
+        home = self.jdk("jdk-11", 11)
+        (home / "bin" / ("javac.exe" if os.name == "nt" else "javac")).unlink()
         self.settings.migration = self.settings.migration.merged({"toolchain": {"java_home": str(home)}})
-        with self.assertRaisesRegex(ToolchainError, "requires JDK 21"):
+        with self.assertRaisesRegex(ToolchainError, "both java and javac"):
             resolve_java_home(self.settings)
+
+    def test_missing_jdk_reports_environment_configuration_not_version(self):
+        with patch.dict(os.environ, {"JAVA_HOME": str(self.root / "missing")}), patch("aem_agents.toolchain.shutil.which", return_value=None):
+            with self.assertRaisesRegex(ToolchainError, "Set JAVA_HOME to an existing JDK"):
+                resolve_java_home(self.settings)
 
     def test_maven_is_checked_via_java_without_shell_shims(self):
         jdk = Toolchain(self.jdk("jdk-21", 21), "fixture")
