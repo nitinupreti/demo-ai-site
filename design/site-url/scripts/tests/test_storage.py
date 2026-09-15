@@ -249,11 +249,18 @@ class DiscoveryCollectorTests(unittest.TestCase):
             def do_GET(self):
                 document = b'''<!doctype html><title>Discovery fixture</title>
                 <style>body{margin:0}main{min-height:1100px}section{height:220px;background:#ace}#late{display:none}a{display:block}
-                #hover-menu{display:none}#trigger:hover + #hover-menu,#trigger:focus + #hover-menu{display:block}</style>
-                <header id="header"><nav class="mega-menu"><a href="/one">One</a><a href="/two">Two</a><button id="trigger">Menu</button><div id="hover-menu">Hover content</div></nav></header>
+                #hover-menu,#header-menu{display:none}#trigger:hover + #hover-menu,#trigger:focus + #hover-menu{display:block}
+                #header-trigger:hover + #header-menu,#header-trigger:focus + #header-menu{display:block}</style>
+                <header id="header"><nav class="mega-menu"><a id="header-one" href="/one">One</a><a id="header-two" href="/two">Two</a>
+                <button id="header-trigger">Header menu</button><div id="header-menu"><a id="submenu-link" href="/hidden">Hidden submenu link</a></div></nav></header>
+                <nav id="top-nav"><a id="top-link" href="/top">Top navigation</a></nav>
                 <main id="main"><section id="hero" class="hero"><h1>Fixture heading</h1><p>Exact source copy.</p></section>
-                <div id="late" class="announcement">Scroll revealed</div></main><footer id="footer">Footer</footer>
+                <header><button id="article-control">Article control</button></header><nav><a id="body-link" href="/body">Body link</a></nav>
+                <button id="trigger">Content control</button><div id="hover-menu">Hover content</div>
+                <div id="late" class="announcement">Scroll revealed</div></main><footer id="footer"><nav><a id="footer-link" href="/footer">Footer</a></nav></footer>
                 <script>addEventListener('scroll',()=>{if(scrollY>100)document.querySelector('#late').style.display='block'});
+                document.querySelector('#header').addEventListener('pointerover',()=>{document.querySelector('#header').dataset.probed='yes'});
+                document.querySelector('#header').addEventListener('focusin',()=>{document.querySelector('#header').dataset.probed='yes'});
                 setTimeout(()=>{const node=document.createElement('aside');node.id='injected';node.textContent='Late content';document.body.append(node)},1200);</script>'''
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
@@ -278,6 +285,7 @@ class DiscoveryCollectorTests(unittest.TestCase):
                 output = prepared.manifest.parent
                 manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
                 self.assertEqual(manifest["status"], "COLLECTED")
+                self.assertEqual(manifest["header_navigation_scope"], "visible-links-only")
                 self.assertEqual(len(manifest["results"]), 3)
                 for width in (375, 768, 1440):
                     signals = json.loads((output / str(width) / "signals.json").read_text(encoding="utf-8"))
@@ -291,6 +299,16 @@ class DiscoveryCollectorTests(unittest.TestCase):
                     interactions = json.loads((output / str(width) / "interactions.json").read_text(encoding="utf-8"))
                     trigger = next(row for row in interactions if row["selector"] == "#trigger")
                     self.assertIn("#hover-menu", [row["selector"] for row in trigger["hover"]])
+                    interacted = {row["selector"] for row in interactions}
+                    self.assertTrue({"#article-control", "#body-link", "#footer-link"} <= interacted)
+                    self.assertFalse({"#header-one", "#header-two", "#header-trigger", "#submenu-link", "#top-link"} & interacted)
+                    header = json.loads((output / str(width) / "header-links.json").read_text(encoding="utf-8"))
+                    self.assertEqual(header["scope"], "visible-links-only")
+                    self.assertEqual({row["href"] for row in header["links"]}, {"/one", "/two", "/top"})
+                    self.assertEqual(next(row["text"] for row in header["links"] if row["href"] == "/one"), "One")
+                    observed = json.loads((output / str(width) / "observations.json").read_text(encoding="utf-8"))
+                    self.assertNotIn("#submenu-link", {row["selector"] for row in observed})
+                    self.assertNotIn("data-probed", next(row["attributes"] for row in observed if row["selector"] == "#header"))
                 self.assertIn('"stage":"COLLECTED"', (output / "progress.jsonl").read_text(encoding="utf-8"))
                 self.assertTrue(prepared.summary.is_file())
                 self.assertTrue(prepared.inventory.is_file())

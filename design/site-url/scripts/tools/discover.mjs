@@ -82,8 +82,11 @@ export function snapshotDOM(options = {}) {
       .filter(attribute => /^(id|class|role|aria-|data-|href|target|rel|alt|title|src|srcset|sizes|poster|type|name|placeholder|tabindex|controls|autoplay|loop|muted|playsinline|preload|loading)/i.test(attribute.name))
       .map(attribute => [attribute.name, attribute.value]));
     const styles = isVisible ? Object.fromEntries(styleNames.map(name => [name, computed[name]])) : {};
+    const inContent = element.closest('main,[role="main"],article,aside,footer,[role="contentinfo"]');
+    const inHeader = Boolean(element.closest('[role="banner"]') || (!inContent && element.closest('header,nav,[role="navigation"]')));
     const record = { selector: selectorFor(element), parent: selectorFor(element.parentElement), tag: element.localName, observation_state: options.state || 'static',
-      visible: isVisible, rect: box, text, attributes, styles, signals: [] };
+      visible: isVisible, in_header: inHeader, rect: box, text, attributes, styles, signals: [] };
+    if (element.matches('a[href]')) record.link_text = element.innerText?.trim() || '';
     records.set(element, record);
     if (!isVisible) continue;
     const classes = typeof element.className === 'string' ? element.className : element.getAttribute('class') || '';
@@ -151,11 +154,14 @@ export function snapshotDOM(options = {}) {
   })).filter(entry => {
     try { return new URL(entry.src, location.href).origin !== location.origin; } catch { return false; }
   });
+  const headerLinks = Array.from(records.values()).filter(row => row.in_header && row.visible && row.tag === 'a' && 'href' in row.attributes
+    && row.rect.x < innerWidth && row.rect.x + row.rect.width > 0 && row.rect.y < scrollY + innerHeight && row.rect.y + row.rect.height > scrollY)
+    .map(row => ({ selector: row.selector, text: row.link_text, href: row.attributes.href, target: row.attributes.target || '', rel: row.attributes.rel || '', rect: row.rect }));
   return { url: location.href, title: document.title, viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
     scale: visualViewport?.scale ?? 1, client_width: document.documentElement.clientWidth, scroll_width: document.documentElement.scrollWidth,
     scroll_height: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight), scroll_y: scrollY },
   elements: Array.from(records.values()).filter(record => !options.viewportOnly || (record.visible && record.rect.y < scrollY + innerHeight && record.rect.y + record.rect.height > scrollY)),
-  media, fonts: Array.from(fonts.values()), tokens: Object.values(tokens), third_party_embeds: embeds };
+  media, fonts: Array.from(fonts.values()), tokens: Object.values(tokens), third_party_embeds: embeds, header_links: headerLinks };
 }
 
 function observeChanges() {
@@ -276,6 +282,7 @@ async function collectBreakpoint(browser, config, width, progress) {
     return await withDeadline(async () => {
       const page = await context.newPage();
       page.setDefaultTimeout(config.readiness_timeout_ms);
+      await page.mouse.move(-1, -1);
       const network = [];
       page.on('response', response => {
         if (['image', 'media', 'font', 'stylesheet', 'document'].includes(response.request().resourceType())) {
@@ -301,6 +308,8 @@ async function collectBreakpoint(browser, config, width, progress) {
         }
       };
       await stage('dynamic_injection', () => page.waitForTimeout(3000));
+      const headerSnapshot = await page.evaluate(snapshotDOM);
+      save('header-links.json', { scope: 'visible-links-only', breakpoint: width, links: headerSnapshot.header_links });
       await stage('scroll_and_bands', async () => {
         let height = await page.evaluate(() => document.documentElement.scrollHeight);
         for (let position = 0; position < height; position += 720) {
@@ -320,12 +329,13 @@ async function collectBreakpoint(browser, config, width, progress) {
       await stage('interaction_discovery', async () => {
         const interactions = [];
         const controls = new Set();
+        progress(width, 'interaction_discovery', { status: 'INFO', message: `Header: ${headerSnapshot.header_links.length} visible links captured; hover and submenu probing disabled.` });
         const isControl = row => ['a', 'button', 'input', 'textarea', 'select', 'summary'].includes(row.tag)
           || row.attributes.role === 'button' || 'tabindex' in row.attributes;
         while (true) {
           const current = await page.evaluate(snapshotDOM);
           merge(current);
-          const candidate = current.elements.find(row => row.visible && isControl(row) && !controls.has(row.selector));
+          const candidate = current.elements.find(row => row.visible && !row.in_header && isControl(row) && !controls.has(row.selector));
           if (!candidate) break;
           controls.add(candidate.selector);
           const locator = page.locator(candidate.selector);
@@ -342,7 +352,7 @@ async function collectBreakpoint(browser, config, width, progress) {
               hover: hover.elements.filter(row => row.selector === candidate.selector || !current.elements.some(before => before.visible && before.selector === row.selector)),
               focus: focus.elements.filter(row => row.selector === candidate.selector || !current.elements.some(before => before.visible && before.selector === row.selector)) });
             await locator.evaluate(element => element.blur());
-            await page.mouse.move(0, 0);
+            await page.mouse.move(-1, -1);
           } catch (error) {
             issues.push({ gate: 'interaction_discovery', selector: candidate.selector, error: error.message });
           }
@@ -437,6 +447,7 @@ async function collectBreakpoint(browser, config, width, progress) {
         await page.screenshot({ path: path.join(config.output_dir, screenshot), fullPage: true, timeout: config.readiness_timeout_ms });
         artifacts.push(screenshot);
         const summary = { breakpoint: width, source_url: config.site_url, final_url: final.url, viewport: final.viewport,
+          header_navigation_scope: 'visible-links-only', header_links: headerSnapshot.header_links,
           title: final.title, issues, signals_executed: SIGNALS, candidate_count: [...observed.values()].filter(row => row.signals.length).length,
           headings: [...observed.values()].filter(row => row.signals.includes('headings')).map(row => ({ selector: row.selector, text: row.content_text, owner: row.owner_selector, rect: row.rect })),
           candidates: [...observed.values()].filter(row => row.signals.length).map(row => ({ selector: row.selector, tag: row.tag, signals: row.signals, rect: row.rect })),
@@ -482,6 +493,7 @@ export async function collectSource(input) {
     return { path: relative, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
   });
   const manifest = { schema_version: 1, run_id: config.run_id, site_url: config.site_url, breakpoints: config.breakpoints,
+    header_navigation_scope: 'visible-links-only',
     status: results.every(result => result.status === 'COLLECTED') ? 'COLLECTED' : 'FAIL',
     collector_sha256: createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex'),
     elapsed_ms: Math.round(performance.now() - started), results, artifacts };

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 SIGNALS = {"landmarks", "headings", "class_family", "vertical_bands", "interaction_media", "overlays",
            "repetition", "missable", "scroll_triggered", "dynamic_injection", "third_party_embeds"}
 REQUIRED_FILES = {"initial.json", "final.json", "observations.json", "media.json", "tokens.json", "bands.json",
-                  "signals.json", "stability.json", "summary.json", "network.json", "interactions.json", "source.png"}
+                  "signals.json", "stability.json", "summary.json", "network.json", "interactions.json", "header-links.json", "source.png"}
 
 
 @dataclass(frozen=True)
