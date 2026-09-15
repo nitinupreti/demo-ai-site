@@ -55,31 +55,8 @@ def _is_jdk(path: Path) -> bool:
     return all((path / "bin" / (name + suffix)).is_file() for name in ("java", "javac"))
 
 
-def _java_major(path: Path) -> int | None:
-    try:
-        for line in (path / "release").read_text(encoding="utf-8").splitlines():
-            key, separator, value = line.partition("=")
-            if key == "JAVA_VERSION" and separator:
-                version = value.strip('"').split(".")
-                return int(version[1] if version[0] == "1" else version[0].split("-")[0])
-    except (OSError, ValueError, IndexError):
-        pass
-    return None
-
-
-def required_java_major(settings: Settings) -> int:
-    path = settings.resolve(str(settings.migration.get("toolchain.java_version_file", ".cloudmanager/java-version")))
-    try:
-        value = path.read_text(encoding="utf-8").strip()
-        if not value.isdigit() or int(value) < 8:
-            raise ValueError("expected a Java major version")
-        return int(value)
-    except (OSError, ValueError) as error:
-        raise ToolchainError(f"Cannot determine the project's Java version from {path}: {error}") from error
-
-
 def _sort_key(path: Path) -> tuple[int, str]:
-    """Prefer the highest version number so a stale JDK 8 never wins."""
+    """Rank installed fallbacks only when configuration and environment have no JDK."""
     numbers = [int(value) for value in _VERSION.findall(path.name)]
     return (max(numbers) if numbers else 0, path.name)
 

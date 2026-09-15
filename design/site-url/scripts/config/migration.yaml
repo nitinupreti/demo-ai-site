@@ -83,13 +83,12 @@ aem:
 # probe for a JDK or set JAVA_HOME themselves: with a broken machine value,
 # every agent rediscovers the same problem and pays for it in tool calls.
 #
-# Leave java_home null to auto-detect — the environment variable is used only
-# when it points at the required JDK, otherwise PATH and candidate globs are searched.
-# Only the major version declared by the project is accepted.
+# Leave java_home null to use a valid JAVA_HOME, then the JDK containing javac on
+# PATH. Candidate globs are a last resort. No JDK major version is enforced locally;
+# Maven and project dependencies still determine build compatibility.
 toolchain:
   java_home: null
   java_home_env: JAVA_HOME
-  java_version_file: .cloudmanager/java-version
   java_home_candidates:
     - "C:/Program Files/Zulu/zulu-*"
     - "C:/Program Files/Java/jdk*"
