@@ -28,6 +28,33 @@ Read the contract file first. Its non-negotiable rules and gates override anythi
 here. Also read `{{companion_docs}}`. Load {{required_skills}} before implementation;
 use these skill references: {{skill_references}}.
 
+## Progress Updates
+
+Before starting work and at each section or stage transition, emit a standalone
+assistant message line (not a tool call, shell command, code fence or result file):
+
+```text
+AEM_PROGRESS {"stage":"planning","subject":"<actual page section>","action":"Checking existing component reuse","current":2,"total":8}
+```
+
+The example counts are illustrative. Include `current` and `total` only after
+establishing the candidate section list from frozen evidence, and only for
+`evidence`, `planning` or `reuse`. Omit both when unknown; never invent a percentage.
+Use the actual section title or a clear semantic label, not a raw selector or path.
+Report each section's analysis start and reuse/mapping decision. Then report shared
+tokens/styles, policy changes, focused checks and result preparation using stages
+`foundations`, `policies`, `validation` or `repair` as appropriate. Repairs retain
+the supplied plan; do not restart discovery to provide progress updates.
+
+Keep `subject` under 120 characters and `action` under 240 characters. Emit updates
+as work happens, not a retrospective batch. These are agent-reported milestones,
+not coordinator-validated results. Describe observations, actions and outcomes,
+never private reasoning, credentials or command dumps. Do not say a component is
+being built here: component implementation belongs to its worker. Never claim the
+pipeline or plan is validated; the coordinator announces acceptance after checks.
+If a long-running tool is still active, do not invent progress or interrupt it to
+send a message; the coordinator supplies a waiting heartbeat.
+
 ## Repair Mode
 
 For `plan-and-foundations`, perform all planning and shared-foundation work below.
@@ -217,6 +244,17 @@ resolved as `{{java_home}}`; do not probe for it.
    automatically. Never assign the same file to two components. Shared site tokens,
    site styles and policies belong exclusively to you; page and
    XF XML belong to the deterministic contribution merge.
+
+   **Delivery is not file ownership.** Even for `delivery: experience-fragment`,
+   never put content XML under `ui.content` in `owned_paths`. Keep that list limited
+   to component implementation source files. Put exact JCR page/XF paths requiring
+   authored nodes in `contribution_targets`, without `.html` or `/.content.xml`.
+   For example, a header XF uses a target like
+   `{{xf_root}}/header/{{xf_variation}}`, not its repository XML file.
+   The worker must include every target in its contribution's `pages` array;
+   the merge handler writes them. `owning_module` is descriptive, not permission
+   to edit a module. Do not assign templates, policies, shared clientlibs, site
+   SCSS, Vault filters, DAM binaries or directories as component-owned paths.
 
    Declare `depends_on` using component ids when one implementation consumes another.
    The coordinator waits for dependencies to pass and applies their changes before

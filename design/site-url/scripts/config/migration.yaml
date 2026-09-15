@@ -165,7 +165,7 @@ model:
 # ---------------------------------------------------------------------------
 discovery:
   max_parallel: 2
-  page_timeout_seconds: 120
+  page_timeout_seconds: null
   navigation_timeout_seconds: 30
   readiness_timeout_seconds: 15
   inventory_cache_dir: design/site-url/scripts/.tools/inventory

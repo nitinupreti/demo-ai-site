@@ -207,6 +207,62 @@ class PortableToolchainTests(unittest.TestCase):
 
 
 class DiscoveryCollectorTests(unittest.TestCase):
+    def test_optional_discovery_timeout_reaches_collector_and_cancellation(self):
+        for limit, expected in ((None, None), (0, None), (3, 36)):
+            with self.subTest(limit=limit), tempfile.TemporaryDirectory() as directory:
+                settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+                browser = browser_paths(settings)
+                settings.repo_root = Path(directory)
+                settings.migration = settings.migration.merged({"discovery": {"page_timeout_seconds": limit}})
+                context = SimpleNamespace(settings=settings, contract=SimpleNamespace(site_url="https://example.invalid/", breakpoints=[375, 768, 1440]),
+                                          browser=browser, evidence_dir=Path(directory) / "evidence", run_id="fixture")
+                with patch("aem_agents.discovery.repository_inventory", return_value=True), patch("aem_agents.discovery.subprocess.Popen") as start, patch("aem_agents.discovery._stop_collector") as stop:
+                    start.return_value.wait.side_effect = KeyboardInterrupt()
+                    with self.assertRaises(KeyboardInterrupt):
+                        collect_discovery(context)
+                    start.return_value.wait.assert_called_once_with(timeout=expected)
+                    stop.assert_called_once_with(start.return_value)
+                config_path = next(context.evidence_dir.glob("discovery/*/input.json"))
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                self.assertEqual(config["page_timeout_ms"], limit * 1000 if limit else None)
+                self.assertEqual(config["readiness_timeout_ms"], 15000)
+
+    def test_disabled_discovery_timeout_preserves_process_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+            browser = browser_paths(settings)
+            self.assertIsNone(settings.migration.get("discovery.page_timeout_seconds"))
+            settings.repo_root = Path(directory)
+            context = SimpleNamespace(settings=settings, contract=SimpleNamespace(site_url="https://example.invalid/", breakpoints=[375]),
+                                      browser=browser, evidence_dir=Path(directory) / "evidence", run_id="fixture")
+            with patch("aem_agents.discovery.repository_inventory", return_value=True), patch("aem_agents.discovery.subprocess.Popen", side_effect=OSError("fixture process failed")):
+                with self.assertRaisesRegex(EnvelopeError, "Source collector failed: fixture process failed"):
+                    collect_discovery(context)
+
+    def test_node_discovery_optional_timeout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "deadline-test.mjs"
+            module_uri = (SCRIPTS / "tools/discover.mjs").as_uri()
+            script.write_text(
+                "import assert from 'node:assert/strict';\n"
+                "import { mock } from 'node:test';\n"
+                "import { setImmediate } from 'node:timers/promises';\n"
+                f"const {{ withDeadline, collectSource }} = await import({json.dumps(module_uri)});\n"
+                "const timer = mock.method(globalThis, 'setTimeout', () => { throw new Error('Unexpected deadline timer'); });\n"
+                "for (const limit of [null, 0]) {\n"
+                "  assert.equal(await withDeadline(async () => { await setImmediate(); return 'complete'; }, limit, 'discovery'), 'complete');\n"
+                "  await assert.rejects(withDeadline(() => { throw new Error('source failure'); }, limit, 'discovery'), /source failure/);\n"
+                "}\n"
+                "assert.equal(timer.mock.callCount(), 0);\n"
+                "timer.mock.restore();\n"
+                "await assert.rejects(withDeadline(() => new Promise(() => {}), 10, 'discovery'), /discovery exceeded 10 ms/);\n"
+                f"const config = {{ schema_version: 1, run_id: 'fixture', site_url: 'https://example.invalid', breakpoints: [375], output_dir: {json.dumps(str(Path(directory).resolve()))} }};\n"
+                "for (const page_timeout_ms of [-1, false, 'none', 1.5]) await assert.rejects(collectSource({ ...config, page_timeout_ms }), /Invalid discovery setting: page_timeout_ms/);\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_progress_formatter_names_work_and_elapsed_time(self):
         with tempfile.TemporaryDirectory() as directory:
             script = Path(directory) / "logging-test.mjs"
@@ -724,6 +780,32 @@ class StorageTests(unittest.TestCase):
         self.contribution("hero", 1, nodes=[])
         with self.assertRaises(MergeError):
             read_contributions(self.settings, self.evidence, [{"id": "hero"}])
+
+    def test_required_contribution_target_cannot_be_omitted(self):
+        target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
+        self.contribution("header", 1, page_path="/content/demo-ai-site/us/en/story", nodes=[{"name": "header", "xml": "<header />"}])
+        with self.assertRaisesRegex(MergeError, "omits required page/XF targets"):
+            read_contributions(self.settings, self.evidence, [{"id": "header", "contribution_targets": [target]}])
+
+    def test_required_contribution_targets_merge_all_authored_pages(self):
+        template = self.prepare_template()
+        targets = ["/content/demo-ai-site/us/en/story", "/content/experience-fragments/demo-ai-site/us/en/site/header/master"]
+        pages = [{"page_path": target, "template_path": template, "page_properties": {"jcr:title": "Header"},
+                  "parent_path": "jcr:content/root/container/container", "nodes": [{"name": "header", "xml": "<header />"}]} for target in targets]
+        self.contribution("header", 1, pages=pages)
+        report = merge_contributions(self.settings, self.evidence, [{"id": "header", "contribution_targets": targets}])
+        self.assertTrue(report.ok)
+        self.assertEqual(len(report.nodes_written), 2)
+        for target in targets:
+            path = self.settings.resolve(self.settings.migration.get("shared_files.authored_page.file").format(page_path=target))
+            self.assertIsNotNone(ElementTree.parse(path).find(".//header"))
+
+    def test_required_contribution_targets_reject_invalid_shapes_and_scopes(self):
+        self.contribution("header", 1, page_path="/content/demo-ai-site/us/en/story", nodes=[{"name": "header", "xml": "<header />"}])
+        for targets in ("/content/demo-ai-site/us/en/story", [None], ["/content/other-site/en"],
+                        ["/content/demo-ai-site/en/**"], ["/content/demo-ai-site/en/../other"], ["/content/demo-ai-site/en.html"]):
+            with self.subTest(targets=targets), self.assertRaises(MergeError):
+                read_contributions(self.settings, self.evidence, [{"id": "header", "contribution_targets": targets}])
 
     def test_latest_author_destination_overrides_incomplete_planner_entry(self):
         url = "https://example.invalid/hero.png"

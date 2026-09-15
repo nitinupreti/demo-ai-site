@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -18,6 +20,13 @@ from ..runner import CopilotBackend
 from ..scoring import PixelScorer
 from ..state import RunState
 from ..toolchain import Toolchain
+
+_PROGRESS_STAGES = {
+    "evidence": "Evidence", "planning": "Planning", "reuse": "Reuse",
+    "foundations": "Shared styles", "policies": "Policies", "repair": "Repair",
+    "dialog": "Dialog", "model": "Sling Model", "htl": "HTL", "styles": "Styles",
+    "tests": "Tests", "content": "Authored content", "validation": "Validation",
+}
 
 
 @dataclass
@@ -187,6 +196,13 @@ class Agent:
     def __init__(self, context: RunContext) -> None:
         self.context = context
         self.spec: AgentSpec = context.settings.agent(self.agent_id)
+        self._reset_progress()
+
+    def _reset_progress(self) -> None:
+        self._progress_started = time.monotonic()
+        self._progress_updated = self._progress_started
+        self._progress_notified = self._progress_started
+        self._progress_activity = ""
 
     # -- overridable -------------------------------------------------------
 
@@ -282,6 +298,7 @@ class Agent:
         result_path.unlink(missing_ok=True)
 
         label = f"{self.spec.title} [{slug}]"
+        self._reset_progress()
         emit(f"  -> {label} starting", "cyan")
         context.logger.info("Starting agent %s (prompt: %s)", slug, prompt_file)
 
@@ -311,7 +328,7 @@ class Agent:
         if run.timed_out:
             raise EnvelopeError(
                 f"{label} exceeded its {self.spec.timeout_seconds}s budget and was stopped. "
-                f"Raise timeout_seconds in agents.yaml or narrow the work. Stream: {run.stream_path}"
+                f"Set timeout_seconds to null in agents.yaml to disable the runtime deadline. Stream: {run.stream_path}"
             )
         if not run.ok:
             raise EnvelopeError(
@@ -326,6 +343,7 @@ class Agent:
                 agent=self.agent_id, run_id=context.run_id, status="FAIL",
                 failures=[str(error)], path=str(result_path),
             )
+            dump_json(result_path, result.to_dict())
             context.state.record_agent_result(slug, result.to_dict())
             raise
         color = "green" if result.passed else ("yellow" if result.blocked else "red")
@@ -346,10 +364,67 @@ class Agent:
         environment.update((self.context.browser or browser_paths(self.context.settings)).environment())
         return environment
 
+    def _progress_line(self, label: str, message: str, now: float) -> None:
+        elapsed = max(0, int(now - self._progress_started))
+        text = f"     [{slug_of(label)} {elapsed // 60:02d}:{elapsed % 60:02d}] {message}"
+        emit(text, "cyan")
+        self.context.logger.info("%s", text.strip())
+
+    def _report_progress(self, label: str, content: str) -> None:
+        if self.agent_id not in {"planner", "component"}:
+            return
+        for line in content.splitlines():
+            if not line.strip().startswith("AEM_PROGRESS "):
+                continue
+            try:
+                progress = json.loads(line.strip()[len("AEM_PROGRESS "):])
+            except ValueError:
+                continue
+            if not isinstance(progress, Mapping):
+                continue
+            stage, subject, action = (progress.get(key) for key in ("stage", "subject", "action"))
+            if not isinstance(stage, str) or stage not in _PROGRESS_STAGES:
+                continue
+            if any(not isinstance(value, str) or not value.strip() or not value.isprintable() for value in (subject, action)):
+                continue
+            subject = " ".join(subject.split())[:120]
+            action = " ".join(action.split())[:240]
+            if "current" in progress or "total" in progress:
+                current, total = progress.get("current"), progress.get("total")
+                if self.agent_id != "planner" or stage not in {"evidence", "planning", "reuse"}:
+                    continue
+                if type(current) is not int or type(total) is not int or not 0 < current <= total:
+                    continue
+                subject = f"Section {current}/{total}: {subject}"
+            message = f"{subject} | {_PROGRESS_STAGES[stage]} | {action}"
+            if message == self._progress_activity:
+                continue
+            now = time.monotonic()
+            self._progress_activity = message
+            self._progress_updated = self._progress_notified = now
+            self._progress_line(label, f"reported: {message}", now)
+
+    def _progress_heartbeat(self, label: str) -> None:
+        if self.agent_id not in {"planner", "component"}:
+            return
+        now = time.monotonic()
+        if now - self._progress_notified < 45:
+            return
+        quiet = max(0, int(now - self._progress_updated))
+        activity = f"Last reported activity: {self._progress_activity}" if self._progress_activity else "No milestone reported yet"
+        self._progress_line(label, f"Still running | {activity} | No progress update for {quiet}s", now)
+        self._progress_notified = now
+
     def _on_event(self, label: str, event: Mapping[str, Any]) -> None:
         events = self.context.settings.migration.section("backend.copilot.events")
         event_type = event.get("type")
         data = event.get("data") or {}
+        if not isinstance(data, Mapping):
+            return
+
+        if event_type == "aem.heartbeat":
+            self._progress_heartbeat(label)
+            return
 
         if event_type == events.get("error", "session.error"):
             message = data.get("message") or data.get("error") or "unknown error"
@@ -359,6 +434,8 @@ class Agent:
 
         if event_type == events.get("message", "assistant.message"):
             for request in data.get("toolRequests") or []:
+                if not isinstance(request, Mapping):
+                    continue
                 name = request.get("name") or request.get("toolName") or "tool"
                 arguments = request.get("arguments") or request.get("input") or {}
                 detail = ""
@@ -369,10 +446,12 @@ class Agent:
                             break
                 detail = " ".join(detail.split())[:120]
                 self.context.logger.debug("%s tool %s %s", label, name, detail)
-                emit(f"     [{slug_of(label)}] {name}: {detail}", "dim")
+                if self.context.logger.isEnabledFor(logging.DEBUG):
+                    emit(f"     [{slug_of(label)}] {name}: {detail}", "dim")
             content = data.get("content")
             if isinstance(content, str) and content.strip():
                 self.context.logger.debug("%s says: %s", label, content.strip()[:2000])
+                self._report_progress(label, content)
 
 
 def slug_of(label: str) -> str:

@@ -168,15 +168,18 @@ def collect_discovery(context: "RunContext") -> DiscoveryEvidence:
     root = context.evidence_dir / "discovery" / f"collection-{uuid.uuid4().hex}"
     root.mkdir(parents=True)
     source = root / "source"
+    page_timeout = settings.migration.get("discovery.page_timeout_seconds", None)
+    if page_timeout is not None and (type(page_timeout) is not int or page_timeout < 0):
+        raise ConfigError("discovery.page_timeout_seconds must be null, zero, or a positive integer.")
     settings_values = {
         "max_parallel": settings.migration.get("discovery.max_parallel", 2),
-        "page_timeout_ms": settings.migration.get("discovery.page_timeout_seconds", 120) * 1000,
+        "page_timeout_ms": page_timeout * 1000 if page_timeout else None,
         "navigation_timeout_ms": settings.migration.get("discovery.navigation_timeout_seconds", 30) * 1000,
         "readiness_timeout_ms": settings.migration.get("discovery.readiness_timeout_seconds", 15) * 1000,
         "stability_samples": settings.migration.get("parity.stability_samples", 3),
         "stability_interval_ms": settings.migration.get("parity.stability_interval_ms", 500),
     }
-    if any(type(value) is not int or value <= 0 for value in settings_values.values()) or settings_values["max_parallel"] > 3:
+    if any(type(value) is not int or value <= 0 for key, value in settings_values.items() if key != "page_timeout_ms") or settings_values["max_parallel"] > 3:
         raise ConfigError("Discovery limits must be positive integers with max_parallel at most 3.")
     config = {"schema_version": 1, "run_id": context.run_id, "site_url": context.contract.site_url,
               "breakpoints": context.contract.breakpoints, "output_dir": str(source.resolve()), **settings_values}
@@ -185,8 +188,9 @@ def collect_discovery(context: "RunContext") -> DiscoveryEvidence:
     inventory = root / "inventory.json"
     reused = repository_inventory(settings, inventory)
     revision = digest(collector)
-    timeout = math.ceil(len(context.contract.breakpoints) / settings_values["max_parallel"]) * settings_values["page_timeout_ms"] / 1000 + 30
+    timeout = math.ceil(len(context.contract.breakpoints) / settings_values["max_parallel"]) * page_timeout + 30 if page_timeout else None
     emit(f"  source discovery: {len(context.contract.breakpoints)} breakpoints, {settings_values['max_parallel']} concurrent; inventory {'cached' if reused else 'refreshed'}", "cyan")
+    emit(f"  discovery deadline: {str(page_timeout) + 's per breakpoint' if page_timeout else 'disabled; Ctrl+C to stop'}", "dim")
     process = None
     try:
         process = subprocess.Popen(
@@ -197,7 +201,8 @@ def collect_discovery(context: "RunContext") -> DiscoveryEvidence:
         )
         exit_code = process.wait(timeout=timeout)
     except (OSError, subprocess.SubprocessError) as error:
-        raise EnvelopeError(f"Source collector failed or exceeded {timeout:.0f}s: {error}. Evidence: {root}") from error
+        limit = f" or exceeded {timeout:.0f}s" if timeout is not None else ""
+        raise EnvelopeError(f"Source collector failed{limit}: {error}. Evidence: {root}") from error
     finally:
         if process is not None:
             _stop_collector(process)

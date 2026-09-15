@@ -10,8 +10,9 @@ from typing import Any, Iterable, Mapping
 from ..envelope import AgentResult, EnvelopeError, validate_components
 from ..discovery import DiscoveryEvidence, collect_discovery, validate_collection
 from ..browser import browser_paths
+from ..console import emit
 from ..render import bullet_list
-from ..workspaces import digest, foundation_scopes, validate_ownership
+from ..workspaces import digest, foundation_scopes, normalize_scope, validate_contribution_targets, validate_ownership
 from .base import Agent, dump_json
 
 # Stand-in plan so --dry-run still renders and validates every downstream prompt.
@@ -115,11 +116,45 @@ class PlannerAgent(Agent):
             maximum=int(migration.get("fanout.max_components", 40)),
         )
         components = self.prioritize(components)
+        corrections = self.route_content_ownership(components)
         validate_ownership(self.context.settings, components)
+        if corrections:
+            result.outputs["ownership_corrections"] = corrections
+            for correction in corrections:
+                message = f"{correction['component_id']}: routed {correction['target']} to required merge contributions (not worker edits)."
+                emit(f"  plan ownership: {message}", "yellow")
+                self.context.logger.warning("Plan ownership correction: %s", message)
         plan_path = self.context.evidence_dir / str(migration.get("run.plan_file", "component-plan.json"))
         dump_json(plan_path, {"run_id": self.context.run_id, "components": components})
         self.context.logger.info("Planner produced %d component(s) -> %s", len(components), plan_path)
         return components
+
+    def route_content_ownership(self, components: list[dict[str, Any]]) -> list[dict[str, str]]:
+        settings = self.context.settings
+        pattern = str(settings.migration.require("shared_files.authored_page.file"))
+        prefix, marker, suffix = pattern.partition("{page_path}")
+        if not marker or not suffix or "{page_path}" in suffix:
+            raise EnvelopeError("The authored-page file pattern needs one {page_path} and a file suffix.")
+        corrections = []
+        for component in components:
+            targets = validate_contribution_targets(settings, component)
+            declared = component.get("owned_paths", [])
+            if not isinstance(declared, list):
+                raise EnvelopeError(f"{component['id']}: owned_paths must be a list of source paths.")
+            owned = []
+            for value in declared:
+                path = normalize_scope(value)
+                if path.startswith(prefix) and path.endswith(suffix):
+                    target = path[len(prefix):-len(suffix)]
+                    targets = validate_contribution_targets(settings, {**component, "contribution_targets": [*targets, target]})
+                    corrections.append({"component_id": component["id"], "path": path, "target": target, "owner": "merge"})
+                else:
+                    owned.append(path)
+            if "owned_paths" in component:
+                component["owned_paths"] = owned
+            if targets:
+                component["contribution_targets"] = targets
+        return corrections
 
     def prioritize(self, components: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Move shared-chrome components first; they usually own shared tokens."""

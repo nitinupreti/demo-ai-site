@@ -116,9 +116,27 @@ def foundation_scopes(settings: Settings) -> list[str]:
     return [normalize_scope(path) for path in configured]
 
 
+def validate_contribution_targets(settings: Settings, component: Mapping[str, Any]) -> list[str]:
+    targets = component.get("contribution_targets", [])
+    if not isinstance(targets, list) or any(not isinstance(target, str) for target in targets):
+        raise WorkspaceError(f"{component['id']}: contribution_targets must be a list of JCR page paths.")
+    roots = (
+        f"/content/{settings.migration.require('project.name')}",
+        str(settings.migration.require("reuse.experience_fragment_root")).rstrip("/"),
+    )
+    for target in targets:
+        if not target.startswith("/") or not any(target == root or target.startswith(root + "/") for root in roots):
+            raise WorkspaceError(f"{component['id']}: contribution target {target!r} is outside this project's page and XF roots.")
+        path = normalize_scope(target[1:])
+        if path.endswith("/**") or target.endswith((".html", ".xml")):
+            raise WorkspaceError(f"{component['id']}: contribution targets must be exact JCR page paths, not files or wildcards.")
+    return list(dict.fromkeys(targets))
+
+
 def validate_ownership(settings: Settings, components: Iterable[Mapping[str, Any]]) -> None:
     assigned: list[tuple[str, str]] = []
     for component in components:
+        validate_contribution_targets(settings, component)
         owner = str(component["id"])
         for scope in component_scopes(settings, component):
             for previous_owner, previous_scope in assigned:

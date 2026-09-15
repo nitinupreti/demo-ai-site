@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
             "use only existing installed dependencies."
         ),
     )
-    parser.add_argument("--verbose", action="store_true", help="Debug logging to the log file.")
+    parser.add_argument("--verbose", action="store_true", help="Show technical tool activity and write debug logs.")
     return parser
 
 

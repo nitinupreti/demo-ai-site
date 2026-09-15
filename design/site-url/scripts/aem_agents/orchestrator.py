@@ -396,6 +396,8 @@ class Orchestrator:
 
     def run_planner(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         phase_id = str(phase["id"])
+        agent = self._agent(phase)
+        slug = agent.slug(**kwargs)
         self.state.set_phase(phase_id, "RUNNING")
         operation = "repairing shared foundations" if kwargs.get("repair") else "planning and establishing shared foundations"
         emit(f"\n[{phase_id}] {operation}", "cyan")
@@ -408,13 +410,13 @@ class Orchestrator:
                 if result.passed and changes is not None:
                     apply_changes(self.settings.repo_root, [changes])
         except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
-            result = AgentResult("planner", self.run_id, "FAIL", failures=[str(error)])
+            result = AgentResult("planner", self.run_id, "FAIL", failures=[str(error)], path=str(agent.result_path(slug)))
+            emit(f"  !! {phase_id}: {error}", "red")
         if result.path:
             dump_json(Path(result.path), result.to_dict())
-        slug = self._agent(phase).slug(**kwargs)
         saved = self.state.get("agent_results", {}).get(slug, {})
         self.state.record_agent_result(slug, {**saved, **result.to_dict()})
-        self.state.set_phase(phase_id, result.status)
+        self.state.set_phase(phase_id, result.status, error="; ".join(result.failures) if result.failures else None)
         return PhaseOutcome(phase_id, result.status, [result])
 
     def _persist_worker(self, result: AgentResult, component: Mapping[str, Any], attempt: int) -> None:
@@ -906,6 +908,8 @@ class Orchestrator:
             "BLOCKED": "VISUAL PARITY GATE: BLOCKED - see recorded failures and evidence",
             "DRY_RUN": "VISUAL PARITY GATE: NOT RUN - dry run; no live evidence collected",
         }.get(pipeline_status, f"VISUAL PARITY GATE: FAILED - {len(gaps)} unresolved components - see residual gaps and failed phases")
+        if pipeline_status == "FAIL" and not rows:
+            status_line = "VISUAL PARITY GATE: NOT RUN - migration failed before a component plan was accepted; see recorded failures"
         sections = [
             "# Migration Completion Report", f"Run: `{self.run_id}`", f"Status: **{pipeline_status}**",
             status_line, f"Source: {self.contract.site_url}", f"AEM page: {state.get('target_url') or 'not recorded'}",

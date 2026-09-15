@@ -8,6 +8,7 @@ export const SIGNALS = ['landmarks', 'headings', 'class_family', 'vertical_bands
   'overlays', 'repetition', 'missable', 'scroll_triggered', 'dynamic_injection', 'third_party_embeds'];
 
 export async function withDeadline(operation, milliseconds, label) {
+  if (milliseconds === null || milliseconds === 0) return await operation();
   let timer;
   try {
     return await Promise.race([
@@ -216,9 +217,10 @@ function validateConfig(input) {
   if (!Array.isArray(input.breakpoints) || !input.breakpoints.length || input.breakpoints.some(width => !Number.isInteger(width) || width <= 0)
       || new Set(input.breakpoints).size !== input.breakpoints.length) throw new Error('Discovery requires unique positive integer breakpoints.');
   if (!path.isAbsolute(input.output_dir)) throw new Error('Discovery output_dir must be absolute.');
-  const config = { max_parallel: 2, page_timeout_ms: 120000, navigation_timeout_ms: 30000,
+  const config = { max_parallel: 2, page_timeout_ms: null, navigation_timeout_ms: 30000,
     readiness_timeout_ms: 15000, stability_samples: 3, stability_interval_ms: 500, ...input };
-  for (const key of ['max_parallel', 'page_timeout_ms', 'navigation_timeout_ms', 'readiness_timeout_ms', 'stability_samples', 'stability_interval_ms']) {
+  if (config.page_timeout_ms !== null && (!Number.isInteger(config.page_timeout_ms) || config.page_timeout_ms < 0)) throw new Error('Invalid discovery setting: page_timeout_ms');
+  for (const key of ['max_parallel', 'navigation_timeout_ms', 'readiness_timeout_ms', 'stability_samples', 'stability_interval_ms']) {
     if (!Number.isInteger(config[key]) || config[key] <= 0) throw new Error(`Invalid discovery setting: ${key}`);
   }
   if (config.max_parallel > 3 || config.stability_samples < 3 || config.stability_interval_ms < 500) throw new Error('Discovery sampling/concurrency settings violate the capture contract.');

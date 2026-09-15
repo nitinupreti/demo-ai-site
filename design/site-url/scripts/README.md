@@ -245,6 +245,54 @@ unreported; numeric screenshot scores require a matching current-run scorer rece
 Invalid or unverified scores are withheld. Report generation cannot upgrade failed
 gates to completion, and a report-write failure prevents completion.
 
+## Progress logging
+
+Planner and component workers report concise milestones as they work. Examples:
+
+```text
+[planner 00:30] reported: Section 2/8: Hero | Planning | Checking existing component reuse
+[planner 02:40] reported: Typography | Shared styles | Adding measured font tokens
+[component-hero-attempt-1 00:12] reported: hero | Dialog | Adding authored image and title fields
+[component-hero-attempt-1 01:05] reported: hero | Tests | Running focused model tests
+```
+
+Every line includes the worker identity and elapsed invocation time. The planner
+reports section counts only once it has established its candidate list; counts
+are not a time estimate. Component workers report only the development steps their
+component needs. The `reported:` label distinguishes agent activity from accepted
+results: milestones never change checks, completion status or the remediation budget.
+
+After 45 seconds without a new milestone, the coordinator prints `Still running`
+with the last reported activity and time since the update. If none has arrived,
+it says `No milestone reported yet`. Tool traffic does not imply progress or reset
+this timer. Repeated identical milestones are suppressed. A heartbeat confirms
+the backend is still being monitored, not that a task has completed or is healthy.
+
+Normal output hides technical tool requests; `--verbose` shows them and enables
+debug logging. Milestones and waiting notices are written to the existing run log.
+The raw backend event stream is retained for diagnosis. No new agent or prompt
+file is involved; both existing role prompts use `AEM_PROGRESS` JSON messages.
+
+## Runtime deadlines
+
+Overall runtime deadlines are disabled by default for all four agents and source
+discovery. In [config/agents.yaml](config/agents.yaml), `defaults.timeout_seconds`
+is `null`, with no per-role overrides. In
+[config/migration.yaml](config/migration.yaml), `discovery.page_timeout_seconds`
+is also `null`; this disables both the Node per-breakpoint deadline and Python's
+outer collector deadline. `0` is accepted as an alternative to `null`. A positive
+integer opts back into a deadline in seconds.
+
+Agents and discovery continue until completion, a real error, or manual cancellation
+with `Ctrl+C`. Existing progress logging and agent waiting heartbeats remain enabled.
+Without a total deadline, a stuck run can wait indefinitely; inspect its logs and
+cancel it when necessary. Cancelling still cleans up the owned subprocesses.
+
+Individual navigation, font/media readiness, HTTP requests, browser startup and
+dependency setup retain their operation-specific limits. These report failed
+operations rather than ending an otherwise active agent merely for taking too long.
+Remediation-attempt limits and the Copilot continuation budget are unchanged.
+
 ## Planner latency
 
 The planner no longer starts by generating and debugging browser scripts. Before
@@ -269,13 +317,14 @@ Defaults under `discovery` in [config/migration.yaml](config/migration.yaml):
 | Setting | Default | Purpose |
 |---|---|---|
 | `max_parallel` | 2 | Concurrent breakpoint contexts, independent of component fan-out. |
-| `page_timeout_seconds` | 120 | Bound each breakpoint's complete collection. |
+| `page_timeout_seconds` | `null` | No overall discovery deadline; a positive value enables one. |
 | `navigation_timeout_seconds` | 30 | Bound navigation/loading of the source page. |
 | `readiness_timeout_seconds` | 15 | Bound individual font, media and interaction waits. |
 
 The collector closes each context on success or failure and closes its browser at
-the end. Python has an additional overall deadline and stops only that collector's
-process tree on interruption or timeout. Progress is printed by breakpoint/stage
+the end. Python adds an outer deadline only when a positive per-breakpoint limit
+is configured, and stops only that collector's process tree on interruption or
+an explicitly enabled timeout. Progress is printed by breakpoint/stage
 and persisted to `progress.jsonl`; partial evidence is retained for diagnosis, not
 accepted as complete. Missing readiness or artifacts stops planning before spending
 LLM calls. The mandatory dynamic-injection wait, stability samples, breakpoints and
@@ -352,6 +401,25 @@ helper and test paths and component-scoped frontend files. Each component owns i
 own application directory automatically. Overlapping ownership, unknown dependency
 ids and cycles are rejected before workers start. `depends_on` is a completion
 barrier; `priority_prefixes` only orders submissions within an already-ready wave.
+
+Content delivery and file ownership are separate. Page and Experience Fragment
+content goes through the merge handler, even when `delivery` is
+`experience-fragment`. Plans can declare exact JCR `contribution_targets`; workers
+must include each target as a `page_path` with authored nodes in their contribution.
+
+If the planner mistakenly lists an exact page/XF content XML file in `owned_paths`,
+the coordinator moves it into `contribution_targets` before ownership validation.
+This correction uses the configured authored-page file pattern and is restricted
+to this project's page root and configured XF root. It logs the correction and
+records `ownership_corrections` in the planner result. The canonical accepted plan
+contains the corrected ownership. Content intent is preserved: omitting a required
+contribution target fails validation before component changes are applied.
+
+This does not grant component workers permission to edit content XML. Actual
+unowned file edits, templates, shared styles/policies, Vault filters, DAM files,
+unknown roots, traversal and broad content claims remain rejected. Rejected planner
+results are persisted as `FAIL`, and failures before an accepted component plan
+report that visual parity was not run rather than showing zero unresolved components.
 
 Workers receive copies of eligible current source files, including uncommitted
 changes, without build outputs, virtual environments or installed dependencies.
@@ -435,7 +503,7 @@ python run_migration.py --url https://example.com/page [options]
 --skip-probe           Do not probe SITE_URL and AEM first
 --dry-run              Resolve config, render every prompt, invoke nothing
 --show-plan            Print the resolved contract and pipeline, then exit
---verbose              Debug logging into the run log
+--verbose              Show technical tool activity and write debug logs
 ```
 
 Exit codes: `0` complete or successful dry run, `1` failed, `2` blocked, `130` interrupted.

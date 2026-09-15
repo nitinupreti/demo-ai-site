@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import queue
 import re
 from pathlib import Path
 import sys
@@ -153,6 +154,170 @@ class EvidenceTests(unittest.TestCase):
     def test_planner_repairs_have_separate_attempt_identity(self):
         self.assertEqual(self.agent.slug(), "planner")
         self.assertEqual(self.agent.slug(repair=True, attempt=2), "planner-repair-attempt-2")
+
+    def test_planner_routes_xf_ownership_to_required_contributions(self):
+        target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
+        content_path = f"ui.content/src/main/content/jcr_root{target}/.content.xml"
+        model_path = "core/src/main/java/com/demo/core/models/SiteHeaderModel.java"
+        component = {
+            "id": "site-header", "name": "Site header", "tier": 2,
+            "delivery": "experience-fragment", "source_order": 0,
+            "resource_type": "demo-ai-site/components/site-header",
+            "source_selectors": [{"instance_id": "header-1", "selector": "header"}],
+            "owned_paths": [content_path, model_path], "reuse_target": target,
+        }
+        result = AgentResult("planner", "test", "PASS", outputs={"components": [component]})
+        planned = self.agent.validate_plan(result)
+        self.assertEqual(planned[0]["owned_paths"], [model_path])
+        self.assertEqual(planned[0]["contribution_targets"], [target])
+        self.assertEqual(planned[0]["delivery"], "experience-fragment")
+        self.assertEqual(planned[0]["reuse_target"], target)
+        self.assertEqual(result.output("ownership_corrections")[0]["path"], content_path)
+        self.assertEqual(component["owned_paths"], [content_path, model_path])
+        persisted = json.loads((self.evidence / "component-plan.json").read_text(encoding="utf-8"))
+        self.assertEqual(persisted["components"], planned)
+
+    def test_planner_routes_page_and_footer_targets_without_mutating_input(self):
+        page = "/content/demo-ai-site/us/en/story"
+        footer = "/content/experience-fragments/demo-ai-site/us/en/site/footer/master"
+        component = {"id": "site-footer", "contribution_targets": [footer], "owned_paths": [
+            f"ui.content/src/main/content/jcr_root{target}/.content.xml" for target in (page, footer, page)
+        ]}
+        original = copy.deepcopy(component)
+        routed = copy.deepcopy(component)
+        self.agent.route_content_ownership([routed])
+        self.assertEqual(routed["owned_paths"], [])
+        self.assertEqual(routed["contribution_targets"], [footer, page])
+        self.assertEqual(component, original)
+        self.assertEqual(self.agent.route_content_ownership([routed]), [])
+
+    def test_planner_ownership_correction_rejects_unsafe_content_paths(self):
+        paths = [
+            "ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/templates/page/initial/.content.xml",
+            "ui.content/src/main/content/jcr_root/content/dam/demo-ai-site/image/.content.xml",
+            "ui.content/src/main/content/jcr_root/content/other-site/en/.content.xml",
+            "ui.content/src/main/content/jcr_root/content/demo-ai-site/../other-site/.content.xml",
+            "ui.content/src/main/content/jcr_root/content/demo-ai-site/**/.content.xml",
+            "ui.content/src/main/content/jcr_root/content/demo-ai-site/en/jcr:content/.content.xml",
+        ]
+        for path in paths:
+            with self.subTest(path=path), self.assertRaises(EnvelopeError):
+                self.agent.route_content_ownership([{"id": "header", "owned_paths": [path]}])
+
+    def test_planner_keeps_unknown_shared_source_ownership_rejected(self):
+        for path in ("pom.xml", "ui.frontend/src/main/webpack/site/_variables.scss", "ui.content/src/main/content/META-INF/vault/filter.xml"):
+            component = {"id": "hero", "name": "Hero", "tier": 4, "delivery": "component", "source_order": 0,
+                         "resource_type": "demo-ai-site/components/hero", "source_selectors": [{"instance_id": "hero-1", "selector": "main"}],
+                         "owned_paths": [path]}
+            with self.subTest(path=path), self.assertRaises(EnvelopeError):
+                self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={"components": [component]}))
+
+    def test_planner_routes_using_configured_content_package(self):
+        self.context.settings = Settings(self.context.settings.repo_root, self.context.settings.migration.merged({
+            "shared_files": {"authored_page": {"file": "content-package/src{page_path}/.content.xml"}},
+            "reuse": {"experience_fragment_root": "/content/experience-fragments/custom"},
+        }), self.context.settings._agents_config)
+        component = {"id": "header", "owned_paths": ["content-package/src/content/experience-fragments/custom/header/master/.content.xml"]}
+        self.agent.route_content_ownership([component])
+        self.assertEqual(component["contribution_targets"], ["/content/experience-fragments/custom/header/master"])
+
+    def test_progress_displays_planner_section_milestones(self):
+        event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":"Checking existing component reuse","current":2,"total":8}'}}
+        with patch("aem_agents.agents.base.emit") as output:
+            self.agent._on_event("Planner [planner]", event)
+        text = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertIn("Section 2/8: Hero", text)
+        self.assertIn("Planning | Checking existing component reuse", text)
+        self.assertNotIn("AEM_PROGRESS", text)
+
+    def test_progress_displays_component_identity_and_step(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"dialog","subject":"Hero banner","action":"Adding authored image and title fields"}'}}
+        with patch("aem_agents.agents.base.emit") as output:
+            agent._on_event("Component builder [component-hero-banner-attempt-2]", event)
+        text = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertIn("component-hero-banner-attempt-2", text)
+        self.assertIn("Hero banner | Dialog | Adding authored image and title fields", text)
+
+    def test_progress_keeps_tool_output_verbose_only(self):
+        event = {"type": "assistant.message", "data": {"toolRequests": [{"name": "read_file", "arguments": {"path": "example.html"}}]}}
+        for verbose in (False, True):
+            self.context.logger.isEnabledFor.return_value = verbose
+            with self.subTest(verbose=verbose), patch("aem_agents.agents.base.emit") as output:
+                self.agent._on_event("Planner [planner]", event)
+                self.assertEqual(output.called, verbose)
+
+    def test_progress_ignores_malformed_messages_without_changing_state(self):
+        content = [
+            "Reading source evidence", "AEM_PROGRESS not-json", "AEM_PROGRESS []",
+            'AEM_PROGRESS {"stage":[],"subject":"Hero","action":"Checking reuse"}',
+            'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":null}',
+            'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":"Checking reuse","current":true,"total":8}',
+            'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":"Checking reuse","current":9,"total":8}',
+            'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":"Checking reuse","current":1}',
+            'AEM_PROGRESS {"stage":"planning","subject":"Hero","action":"\\u001b[2J"}',
+            'AEM_PROGRESS {"stage":"foundations","subject":"Tokens","action":"Working","current":1,"total":8}',
+        ]
+        with patch("aem_agents.agents.base.emit") as output:
+            for message in content:
+                self.agent._on_event("Planner [planner]", {"type": "assistant.message", "data": {"content": message}})
+        output.assert_not_called()
+        self.context.state.record_agent_result.assert_not_called()
+        self.context.state.update.assert_not_called()
+
+    def test_progress_deduplicates_with_independent_worker_state(self):
+        first = AGENT_CLASSES["component"](self.context)
+        second = AGENT_CLASSES["component"](self.context)
+        event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"tests","subject":"Shared model","action":"Running focused tests"}'}}
+        with patch("aem_agents.agents.base.emit") as output:
+            first._on_event("Component [component-hero-attempt-1]", event)
+            first._on_event("Component [component-hero-attempt-1]", event)
+            second._on_event("Component [component-card-attempt-1]", event)
+        self.assertEqual(output.call_count, 2)
+        self.assertIn("component-hero-attempt-1", output.call_args_list[0].args[0])
+        self.assertIn("component-card-attempt-1", output.call_args_list[1].args[0])
+
+    def test_progress_heartbeat_is_throttled_and_does_not_invent_activity(self):
+        with patch("aem_agents.agents.base.time.monotonic", return_value=100):
+            agent = PlannerAgent(self.context)
+        with patch("aem_agents.agents.base.emit") as output:
+            for now in (144, 145, 146, 190):
+                with patch("aem_agents.agents.base.time.monotonic", return_value=now):
+                    agent._on_event("Planner [planner]", {"type": "aem.heartbeat"})
+        self.assertEqual(output.call_count, 2)
+        self.assertIn("[planner 00:45] Still running | No milestone reported yet", output.call_args_list[0].args[0])
+        self.assertIn("No progress update for 90s", output.call_args_list[1].args[0])
+        self.context.state.update.assert_not_called()
+
+    def test_progress_heartbeat_uses_last_milestone_not_tool_activity(self):
+        self.context.logger.isEnabledFor.return_value = False
+        with patch("aem_agents.agents.base.time.monotonic", return_value=100):
+            agent = AGENT_CLASSES["component"](self.context)
+        label = "Component [component-hero-attempt-2]"
+        event = {"type": "assistant.message", "data": {"content": 'AEM_PROGRESS {"stage":"tests","subject":"Hero","action":"Running model tests"}'}}
+        with patch("aem_agents.agents.base.emit") as output:
+            with patch("aem_agents.agents.base.time.monotonic", return_value=110):
+                agent._on_event(label, event)
+            with patch("aem_agents.agents.base.time.monotonic", return_value=150):
+                agent._on_event(label, {"type": "assistant.message", "data": {"toolRequests": [{"name": "shell"}]}})
+                agent._on_event(label, {"type": "aem.heartbeat"})
+            with patch("aem_agents.agents.base.time.monotonic", return_value=155):
+                agent._on_event(label, {"type": "aem.heartbeat"})
+        self.assertEqual(output.call_count, 2)
+        self.assertIn("Last reported activity: Hero | Tests | Running model tests", output.call_args.args[0])
+        self.assertIn("No progress update for 45s", output.call_args.args[0])
+
+    def test_progress_prompts_cover_planning_and_component_steps(self):
+        planner = self.agent.render_prompt("planner")
+        component = AGENT_CLASSES["component"](self.context).render_prompt("component-hero-attempt-2", component={"id": "hero", "source_order": 0}, attempt=2)
+        for prompt in (planner, component):
+            self.assertIn("AEM_PROGRESS", prompt)
+            self.assertIn("standalone", prompt)
+            self.assertIn("heartbeat", prompt)
+        self.assertIn("candidate section list", planner)
+        self.assertIn('"subject":"hero"', component)
+        for step in ("dialog", "model", "htl", "styles", "tests", "content"):
+            self.assertIn(f"`{step}`", component)
 
 
 class DependencyTests(unittest.TestCase):
@@ -365,6 +530,25 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.run_gate(), "COMPLETE")
         self.engine.run_planner.assert_not_called()
         self.assertNotIn("foundations", self.phases)
+
+    def test_planner_rejection_persists_failure_and_reports_no_accepted_plan(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        self.engine.state.set_components([])
+        agent = PlannerAgent(self.engine.context)
+        path = agent.result_path("planner")
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({"agent": "planner", "run_id": "test", "status": "PASS"}), encoding="utf-8")
+        with patch.object(self.engine, "_run_worker", side_effect=WorkspaceError("header: templates are not component-owned")):
+            outcome = Orchestrator.run_planner(self.engine, self.phases["plan"])
+        self.assertFalse(outcome.passed)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), self.engine.state.get("agent_results")["planner"])
+        self.assertEqual(self.engine.state.get("agent_results")["planner"]["status"], "FAIL")
+        self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+        text = (self.engine.evidence_dir / "completion-report.md").read_text(encoding="utf-8")
+        self.assertIn("failed before a component plan was accepted", text)
+        self.assertNotIn("0 unresolved components", text)
+        self.assertIn("templates are not component-owned", text)
 
     def test_apply_conflict_never_advances_checkpoint(self):
         result = AgentResult("component", "test", "PASS", outputs={"component_id": "hero", "changed_files": []})
@@ -624,6 +808,43 @@ class RunnerTests(unittest.TestCase):
         with patch.object(CopilotBackend, "_resolve_executable", return_value="test"), patch.object(CopilotBackend, "_probe_version", return_value="test"):
             self.backend = CopilotBackend(settings)
 
+    def test_disabled_timeout_does_not_stop_agent_after_elapsed_time(self):
+        for timeout in (None, 0):
+            incoming = MagicMock()
+            incoming.get.side_effect = [queue.Empty(), None]
+            process = MagicMock()
+            process.wait.return_value = 0
+            on_event = MagicMock()
+            with self.subTest(timeout=timeout), patch("aem_agents.runner.queue.Queue", return_value=incoming), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", side_effect=[0, 100000, 200000]), patch.object(self.backend, "_stop_process") as stop:
+                result = self.backend._pump(process, self.workspace / "unlimited.jsonl", self.workspace / "stderr.log", timeout, on_event)
+                self.assertTrue(result.ok)
+                self.assertFalse(result.timed_out)
+                process.wait.assert_called_once_with(timeout=None)
+                stop.assert_not_called()
+                self.assertTrue(on_event.called)
+
+    def test_explicit_agent_timeout_still_stops_expired_process(self):
+        process = MagicMock()
+        process.wait.return_value = 1
+        with patch("aem_agents.runner.queue.Queue"), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", side_effect=[0, 0, 2]), patch.object(self.backend, "_stop_process") as stop:
+            result = self.backend._pump(process, self.workspace / "expired.jsonl", self.workspace / "stderr.log", 1, None)
+        self.assertTrue(result.timed_out)
+        self.assertFalse(result.ok)
+        stop.assert_called_once_with(process)
+
+    def test_progress_pump_delivers_heartbeats_during_idle_and_tool_output(self):
+        event = {"type": "assistant.message", "data": {"toolRequests": [{"name": "read_file"}]}}
+        incoming = MagicMock()
+        incoming.get.side_effect = [queue.Empty(), json.dumps(event), None]
+        process = MagicMock()
+        process.wait.return_value = 0
+        on_event = MagicMock()
+        with patch("aem_agents.runner.queue.Queue", return_value=incoming), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", side_effect=[0, 0, 1, 2, 3]):
+            result = self.backend._pump(process, self.workspace / "stream.jsonl", self.workspace / "stderr.log", 60, on_event)
+        self.assertTrue(result.ok)
+        self.assertEqual([call.args[0]["type"] for call in on_event.call_args_list], ["aem.heartbeat", "aem.heartbeat", "assistant.message", "aem.heartbeat"])
+        self.assertEqual((self.workspace / "stream.jsonl").read_text(encoding="utf-8"), json.dumps(event) + "\n")
+
     def test_interrupted_or_failed_pump_always_stops_process(self):
         for error in (KeyboardInterrupt(), RuntimeError("callback failed")):
             process = MagicMock()
@@ -631,7 +852,7 @@ class RunnerTests(unittest.TestCase):
             process.pid = 123
             with self.subTest(error=type(error).__name__), patch("aem_agents.runner.subprocess.Popen", return_value=process), patch("aem_agents.runner.subprocess.run"), patch("aem_agents.runner.os.killpg", create=True), patch.object(self.backend, "_pump", side_effect=error):
                 with self.assertRaises(type(error)):
-                    self.backend.run(prompt="test", options={}, workspace=self.workspace, stream_name="stream.jsonl", stderr_name="stderr.log", timeout_seconds=1)
+                    self.backend.run(prompt="test", options={}, workspace=self.workspace, stream_name="stream.jsonl", stderr_name="stderr.log", timeout_seconds=None)
             process.wait.assert_called()
             process.stdout.close.assert_called()
             self.assertFalse(self.backend._processes)
@@ -664,6 +885,19 @@ class ConfigurationTests(unittest.TestCase):
         self.settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
         self.state = RunState.create(self.evidence / "state.json", run_id="test", contract={}, inputs={}, phases=[], orchestrator={})
         self.context = RunContext(self.settings, load_contract(self.settings), MagicMock(), self.state, "test", self.evidence, MagicMock())
+
+    def test_all_agent_timeouts_are_disabled_by_default(self):
+        for role in AGENT_CLASSES:
+            with self.subTest(role=role):
+                self.assertIsNone(self.settings.agent(role).timeout_seconds)
+
+    def test_agent_timeout_accepts_disabled_or_positive_limits(self):
+        for value, expected in ((None, None), (0, None), (90, 90)):
+            with self.subTest(value=value):
+                self.assertEqual(AgentSpec("planner", {"timeout_seconds": value}, {}).timeout_seconds, expected)
+        for value in (-1, True, "unlimited", 1.5):
+            with self.subTest(value=value), self.assertRaises(ConfigError):
+                AgentSpec("planner", {"timeout_seconds": value}, {}).timeout_seconds
 
     def test_global_budget_and_session_names_reach_cli(self):
         agent = PlannerAgent(self.context)
@@ -840,6 +1074,9 @@ class EndToEndTests(unittest.TestCase):
                 "instances": 1, "source_selectors": [{"instance_id": f"{name}-1", "selector": f".{name}"}],
             } for order, name in enumerate(("hero", "body"))]
             components[1]["depends_on"] = ["hero"]
+            xf_target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
+            xf_file = settings.migration.get("shared_files.authored_page.file").format(page_path=xf_target)
+            components[0].update(delivery="experience-fragment", reuse_target=xf_target, owned_paths=[xf_file])
             calls = []
             interrupt = [True]
             test_case = self
@@ -884,6 +1121,11 @@ class EndToEndTests(unittest.TestCase):
                             "template_path": template, "page_properties": {"jcr:title": "Unit test"},
                             "nodes": [{"name": component_id, "xml": f"<{component_id} />"}], "assets": [],
                         }
+                        if component_id == "hero":
+                            test_case.assertIn('"contribution_targets"', kwargs["prompt"])
+                            test_case.assertIn(xf_target, kwargs["prompt"])
+                            page = {name: contribution.pop(name) for name in ("page_path", "parent_path", "template_path", "page_properties", "nodes")}
+                            contribution["pages"] = [page, {**page, "page_path": xf_target}]
                         (workspace / "contributions.json").write_text(json.dumps(contribution), encoding="utf-8")
                     elif role == "deployer":
                         outputs = {"deploy_commands": [], "target_url": f"http://{engine.context.aem_host}:{engine.context.aem_port}/content/test.html"}
@@ -937,6 +1179,10 @@ class EndToEndTests(unittest.TestCase):
                 collect.assert_called_once()
             self.assertEqual(calls, ["deployer", "parity"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
+            accepted = next(row["plan"] for row in engine.state.component_rows() if row["id"] == "hero")
+            self.assertEqual(accepted["owned_paths"], [])
+            self.assertEqual(accepted["contribution_targets"], [xf_target])
+            self.assertTrue(settings.resolve(xf_file).is_file())
             self.assertTrue((evidence / "completion-report.md").is_file())
             report = engine.state.get("agent_results")["report"]["outputs"]
             self.assertEqual(report["pipeline_status"], "COMPLETE")

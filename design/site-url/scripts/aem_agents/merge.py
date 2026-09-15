@@ -22,6 +22,7 @@ from typing import Any, Mapping
 from xml.etree import ElementTree
 
 from .config import Settings
+from .workspaces import WorkspaceError, validate_contribution_targets
 
 _PREFIXED = re.compile(r"^\{([^}]+)\}(.+)$")
 
@@ -140,6 +141,10 @@ def read_contributions(
         str(component["id"]): int(component.get("source_order", index))
         for index, component in enumerate(components)
     }
+    try:
+        targets_by_id = {str(component["id"]): validate_contribution_targets(settings, component) for component in components}
+    except WorkspaceError as error:
+        raise MergeError(str(error)) from error
 
     contributions: list[Contribution] = []
     missing: list[str] = []
@@ -159,6 +164,10 @@ def read_contributions(
         pages = data.get("pages", [data])
         if not isinstance(pages, list) or not pages:
             raise MergeError(f"Contribution from {component_id} has no page targets.")
+        required_targets = targets_by_id[component_id]
+        missing_targets = [target for target in required_targets if not any(isinstance(page, Mapping) and page.get("page_path") == target for page in pages)]
+        if missing_targets:
+            raise MergeError(f"Contribution from {component_id} omits required page/XF targets: {', '.join(missing_targets)}")
         for page in pages:
             if not isinstance(page, Mapping) or not isinstance(page.get("nodes"), list) or not page["nodes"]:
                 raise MergeError(f"Contribution from {component_id} has no authored nodes.")

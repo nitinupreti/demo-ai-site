@@ -187,7 +187,7 @@ class CopilotBackend:
         workspace: Path,
         stream_name: str,
         stderr_name: str,
-        timeout_seconds: int,
+        timeout_seconds: int | None,
         working_directory: Path | None = None,
         env_extra: Mapping[str, str] | None = None,
         on_event: Callable[[Mapping[str, Any]], None] | None = None,
@@ -269,7 +269,7 @@ class CopilotBackend:
         process: subprocess.Popen[str],
         stream_path: Path,
         stderr_path: Path,
-        timeout_seconds: int,
+        timeout_seconds: int | None,
         on_event: Callable[[Mapping[str, Any]], None] | None,
     ) -> AgentRun:
         lines: queue.Queue[str | None] = queue.Queue()
@@ -285,7 +285,8 @@ class CopilotBackend:
         thread = threading.Thread(target=reader, name="copilot-stdout", daemon=True)
         thread.start()
 
-        deadline = time.monotonic() + timeout_seconds
+        deadline = time.monotonic() + timeout_seconds if timeout_seconds else None
+        heartbeat_at = time.monotonic() + 1.0
         messages: list[str] = []
         usage: dict[str, Any] = {}
         session_id: str | None = None
@@ -293,12 +294,16 @@ class CopilotBackend:
 
         with stream_path.open("w", encoding="utf-8") as stream_file:
             while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
+                now = time.monotonic()
+                remaining = deadline - now if deadline is not None else None
+                if remaining is not None and remaining <= 0:
                     timed_out = True
                     break
+                if on_event and now >= heartbeat_at:
+                    on_event({"type": "aem.heartbeat"})
+                    heartbeat_at = now + 1.0
                 try:
-                    line = lines.get(timeout=min(remaining, 1.0))
+                    line = lines.get(timeout=min(remaining, 1.0) if remaining is not None else 1.0)
                 except queue.Empty:
                     continue
                 if line is None:
@@ -325,7 +330,7 @@ class CopilotBackend:
         if timed_out:
             self._stop_process(process)
         try:
-            exit_code = process.wait(timeout=30)
+            exit_code = process.wait(timeout=30 if deadline is not None else None)
         except subprocess.TimeoutExpired:
             self._stop_process(process)
             exit_code = process.wait()

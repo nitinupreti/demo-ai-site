@@ -100,8 +100,13 @@ class AgentSpec:
         return Path(str(self.get("prompt_dir"))) / str(self.get("prompt"))
 
     @property
-    def timeout_seconds(self) -> int:
-        return int(self.get("timeout_seconds"))
+    def timeout_seconds(self) -> int | None:
+        value = self.get("timeout_seconds", None)
+        if value is None:
+            return None
+        if type(value) is not int or value < 0:
+            raise ConfigError(f"Agent '{self.id}' timeout_seconds must be null, zero, or a positive integer.")
+        return value or None
 
     @property
     def required_result_keys(self) -> list[str]:

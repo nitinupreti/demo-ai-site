@@ -21,6 +21,32 @@ file changes and applies them; reporting a path does not grant ownership.
 
 Read the contract file first; its non-negotiable rules override anything here.
 
+## Progress Updates
+
+Before starting work and at each development step, emit a standalone assistant
+message line (not a tool call, shell command, code fence or result file):
+
+```text
+AEM_PROGRESS {"stage":"dialog","subject":"{{component_id}}","action":"Adding authored image and title fields"}
+```
+
+Always use `{{component_id}}` as the subject so parallel workers are distinguishable.
+Use stages `evidence`, `reuse`, `dialog`, `model`, `htl`, `styles`, `tests`, `content`,
+`repair` or `validation` for the work actually needed. Describe the specific current
+action, not just "working". Announce steps before starting them and concise outcomes
+afterward, such as "Focused model tests: 4 passed" only after observing that result.
+For reused components, explicitly report skipped implementation steps; do not
+create unnecessary code just to follow the example sequence. Report missing tokens
+as a request to the planner, never as permission to edit shared foundations.
+
+Keep `action` under 240 characters. Do not include `current`, `total`, percentages,
+private reasoning, credentials or command dumps. Emit updates as work happens, not
+a retrospective batch. Milestones are agent-reported, not coordinator-validated:
+do not claim component acceptance, successful deployment or visual parity. The
+coordinator announces acceptance after validating your result and file ownership.
+If a tool takes time, do not interrupt it or invent progress; a waiting heartbeat
+is supplied by the coordinator.
+
 ## Your component
 
 ```json
@@ -101,6 +127,11 @@ apply it. A single-threaded merge writes every contribution once, in source orde
   reference), put each target's `page_path`, `parent_path`, `template_path`,
   `page_properties`, and `nodes` in a top-level `pages` array instead of the single
   page fields. Keep `component_id`, `source_order`, and `assets` at the top level.
+- Every JCR path in your plan's `contribution_targets` must appear as a `page_path`
+  with authored nodes in this contribution. These are required content targets,
+  not source-file ownership. A missing target fails validation even if your code
+  and other contributions pass. For an XF, include its variation and the demo
+  page reference where needed; never edit their repository XML directly.
 - `assets[]` drives the asset phase. Author the `dam_path` you declare here; it will
   exist in DAM before the page is deployed.
 - `filter_roots` is for non-DAM content roots only. A `/content/dam/` root is

@@ -12,7 +12,7 @@ defaults:
   model: null            # inherits model.default from migration.yaml
   effort: null
   max_continues: null
-  timeout_seconds: 5400
+  timeout_seconds: null
   result_status_values: [PASS, FAIL, BLOCKED]
   required_result_keys: [agent, run_id, status]
 
@@ -24,7 +24,6 @@ agents:
       Interprets prepared source discovery, emits the component plan, and establishes
       shared tokens, site styles and policies in one isolated invocation. Handles
       shared-foundation repairs without repeating discovery or changing the plan.
-    timeout_seconds: 7200
     required_result_keys: [agent, run_id, status, components, changed_files, token_manifest]
     required_checks:
       - all_breakpoints_ready
@@ -49,6 +48,7 @@ agents:
         - visible_breakpoints
         - owning_module
         - owned_paths
+        - contribution_targets
         - depends_on
         - reuse_target
         - assets
@@ -66,7 +66,6 @@ agents:
       Implements exactly one planned component end to end: dialog, HTL, Sling
       Model, clientlib, focused test, authored demo content, and policy updates.
       One instance of this agent is started per planned component.
-    timeout_seconds: 5400
     required_result_keys: [agent, run_id, status, component_id, changed_files]
     required_checks: [every_business_value_authorable, assets_authored_from_dam, focused_test_passes]
     outputs:
@@ -82,7 +81,6 @@ agents:
       Receives the union of every component agent's changed files, chooses the
       smallest scoped Maven deploy that covers them, deploys in dependency order,
       and proves the change is live with an HTTP and repository sweep.
-    timeout_seconds: 5400
     required_result_keys: [agent, run_id, status, deploy_commands, target_url]
     required_checks:
       - focused_tests_pass
@@ -105,7 +103,6 @@ agents:
       Captures live-source and deployed-AEM evidence with Playwright/Chromium,
       scores every component instance with pixelmatch at every required
       breakpoint, and reports which components are below the contract threshold.
-    timeout_seconds: 7200
     required_result_keys: [agent, run_id, status, scores, failing_components]
     required_checks:
       - all_source_blocks_mapped_once
