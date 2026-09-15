@@ -150,6 +150,19 @@ already resolved as `{{java_home}}`; do not probe for it.
    deterministic merge step places authored nodes on the page using this value, so a
    wrong `source_order` renders the page in the wrong order.
 
+   Assign `owned_paths` for every additional source file a component must modify:
+   exact Java model/helper/test files, component-scoped frontend files, and any
+   existing component directory it extends. Its own component directory is included
+   automatically. Never assign the same file to two components. Shared site tokens,
+   site styles and policies belong exclusively to the foundations stage; page and
+   XF XML belong to the deterministic contribution merge.
+
+   Declare `depends_on` using component ids when one implementation consumes another.
+   The coordinator waits for dependencies to pass and applies their changes before
+   starting dependent workers. Cycles and unknown ids are rejected. Priority order
+   alone does not express a dependency. Provide enough frozen token evidence for the
+   foundations stage to complete before component workers start.
+
 ## Required output
 
 Write **valid JSON** to `{{result_path}}` (create parent directories). Also persist
@@ -191,6 +204,12 @@ Each entry of `outputs.components`:
   "source_order": 1,
   "resource_type": "demo-ai-site/components/hero-banner",
   "owning_module": "ui.apps",
+   "owned_paths": [
+      "core/src/main/java/com/demo/core/models/HeroBannerModel.java",
+      "core/src/test/java/com/demo/core/models/HeroBannerModelTest.java",
+      "ui.frontend/src/main/webpack/components/_hero-banner.scss"
+   ],
+   "depends_on": [],
   "source_selectors": [
     {"instance_id": "hero-1", "selector": "main > section:nth-of-type(1)", "match_index": 0, "signature": "<text or media signature>"}
   ],

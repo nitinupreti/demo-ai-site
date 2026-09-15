@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..envelope import AgentResult, validate_components
+from ..workspaces import validate_ownership
 from .base import Agent, dump_json
 
 # Stand-in plan so --dry-run still renders and validates every downstream prompt.
@@ -45,6 +46,7 @@ class PlannerAgent(Agent):
             maximum=int(migration.get("fanout.max_components", 40)),
         )
         components = self.prioritize(components)
+        validate_ownership(self.context.settings, components)
         plan_path = self.context.evidence_dir / str(migration.get("run.plan_file", "component-plan.json"))
         dump_json(plan_path, {"run_id": self.context.run_id, "components": components})
         self.context.logger.info("Planner produced %d component(s) -> %s", len(components), plan_path)

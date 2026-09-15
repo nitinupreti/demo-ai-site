@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import json
-import logging
 import os
 import threading
 import time
@@ -12,7 +11,39 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+
+class StateError(OSError):
+    """Run state cannot be safely created, loaded, or persisted."""
+
+
+class RunLock:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.handle = None
+
+    def __enter__(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.handle = self.path.open("a+b")
+        if not self.path.stat().st_size:
+            self.handle.write(b"0")
+            self.handle.flush()
+        self.handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            self.handle.close()
+            raise StateError("Another migration is already running in this workspace.") from error
+        return self
+
+    def __exit__(self, *args):
+        self.handle.close()
 
 
 def utc_now() -> str:
@@ -26,7 +57,6 @@ class RunState:
         self.path = path
         self._lock = threading.RLock()
         self._data: dict[str, Any] = dict(initial)
-        self.flush()
 
     @classmethod
     def create(
@@ -40,7 +70,7 @@ class RunState:
         orchestrator: Mapping[str, Any],
     ) -> "RunState":
         path.parent.mkdir(parents=True, exist_ok=True)
-        return cls(
+        state = cls(
             path,
             {
                 "schema_version": SCHEMA_VERSION,
@@ -66,10 +96,26 @@ class RunState:
                 "target_url": None,
             },
         )
+        try:
+            with path.open("x", encoding="utf-8") as stream:
+                json.dump(state._data, stream, indent=2, ensure_ascii=False)
+        except FileExistsError as error:
+            raise StateError(f"Run state already exists: {path}. Use --resume or a new run id.") from error
+        return state
 
     @classmethod
     def load(cls, path: Path) -> "RunState":
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise StateError(f"Could not load run state: {path}") from error
+        if not isinstance(data, dict) or data.get("schema_version") != SCHEMA_VERSION or not data.get("run_id"):
+            raise StateError(f"Invalid or unsupported run state: {path}. Start a new run with the current pipeline.")
+        for key, expected in (("contract", dict), ("inputs", dict), ("orchestrator", dict),
+                              ("agent_results", dict), ("components", list), ("phases", list),
+                              ("remediation_history", list)):
+            if not isinstance(data.get(key), expected):
+                raise StateError(f"Invalid {key} in run state: {path}")
         return cls(path, data)
 
     @property
@@ -169,11 +215,4 @@ class RunState:
                 return
             except PermissionError as error:
                 last_error = error
-        self.path.write_text(
-            json.dumps(self._data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
-        temporary.unlink(missing_ok=True)
-        if last_error is not None:
-            logging.getLogger("aem_agents").warning(
-                "Atomic run-state write failed (%s); wrote in place instead.", last_error
-            )
+        raise StateError(f"Could not atomically update {self.path}; the previous checkpoint is preserved.") from last_error

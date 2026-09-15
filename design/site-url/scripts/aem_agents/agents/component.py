@@ -7,6 +7,8 @@ from typing import Any, Mapping
 
 from ..envelope import AgentResult, EnvelopeError
 from ..render import bullet_list
+from ..merge import MergeError, read_contributions
+from ..workspaces import component_scopes, foundation_scopes
 from .base import Agent
 
 _NO_REMEDIATION = (
@@ -24,11 +26,20 @@ class ComponentAgent(Agent):
         super().validate_result(result, **kwargs)
         if self.context.dry_run:
             return
-        if result.output("component_id") != (kwargs.get("component") or {}).get("id"):
+        component_id = result.output("component_id", result.raw.get("component_id"))
+        if component_id != (kwargs.get("component") or {}).get("id"):
             raise EnvelopeError("Component result does not belong to the assigned component.")
+        result.outputs["component_id"] = component_id
         paths = result.output("changed_files")
         if not isinstance(paths, list) or any(not isinstance(path, str) or not path for path in paths):
             raise EnvelopeError("Component changed_files must be a list of paths.")
+        if result.passed:
+            try:
+                _, missing = read_contributions(self.context.settings, self.context.evidence_dir, [kwargs["component"]])
+            except MergeError as error:
+                raise EnvelopeError(str(error)) from error
+            if missing:
+                raise EnvelopeError("Component did not provide its authored contribution.")
 
     def slug(self, component: Mapping[str, Any] | None = None, attempt: int = 1, **_: Any) -> str:
         component_id = str((component or {}).get("id", "unknown"))
@@ -55,8 +66,9 @@ class ComponentAgent(Agent):
                 "attempt": attempt,
                 "source_order": component.get("source_order", ""),
                 "contribution_path": self.context.rel(contribution),
+                "owned_paths": bullet_list([f"`{path}`" for path in component_scopes(self.context.settings, {**component, "id": component_id})]),
                 "protected_files": bullet_list(
-                    [f"`{path}`" for path in migration.get("shared_files.protected", [])]
+                    [f"`{path}`" for path in [*migration.get("shared_files.protected", []), *foundation_scopes(self.context.settings)]]
                 ),
                 "remediation_block": self.remediation_block(feedback),
             }

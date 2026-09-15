@@ -11,8 +11,10 @@ from typing import Any
 from .config import ConfigError, Settings, find_repo_root
 from .console import emit, get_logger
 from .contract import ContractError, load_contract
+from .envelope import EnvelopeError
 from .orchestrator import Orchestrator, PipelineError
 from .runner import BackendError
+from .state import RunLock, RunState
 
 _EXIT = {"COMPLETE": 0, "DRY_RUN": 0, "FAIL": 1, "BLOCKED": 2}
 
@@ -31,7 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--breakpoints", help="Comma-separated widths, overriding the contract.")
     parser.add_argument("--config-dir", help="Directory holding migration.yaml and agents.yaml.")
     parser.add_argument("--evidence-dir", help="Override the generated evidence directory.")
-    parser.add_argument("--run-id", help="Reuse a specific run id.")
+    parser.add_argument("--run-id", help="Choose a run id; existing runs require --resume.")
+    parser.add_argument("--resume", action="store_true", help="Reuse validated plan/component checkpoints from --run-id or --evidence-dir.")
     parser.add_argument("--model", help="Model id passed to the agent backend.")
     parser.add_argument("--effort", help="Reasoning effort, when the model advertises it.")
     parser.add_argument(
@@ -104,8 +107,15 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         settings = Settings.load(repo_root, config_dir, _overrides(args))
-        contract = load_contract(settings, _contract_overrides(args))
-    except (ConfigError, ContractError) as error:
+        overrides = _contract_overrides(args)
+        if args.resume:
+            if not (args.run_id or args.evidence_dir) or args.dry_run:
+                raise ConfigError("--resume requires --run-id or --evidence-dir, without --dry-run.")
+            folder = settings.resolve(args.evidence_dir) if args.evidence_dir else settings.resolve(str(settings.migration.require("run.evidence_root"))) / str(settings.migration.require("run.evidence_dir_pattern")).format(run_id=args.run_id)
+            saved = RunState.load(folder / str(settings.migration.get("run.state_file", "run-state.json"))).get("contract", {})
+            overrides = {**{key: saved.get(key) for key in ("site_url", "target_page_path", "breakpoints")}, **overrides}
+        contract = load_contract(settings, overrides)
+    except (ConfigError, ContractError, OSError) as error:
         emit(f"ERROR: {error}", "red")
         return 1
 
@@ -128,22 +138,24 @@ def main(argv: list[str] | None = None) -> int:
     emit(f"Contract:   {contract.source_file}", "dim")
 
     try:
-        orchestrator = Orchestrator(
-            settings,
-            contract,
-            run_id=args.run_id,
-            dry_run=args.dry_run,
-            skip_probe=args.skip_probe or args.dry_run,
-            only_phases=[part.strip() for part in args.only.split(",")] if args.only else None,
-            evidence_dir=evidence_dir,
-            logger=get_logger(None, args.verbose),
-        )
-        orchestrator.logger = get_logger(
-            orchestrator.evidence_dir / str(settings.migration.get("run.log_file", "orchestrator.log")),
-            args.verbose,
-        )
-        status = orchestrator.run()
-    except (ConfigError, ContractError, PipelineError, BackendError) as error:
+        with RunLock(scripts_dir / ".tools" / "migration.lock"):
+            orchestrator = Orchestrator(
+                settings,
+                contract,
+                run_id=args.run_id,
+                dry_run=args.dry_run,
+                skip_probe=args.skip_probe or args.dry_run,
+                only_phases=[part.strip() for part in args.only.split(",")] if args.only else None,
+                evidence_dir=evidence_dir,
+                logger=get_logger(None, args.verbose),
+                resume=args.resume,
+            )
+            orchestrator.logger = get_logger(
+                orchestrator.evidence_dir / str(settings.migration.get("run.log_file", "orchestrator.log")),
+                args.verbose,
+            )
+            status = orchestrator.run()
+    except (ConfigError, ContractError, PipelineError, BackendError, EnvelopeError, OSError) as error:
         emit(f"\nERROR: {error}", "red")
         return 1
     except KeyboardInterrupt:

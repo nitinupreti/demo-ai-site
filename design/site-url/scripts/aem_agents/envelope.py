@@ -218,4 +218,38 @@ def validate_components(
                 f"allowed values are {delivery_values}."
             )
         validated.append(dict(component))
+    dependency_waves(validated)
     return validated
+
+
+def dependency_waves(components: list[Mapping[str, Any]], completed: set[str] | None = None) -> list[list[Mapping[str, Any]]]:
+    by_id = {str(component["id"]): component for component in components}
+    dependencies: dict[str, set[str]] = {}
+    for component_id, component in by_id.items():
+        requested = component.get("depends_on", [])
+        if not isinstance(requested, list) or any(not isinstance(value, str) for value in requested) or len(set(requested)) != len(requested):
+            raise EnvelopeError(f"{component_id}: depends_on must contain unique component ids.")
+        unknown = set(requested) - by_id.keys()
+        if unknown:
+            raise EnvelopeError(f"{component_id}: unknown dependencies: {sorted(unknown)}")
+        dependencies[component_id] = set(requested)
+    done = set(completed or ())
+    pending = [component_id for component_id in by_id if component_id not in done]
+    waves = []
+    while pending:
+        ready = [component_id for component_id in pending if dependencies[component_id] <= done]
+        if not ready:
+            raise EnvelopeError("Component dependency cycle: " + ", ".join(pending))
+        waves.append([by_id[component_id] for component_id in ready])
+        done.update(ready)
+        pending = [component_id for component_id in pending if component_id not in done]
+    return waves
+
+
+def affected_components(components: list[Mapping[str, Any]], changed: set[str]) -> list[Mapping[str, Any]]:
+    affected = set(changed)
+    for wave in dependency_waves(components):
+        for component in wave:
+            if set(component.get("depends_on", [])) & affected:
+                affected.add(str(component["id"]))
+    return [component for component in components if component["id"] in affected]

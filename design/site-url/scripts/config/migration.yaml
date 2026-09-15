@@ -166,10 +166,16 @@ fanout:
   # Hard ceiling so a bad plan cannot spawn an unbounded number of agents.
   max_components: 40
   min_components: 1
-  # Components whose ids match are implemented before any others (page chrome
-  # tends to own shared tokens that the rest of the page depends on).
+  # Submission priority within a ready dependency wave, not a dependency barrier.
   priority_prefixes: [site-header, site-footer, global-, nav-]
   stop_on_first_failure: false
+
+isolation:
+  foundation_paths:
+    - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-site/**
+    - ui.apps/src/main/content/jcr_root/apps/demo-ai-site/clientlibs/clientlib-base/**
+    - ui.frontend/src/main/webpack/site/**
+    - ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/policies/**
 
 # ---------------------------------------------------------------------------
 # Reuse survey
@@ -206,6 +212,9 @@ reuse:
 # Loading is a precondition, not a suggestion: when the prompt merely said "use
 # create-component", 7 of 9 agents skipped it.
 skills:
+  foundations:
+    required: [create-component, best-practices]
+    references: [clientlib-patterns.md, aem-conventions.md]
   component:
     required: [create-component, code-assessment]
     # Reference files inside create-component that carry the standards.
@@ -318,28 +327,28 @@ deploy:
     - id: ui-apps
       match: ["ui.apps/**"]
       description: "Component CSS / HTL / dialog / clientlib"
-      command: 'mvn install -pl ui.apps -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+      command: 'mvn install -pl ui.apps -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: core
       match: ["core/**"]
       description: "Java / Sling Model / OSGi service"
-      command: 'mvn install -pl core -PautoInstallBundle "-Daem.port={port}" -DskipTests'
+      command: 'mvn install -pl core -PautoInstallBundle "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: ui-content
       match: ["ui.content/**"]
       description: "Authored content (FileVault mode=merge)"
-      command: 'mvn install -pl ui.content -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+      command: 'mvn install -pl ui.content -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: ui-config
       match: ["ui.config/**"]
       description: "OSGi configuration"
-      command: 'mvn install -pl ui.config -PautoInstallPackage "-Daem.port={port}" -DskipTests'
+      command: 'mvn install -pl ui.config -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: ui-frontend
       match: ["ui.frontend/**"]
       description: "Webpack sources; output is copied into ui.apps"
-      command: 'cd ui.frontend ; npm run build'
+      command: 'npm --prefix ui.frontend run prod'
       then: ui-apps
   full:
     id: reactor
     description: "Only for a new cross-module artifact or a proven scoped-deploy mismatch"
-    command: 'mvn -T 1C install -PautoInstallSinglePackage -DskipTests -pl all,core,ui.apps,ui.apps.structure,ui.config,ui.content -am'
+    command: 'mvn -T 1C install -PautoInstallSinglePackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests -pl all,core,ui.apps,ui.apps.structure,ui.config,ui.content -am'
   focused_tests:
     command: 'mvn -pl core test "-Dtest={test_pattern}"'
   # Run once, before the first deploy of a run.
@@ -412,6 +421,9 @@ pipeline:
     - id: plan
       agent: planner
       fan_out: false
+    - id: foundations
+      agent: foundations
+      fan_out: false
     - id: implement
       agent: component
       fan_out: true
@@ -436,7 +448,7 @@ pipeline:
       always_run: true
   remediation:
     # Re-run these phases for the failing components only.
-    phases: [implement, assets, merge, deploy, parity]
+    phases: [foundations, implement, assets, merge, deploy, parity]
     # Budget comes from contract.max_attempts_per_component unless overridden.
     max_attempts: null
     terminal_status: FAILED-FINAL

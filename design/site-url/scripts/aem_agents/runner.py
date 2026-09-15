@@ -13,6 +13,7 @@ import platform
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -77,6 +78,9 @@ class CopilotBackend:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.config = settings.migration.section("backend.copilot")
+        self._process_lock = threading.Lock()
+        self._processes: set[subprocess.Popen[str]] = set()
+        self._cancelled = threading.Event()
         self.executable = self._resolve_executable()
         self.version = self._probe_version()
 
@@ -184,9 +188,12 @@ class CopilotBackend:
         stream_name: str,
         stderr_name: str,
         timeout_seconds: int,
+        working_directory: Path | None = None,
         env_extra: Mapping[str, str] | None = None,
         on_event: Callable[[Mapping[str, Any]], None] | None = None,
     ) -> AgentRun:
+        if self._cancelled.is_set():
+            raise BackendError("Agent execution was cancelled.")
         workspace.mkdir(parents=True, exist_ok=True)
         stream_path = workspace / stream_name
         stderr_path = workspace / stderr_name
@@ -194,24 +201,68 @@ class CopilotBackend:
         argv = [*self._command_prefix(), *self.build_args(prompt, options)]
         started = time.monotonic()
 
-        with stderr_path.open("w", encoding="utf-8") as stderr_file:
-            process = subprocess.Popen(  # noqa: S603 - fixed argv, shell=False
-                argv,
-                cwd=self.settings.repo_root,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=stderr_file,
-                env=self.environment(env_extra),
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-                shell=False,
-            )
-            run = self._pump(process, stream_path, stderr_path, timeout_seconds, on_event)
+        process = None
+        try:
+            with stderr_path.open("w", encoding="utf-8") as stderr_file:
+                process = subprocess.Popen(
+                    argv, cwd=working_directory or self.settings.repo_root, stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE, stderr=stderr_file,
+                    env=self.environment(env_extra), text=True, encoding="utf-8",
+                    errors="replace", bufsize=1, shell=False,
+                    start_new_session=os.name != "nt",
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+                )
+                with self._process_lock:
+                    self._processes.add(process)
+                if self._cancelled.is_set():
+                    raise BackendError("Agent execution was cancelled.")
+                run = self._pump(process, stream_path, stderr_path, timeout_seconds, on_event)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise BackendError(f"Agent process failed: {error}") from error
+        finally:
+            if process is not None:
+                try:
+                    self._stop_process(process)
+                finally:
+                    with self._process_lock:
+                        self._processes.discard(process)
+                    if process.stdout:
+                        process.stdout.close()
 
         run.duration_seconds = time.monotonic() - started
         return run
+
+    def _stop_process(self, process: subprocess.Popen[str]) -> None:
+        if process.poll() is not None:
+            return
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    [str(Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32" / "taskkill.exe"),
+                     "/PID", str(process.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=10,
+                )
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
+            process.wait(timeout=5)
+        except ProcessLookupError:
+            process.wait(timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            if os.name != "nt":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                process.kill()
+            process.wait(timeout=5)
+
+    def cancel_all(self) -> None:
+        self._cancelled.set()
+        with self._process_lock:
+            active = list(self._processes)
+        for process in active:
+            self._stop_process(process)
 
     def _pump(
         self,
@@ -272,11 +323,11 @@ class CopilotBackend:
                     on_event(event)
 
         if timed_out:
-            process.kill()
+            self._stop_process(process)
         try:
             exit_code = process.wait(timeout=30)
         except subprocess.TimeoutExpired:
-            process.kill()
+            self._stop_process(process)
             exit_code = process.wait()
         thread.join(timeout=5)
 

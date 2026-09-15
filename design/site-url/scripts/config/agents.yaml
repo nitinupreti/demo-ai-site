@@ -11,7 +11,7 @@ defaults:
   prompt_dir: design/site-url/scripts/prompts
   model: null            # inherits model.default from migration.yaml
   effort: null
-  max_continues: 20
+  max_continues: null
   timeout_seconds: 5400
   result_status_values: [PASS, FAIL, BLOCKED]
   required_result_keys: [agent, run_id, status]
@@ -26,6 +26,12 @@ agents:
       that decides how many implementation agents are fanned out.
     timeout_seconds: 7200
     required_result_keys: [agent, run_id, status, components]
+    required_checks:
+      - all_breakpoints_ready
+      - all_discovery_signals_executed
+      - exactly_once_coverage
+      - no_unclaimed_gap_20px
+      - every_instance_has_stable_source_selector
     outputs:
       components: outputs.components
       coverage_report: outputs.coverage_report
@@ -38,6 +44,8 @@ agents:
         - instances
         - visible_breakpoints
         - owning_module
+        - owned_paths
+        - depends_on
         - reuse_target
         - assets
         - authorable_fields
@@ -46,6 +54,13 @@ agents:
       id_pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
       tier_values: [1, 2, 3, 4]
       delivery_values: [component, experience-fragment]
+
+  foundations:
+    title: Shared foundations
+    prompt: foundations.md
+    timeout_seconds: 5400
+    required_result_keys: [agent, run_id, status, changed_files, token_manifest]
+    required_checks: [shared_tokens_ready, shared_policies_ready]
 
   component:
     title: Component builder
@@ -56,6 +71,7 @@ agents:
       One instance of this agent is started per planned component.
     timeout_seconds: 5400
     required_result_keys: [agent, run_id, status, component_id, changed_files]
+    required_checks: [every_business_value_authorable, assets_authored_from_dam, focused_test_passes]
     outputs:
       changed_files: outputs.changed_files
       resource_type: outputs.resource_type
@@ -71,6 +87,14 @@ agents:
       and proves the change is live with an HTTP and repository sweep.
     timeout_seconds: 5400
     required_result_keys: [agent, run_id, status, deploy_commands, target_url]
+    required_checks:
+      - focused_tests_pass
+      - scoped_deploy_succeeded
+      - packages_and_bundles_active
+      - disabled_and_author_runtime_valid
+      - target_selectors_resolve_uniquely
+      - assets_reachable_and_decoded
+      - live_repository_matches_intent
     outputs:
       deploy_commands: outputs.deploy_commands
       target_url: outputs.target_url
@@ -86,13 +110,18 @@ agents:
       breakpoint, and reports which components are below the contract threshold.
     timeout_seconds: 7200
     required_result_keys: [agent, run_id, status, scores, failing_components]
+    required_checks:
+      - all_source_blocks_mapped_once
+      - all_live_and_aem_screenshot_pairs_valid
+      - all_geometry_and_properties_pass
+      - all_interactions_and_media_pass
     outputs:
       scores: outputs.scores
       failing_components: outputs.failing_components
       screenshot_index: outputs.screenshot_index
       runner: outputs.runner
     score_schema:
-      required: [component_id, breakpoint, mode, matched_pixels, total_pixels, ratio, status]
+      required: [component_id, instance_id, breakpoint, mode, source_image, target_image, live_url, aem_url, dpr, screenshot_validation]
 
   reporter:
     title: Completion reporter
@@ -103,6 +132,11 @@ agents:
     timeout_seconds: 3600
     result_status_values: [COMPLETE, FAIL, BLOCKED]
     required_result_keys: [agent, run_id, status, report_path]
+    required_checks:
+      - all_upstream_results_present
+      - dependencies_same_run_and_current
+      - coverage_files_assets_scores_reconcile
+      - residual_gaps_consistent_with_status
     outputs:
       report_path: outputs.report_path
       residual_gaps: outputs.residual_gaps

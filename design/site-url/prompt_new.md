@@ -7,7 +7,8 @@ prompts under `design/site-url/scripts/prompts/`.
 Both entry points read this file:
 
 - `python design/site-url/scripts/run_migration.py` — the multi-agent pipeline
-  (planner → fan-out component agents → deployer → parity → reporter). See
+  (planner, shared foundations, isolated component workers, assets, merge, deployer,
+  parity and reporter). See
   [scripts/README.md](scripts/README.md).
 - `design/site-url/run-migration.cmd` — the original single-agent launcher.
 
@@ -132,10 +133,17 @@ instance_authoring_map:
 | Phase | Agent prompt | Owns |
 |---|---|---|
 | 1 | [planner](scripts/prompts/planner.md) | Source readiness, 11-signal discovery, coverage proof, frozen denominators, and the component plan. |
-| 2 | [component](scripts/prompts/component.md) | One component each: reuse tier, dialog, HTL, model, clientlib, test, assets, authored content. |
-| 3 | [deployer](scripts/prompts/deployer.md) | Focused tests, scoped Maven deploy, runtime and repository sweep. |
-| 4 | [parity](scripts/prompts/parity.md) | Playwright capture, pixelmatch scoring, and per-component failure diagnostics. |
-| 5 | [reporter](scripts/prompts/reporter.md) | The completion report and the single status line. |
+| 2 | [foundations](scripts/prompts/foundations.md) | Single writer for shared tokens, site styles and policies before component workers start. |
+| 3 | [component](scripts/prompts/component.md) | One component per isolated checkout; explicit file ownership and dependency barriers; authored content contributions. |
+| 4 | Deterministic Python assets handler | Asset downloads and DAM uploads from declared manifests. |
+| 5 | Deterministic Python merge handler | Authored page/XF nodes and Vault filters in source order. |
+| 6 | [deployer](scripts/prompts/deployer.md) | Focused tests, scoped Maven deploy, runtime and repository sweep. |
+| 7 | [parity](scripts/prompts/parity.md) and pinned scorer | Fresh Playwright captures and qualitative diagnostics; coordinator-owned Pixelmatch acceptance and receipts. |
+| 8 | [reporter](scripts/prompts/reporter.md) | The completion report and the single status line. |
+
+This dispatch describes the Python pipeline. The legacy single-agent entry point
+must satisfy the same acceptance contract without assuming Python's isolation or
+checkpoint enforcement is present.
 
 Phases run in order. A phase may start only once its prerequisites exist, and each
 must end with its result envelope persisted to the run state — a phase without its

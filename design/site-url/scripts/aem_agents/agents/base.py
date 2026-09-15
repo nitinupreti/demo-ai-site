@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import unquote, urlparse
 
 from ..config import AgentSpec, Settings
 from ..console import emit
@@ -13,6 +14,7 @@ from ..contract import RunContract
 from ..envelope import AgentResult, EnvelopeError, read_result
 from ..render import render_file
 from ..runner import CopilotBackend
+from ..scoring import PixelScorer
 from ..state import RunState
 from ..toolchain import Toolchain
 
@@ -23,13 +25,14 @@ class RunContext:
 
     settings: Settings
     contract: RunContract
-    backend: CopilotBackend
+    backend: CopilotBackend | None
     state: RunState
     run_id: str
     evidence_dir: Path
     logger: Any
     dry_run: bool = False
     toolchain: Toolchain | None = None
+    scorer: PixelScorer | None = None
 
     @property
     def repo_root(self) -> Path:
@@ -58,8 +61,43 @@ class RunContext:
     def credentials_env(self) -> str:
         return str(self.settings.migration.get("aem.credentials_env", "AEM_CREDENTIALS"))
 
+    def _target_path_from_url(self, value: str) -> str:
+        try:
+            parsed = urlparse(value)
+            origin = urlparse(f"http://{self.aem_host}:{self.aem_port}")
+            if (parsed.scheme, parsed.hostname, parsed.port) != (origin.scheme, origin.hostname, origin.port) or parsed.username or parsed.password:
+                raise ValueError("wrong AEM origin")
+            path = unquote(parsed.path)
+            if path.startswith("/editor.html/"):
+                path = path[len("/editor.html"):]
+            if not path.startswith("/content/") or not path.endswith(".html") or "\\" in path:
+                raise ValueError("not an AEM content page")
+            path = path[:-5]
+            if any(part in (".", "..") for part in path.split("/")):
+                raise ValueError("invalid page path")
+            expected = self.contract.target_page_path
+            if expected and path != "/" + expected.strip("/"):
+                raise ValueError("different target page")
+            return path
+        except (TypeError, ValueError) as error:
+            raise EnvelopeError(f"Deployer target URL does not match this run: {error}") from error
+
+    @property
+    def target_page_path(self) -> str | None:
+        if self.contract.target_page_path:
+            return self.contract.target_page_path
+        target_url = self.state.get("target_url")
+        return self._target_path_from_url(target_url) if isinstance(target_url, str) and target_url else None
+
+    def record_target_url(self, value: Any) -> None:
+        if not isinstance(value, str) or not value:
+            raise EnvelopeError("Deployer must report its target URL.")
+        path = self._target_path_from_url(value)
+        pattern = str(self.settings.migration.require("aem.disabled_url_pattern"))
+        self.state.update(target_url=pattern.format(host=self.aem_host, port=self.aem_port, path=path))
+
     def _page_url(self, pattern_key: str) -> str:
-        path = self.contract.target_page_path or ""
+        path = self.target_page_path or ""
         if not path:
             return (
                 "(unresolved — TARGET_PAGE_PATH is not set; create or resolve the page, "
@@ -84,10 +122,10 @@ class RunContext:
         return {
             "run_id": self.run_id,
             "site_url": self.contract.site_url,
-            "target_page_path": self.contract.target_page_path or "(not set — create or reuse a page)",
+            "target_page_path": self.target_page_path or "(not set — create or reuse a page)",
             "breakpoints": ", ".join(str(width) for width in self.contract.breakpoints),
             "visual_pass_ratio": str(self.contract.visual_pass_ratio),
-            "max_attempts": self.contract.max_attempts_per_component,
+            "max_attempts": migration.get("pipeline.remediation.max_attempts", None) or self.contract.max_attempts_per_component,
             "contract_file": self.contract.source_file,
             "evidence_dir": self.rel(self.evidence_dir),
             "companion_docs": ", ".join(
@@ -177,7 +215,7 @@ class Agent:
             self.context.settings.migration.get("run.result_file", "result.json")
         )
 
-    def backend_options(self) -> dict[str, Any]:
+    def backend_options(self, slug: str | None = None) -> dict[str, Any]:
         migration = self.context.settings.migration
         return {
             "model": self.spec.get("model", None) or migration.get("model.default", None) or "",
@@ -185,6 +223,7 @@ class Agent:
             "max_continues": self.spec.get("max_continues", None)
             or migration.get("model.max_continues", 20),
             "max_ai_credits": migration.get("model.max_ai_credits", None) or "",
+            "session_name": f"{self.context.run_id}-{slug or self.agent_id}",
         }
 
     def render_prompt(self, slug: str, **kwargs: Any) -> str:
@@ -216,13 +255,16 @@ class Agent:
             self.validate_result(result, **kwargs)
             return result
 
+        if context.backend is None:
+            raise EnvelopeError("The agent backend has not been initialized.")
         run = context.backend.run(
             prompt=prompt,
-            options=self.backend_options(),
+            options=self.backend_options(slug),
             workspace=workspace,
             stream_name=str(context.settings.migration.get("run.stream_file", "stream.jsonl")),
             stderr_name=str(context.settings.migration.get("run.stderr_file", "stderr.log")),
             timeout_seconds=self.spec.timeout_seconds,
+            working_directory=context.repo_root,
             env_extra=self.env_extra(),
             on_event=lambda event: self._on_event(label, event),
         )
