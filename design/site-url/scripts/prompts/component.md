@@ -39,7 +39,7 @@ action, not just "working". Announce steps before starting them and concise outc
 afterward, such as "Focused model tests: 4 passed" only after observing that result.
 For reused components, explicitly report skipped implementation steps; do not
 create unnecessary code just to follow the example sequence. Report missing tokens
-as a request to the foundations agent, never as permission to edit shared foundations.
+as a request to the planner's shared pass, never as permission to edit shared foundations.
 
 Keep `action` under 240 characters. Do not include `current`, `total`, percentages,
 private reasoning, credentials or command dumps. Emit updates as work happens, not
@@ -79,7 +79,7 @@ These are the only source paths the coordinator will accept:
 
 {{owned_paths}}
 
-The foundations agent exclusively owns shared tokens, site styles and policies.
+The planner's shared pass exclusively owns shared tokens, site styles and policies.
 If a required token is missing, return `FAIL` with `outputs.foundation_requests`
 listing its name, measured source value and evidence. Never edit shared files.
 Declare page and XF content through the contribution file below.
@@ -219,14 +219,14 @@ is intentionally excluded, not a completed check.
 token-driven. The site token layer is the single source of truth:
 
 - tokens live in `{{token_clientlib}}`, prefixed `{{token_prefix}}`
-- the SCSS source is `{{token_scss}}`; the foundations agent keeps it in sync
+- the SCSS source is `{{token_scss}}`; the planner's shared pass keeps it in sync
 - per-component overrides are `{{component_property_prefix}}<component>-<role>` and
   are defined **only** in that component's own stylesheet
 
 The only values that may appear as literals are ones carrying no design decision:
 {{literal_exceptions}}. Everything else — colours, font families, font sizes, line
 heights, letter spacing, radii, shadows, spacing steps, breakpoints — resolves
-through `var(...)`. Request a missing site token from the foundations agent; do not
+through `var(...)`. Request a missing site token from the planner's shared pass; do not
 add it yourself. A raw hex, a hardcoded font stack, or a
 magic px value for type or spacing in component CSS is a defect even when the
 rendering is pixel-perfect.
@@ -256,6 +256,38 @@ and child order. Update the existing policy; do not fork a template for a varian
 executable validation before continuing. Run the component's focused test before you
 finish. Do not run a full reactor build — the deployer agent owns deployment.
 
+## Coordinator Comparison Targets
+
+Provide `outputs.parity_targets` for every planned source instance. Each entry has
+the unchanged `instance_id` and your actual rendered root CSS `selector`. Omit
+`breakpoint` and `mode` when the same target applies everywhere; otherwise give
+specific overrides. Use `match_index` only for deliberately repeated selector matches.
+The coordinator derives source roots from the accepted plan, captures every required
+breakpoint/mode, and creates side-by-side/diff images without a model comparison call.
+
+Visible descendant roles are matched automatically by content and role. When markup
+wrappers make correspondence ambiguous, supply `roles` entries with relative
+`source_selector` and `target_selector` pairs. Never omit visible source roles.
+For each planned interaction, provide an `interactions` entry whose `id` equals the
+planned interaction name, `type` is `hover`, `focus` or `click`, and selectors identify
+the source and target controls relative to their roots. Optional global
+`source_state_selector`/`target_state_selector` identify a popup panel outside the
+component root. Navigation/form-submission probes are not permitted. Unsupported
+or unmapped behaviors must be reported, never silently marked verified. Header
+hidden-menu interactions remain excluded by the canonical contract.
+
+Example target (replace with your actual instance and rendered CSS):
+
+```json
+{"instance_id":"hero-1","selector":".cmp-hero","roles":[],"interactions":[]}
+```
+
+The collector automatically checks hover/focus on visible non-header controls as
+well. Do not generate capture scripts or run comparisons yourself. On repair, read
+only your failing component's measured deltas and linked side-by-side/diff images.
+Exact computed styles, rendered fonts, text/line boxes, geometry and media readiness
+are hard gates even when the overall pixel ratio is high.
+
 ## Required output
 
 Write valid JSON to `{{result_path}}`:
@@ -270,6 +302,7 @@ Write valid JSON to `{{result_path}}`:
     "resource_type": "<sling resource type>",
     "tier": 4,
     "changed_files": ["<repo-relative path>"],
+    "parity_targets": [{"instance_id": "<planned instance id>", "selector": "<rendered root CSS selector>", "roles": [], "interactions": []}],
     "foundation_requests": [],
     "contributions": "{{contribution_path}}",
     "authored_paths": ["<jcr path of each authored instance>"],

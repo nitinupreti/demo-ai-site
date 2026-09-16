@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 import queue
 import re
@@ -19,7 +20,7 @@ sys.path.insert(0, str(SCRIPTS))
 from aem_agents.config import AgentSpec, ConfigError, Settings
 from aem_agents.cli import main as cli_main
 from aem_agents.browser import browser_paths
-from aem_agents.contract import load_contract
+from aem_agents.contract import Threshold, load_contract
 from aem_agents.envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
 from aem_agents.agents.base import Agent, RunContext
 from aem_agents.agents.parity import ParityAgent
@@ -33,6 +34,7 @@ from aem_agents.toolchain import Toolchain
 from aem_agents.agents import AGENT_CLASSES
 from aem_agents.workspaces import WorkspaceError, digest
 from aem_agents.discovery import DiscoveryEvidence
+from aem_agents.handoff import PACKET_BYTES, prepare_shared_handoff, write_packets
 
 
 class EnvelopeTests(unittest.TestCase):
@@ -145,17 +147,20 @@ class EvidenceTests(unittest.TestCase):
     def test_planning_precedes_separate_foundations_and_components(self):
         phases = self.context.settings.phases()
         self.assertEqual([phase["id"] for phase in phases[:3]], ["plan", "foundations", "implement"])
-        self.assertIn("foundations", AGENT_CLASSES)
+        self.assertEqual(phases[1]["agent"], "planner")
+        self.assertEqual(phases[1]["mode"], "shared")
+        self.assertNotIn("foundations", AGENT_CLASSES)
+        self.assertNotIn("foundations", self.context.settings.agents)
         self.assertNotIn("shared_tokens_ready", self.agent.spec.get("required_checks"))
-        shared = AGENT_CLASSES["foundations"](self.context)
+        shared = PlannerAgent(self.context, shared=True)
         self.assertIn("shared_tokens_ready", shared.spec.get("required_checks"))
         self.assertIn("shared_policies_ready", shared.spec.get("required_checks"))
 
     def test_foundation_repairs_have_separate_attempt_identity(self):
         self.assertEqual(self.agent.slug(), "planner")
-        foundations = AGENT_CLASSES["foundations"](self.context)
-        self.assertEqual(foundations.slug(), "foundations")
-        self.assertEqual(foundations.slug(repair=True, attempt=2), "foundations-repair-attempt-2")
+        foundations = PlannerAgent(self.context, shared=True)
+        self.assertEqual(foundations.slug(), "planner-shared")
+        self.assertEqual(foundations.slug(repair=True, attempt=2), "planner-shared-repair-attempt-2")
 
     def test_planner_prompt_is_readonly_and_worker_root_is_explicit(self):
         prompt = self.agent.render_prompt("planner")
@@ -166,15 +171,33 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(self.agent.env_extra()["MIGRATION_SOURCE_ROOT"], str(self.context.repo_root.resolve()))
 
     def test_foundations_validate_tokens_without_replanning(self):
-        agent = AGENT_CLASSES["foundations"](self.context)
+        agent = PlannerAgent(self.context, shared=True)
         components = [{"id": "hero"}]
-        result = AgentResult("foundations", "test", "PASS", outputs={"components": components, "token_manifest": str(self.paths[0])})
+        result = AgentResult("planner", "test", "PASS", outputs={"components": components, "token_manifest": str(self.paths[0])})
         agent.validate_result(result, components=components)
         with self.assertRaisesRegex(EnvelopeError, "preserve the validated component plan"):
             agent.validate_result(result, components=[{"id": "other"}])
         result.outputs["token_manifest"] = str(self.evidence / "missing.json")
         with self.assertRaisesRegex(EnvelopeError, "Missing, empty"):
             agent.validate_result(result, components=components)
+
+    def test_foundations_handoff_preserves_full_inputs_without_prompt_duplication(self):
+        self.context.settings.repo_root = self.root
+        tokens = {"colors": [{"name": "--site-text", "measured_value": "#123456", "classification": "site",
+                              "sample_roles": ["exact measured selector"], "custom_evidence": {"unchanged": True}}]}
+        token_path = self.evidence / "design_tokens.json"
+        token_path.write_text(json.dumps(tokens), encoding="utf-8")
+        self.context.state.get.return_value = {"planner": {"outputs": {"design_tokens": str(token_path)}}}
+        components = [{"id": "hero", "resource_type": "demo-ai-site/components/hero", "source_selectors": [{"selector": "long-selector-" * 500}]}]
+        agent = PlannerAgent(self.context, shared=True)
+        handoff = agent.prepare_handoff(components=components)
+        self.assertEqual(json.loads(Path(handoff["plan_path"]).read_text(encoding="utf-8"))["components"], components)
+        self.assertEqual(json.loads(Path(handoff["tokens_path"]).read_text(encoding="utf-8")), tokens)
+        self.assertTrue(Path(handoff["index_path"]).is_relative_to(agent.workspace("planner-shared")))
+        values = agent.prompt_values(components=components)
+        self.assertEqual(handoff["index_path"], json.loads(values["handoff_brief"])["index_path"])
+        self.assertNotIn("long-selector-", values["handoff_brief"])
+        self.assertNotIn("components_json", values)
 
     def test_planner_routes_xf_ownership_to_required_contributions(self):
         target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
@@ -279,8 +302,8 @@ class EvidenceTests(unittest.TestCase):
                 self.assertEqual(output.called, verbose)
 
     def test_progress_displays_actual_tool_activity_without_milestones(self):
-        for role in ("planner", "foundations", "component"):
-            agent = AGENT_CLASSES[role](self.context)
+        for role in ("planner", "planner-shared", "component"):
+            agent = PlannerAgent(self.context, shared=True) if role == "planner-shared" else AGENT_CLASSES[role](self.context)
             self.context.logger.isEnabledFor.return_value = False
             start = {"type": "tool.execution_start", "data": {
                 "toolCallId": "readiness-check", "toolName": "powershell",
@@ -456,6 +479,121 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in affected_components(components, {"layout"})], ["layout", "card", "list"])
 
 
+class StrictStyleTests(unittest.TestCase):
+    def test_shared_only_retries_reuse_latest_accepted_target_mapping(self):
+        from aem_agents.style_parity import BrowserParity
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        context = RunContext(settings, load_contract(settings), None, MagicMock(), "test", Path("evidence"), MagicMock())
+        context.state.component_rows.return_value = [{"id": "hero", "attempts": 4}]
+        context.state.get.return_value = {
+            "component-hero-attempt-1": {"status": "PASS", "outputs": {"parity_targets": [{"instance_id": "hero-1", "selector": "#old"}]}},
+            "component-hero-attempt-2": {"status": "PASS", "outputs": {"parity_targets": [{"instance_id": "hero-1", "selector": "#accepted"}]}},
+            "component-hero-attempt-3": {"status": "FAIL", "outputs": {"parity_targets": [{"instance_id": "hero-1", "selector": "#rejected"}]}},
+        }
+        groups, failures = BrowserParity(context)._groups([{"id": "hero", "source_selectors": [{"instance_id": "hero-1", "selector": "#live"}]}])
+        self.assertFalse(failures)
+        self.assertEqual(len(groups), 6)
+        self.assertEqual({row["target_selector"] for row in groups}, {"#accepted"})
+
+    def test_missing_or_unknown_target_instances_fail(self):
+        from aem_agents.style_parity import validate_targets
+        component = {"id": "hero", "source_selectors": [{"instance_id": "first"}, {"instance_id": "second"}]}
+        complete = [{"instance_id": identity, "selector": f"#{identity}"} for identity in ("first", "second")]
+        validate_targets(complete, component)
+        for invalid in ([], complete[:1], [*complete, {"instance_id": "invented", "selector": "#invented"}]):
+            with self.subTest(targets=invalid), self.assertRaises(EnvelopeError):
+                validate_targets(invalid, component)
+
+    def test_strict_gate_rejects_failures_despite_pass_label(self):
+        from aem_agents.style_parity import STYLE_PROPERTIES, compare_snapshot
+        role = {"id": "root", "selector": "#root", "kind": "root", "text": "Title", "has_text": True,
+                "font_ready": True, "fonts": [{"familyName": "Fixture", "postScriptName": "Fixture", "isCustomFont": True}],
+                "styles": {name: "value" for name in STYLE_PROPERTIES}, "line_boxes": [],
+                "rect": {"x": 0, "y": 0, "width": 100, "height": 100}}
+        group = {"status": "PASS", "source_roles": [role], "target_roles": [copy.deepcopy(role)],
+                 "pairs": [{"source": "root", "target": "root"}], "errors": []}
+        self.assertEqual(compare_snapshot(group, {}), [])
+        group["target_roles"][0]["font_ready"] = False
+        group["target_roles"][0]["rect"]["x"] = 40
+        differences = compare_snapshot(group, {})
+        self.assertTrue(any(row.get("property") == "fontReadiness" for row in differences))
+        self.assertTrue(any(row.get("property") == "rect.x" for row in differences))
+        group["pairs"] = []
+        self.assertTrue(any("coverage" in row.get("error", "") for row in compare_snapshot(group, {})))
+
+    def test_exact_styles_reject_color_type_and_spacing_differences(self):
+        from aem_agents.style_parity import STYLE_PROPERTIES, compare_role
+        source = {"kind": "text", "text": "Measured heading", "font_ready": True,
+                  "fonts": [{"familyName": "Fixture Sans", "postScriptName": "FixtureSans", "isCustomFont": True}],
+                  "styles": {name: "measured" for name in STYLE_PROPERTIES}}
+        self.assertEqual(compare_role(source, copy.deepcopy(source)), [])
+        for property_name in ("fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "color", "backgroundColor", "paddingTop", "marginBottom", "columnGap"):
+            target = copy.deepcopy(source)
+            target["styles"][property_name] = "different"
+            with self.subTest(property=property_name):
+                self.assertTrue(any(item["property"] == property_name for item in compare_role(source, target)))
+        target = copy.deepcopy(source)
+        target["fonts"][0]["familyName"] = "Fallback Font"
+        self.assertTrue(any(item["property"] == "renderedFonts" for item in compare_role(source, target)))
+
+    def test_real_browser_only_flags_changed_component(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from aem_agents.style_parity import BrowserParity
+        changed = {"mode": "same"}
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                color = "#222" if changed["mode"] == "color" and not self.path.startswith("/live") else "#111"
+                hover = "#fc0000" if changed["mode"] == "hover" and not self.path.startswith("/live") else "#ff0000"
+                document = ('<!doctype html><html><head><style>body{margin:0;background:white;font-family:sans-serif;}'
+                            'section{padding:16px;}h1{margin:0;font-size:20px;line-height:24px;}'
+                            'h1::before{content:"Title ";}img{width:8px;height:8px;}'
+                            'button{font:inherit;}button:hover{color:' + hover + ';}button:focus{outline:1px solid black;}'
+                            '#hero h1{color:' + color + ';}</style></head><body>'
+                            '<section id="hero"><h1>Measured title</h1><button type="button" onclick="this.textContent=this.textContent===\'Open\'?\'Close\':\'Open\'">Open</button></section>'
+                            '<section id="body"><h1>Unchanged text</h1><img alt="Fixture" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1kAAAAASUVORK5CYII="></section></body></html>')
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(document.encode("utf-8"))
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+                settings.migration = settings.migration.merged({"aem": {"host_env": "TEST_AEM_HOST", "port_env": "TEST_AEM_PORT",
+                    "credentials_env": "TEST_AEM_CREDENTIALS", "default_host": "127.0.0.1", "default_port": str(server.server_port)},
+                    "parity": {"stability_samples": 2, "stability_interval_ms": 10}})
+                contract = load_contract(settings, {"site_url": f"http://127.0.0.1:{server.server_port}/live", "target_page_path": "/content/test"})
+                components = [{"id": name, "source_selectors": [{"instance_id": name, "selector": f"#{name}"}]} for name in ("hero", "body")]
+                state = MagicMock()
+                state.component_rows.return_value = [{"id": name, "attempts": 1} for name in ("hero", "body")]
+                state.get.return_value = {f"component-{name}-attempt-1": {"status": "PASS", "outputs": {"parity_targets": [{"instance_id": name, "selector": f"#{name}"}]}} for name in ("hero", "body")}
+                components[0]["interactions"] = ["hover", "focus", "toggle"]
+                state.get.return_value["component-hero-attempt-1"]["outputs"]["parity_targets"][0]["interactions"] = [
+                    {"id": "toggle", "type": "click", "source_selector": "button", "target_selector": "button"}]
+                context = RunContext(settings, contract, MagicMock(), state, "fixture", Path(temporary).resolve(), MagicMock(), browser=browser_paths(settings))
+                checker = BrowserParity(context)
+                for mode in ("same", "color", "hover"):
+                    changed["mode"] = mode
+                    result = checker.capture(components, context.evidence_dir / mode)
+                    with self.subTest(mode=mode):
+                        self.assertEqual(result.passed, mode == "same", result.output("failing_components"))
+                        self.assertEqual(len(result.output("scores")), 12)
+                        self.assertEqual(len(result.output("page_composites")), 6)
+                        self.assertEqual({row["component_id"] for row in result.output("failing_components")}, set() if mode == "same" else {"hero"})
+                        self.assertEqual(len(result.output("interaction_scores")), 18)
+                        self.assertTrue(all(Path(row["source_image"]).is_file() and Path(row["target_image"]).is_file() for row in result.output("scores")))
+                context.backend.run.assert_not_called()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+
 class ParityTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -463,6 +601,7 @@ class ParityTests(unittest.TestCase):
         self.evidence = Path(self.directory.name)
         settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
         contract = load_contract(settings, {"target_page_path": "/content/test"})
+        contract = replace(contract, visual_pass_ratio=Threshold.parse(">= 0.99"))
         self.context = RunContext(settings, contract, MagicMock(), MagicMock(), "test", self.evidence, MagicMock())
         self.agent = ParityAgent(self.context)
         self.components = [{"id": "hero", "instances": 1, "source_selectors": [{"instance_id": "hero-1"}]}]
@@ -498,6 +637,21 @@ class ParityTests(unittest.TestCase):
 
     def test_complete_matrix_passes(self):
         self.assertTrue(self.evaluate(self.result).passed)
+
+    def test_matching_parity_runs_without_a_model_call(self):
+        import os
+        self.context.backend.run.side_effect = AssertionError("Parity must not call the model to perform comparisons")
+        def capture(*args, **kwargs):
+            captured_ns = self.agent.capture_started_ns + 1_000_000_000
+            for row in self.result.outputs["scores"] + self.result.outputs["page_composites"]:
+                for name in ("source_image", "target_image"):
+                    os.utime(row[name], ns=(captured_ns, captured_ns))
+            self.agent.capture_dir = self.evidence.resolve()
+            return self.result
+        with patch.object(self.agent, "_capture", side_effect=capture, create=True):
+            result = self.agent.run(components=self.components)
+        self.assertTrue(result.passed, (result.failures, result.output("failing_components")))
+        self.context.backend.run.assert_not_called()
 
     def test_empty_or_incomplete_scores_fail(self):
         for rows in ([], self.result.outputs["scores"][:1]):
@@ -553,6 +707,12 @@ class ParityTests(unittest.TestCase):
         self.result.outputs["scores"][0]["target_image"] = str(target)
         self.assertFalse(self.evaluate(self.result).passed)
         self.assertEqual(self.result.outputs["failing_components"][0]["owning_layer"], "css")
+        row = self.result.outputs["scores"][0]
+        self.assertIsNone(row["ratio"])
+        self.assertTrue(Path(row["side_by_side"]).is_file())
+        self.assertEqual(self.result.output("failing_components")[0]["diagnostic"]["captures"][-1]["side_by_side"], row["side_by_side"])
+        with Image.open(target) as image:
+            self.assertEqual(image.size, (9, 10))
 
     def test_duplicate_instance_or_missing_composite_fails(self):
         result = copy.deepcopy(self.result)
@@ -584,12 +744,28 @@ class ParityTests(unittest.TestCase):
     def test_post_validation_is_persisted(self):
         self.result.outputs["scores"] = []
         result_path = self.evidence / "result.json"
-        backend = self.context.backend
-        backend.run.return_value = SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=1)
-        with patch.object(self.agent, "render_prompt", return_value="test"), patch.object(self.agent, "result_path", return_value=result_path), patch("aem_agents.agents.base.read_result", return_value=self.result):
+        with patch.object(self.agent, "_capture", return_value=self.result), patch.object(self.agent, "result_path", return_value=result_path):
             result = self.agent.run(components=self.components)
         self.assertEqual(result.status, "FAIL")
         self.assertEqual(self.context.state.record_agent_result.call_args.args[1]["status"], "FAIL")
+        self.context.backend.run.assert_not_called()
+
+    def test_collector_failure_is_persisted_without_a_model_call(self):
+        with patch.object(self.agent, "_capture", side_effect=EnvelopeError("Collector launch failed")):
+            result = self.agent.run(components=self.components)
+        self.assertEqual(result.status, "FAIL")
+        self.assertIn("Collector launch failed", result.failures)
+        self.assertEqual(json.loads(Path(result.path).read_text(encoding="utf-8"))["status"], "FAIL")
+        self.context.backend.run.assert_not_called()
+
+    def test_interaction_pixels_cannot_be_hidden_by_matching_default_state(self):
+        target = self.evidence / "interaction.png"
+        Image.frombytes("RGB", (10, 10), bytes(255 - index % 256 for index in range(300))).save(target)
+        self.result.outputs["interaction_scores"] = [{**self.result.outputs["scores"][0], "state": "hover:button", "target_image": str(target)}]
+        self.assertFalse(self.evaluate(self.result).passed)
+        self.assertLess(self.result.output("interaction_scores")[0]["ratio"], 0.99)
+        self.assertTrue(Path(self.result.output("interaction_scores")[0]["side_by_side"]).is_file())
+        self.assertTrue(self.result.output("failing_components")[0]["diagnostic"]["captures"])
 
 
 class OrchestratorTests(unittest.TestCase):
@@ -613,7 +789,7 @@ class OrchestratorTests(unittest.TestCase):
             AgentResult("planner", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
         ]))
         self.engine.run_foundations = MagicMock(return_value=PhaseOutcome("foundations", "PASS", [
-            AgentResult("foundations", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
+            AgentResult("planner", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
         ]))
         self.engine.run_assets = MagicMock(return_value=PhaseOutcome("assets", "PASS"))
         self.engine.run_fanout = MagicMock(return_value=PhaseOutcome("implement", "PASS", [
@@ -659,6 +835,25 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.run()
         self.assertEqual(events, ["plan", "foundations", "implement"])
         self.engine.run_foundations.assert_called_once_with(self.phases["foundations"], components=self.components)
+
+    def test_accepted_component_count_is_logged_before_shared_work(self):
+        self.engine.preflight = MagicMock()
+        self.components[:] = [
+            {"id": "existing", "tier": 1, "source_order": 0},
+            {"id": "extended", "tier": 3, "source_order": 1},
+            {"id": "new-card", "tier": 4, "source_order": 2},
+        ]
+        def shared(*args, **kwargs):
+            messages = [str(call.args[-1]) for call in self.engine.logger.info.call_args_list]
+            self.assertTrue(any("Planner accepted: 3 component definitions" in text for text in messages))
+            self.assertTrue(any("Reuse unchanged: 1; extend existing/Core: 1; new: 1" in text for text in messages))
+            for component in self.components:
+                self.assertTrue(any(component["id"] + " |" in text for text in messages))
+            return self.engine.run_foundations.return_value
+        self.engine.run_foundations.side_effect = shared
+        with patch("aem_agents.orchestrator.emit") as console:
+            self.engine.run()
+        self.assertTrue(any("Planner accepted: 3 component definitions" in call.args[0] for call in console.call_args_list))
 
     def test_failed_initial_foundations_never_start_components(self):
         self.engine.preflight = MagicMock()
@@ -714,12 +909,13 @@ class OrchestratorTests(unittest.TestCase):
                                          "test", self.engine.evidence_dir, MagicMock())
         source_path = "ui.frontend/src/main/webpack/site/_tokens.scss"
         def foundations(agent, **kwargs):
+            self.assertTrue(agent.shared)
             self.assertNotEqual(agent.context.repo_root, self.engine.settings.repo_root)
             target = agent.context.repo_root / source_path
             target.parent.mkdir(parents=True)
             target.write_text("validated tokens", encoding="utf-8")
-            return AgentResult("foundations", "test", "PASS", outputs={"components": self.components})
-        with patch.object(AGENT_CLASSES["foundations"], "run", foundations):
+            return AgentResult("planner", "test", "PASS", outputs={"components": self.components})
+        with patch.object(PlannerAgent, "run", foundations):
             outcome = Orchestrator.run_foundations(self.engine, self.phases["foundations"], components=self.components)
         self.assertTrue(outcome.passed)
         self.assertEqual(outcome.results[0].output("changed_files"), [source_path])
@@ -736,8 +932,8 @@ class OrchestratorTests(unittest.TestCase):
         target = self.engine.settings.repo_root / "unexpected.txt"
         def run(agent, **kwargs):
             target.write_text("external edit", encoding="utf-8")
-            return AgentResult("foundations", "test", "PASS")
-        with patch.object(AGENT_CLASSES["foundations"], "run", run):
+            return AgentResult("planner", "test", "PASS")
+        with patch.object(PlannerAgent, "run", run):
             outcome = Orchestrator.run_foundations(self.engine, self.phases["foundations"], components=self.components)
         self.assertFalse(outcome.passed)
         self.assertIn("unexpected.txt", outcome.results[0].failures[0])
@@ -894,8 +1090,40 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.engine.run_foundations.call_args.args[0]["id"], "foundations")
         self.assertTrue(self.engine.run_foundations.call_args.kwargs["repair"])
         self.assertEqual(self.engine.run_foundations.call_args.kwargs["attempt"], 2)
-        self.assertEqual(self.engine.run_fanout.call_count, 2)
+        self.assertEqual(self.engine.run_fanout.call_count, 1)
         self.assertEqual(set(self.engine.state.get("foundations")["changed_files"]), {original, repaired})
+
+    def test_only_mismatching_independent_component_is_rebuilt(self):
+        self.engine.max_attempts = 2
+        self.components.append({"id": "body"})
+        self.engine.state.set_components(self.components)
+        def compare(phase, **kwargs):
+            failing = phase["id"] == "parity" and kwargs["attempt"] == 1
+            status = "FAIL" if failing else "PASS"
+            return PhaseOutcome(phase["id"], status, [AgentResult(phase["agent"], "test", status, outputs={
+                "target_url": "http://test.invalid",
+                "failing_components": [{"component_id": "hero", "owning_layer": "css"}] if failing else [],
+            })])
+        self.engine.run_single.side_effect = compare
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual([row["id"] for row in self.engine.run_fanout.call_args_list[0].args[1]], ["hero", "body"])
+        self.assertEqual([row["id"] for row in self.engine.run_fanout.call_args_list[1].args[1]], ["hero"])
+        self.engine.run_foundations.assert_not_called()
+
+    def test_shared_only_failures_do_not_invent_component_attempts(self):
+        self.engine.max_attempts = 2
+        self.engine.state.update_component("hero", status="PASS", attempts=1)
+        def compare(phase, **kwargs):
+            status = "FAIL" if phase["id"] == "parity" else "PASS"
+            return PhaseOutcome(phase["id"], status, [AgentResult(phase["agent"], "test", status, outputs={
+                "target_url": "http://test.invalid",
+                "failing_components": [{"component_id": "hero", "owning_layer": "foundation"}] if status == "FAIL" else [],
+            })])
+        self.engine.run_single.side_effect = compare
+        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.engine.state.component_rows()[0]["attempts"], 1)
+        self.assertEqual(self.engine.run_fanout.call_count, 1)
+        self.assertEqual(len(self.engine.state.get("remediation_history")), 2)
 
     def test_failed_shared_repairs_never_restart_components(self):
         self.engine.resume = True
@@ -1074,7 +1302,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_resume_revalidates_latest_foundations_repair(self):
         self.engine.resume = True
         self.engine.state.update(foundations={"attempt": 1, "changed_files": []})
-        self.engine._cached_result = MagicMock(return_value=AgentResult("foundations", "test", "PASS", outputs={"changed_files": []}))
+        self.engine._cached_result = MagicMock(return_value=AgentResult("planner", "test", "PASS", outputs={"changed_files": []}))
         self.assertEqual(self.run_gate(), "COMPLETE")
         self.engine._cached_result.assert_called_once_with(self.phases["foundations"], components=self.components, repair=True, attempt=1)
         self.engine.run_planner.assert_not_called()
@@ -1247,7 +1475,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_validation_outputs_are_isolated_per_agent_and_attempt(self):
         component = {"id": "hero", "source_order": 0}
         cases = [
-            ("planner", {}), ("foundations", {}), ("foundations", {"repair": True, "attempt": 2}),
+            ("planner", {}), ("planner-shared", {}), ("planner-shared", {"repair": True, "attempt": 2}),
             ("component", {"component": component, "attempt": 1}),
             ("component", {"component": component, "attempt": 2}),
             ("component", {"component": {"id": "card", "source_order": 1}, "attempt": 1}),
@@ -1255,10 +1483,10 @@ class ConfigurationTests(unittest.TestCase):
         ]
         directories = set()
         for role, kwargs in cases:
-            agent = AGENT_CLASSES[role](self.context)
+            agent = PlannerAgent(self.context, shared=True) if role == "planner-shared" else AGENT_CLASSES[role](self.context)
             self.context.backend.run.reset_mock()
             self.context.backend.run.return_value = SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=0)
-            result = AgentResult(role, "test", "PASS")
+            result = AgentResult(agent.agent_id, "test", "PASS")
             with self.subTest(role=role, kwargs=kwargs), patch("aem_agents.agents.base.read_result", return_value=result), patch.object(agent, "validate_result"), patch("aem_agents.agents.base.emit"):
                 Agent.run(agent, **kwargs)
             environment = self.context.backend.run.call_args.kwargs["env_extra"]
@@ -1291,8 +1519,8 @@ class ConfigurationTests(unittest.TestCase):
                 PlannerAgent(self.context).render_prompt("planner")
 
     def test_worker_prompts_keep_validation_from_changing_dependency_sources(self):
-        for role in ("planner", "foundations", "component", "deployer"):
-            agent = AGENT_CLASSES[role](self.context)
+        for role in ("planner", "planner-shared", "component", "deployer"):
+            agent = PlannerAgent(self.context, shared=True) if role == "planner-shared" else AGENT_CLASSES[role](self.context)
             prompt = agent.render_prompt(agent.slug(component={"id": "hero"}), component={"id": "hero"})
             with self.subTest(role=role):
                 self.assertIn("MIGRATION_VALIDATION_DIR", prompt)
@@ -1367,11 +1595,12 @@ class ConfigurationTests(unittest.TestCase):
         self.context.backend.run.assert_not_called()
 
     def test_foundations_never_recollect_source(self):
-        result = AgentResult("foundations", "test", "FAIL")
-        with patch("aem_agents.agents.planner.collect_discovery") as collector, patch.object(Agent, "run", return_value=result):
+        result = AgentResult("planner", "test", "FAIL")
+        with patch("aem_agents.agents.planner.collect_discovery") as collector, patch.object(Agent, "run", return_value=result), patch.object(PlannerAgent, "prepare_handoff") as handoff:
             for repair in (False, True):
-                self.assertIs(AGENT_CLASSES["foundations"](self.context).run(repair=repair, attempt=2), result)
+                self.assertIs(PlannerAgent(self.context, shared=True).run(repair=repair, attempt=2), result)
         collector.assert_not_called()
+        self.assertEqual(handoff.call_count, 2)
 
     def test_foundation_repairs_preserve_plan_and_require_token_evidence(self):
         artifact = self.evidence / "frozen.json"
@@ -1379,10 +1608,10 @@ class ConfigurationTests(unittest.TestCase):
         components = [{"id": "hero"}]
         discovery = {name: str(artifact) for name in ("discovery_manifest", "discovery_summary", "discovery_inventory")}
         self.state.record_agent_result("planner", {"outputs": {**discovery, "components": components}})
-        agent = AGENT_CLASSES["foundations"](self.context)
+        agent = PlannerAgent(self.context, shared=True)
         self.assertEqual(agent.prompt_values(repair=True)["plan_result_path"], str(agent.result_path("planner")))
         for changed_plan, missing_token in ((False, False), (True, False), (False, True)):
-            result = AgentResult("foundations", "test", "PASS", outputs={
+            result = AgentResult("planner", "test", "PASS", outputs={
                 "components": [{"id": "other"}] if changed_plan else components,
                 "token_manifest": str(self.evidence / "missing.json") if missing_token else str(artifact),
             })
@@ -1466,8 +1695,8 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_configured_check_names_match_rendered_prompts(self):
         component = {"id": "hero", "source_order": 0}
-        for role, factory in AGENT_CLASSES.items():
-            agent = factory(self.context)
+        agents = [factory(self.context) for factory in AGENT_CLASSES.values()] + [PlannerAgent(self.context, shared=True)]
+        for agent in agents:
             prompt = agent.render_prompt(agent.slug(component=component), component=component)
             envelopes = []
             for block in re.findall(r"```json\s*\n(.*?)```", prompt, re.DOTALL):
@@ -1477,9 +1706,115 @@ class ConfigurationTests(unittest.TestCase):
                     continue
                 if isinstance(payload, dict) and "checks" in payload:
                     envelopes.append(payload)
-            with self.subTest(role=role):
+            with self.subTest(role=agent.slug()):
                 self.assertEqual(len(envelopes), 1)
                 self.assertEqual(set(agent.spec.get("required_checks")), {row["name"] for row in envelopes[0]["checks"]})
+
+
+class HandoffTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        contract = load_contract(settings)
+        settings.repo_root = self.root
+        self.evidence = self.root / "evidence"
+        self.evidence.mkdir()
+        self.tokens = {"colors": [{"name": "--site-text", "measured_value": "#123", "classification": "site",
+                                   "custom_provenance": {"selector": "#exact-source"}}], "spacing/~": [0, False, ""],
+                   "notes": {"must_preserve": "Measured values only"}, "": ["unnamed category"]}
+        self.token_path = self.evidence / "tokens.json"
+        self.token_path.write_text(json.dumps(self.tokens), encoding="utf-8")
+        state = MagicMock()
+        state.get.return_value = {"planner": {"outputs": {"design_tokens": str(self.token_path)}}}
+        self.context = RunContext(settings, contract, None, state, "test", self.evidence, MagicMock())
+        self.agent = PlannerAgent(self.context, shared=True)
+        self.components = [{"id": "hero", "resource_type": "demo-ai-site/components/hero", "notes": "Preserve responsive behavior"}]
+
+    def records(self, handoff, group):
+        directory = Path(handoff["index_path"]).parent
+        index = json.loads(Path(handoff["index_path"]).read_text(encoding="utf-8"))
+        rows = []
+        for page in index["packets"][group]:
+            path = directory / page["file"]
+            self.assertLessEqual(path.stat().st_size, PACKET_BYTES)
+            for row in json.loads(path.read_text(encoding="utf-8"))["records"]:
+                rows.append(json.loads((directory / row["record_file"]).read_text(encoding="utf-8")) if "record_file" in row else row)
+        return rows
+
+    def test_packets_preserve_oversized_and_unicode_records(self):
+        records = [{"name": str(index), "value": "\\\"\u2192" * 250} for index in range(20)]
+        records.append({"large": "measured " * 3000})
+        pages, artifacts = write_packets(self.evidence, "fixture", records)
+        restored = []
+        for page in pages:
+            path = self.evidence / page["file"]
+            self.assertLessEqual(path.stat().st_size, PACKET_BYTES)
+            for row in json.loads(path.read_text(encoding="utf-8"))["records"]:
+                restored.append(json.loads((self.evidence / row["record_file"]).read_text(encoding="utf-8")) if "record_file" in row else row)
+        self.assertEqual(restored, records)
+        self.assertGreater(len(artifacts), len(pages))
+
+    def test_packet_limit_counts_written_bytes_on_windows(self):
+        record = {"value": ""}
+        overhead = len((json.dumps({"records": [record]}, indent=2, ensure_ascii=True) + "\n").encode("utf-8"))
+        record["value"] = "x" * (PACKET_BYTES - overhead)
+        pages, _ = write_packets(self.evidence, "boundary", [record])
+        self.assertEqual(pages[0]["bytes"], PACKET_BYTES)
+        self.assertEqual(json.loads((self.evidence / pages[0]["file"]).read_text(encoding="utf-8"))["records"], [record])
+
+    def test_token_schema_pointers_counts_and_unknown_fields_are_preserved(self):
+        handoff = self.agent.prepare_handoff(self.components)
+        rows = self.records(handoff, "tokens")
+        self.assertEqual(rows[0]["measured_value"], "#123")
+        self.assertIn("custom_provenance", rows[0]["detail_fields"])
+        self.assertEqual(rows[1]["pointer"], "/spacing~1~0/0")
+        self.assertEqual([row["value"] for row in rows[1:4]], [0, False, ""])
+        self.assertEqual(rows[-1]["pointer"], "//0")
+        self.assertEqual(json.loads(Path(handoff["tokens_path"]).read_text(encoding="utf-8")), self.tokens)
+        index = json.loads(Path(handoff["index_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(index["token_counts"]["colors"], {"records": 1, "classifications": {"site": 1}})
+
+    def test_source_snapshot_preserves_text_and_indexes_actual_policies(self):
+        name = "ui.frontend/src/main/webpack/site/_variables.scss"
+        source = self.root / name
+        source.parent.mkdir(parents=True)
+        text = ":root { --site-font: sans-serif; }\n" * 400
+        source.write_text(text, encoding="utf-8")
+        policy = self.root / "ui.content/src/main/content/jcr_root/conf/demo-ai-site/settings/wcm/policies/.content.xml"
+        policy.parent.mkdir(parents=True)
+        policy.write_text('<root><container components="[demo-ai-site/components/existing]"/></root>', encoding="utf-8")
+        source_hash, policy_hash = digest(source), digest(policy)
+        handoff = self.agent.prepare_handoff(self.components)
+        rows = [row for row in self.records(handoff, "source-context") if row["path"] == name]
+        self.assertEqual("".join(row["content"] for row in rows), source.read_text(encoding="utf-8"))
+        self.assertEqual(self.records(handoff, "policies")[0]["components"], "[demo-ai-site/components/existing]")
+        self.assertEqual(self.records(handoff, "policies")[0]["child_indexes"], [0])
+        self.assertEqual((digest(source), digest(policy)), (source_hash, policy_hash))
+
+    def test_repair_handoff_does_not_overwrite_initial_evidence(self):
+        first = self.agent.prepare_handoff(self.components)
+        second = self.agent.prepare_handoff(self.components, repair=True, attempt=2)
+        self.assertNotEqual(first["index_path"], second["index_path"])
+        for name, checksum in first["hashes"].items():
+            self.assertEqual(digest(Path(name)), checksum)
+
+    def test_mutated_handoff_fails_existing_shared_validation(self):
+        handoff = self.agent.prepare_handoff(self.components)
+        result = AgentResult("planner", "test", "PASS", outputs={"components": self.components, "token_manifest": str(self.token_path)})
+        self.agent.validate_result(result, components=self.components)
+        self.assertEqual(result.output("handoff_artifacts"), handoff["artifacts"])
+        Path(handoff["plan_path"]).write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(EnvelopeError, "Prepared shared evidence changed"):
+            self.agent.validate_result(result, components=self.components)
+
+    def test_invalid_or_outside_inputs_are_rejected(self):
+        with self.assertRaisesRegex(EnvelopeError, "inside this run"):
+            prepare_shared_handoff(self.context, self.root / "outside", self.components)
+        self.token_path.write_text("not JSON", encoding="utf-8")
+        with self.assertRaisesRegex(EnvelopeError, "invalid token JSON"):
+            self.agent.prepare_handoff(self.components)
 
 
 class EndToEndTests(unittest.TestCase):
@@ -1515,19 +1850,20 @@ class EndToEndTests(unittest.TestCase):
                 def run(self, **kwargs):
                     workspace = kwargs["workspace"]
                     role = workspace.name.split("-")[0]
-                    calls.append(role)
-                    if role == "parity" and interrupt[0]:
-                        interrupt[0] = False
-                        raise KeyboardInterrupt()
+                    shared = workspace.name.startswith("planner-shared")
+                    calls.append("planner-shared" if shared else role)
+                    test_case.assertNotEqual(role, "parity", "Comparison must not invoke the model backend")
                     check_log = workspace / "checks.log"
                     check_log.write_text("Offline unit-test fixture", encoding="utf-8")
                     outputs = {}
                     status = "PASS"
-                    if role == "planner":
+                    if role == "planner" and not shared:
                         test_case.assertNotEqual(kwargs["working_directory"], root)
+                        tokens = workspace / "design-tokens.json"
+                        tokens.write_text(json.dumps({"colors": [{"name": "--site-color-text", "measured_value": "#111"}]}), encoding="utf-8")
                         outputs = {"components": components, "coverage_report": str(check_log),
-                                   "source_selector_map": str(check_log), "design_tokens": str(check_log)}
-                    elif role == "foundations":
+                                   "source_selector_map": str(check_log), "design_tokens": str(tokens)}
+                    elif shared:
                         changed = settings.migration.get("css.token_layer.scss_source")
                         code = kwargs["working_directory"] / changed
                         test_case.assertNotEqual(kwargs["working_directory"], root)
@@ -1538,7 +1874,7 @@ class EndToEndTests(unittest.TestCase):
                                    "changed_files": [changed], "token_manifest": str(check_log)}
                     elif role == "component":
                         test_case.assertTrue((kwargs["working_directory"] / settings.migration.get("css.token_layer.scss_source")).is_file())
-                        test_case.assertIn(str((evidence / "agents/foundations/checks.log").resolve()), kwargs["prompt"])
+                        test_case.assertIn(str((evidence / "agents/planner-shared/checks.log").resolve()), kwargs["prompt"])
                         component_id = workspace.name[len("component-"):].rsplit("-attempt-", 1)[0]
                         component = next(row for row in components if row["id"] == component_id)
                         if component_id == "body":
@@ -1547,7 +1883,8 @@ class EndToEndTests(unittest.TestCase):
                         code = kwargs["working_directory"] / changed
                         code.parent.mkdir(parents=True, exist_ok=True)
                         code.write_text("<p>Unit test</p>", encoding="utf-8")
-                        outputs = {"component_id": component_id, "changed_files": [changed], "resource_type": component["resource_type"]}
+                        outputs = {"component_id": component_id, "changed_files": [changed], "resource_type": component["resource_type"],
+                                   "parity_targets": [{"instance_id": f"{component_id}-1", "selector": f".{component_id}"}]}
                         contribution = {
                             "component_id": component_id, "source_order": component["source_order"],
                             "page_path": "/content/test", "parent_path": "jcr:content/root/container",
@@ -1562,40 +1899,35 @@ class EndToEndTests(unittest.TestCase):
                         (workspace / "contributions.json").write_text(json.dumps(contribution), encoding="utf-8")
                     elif role == "deployer":
                         outputs = {"deploy_commands": [], "target_url": f"http://{engine.context.aem_host}:{engine.context.aem_port}/content/test.html"}
-                    elif role == "parity":
-                        captures = Path(kwargs["env_extra"]["MIGRATION_CAPTURE_DIR"])
-                        captures.mkdir(parents=True)
-                        image = captures / "image.png"
-                        target = captures / "target.png"
-                        Image.frombytes("RGB", (10, 10), bytes(index % 256 for index in range(300))).save(image)
-                        target.write_bytes(image.read_bytes())
-                        rows = [{
-                            "component_id": component["id"], "instance_id": f"{component['id']}-1",
-                            "breakpoint": width, "mode": mode, "matched_pixels": 100, "total_pixels": 100,
-                            "ratio": 1.0, "status": "PASS", "screenshot_validation": "PASS", "dpr": 1,
-                            "live_url": contract.site_url,
-                            "aem_url": engine.context.author_url if mode == "author" else engine.context.disabled_url,
-                            "source_image": str(image), "target_image": str(target),
-                        } for component in components for width in contract.breakpoints for mode in settings.migration.get("parity.modes")]
-                        composites = []
-                        for width in contract.breakpoints:
-                            page_source = captures / f"page-{width}-source.png"
-                            page_target = captures / f"page-{width}-target.png"
-                            Image.frombytes("RGB", (width, 10), bytes(index % 256 for index in range(width * 30))).save(page_source)
-                            page_target.write_bytes(page_source.read_bytes())
-                            for mode in settings.migration.get("parity.modes"):
-                                composite = next(row for row in rows if row["breakpoint"] == width and row["mode"] == mode)
-                                composites.append({**composite, "source_image": str(page_source), "target_image": str(page_target)})
-                        outputs = {"scores": rows, "failing_components": [], "page_composites": composites}
                     payload = {
                         "agent": role, "run_id": "integration", "status": status, "outputs": outputs,
-                        "checks": [{"name": name, "status": "PASS", "evidence": str(check_log)} for name in settings.agent(role).get("required_checks")],
+                        "checks": [{"name": name, "status": "PASS", "evidence": str(check_log)} for name in settings.agent(role).get("shared.required_checks" if shared else "required_checks")],
                         "failures": [],
                     }
                     (workspace / "result.json").write_text(json.dumps(payload), encoding="utf-8")
                     return SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=.01)
 
             backend = FixtureBackend()
+            def capture(agent, planned):
+                if interrupt[0]:
+                    interrupt[0] = False
+                    raise KeyboardInterrupt()
+                captures = agent.capture_dir
+                captures.mkdir(parents=True)
+                rows, composites = [], []
+                for width in contract.breakpoints:
+                    source = captures / f"page-{width}-source.png"
+                    target = captures / f"page-{width}-target.png"
+                    Image.frombytes("RGB", (width, 10), bytes(index % 256 for index in range(width * 30))).save(source)
+                    target.write_bytes(source.read_bytes())
+                    for mode in settings.migration.get("parity.modes"):
+                        row = {"breakpoint": width, "mode": mode, "screenshot_validation": "PASS", "dpr": 1,
+                               "live_url": contract.site_url, "aem_url": agent.context.author_url if mode == "author" else agent.context.disabled_url,
+                               "source_image": str(source), "target_image": str(target)}
+                        composites.append(dict(row))
+                        rows.extend({**row, "component_id": component["id"], "instance_id": f"{component['id']}-1"} for component in planned)
+                return AgentResult("parity", "integration", "PASS", outputs={"scores": rows, "page_composites": composites, "failing_components": []})
+
             def frontend_command(command, directory, log, environment):
                 log.write_text("Offline frontend build", encoding="utf-8")
                 if command[-1] == "prod":
@@ -1607,6 +1939,9 @@ class EndToEndTests(unittest.TestCase):
             build_patch = patch("aem_agents.orchestrator.run_command", side_effect=frontend_command)
             build_mock = build_patch.start()
             self.addCleanup(build_patch.stop)
+            capture_patch = patch.object(ParityAgent, "_capture", capture)
+            capture_patch.start()
+            self.addCleanup(capture_patch.stop)
             engine = Orchestrator(settings, contract, run_id="integration", skip_probe=True, evidence_dir=evidence, logger=MagicMock())
             fixture_manifest = evidence / "collector.json"
             fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
@@ -1616,13 +1951,13 @@ class EndToEndTests(unittest.TestCase):
                     engine.run()
                 self.assertEqual(engine.state.get("status"), "INTERRUPTED")
                 self.assertEqual(sum(row["status"] == "PASS" for row in engine.state.component_rows()), 2)
-                self.assertEqual(calls, ["planner", "foundations", "component", "component", "deployer", "parity"])
+                self.assertEqual(calls, ["planner", "planner-shared", "component", "component", "deployer"])
                 calls.clear()
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")
                 collect.assert_called_once()
                 self.assertEqual(build_mock.call_count, 2)
-            self.assertEqual(calls, ["deployer", "parity"])
+            self.assertEqual(calls, ["deployer"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
             accepted = next(row["plan"] for row in engine.state.component_rows() if row["id"] == "hero")
             self.assertEqual(accepted["owned_paths"], [])

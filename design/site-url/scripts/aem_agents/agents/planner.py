@@ -1,16 +1,20 @@
-"""Interpret frozen discovery and produce a read-only migration plan."""
+"""Plan from frozen discovery, then establish shared files in a separate pass."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import time
 from typing import Any
 
+from ..config import AgentSpec
 from ..envelope import AgentResult, EnvelopeError, validate_components
 from ..discovery import DiscoveryEvidence, collect_discovery, validate_collection
 from ..browser import browser_paths
 from ..console import emit
-from ..workspaces import digest, normalize_scope, validate_contribution_targets, validate_ownership
+from ..handoff import prepare_shared_handoff
+from ..render import bullet_list
+from ..workspaces import digest, foundation_scopes, normalize_scope, validate_contribution_targets, validate_ownership
 from .base import Agent, dump_json
 
 # Stand-in plan so --dry-run still renders and validates every downstream prompt.
@@ -30,15 +34,34 @@ _DRY_RUN_PLAN = [
 
 
 class PlannerAgent(Agent):
-    """Collect once and plan without editing repository sources."""
+    """Keep planning and shared implementation separately validated and ordered."""
 
     agent_id = "planner"
     discovery: DiscoveryEvidence | None = None
+    handoff: dict[str, Any] | None = None
+
+    def __init__(self, context: Any, *, shared: bool = False) -> None:
+        super().__init__(context)
+        self.shared = shared
+        if shared:
+            self.spec = AgentSpec(self.agent_id, self.spec.get("shared"), self.spec._config.data)
+
+    def slug(self, repair: bool = False, attempt: int = 1, **_: Any) -> str:
+        if self.shared:
+            return f"planner-shared-repair-attempt-{attempt}" if repair else "planner-shared"
+        return self.agent_id
+
+    def prepare_handoff(self, components: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+        self.handoff = prepare_shared_handoff(self.context, self.workspace(self.slug(**kwargs)) / "handoff", list(components))
+        return self.handoff
 
     def run(self, **kwargs: Any) -> AgentResult:
         started = time.monotonic()
         self.discovery = None
-        if not self.context.dry_run:
+        self.handoff = None
+        if not self.context.dry_run and self.shared:
+            self.prepare_handoff(components=kwargs.get("components") or [], repair=kwargs.get("repair", False), attempt=kwargs.get("attempt", 1))
+        if not self.context.dry_run and not self.shared:
             self.discovery = collect_discovery(self.context)
         result = super().run(**kwargs)
         if not self.context.dry_run and self.discovery is not None:
@@ -54,6 +77,18 @@ class PlannerAgent(Agent):
 
     def prompt_values(self, **kwargs: Any) -> dict[str, Any]:
         values = super().prompt_values(**kwargs)
+        if self.shared:
+            values.update({
+                "operation": "repair" if kwargs.get("repair") else "establish",
+                "plan_result_path": str(self.result_path("planner")),
+                "handoff_brief": json.dumps({key: value for key, value in (self.handoff or {
+                    "index_path": "(dry run: prepared shared-work handoff)",
+                    "plan_path": "(dry run: complete accepted plan)",
+                }).items() if key not in ("artifacts", "hashes")}, indent=2),
+                "feedback_json": json.dumps(kwargs.get("feedback") or {}, indent=2),
+                "owned_paths": bullet_list([f"`{path}`" for path in foundation_scopes(self.context.settings)]),
+            })
+            return values
         values.update({
             "discovery_summary": str(self.discovery.summary) if self.discovery else "(dry run: prepared source summary)",
             "discovery_manifest": str(self.discovery.manifest) if self.discovery else "(dry run: collector manifest)",
@@ -62,6 +97,23 @@ class PlannerAgent(Agent):
         return values
 
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        if self.shared:
+            super().validate_result(result, **kwargs)
+            components = list(kwargs.get("components") or [])
+            if self.context.dry_run:
+                result.outputs.update(components=components, changed_files=[])
+            elif result.passed:
+                if result.output("components") != components:
+                    raise EnvelopeError("Shared foundations must preserve the validated component plan.")
+                self.context.evidence_file(result.output("token_manifest"))
+                if self.handoff:
+                    for name, expected in self.handoff["hashes"].items():
+                        if digest(Path(name)) != expected:
+                            raise EnvelopeError(f"Prepared shared evidence changed: {name}")
+                    result.outputs["handoff_artifacts"] = self.handoff["artifacts"]
+                    result.outputs["handoff_metrics"] = {key: self.handoff[key] for key in (
+                        "component_count", "token_records", "packet_count", "input_token_bytes")}
+            return
         if self.discovery is not None:
             result.outputs.update({
                 "discovery_manifest": str(self.discovery.manifest),
@@ -74,7 +126,7 @@ class PlannerAgent(Agent):
             result.outputs["components"] = list(kwargs.get("components") or _DRY_RUN_PLAN)
         elif result.passed:
             if result.output("changed_files", []):
-                raise EnvelopeError("Planner is read-only; shared source changes belong to the foundations agent.")
+                raise EnvelopeError("Planning is read-only; shared source changes belong to the planner's later shared pass.")
             manifest = self.context.evidence_file(result.output("discovery_manifest"))
             collector = (self.context.browser or browser_paths(self.context.settings)).tools_dir / "discover.mjs"
             _, artifacts = validate_collection(manifest, self.context.run_id, self.context.contract.site_url,

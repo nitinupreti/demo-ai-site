@@ -161,11 +161,11 @@ class Orchestrator:
             return
         previous = self.state.get("checkpoint", {})
         validate_artifacts(previous, self.evidence_dir)
-        active = {"planner", "foundations"}
+        active = {"planner", "planner-shared"}
         artifacts = set()
         foundation = self.state.get("foundations", {})
         if foundation.get("attempt"):
-            active.add(f"foundations-repair-attempt-{foundation['attempt']}")
+            active.add(f"planner-shared-repair-attempt-{foundation['attempt']}")
         for component in self.state.component_rows():
             if component.get("status") == "PASS":
                 active.add(f"component-{component['id']}-attempt-{component['attempts']}")
@@ -276,6 +276,8 @@ class Orchestrator:
                 "Python implementation. Add a class in aem_agents/agents/ and register it."
             ) from error
         assert self.context is not None
+        if agent_id == "planner":
+            return factory(self.context, shared=phase.get("mode") == "shared")
         return factory(self.context)
 
     def _wants(self, phase_id: str) -> bool:
@@ -379,10 +381,7 @@ class Orchestrator:
         if self.dry_run:
             return agent.run(**kwargs), None
         slug = agent.slug(**kwargs)
-        scopes = [] if agent.agent_id == "planner" else (
-            foundation_scopes(self.settings) if agent.agent_id == "foundations"
-            else component_scopes(self.settings, kwargs["component"])
-        )
+        scopes = (foundation_scopes(self.settings) if agent.shared else []) if agent.agent_id == "planner" else component_scopes(self.settings, kwargs["component"])
         worker = WorkerWorkspace.create(
             self.settings.repo_root, self.evidence_dir / "workspaces" / slug,
             scopes,
@@ -411,7 +410,7 @@ class Orchestrator:
         agent = self._agent(phase)
         slug = agent.slug(**kwargs)
         self.state.set_phase(phase_id, "RUNNING")
-        operation = "planning (read-only)" if agent.agent_id == "planner" else (
+        operation = "planning (read-only)" if not agent.shared else (
             "repairing shared foundations" if kwargs.get("repair") else "establishing shared foundations"
         )
         emit(f"\n[{phase_id}] {operation}", "cyan")
@@ -665,9 +664,21 @@ class Orchestrator:
                 components = list(result.output("components") or [])
                 self.state.set_components(components)
                 self._save_checkpoint()
-                emit(f"  plan: {len(components)} component(s)", "green")
             else:
                 raise PipelineError("There is no validated plan to resume.")
+
+            target = result.output("target_page_path") or self.contract.target_page_path or self.contract.site_url
+            counts = {tier: sum(component.get("tier") == tier for component in components) for tier in (1, 2, 3, 4)}
+            label = "Planner dry-run placeholder" if self.dry_run else "Planner accepted"
+            messages = [f"{label}: {len(components)} component definitions for {target}.",
+                        f"Component workers scheduled after shared-file validation: {len(components)}. "
+                        f"Reuse unchanged: {counts[1]}; extend existing/Core: {counts[2] + counts[3]}; new: {counts[4]}."]
+            for component in sorted(components, key=lambda row: row.get("source_order", 0)):
+                messages.append(f"  {component['id']} | {component.get('delivery', 'component')} | tier {component.get('tier', 'unspecified')}")
+            for message in messages:
+                emit(message, "green")
+                if self.logger:
+                    self.logger.info("%s", message)
 
             foundations_phase = self._phase(phases, "foundations", remediation_ids)
             saved_foundations = self.state.get("foundations", {})
@@ -763,7 +774,7 @@ class Orchestrator:
             pending = [component for component in components if component["id"] not in reusable]
             unfinished_attempt = max((int(row.get("attempts", 0)) for row in self.state.component_rows() if row["id"] not in reusable), default=0)
             first_attempt = max(first_attempt, unfinished_attempt + 1)
-            needs_implementation = bool(pending) and (not feedback or any(entry.get("owning_layer") != "evidence" for entry in feedback.values()))
+            needs_implementation = bool(pending) and (not feedback or any(entry.get("owning_layer") not in ("evidence", "foundation") for entry in feedback.values()))
             if history and history[-1].get("status") == "PASS" and not pending:
                 first_attempt = min(first_attempt, self.max_attempts)
 
@@ -784,9 +795,6 @@ class Orchestrator:
                                               "token_manifest": outcome.results[0].output("token_manifest")})
                 self._save_checkpoint()
                 foundations_ready = True
-                if foundation_changes and (attempt > 1 or self.resume):
-                    pending = list(components)
-                    needs_implementation = True
             for component in pending:
                 attempts[str(component["id"])] = attempt
 
@@ -889,7 +897,7 @@ class Orchestrator:
                 )
                 return "FAIL"
             pending = affected_components(components, set(feedback))
-            needs_implementation = any(item.get("owning_layer") != "evidence" for item in feedback.values())
+            needs_implementation = any(item.get("owning_layer") not in ("evidence", "foundation") for item in feedback.values())
             if any(item.get("owning_layer") == "foundation" for item in feedback.values()):
                 foundations_ready = False
             emit(
@@ -898,7 +906,7 @@ class Orchestrator:
                 "yellow",
             )
             for component_id in feedback:
-                self.state.update_component(component_id, status="FAILED", attempts=attempt)
+                self.state.update_component(component_id, status="FAILED")
 
         for component_id in (str(c["id"]) for c in pending):
             self.state.update_component(component_id, status=terminal_status)
@@ -974,13 +982,14 @@ class Orchestrator:
                 receipt_error = str(error)
         scores = records(parity.get("scores"))
         composites = records(parity.get("page_composites"))
+        interactions = records(parity.get("interaction_scores"))
         rows = state["components"]
         expected = [results.get("planner", {}), latest("deployer")[1], parity_result]
         expected.extend(results.get(f"component-{row['id']}-attempt-{row['attempts']}", {}) for row in rows)
         if pipeline_status == "COMPLETE" and (
             any(result.get("run_id") != self.run_id or result.get("status") != "PASS" for result in expected)
             or not scores or not composites or not parity.get("verification") or parity.get("failing_components")
-            or any(not valid_score(row) or not self.contract.visual_pass_ratio.passes(row["ratio"]) for row in scores + composites)
+            or any(not valid_score(row) or not self.contract.visual_pass_ratio.passes(row["ratio"]) for row in scores + composites + interactions)
         ):
             pipeline_status = "FAIL"
             self.state.update(error="Completion report is missing current-run passing results or verified visual scores.")
@@ -1018,6 +1027,7 @@ class Orchestrator:
             "# Migration Completion Report", f"Run: `{self.run_id}`", f"Status: **{pipeline_status}**",
             status_line, f"Source: {self.contract.site_url}", f"AEM page: {state.get('target_url') or 'not recorded'}",
             f"Run state: {self.state.path}", f"Latest persisted parity result: {parity_slug}",
+            f"Comparison model calls: {parity.get('comparison_model_calls', 'not recorded')}",
             "Only recorded evidence is shown. Missing values are not inferred. Ratios use the 0-1 scale.",
         ]
 
@@ -1029,7 +1039,7 @@ class Orchestrator:
               [("Phase", "id"), ("Status", "status"), ("Error", "error")])
         table("Component Ledger", rows, [("Component", "id"), ("Status", "status"), ("Attempts", "attempts"), ("Changed files", "changed_files")])
         score_columns = [
-            ("Component", "component_id"), ("Instance", "instance_id"), ("Viewport", "breakpoint"), ("Mode", "mode"), ("DPR", "dpr"),
+            ("Component", "component_id"), ("Instance", "instance_id"), ("State", "state"), ("Viewport", "breakpoint"), ("Mode", "mode"), ("DPR", "dpr"),
             ("Content", "content_score"), ("Typography", "typography_score"), ("Color", "color_score"), ("Layout", "layout_score"),
             ("Section order", "section_order_score"), ("Media/interaction", "media_interaction_score"), ("Property", "property_score"),
             ("Screenshot ratio", "ratio"), ("Authorability", "authorability_score"), ("Final minimum (reported)", "final_minimum"),
@@ -1038,8 +1048,8 @@ class Orchestrator:
             ("Live URL", "live_url"), ("AEM URL", "aem_url"), ("Live screenshot", "source_image"), ("AEM screenshot", "target_image"),
             ("Side-by-side", "side_by_side"), ("Diff mask", "diff_mask"),
         ]
-        capture_keys = {"component_id", "instance_id", "breakpoint", "mode", "dpr", "live_url", "aem_url", "source_image", "target_image", "side_by_side", "diff_mask"}
-        for title, entries in (("Instance Scores", scores), ("Page Composites", composites)):
+        capture_keys = {"component_id", "instance_id", "state", "breakpoint", "mode", "dpr", "live_url", "aem_url", "source_image", "target_image", "side_by_side", "diff_mask"}
+        for title, entries in (("Instance Scores", scores), ("Interaction Scores", interactions), ("Page Composites", composites)):
             sanitized = [{**row, "differing_pixels": row["total_pixels"] - row["matched_pixels"]} if valid_score(row) else {
                 **{key: value for key, value in row.items() if key in capture_keys},
                 "screenshot_validation": "SCORE WITHHELD - INVALID OR MISSING SCREENSHOT EVIDENCE",
@@ -1063,7 +1073,7 @@ class Orchestrator:
                            "result_path": result.get("result_path"), "changed_files": outputs.get("changed_files", []),
                            "deploy_commands": outputs.get("deploy_commands", [])})
             for name in ("coverage_report", "source_selector_map", "geometry_tables", "color_authorability_matrix", "authorability_matrix",
-                         "asset_manifest", "media_manifest", "token_manifest", "readiness_matrix", "screenshot_index", "runtime_sweep", "verification"):
+                         "asset_manifest", "media_manifest", "token_manifest", "readiness_matrix", "screenshot_index", "runtime_sweep", "strict_verification", "verification"):
                 if name in outputs:
                     artifacts.append({"invocation": slug, "kind": name, "evidence": outputs[name]})
             failures.extend({"invocation": slug, "failure": failure} for failure in result.get("failures", []))

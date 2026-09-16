@@ -185,8 +185,8 @@ validation:
     - "REPORTS_PATH routes Cypress screenshots, videos and JUnit XML to this invocation. TMP, TEMP and TMPDIR route cooperative tools' temporary files there. Do not change these paths or write another worker's evidence. Tool-specific output flags must also point inside this workspace."
     - "Use the installed TypeScript compiler with --noEmit for type checking. Use focused Sass or webpack-only compile checks with output explicitly directed into the validation workspace. Never emit JavaScript or source maps beside TypeScript source."
     - "For permitted dependency setup use npm ci with the existing lockfile. Never run npm install, rewrite or delete manifests/lockfiles, or let npx download missing packages. Report missing or inconsistent dependencies as a setup prerequisite."
-    - "Planner is read-only for repository sources. Foundations and component workers validate source only: do not run clientlib, npm run dev or npm run prod. The coordinator serializes the shared frontend build before deployment. Deployable clientlibs must remain tracked source, never ignored as disposable output."
-    - "Shared token, style and policy changes have one owner: the foundations agent, after planning passes. Component workers return foundation_requests with paths, measured values and evidence; never edit shared source or broaden ownership to pass a check. The coordinator reruns affected components after shared repairs."
+    - "The planner's planning pass is read-only for repository sources. Its shared pass and component workers validate source only: do not run clientlib, npm run dev or npm run prod. The coordinator serializes the shared frontend build before deployment. Deployable clientlibs must remain tracked source, never ignored as disposable output."
+    - "Shared token, style and policy changes have one owner: the planner in shared mode, after planning passes. Component workers return foundation_requests with paths, measured values and evidence; never edit shared source or broaden ownership to pass a check. The coordinator reruns affected components after shared repairs."
     - "Retain command, exit code and nonempty logs under the evidence workspace. Passing a command is not permission to skip ownership, readiness, deployment or visual-parity checks. These instructions and environment settings do not provide an OS sandbox."
 
 isolation:
@@ -246,9 +246,6 @@ skills:
   planner:
     required: [create-component, best-practices]
     references: [core-components.md, clientlib-patterns.md, aem-conventions.md]
-  foundations:
-    required: [create-component, best-practices]
-    references: [clientlib-patterns.md, aem-conventions.md]
   deployer:
     required: [code-assessment, best-practices]
     references: []
@@ -426,8 +423,9 @@ parity:
     driver: playwright
   geometry_tolerance_px:
     x: 1
+    y: 1
     width: 1
-    height: 8
+    height: 1
   stability_samples: 3
   stability_interval_ms: 500
 
@@ -444,7 +442,8 @@ pipeline:
       agent: planner
       fan_out: false
     - id: foundations
-      agent: foundations
+      agent: planner
+      mode: shared
       fan_out: false
     - id: implement
       agent: component

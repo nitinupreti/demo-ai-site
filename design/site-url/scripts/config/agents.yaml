@@ -21,8 +21,9 @@ agents:
     title: Planner
     prompt: planner.md
     description: >-
-      Interprets prepared source discovery and emits the component plan and measured
-      design-token specification. Does not edit repository source files.
+      First emits a read-only component plan and measured token specification.
+      A separately validated shared pass establishes tokens, styles and policies
+      only after plan acceptance, before any component workers start.
     required_result_keys: [agent, run_id, status, components, design_tokens]
     required_checks:
       - all_breakpoints_ready
@@ -55,21 +56,17 @@ agents:
       tier_values: [1, 2, 3, 4]
       delivery_values: [component, experience-fragment]
 
-  foundations:
-    title: Shared foundations
-    prompt: foundations.md
-    description: >-
-      Consumes the accepted component plan and measured design tokens. Establishes
-      shared tokens, site styles and policies before component workers start.
-      Repairs shared files without repeating discovery or changing the plan.
-    required_result_keys: [agent, run_id, status, components, changed_files, token_manifest]
-    required_checks:
-      - shared_tokens_ready
-      - shared_policies_ready
-    outputs:
-      components: outputs.components
-      changed_files: outputs.changed_files
-      token_manifest: outputs.token_manifest
+    shared:
+      title: Planner shared files
+      prompt: foundations.md
+      required_result_keys: [agent, run_id, status, components, changed_files, token_manifest]
+      required_checks:
+        - shared_tokens_ready
+        - shared_policies_ready
+      outputs:
+        components: outputs.components
+        changed_files: outputs.changed_files
+        token_manifest: outputs.token_manifest
 
   component:
     title: Component builder
@@ -78,7 +75,7 @@ agents:
       Implements exactly one planned component end to end: dialog, HTL, Sling
       Model, clientlib, focused test, authored demo content, and policy updates.
       One instance of this agent is started per planned component.
-    required_result_keys: [agent, run_id, status, component_id, changed_files]
+    required_result_keys: [agent, run_id, status, component_id, changed_files, parity_targets]
     required_checks: [every_business_value_authorable, assets_authored_from_dam, focused_test_passes]
     outputs:
       changed_files: outputs.changed_files
@@ -109,12 +106,12 @@ agents:
       asset_manifest: outputs.asset_manifest
 
   parity:
-    title: Visual parity
+    title: Deterministic visual parity
     prompt: parity.md
     description: >-
-      Captures live-source and deployed-AEM evidence with Playwright/Chromium,
-      scores every component instance with pixelmatch at every required
-      breakpoint, and reports which components are below the contract threshold.
+      Coordinator-run Playwright captures live-source and AEM evidence, checks
+      exact styles, geometry, media and declared interaction states, and independently
+      scores every component and page. No model call is made for comparison.
     required_result_keys: [agent, run_id, status, scores, failing_components]
     required_checks:
       - all_source_blocks_mapped_once

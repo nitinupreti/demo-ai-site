@@ -1,4 +1,4 @@
-"""Parity agent: scores the deployed page and enforces the contract threshold."""
+"""Coordinator-run browser comparison with deterministic acceptance and no LLM call."""
 
 from __future__ import annotations
 
@@ -9,11 +9,12 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from ..envelope import AgentResult, EnvelopeError
+from ..console import emit
 from ..scoring import PixelScorer
-from .base import Agent, RunContext
+from .base import Agent, RunContext, dump_json
 
 
 class CaptureGeometryError(EnvelopeError):
@@ -21,11 +22,7 @@ class CaptureGeometryError(EnvelopeError):
 
 
 class ParityAgent(Agent):
-    """Runs the visual comparison, then has its verdict re-checked in Python.
-
-    The threshold comes from the prompt contract, so the agent cannot relax it by
-    reporting an optimistic status: every reported ratio is re-evaluated here.
-    """
+    """Retain the phase interface while replacing model judgments with measured gates."""
 
     agent_id = "parity"
 
@@ -36,11 +33,38 @@ class ParityAgent(Agent):
         self.capture_started_ns: int | None = None
 
     def run(self, **kwargs: Any) -> AgentResult:
+        started = time.monotonic()
+        slug = self.slug(**kwargs)
+        self.workspace(slug).mkdir(parents=True, exist_ok=True)
         self.capture_dir = self.workspace(self.slug(**kwargs)) / "captures" / uuid.uuid4().hex
-        if not self.context.dry_run:
-            self.scorer = self.context.scorer or PixelScorer()
-            self.capture_started_ns = time.time_ns()
-        return super().run(**kwargs)
+        components = list(kwargs.get("components") or [])
+        if self.context.dry_run:
+            emit("  -- Deterministic Playwright comparison skipped (dry run; no model call).", "dim")
+            return AgentResult(self.agent_id, self.context.run_id, "PASS")
+        self.scorer = self.context.scorer or PixelScorer()
+        self.capture_started_ns = time.time_ns()
+        emit(f"  -> Playwright comparing {len(components)} components across all breakpoints (no model call).", "cyan")
+        try:
+            result = self._capture(components)
+            self.validate_result(result, components=components)
+        except (EnvelopeError, OSError, ValueError, TypeError, KeyError) as error:
+            result = AgentResult(self.agent_id, self.context.run_id, "FAIL", failures=[str(error)])
+        result.path = str(self.result_path(slug))
+        dump_json(Path(result.path), result.to_dict())
+        self.context.state.record_agent_result(slug, {**result.to_dict(), "duration_seconds": time.monotonic() - started,
+                                                     "comparison_model_calls": 0})
+        failed = result.output("failing_components", [])
+        summary = f"{len(failed)} component(s) need attention" if not result.failures else "collector/evidence error; comparison incomplete"
+        emit(f"  <- Playwright comparison: {result.status} | {summary} | comparison model calls: 0", "green" if result.passed else "red")
+        for error in result.failures:
+            emit(f"     {error}", "red")
+        if failed:
+            emit("     Failing components: " + ", ".join(row["component_id"] for row in failed), "yellow")
+        return result
+
+    def _capture(self, components: list[Mapping[str, Any]]) -> AgentResult:
+        from ..style_parity import BrowserParity
+        return BrowserParity(self.context).capture(components, self.capture_dir)
 
     def env_extra(self) -> dict[str, str]:
         environment = super().env_extra()
@@ -128,6 +152,7 @@ class ParityAgent(Agent):
             raise EnvelopeError("The component plan has no visible instances to score.")
 
         valid_instances = []
+        geometry_previews = []
         for row in scores:
             if not isinstance(row, dict) or not isinstance(row.get("component_id"), str) or row["component_id"] not in planned:
                 raise EnvelopeError("Parity score has no known component_id.")
@@ -152,6 +177,9 @@ class ParityAgent(Agent):
                 row["ratio"] = None
                 row["status"] = "FAIL"
                 fail(component_id, str(error), "css" if isinstance(error, CaptureGeometryError) else "evidence")
+                if isinstance(error, CaptureGeometryError):
+                    self._geometry_preview(row)
+                    geometry_previews.append(row)
 
         for (component_id, width, mode), actual in groups.items():
             component = planned[component_id]
@@ -169,17 +197,16 @@ class ParityAgent(Agent):
         page_keys = {(width, mode) for width in self.context.contract.breakpoints for mode in modes}
         seen_pages: set[tuple[int, str]] = set()
         valid_pages = []
+        page_failures = []
         if not isinstance(page_rows, list):
             page_rows = []
         for row in page_rows:
             if not isinstance(row, dict) or type(row.get("breakpoint")) is not int or not isinstance(row.get("mode"), str):
-                for component_id in planned:
-                    fail(component_id, "Invalid page composite row.")
+                page_failures.append(("Invalid page composite row.", "evidence"))
                 continue
             key = (row.get("breakpoint"), row.get("mode"))
             if key not in page_keys or key in seen_pages:
-                for component_id in planned:
-                    fail(component_id, "Invalid or duplicate page composite.")
+                page_failures.append(("Invalid or duplicate page composite.", "evidence"))
                 continue
             seen_pages.add(key)
             try:
@@ -189,23 +216,55 @@ class ParityAgent(Agent):
                 row["ratio"] = None
                 row["screenshot_validation"] = "FAIL"
                 row["status"] = "FAIL"
-                for component_id in planned:
-                    fail(component_id, f"Invalid page composite: {error}", "foundation" if isinstance(error, CaptureGeometryError) else "evidence")
+                page_failures.append((f"Invalid page composite: {error}", "foundation" if isinstance(error, CaptureGeometryError) else "evidence"))
         if seen_pages != page_keys:
-            for component_id in planned:
-                fail(component_id, "Missing page composite coverage.")
+            page_failures.append(("Missing page composite coverage.", "evidence"))
+
+        valid_states = []
+        state_keys = set()
+        for row in result.output("interaction_scores", []):
+            component_id = row.get("component_id")
+            if component_id not in planned or not isinstance(row.get("state"), str):
+                raise EnvelopeError("Interaction screenshot has an unknown component or state.")
+            if type(row.get("breakpoint")) is not int or (component_id, row.get("breakpoint"), row.get("mode")) not in groups:
+                raise EnvelopeError("Interaction screenshot has an unexpected breakpoint or mode.")
+            key = (component_id, row.get("instance_id"), row.get("breakpoint"), row.get("mode"), row["state"])
+            if key in state_keys:
+                fail(component_id, "Duplicate interaction screenshot state.")
+                continue
+            state_keys.add(key)
+            try:
+                self._validate_score(row)
+                valid_states.append(row)
+            except EnvelopeError as error:
+                row.update(status="FAIL", ratio=None, screenshot_validation="FAIL")
+                fail(component_id, f"Invalid interaction capture {row['state']}: {error}")
+                if isinstance(error, CaptureGeometryError):
+                    self._geometry_preview(row)
+                    geometry_previews.append(row)
 
         scorer = self.scorer or PixelScorer()
-        verification = scorer.score(valid_instances + valid_pages, self.context.evidence_dir / "parity" / "verified", run_id=self.context.run_id)
-        for row in valid_instances:
+        verification = scorer.score(valid_instances + valid_pages + valid_states, self.context.evidence_dir / "parity" / "verified", run_id=self.context.run_id)
+        for row in valid_instances + valid_states:
             row["status"] = "PASS" if threshold.passes(row["ratio"]) else "FAIL"
             if row["status"] != "PASS":
                 fail(row["component_id"], f"Measured pixel ratio {row['ratio']} did not pass {threshold}.", "css")
         for row in valid_pages:
             row["status"] = "PASS" if threshold.passes(row["ratio"]) else "FAIL"
             if row["status"] != "PASS":
-                for component_id in planned:
-                    fail(component_id, f"Measured page composite at {row['breakpoint']}/{row['mode']} did not pass {threshold}.", "foundation")
+                page_failures.append((f"Measured page composite at {row['breakpoint']}/{row['mode']} did not pass {threshold}.", "foundation"))
+        for reason, layer in page_failures:
+            for component_id in (list(failing) or [next(iter(planned))]):
+                fail(component_id, reason, layer)
+        for component_id, entry in failing.items():
+            captures = [row for row in valid_instances + valid_states + geometry_previews if row["component_id"] == component_id]
+            if entry.get("owning_layer") == "foundation":
+                captures += valid_pages
+            entry.setdefault("diagnostic", {})["captures"] = [
+                {name: row[name] for name in ("breakpoint", "mode", "state", "ratio", "source_image", "target_image", "side_by_side", "diff_mask") if name in row}
+                for row in captures
+            ]
+            entry.setdefault("evidence", []).append(verification["path"])
         gate_name = "all_final_minima_and_composites_pass_threshold"
         result.checks = [check for check in result.checks if check.get("name") != gate_name]
         result.checks.append({"name": gate_name, "status": "FAIL" if failing else "PASS", "evidence": verification["path"]})
@@ -215,6 +274,24 @@ class ParityAgent(Agent):
         result.outputs["scores_withheld"] = sum(row.get("screenshot_validation") != "PASS" for row in scores)
         if failing:
             result.status = "FAIL"
+
+    def _geometry_preview(self, row: dict[str, Any]) -> None:
+        directory = (self.capture_dir or self.context.evidence_dir) / "geometry-previews"
+        directory.mkdir(parents=True, exist_ok=True)
+        with Image.open(row["source_image"]) as source, Image.open(row["target_image"]) as target:
+            width, height = source.width + target.width, max(source.height, target.height) + 48
+            if width * height > 100000000:
+                return
+            preview = Image.new("RGB", (width, height), "white")
+            preview.paste(source, (0, 48))
+            preview.paste(target, (source.width, 48))
+            draw = ImageDraw.Draw(preview)
+            draw.text((4, 2), "GEOMETRY MISMATCH - UNSCORED, NATIVE-SIZE IMAGES", fill="black")
+            draw.text((4, 24), f"LIVE {source.width}x{source.height}", fill="black")
+            draw.text((source.width + 4, 24), f"AEM {target.width}x{target.height}", fill="black")
+            path = directory / f"{uuid.uuid4().hex}.png"
+            preview.save(path)
+            row["side_by_side"] = str(path)
 
     @staticmethod
     def _valid_ratio(value: Any) -> bool:

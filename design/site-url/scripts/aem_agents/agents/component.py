@@ -9,6 +9,7 @@ from ..envelope import AgentResult, EnvelopeError
 from ..render import bullet_list
 from ..merge import MergeError, read_contributions
 from ..workspaces import component_scopes, foundation_scopes
+from ..style_parity import validate_targets
 from .base import Agent
 
 _NO_REMEDIATION = (
@@ -40,6 +41,7 @@ class ComponentAgent(Agent):
                 raise EnvelopeError(str(error)) from error
             if missing:
                 raise EnvelopeError("Component did not provide its authored contribution.")
+            validate_targets(result.output("parity_targets"), kwargs["component"])
 
     def slug(self, component: Mapping[str, Any] | None = None, attempt: int = 1, **_: Any) -> str:
         component_id = str((component or {}).get("id", "unknown"))

@@ -212,14 +212,15 @@ python run_migration.py --show-plan --no-bootstrap
 ```text
 Python + pinned collector: source evidence and cached repository inventory
   -> Planner (read-only): coverage, reuse, ownership, dependencies, measured token specification
-  -> Foundations: shared tokens/styles/policies, validated and applied before component work
+  -> Python: compact, lossless shared-work handoff and source/policy inspection
+  -> Planner (shared mode): tokens/styles/policies, validated and applied before component work
   -> Component workers: isolated snapshots, bounded dependency waves
   -> Coordinator: validate actual diffs and apply owned changes
   -> Assets: deterministic downloads and DAM upload
   -> Merge: deterministic page/XF contributions and Vault filters
   -> Coordinator: serialized frontend build and verified clientlib application
   -> Deployer: scoped builds, deployment and runtime checks
-  -> Parity agent: fresh browser captures and qualitative checks
+  -> Fixed Playwright collector: fresh component/state/page captures and measured checks (no LLM)
   -> Pinned scorer: independent pixels, composites and hash receipts
   -> Orchestrator: deterministic completion report from persisted evidence
 
@@ -228,19 +229,82 @@ Failed gates -> bounded repairs of owners and affected dependents
 
 | Agent | Role |
 |---|---|
-| `planner` | Consumes prepared evidence and emits coverage, the component plan and measured token specifications without changing repository sources. **The number of components it returns is the fan-out width.** |
-| `foundations` | Consumes the accepted plan, establishes shared tokens, styles and policies in an isolated checkout, and produces a validated token manifest. |
+| `planner` | Planning mode emits coverage, the component plan and measured tokens without source edits. Shared mode then establishes tokens, styles and policies in isolation. **The accepted component count is the fan-out width.** |
 | `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
 | `deployer` | Chooses the smallest scoped Maven deploy covering the union of changed files and proves the change is live. |
-| `parity` | Captures fresh live-vs-AEM evidence and diagnoses geometry, properties, media and interactions. Python owns numeric acceptance. |
+| `parity` | Coordinator-run collector/validator, not an LLM invocation. Captures and checks styles, fonts, geometry, media and supported interaction states; Python owns acceptance. |
 
-There are five agent roles and five role prompts. The order is strictly
+There are three LLM roles plus the deterministic parity phase. The planner has planning and shared-file prompts, with
+separate invocations/results so accepted planning is not repeated. The order is strictly
 `plan -> foundations -> implement`: failed planning prevents foundations work,
 and failed foundations prevents every component worker from starting. Shared
 changes are validated and applied before component snapshots are created.
-Later shared-file repairs use the foundations agent without collecting the source
-again or changing the plan. Repair results have separate
-`foundations-repair-attempt-N` identities so the original plan remains reusable.
+The `foundations` phase is now assigned to `planner` with `mode: shared`; there is
+no separate foundations agent. Initial shared output uses `planner-shared`, and
+repairs use `planner-shared-repair-attempt-N` without recollecting source or changing
+the accepted plan. Both modes retain their own required checks and ownership.
+
+### Compact shared inputs
+
+Before planner shared mode starts, Python creates an invocation-local `handoff/`
+under evidence. It preserves the complete accepted plan and measured tokens,
+precomputes category/classification counts, and provides bounded token/component
+projections, exact existing policy allow-lists and source/build-file snapshots.
+Unknown fields, provenance, component notes and all original measurements remain
+available through documented JSON pointers; missing data is never invented.
+
+Packets are at most 8 KB. A single oversized record is preserved in its own file
+and referenced explicitly for field queries/ranged reads. The small index explains
+schemas and paths, avoiding repeated schema inspection and whole-file reads that
+exceed tool limits. Independent reads and validations are batched. The model copies
+the full components array programmatically rather than regenerating it in its response.
+Exact plan equality, evidence validation, source ownership and deployment/parity
+gates remain unchanged. Prepared artifacts are integrity-checked and checkpointed.
+Post-edit checks must use actual edited source, not the pre-edit handoff snapshots.
+
+This reduces duplicated prompt context and mechanical model work; live response
+times still depend on the model and tooling. No tool-call cap or new timeout is added.
+
+### Model-free comparison and selective repair
+
+Component results provide `parity_targets` for every planned source instance, with
+rendered root selectors and optional breakpoint/mode overrides. Ambiguous descendant
+roles can be mapped explicitly; automatic matching never omits unmatched source roles.
+The fixed collector [tools/parity.mjs](tools/parity.mjs) navigates the live source
+and AEM, measures them, and captures each component at each breakpoint in disabled
+and author modes. Author content is measured through the validated author content
+frame URL, not including the editor toolbar.
+
+Exact font family/size/weight/style, rendered font identity, text/line boxes, colors,
+background color, margins, padding and gaps are hard checks. Geometry is measured
+with the configured pixel tolerances. Fonts must be ready; image/video readiness and
+media attributes must agree. Identical screenshots cannot override a failed style
+or readiness measurement. Python validates measured values, not agent-written PASS labels.
+
+Hover/focus on visible non-header controls is automatic. Safe declared click states
+are tested using control/state selectors. Instance, interaction-state and full-page
+PNGs are compared with pinned pixelmatch and get side-by-side/diff artifacts. Every
+applicable capture must pass the canonical `visual_pass_ratio`; the current editable
+contract is authoritative. Unequal component crops get an explicitly unscored,
+native-size side-by-side preview for diagnosis; originals are never resized or
+padded for scoring. Pixelmatch tolerates anti-aliasing, while computed style
+equality does not. A 99% pixel target can be configured, but is not substituted for
+the value in the contract. Lowering it does not relax exact style gates.
+
+Only failed components and dependency-affected components enter LLM repair. Shared
+layout failures go to planner shared mode; shared-only changes do not rerun every
+component model. Failure prompts contain measured deltas and references to source,
+AEM, side-by-side and diff files, with full measurements linked separately. After
+repair/deployment the complete page is recaptured to catch regressions. Comparison
+itself records `comparison_model_calls: 0`. Initial implementation and deployment
+still use their existing LLM roles.
+
+Unsupported or missing mappings and cross-origin embeds fail rather than silently
+passing. The collector does not yet certify arbitrary business interactions, form
+submissions or every animation-cycle state; those require additional fixed probes.
+Navigation and form-submission clicks are rejected. Component authorability checks
+and deployment tests remain separate. Live AEM visual equivalence is not implied by
+the offline/local-browser tests.
 
 The `report` phase is a deterministic orchestrator handler, not an agent invocation.
 It writes `completion-report.md` and `report-result.json` from persisted state,
@@ -253,11 +317,11 @@ gates to completion, and a report-write failure prevents completion.
 
 ## Progress logging
 
-Planner, foundations and component workers report concise milestones as they work. Examples:
+Both planner modes and component workers report concise milestones as they work. Examples:
 
 ```text
 [planner 00:30] reported: Section 2/8: Hero | Planning | Checking existing component reuse
-[foundations 02:40] reported: Typography | Shared styles | Adding measured font tokens
+[planner-shared 02:40] reported: Typography | Shared styles | Adding measured font tokens
 [component-hero-attempt-1 00:12] reported: hero | Dialog | Adding authored image and title fields
 [component-hero-attempt-1 01:05] reported: hero | Tests | Running focused model tests
 ```
@@ -267,6 +331,13 @@ reports section counts only once it has established its candidate list; counts
 are not a time estimate. Component workers report only the development steps their
 component needs. The `reported:` label distinguishes agent activity from accepted
 results: milestones never change checks, completion status or the remediation budget.
+
+After the plan passes, console and orchestrator logs show the target page/source,
+accepted component-definition count, scheduled worker count, reuse/extend/new
+breakdown and component IDs in source order, before shared-file work starts.
+The count is definitions, not page instances, and not every definition is new code.
+Dry-run placeholder plans are explicitly labeled; failed plans are not announced
+as accepted. A compatible resume logs the accepted plan again without replanning.
 
 Progress does not depend solely on the model following the milestone format.
 The coordinator also displays real `tool.execution_start` and
@@ -296,7 +367,7 @@ these files does not hot-reload an active migration.
 
 ## Runtime deadlines
 
-Overall runtime deadlines are disabled by default for all five agents and source
+Overall runtime deadlines are disabled by default for all four agents and source
 discovery. In [config/agents.yaml](config/agents.yaml), `defaults.timeout_seconds`
 is `null`, with no per-role overrides. In
 [config/migration.yaml](config/migration.yaml), `discovery.page_timeout_seconds`
@@ -499,7 +570,7 @@ deployment and parity checks still run on retries even when a build is reused.
 
 Shared paths are configured in `isolation.foundation_paths`. Missing tokens are
 reported as `foundation_requests`; shared styles and policy requests use the same
-owner-directed mechanism. The coordinator schedules the foundations agent in repair
+owner-directed mechanism. The coordinator schedules planner shared mode for repair
 mode within the existing retry budget. Repairs also include transitive dependents.
 Snapshots are retained under the evidence directory for inspection, so budget disk
 space along with parallelism. On Windows, a short `--evidence-dir` helps avoid long
@@ -511,7 +582,7 @@ Snapshots and path validation prevent conflicting code application; they are not
 an OS security sandbox. Copilot tools still run with the invoking user's permissions.
 Every prompt explicitly identifies its source root, also exported as
 `MIGRATION_SOURCE_ROOT`. Historical absolute paths in contracts or evidence are not
-write destinations. Planner source writes are rejected; foundations writes must
+write destinations. Planning-mode source writes are rejected; shared-mode writes must
 match `isolation.foundation_paths`. Changes in the original checkout fail the gate
 with the offending file names; they are not automatically reverted.
 Use a dedicated restricted account or container when processing untrusted inputs.
@@ -519,9 +590,10 @@ Environment variables redirect only tools that honor them; explicit compiler fla
 must also use the validation workspace. Do not edit shared repository files while
 a migration is active: the checkout guard deliberately rejects concurrent changes.
 
-Browser capture, selector choice, semantic/authorability checks and runtime deployment
-checks remain agent-assisted. The deterministic scorer proves the comparison of the
-supplied PNGs, not their web origin by itself. Fresh invocation-specific capture
+Browser capture and style/geometry/media comparison are coordinator-owned; selector
+mappings, semantic/authorability checks and deployment still involve agents. The
+deterministic scorer proves comparison of the supplied PNGs, not web origin by itself.
+Fixed capture code, validated URLs, fresh invocation-specific capture
 directories, timestamps, URL metadata and evidence checks reduce accidental stale
 reuse; they do not cryptographically attest browser provenance. No unattended live
 AEM success is implied by the offline regression suite.
@@ -574,7 +646,7 @@ python run_migration.py --url https://example.com/page [options]
 --effort LEVEL         Reasoning effort, when the model advertises it
 --max-parallel N       Component agents running concurrently
 --max-attempts N       Remediation attempts per component
---only PHASES          Phase ids (plan,implement,assets,merge,deploy,parity,report)
+--only PHASES          Phase ids (plan,foundations,implement,assets,merge,deploy,parity,report)
 --evidence-dir PATH    Override the generated evidence directory (relative to the repo root)
 --run-id ID            Choose an id; an existing run requires --resume
 --resume               Reuse validated checkpoints from --run-id or --evidence-dir
@@ -592,7 +664,7 @@ from the repository root. Omitted URL, target path, and breakpoints are restored
 from that run. Source files, configuration and reusable evidence are fingerprinted.
 Changed source, inputs, configuration, AEM targets, attempt budgets or frozen evidence
 reject reuse without overwriting those changes. Start a new run to accept changed
-inputs. Valid planner, foundations, shared-repair and component results are reused; interrupted component
+inputs. Valid planner, planner-shared, shared-repair and component results are reused; interrupted component
 attempts still consume their budget. Assets, merge, deployment and fresh parity run
 again, even when an earlier parity attempt passed. A final passing attempt may be
 reverified without granting another component implementation attempt.
@@ -601,7 +673,7 @@ Existing evidence is never silently reset, and skipping planning with `--only`
 requires a compatible checkpoint. **State schema is now version 3; older runs require
 a new run rather than an automatic conversion.** Only one migration may run per workspace.
 
-Runs created before the separate foundations stage or reporter removal also
+Runs created before the planner shared-mode/handoff change or reporter removal also
 require a new run: their configuration fingerprints and role envelopes are incompatible.
 Include `foundations` in `--only` when shared-foundation repairs must be allowed.
 

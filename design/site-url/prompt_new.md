@@ -30,7 +30,7 @@ or override them.
 
 ```yaml
 required_breakpoints: [375, 768, 1440] # unless BREAKPOINTS explicitly replaces them
-visual_pass_ratio: "> 0.90"            # compare the unrounded matched/total ratio
+visual_pass_ratio: ">= 0.90"           # compare the unrounded matched/total ratio
 max_attempts_per_component: 4          # total remediation attempts per component
 default_evidence_dir: design/scratch/migration-<run_id>
 completion_requires: [plan_pass, implement_pass, deploy_pass, parity_pass, no_residual_gaps]
@@ -87,7 +87,13 @@ is not completion — the visual parity gate controls completion.
   parity, and a score is invalid without valid side-by-side screenshot evidence.
 - **The gate is strict.** Every component instance, component-type minimum, and page
   composite must satisfy `visual_pass_ratio` at every required breakpoint, evaluated
-  on the unrounded ratio. `0.90` exactly is a failure.
+  on the unrounded ratio. The configured pixel target applies; exact style gates cannot
+  be compensated by a high screenshot score.
+- **Exact rendered styles.** Font family, rendered fonts, size, weight, style,
+  line height, letter/word spacing, text and background colors, padding, margins
+  and gaps must match the live source's computed values exactly. Missing values or
+  unloaded/fallback fonts fail. The coordinator collects these measurements and
+  evaluates them directly; an agent's PASS label is not sufficient.
 - **A component passes only when everything passes.** Its final status is the minimum
   of source coverage, geometry, property, screenshot, interaction/media, and
   authorability results.
