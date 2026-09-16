@@ -1,18 +1,16 @@
-"""Plan the migration and own shared foundations, including later repairs."""
+"""Interpret frozen discovery and produce a read-only migration plan."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import time
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from ..envelope import AgentResult, EnvelopeError, validate_components
 from ..discovery import DiscoveryEvidence, collect_discovery, validate_collection
 from ..browser import browser_paths
 from ..console import emit
-from ..render import bullet_list
-from ..workspaces import digest, foundation_scopes, normalize_scope, validate_contribution_targets, validate_ownership
+from ..workspaces import digest, normalize_scope, validate_contribution_targets, validate_ownership
 from .base import Agent, dump_json
 
 # Stand-in plan so --dry-run still renders and validates every downstream prompt.
@@ -32,18 +30,15 @@ _DRY_RUN_PLAN = [
 
 
 class PlannerAgent(Agent):
-    """Collect once, plan and establish shared files, then repair without replanning."""
+    """Collect once and plan without editing repository sources."""
 
     agent_id = "planner"
     discovery: DiscoveryEvidence | None = None
 
-    def slug(self, repair: bool = False, attempt: int = 1, **_: Any) -> str:
-        return f"planner-repair-attempt-{attempt}" if repair else self.agent_id
-
     def run(self, **kwargs: Any) -> AgentResult:
         started = time.monotonic()
         self.discovery = None
-        if not self.context.dry_run and not kwargs.get("repair"):
+        if not self.context.dry_run:
             self.discovery = collect_discovery(self.context)
         result = super().run(**kwargs)
         if not self.context.dry_run and self.discovery is not None:
@@ -57,30 +52,16 @@ class PlannerAgent(Agent):
             })
         return result
 
-    def prompt_values(
-        self, components: Iterable[Mapping[str, Any]] | None = None,
-        feedback: Mapping[str, Any] | None = None, repair: bool = False, **kwargs: Any,
-    ) -> dict[str, Any]:
+    def prompt_values(self, **kwargs: Any) -> dict[str, Any]:
         values = super().prompt_values(**kwargs)
-        saved = self.context.state.get("agent_results", {}).get("planner", {}).get("outputs", {}) if repair else {}
         values.update({
-            "discovery_summary": str(self.discovery.summary) if self.discovery else saved.get("discovery_summary", "(dry run: prepared source summary)"),
-            "discovery_manifest": str(self.discovery.manifest) if self.discovery else saved.get("discovery_manifest", "(dry run: collector manifest)"),
-            "discovery_inventory": str(self.discovery.inventory) if self.discovery else saved.get("discovery_inventory", "(dry run: cached repository inventory)"),
-            "operation": "repair" if repair else "plan-and-foundations",
-            "plan_result_path": str(self.result_path("planner")),
-            "components_json": json.dumps(list(components or []), indent=2),
-            "feedback_json": json.dumps(feedback or {}, indent=2),
-            "owned_paths": bullet_list([f"`{path}`" for path in foundation_scopes(self.context.settings)]),
+            "discovery_summary": str(self.discovery.summary) if self.discovery else "(dry run: prepared source summary)",
+            "discovery_manifest": str(self.discovery.manifest) if self.discovery else "(dry run: collector manifest)",
+            "discovery_inventory": str(self.discovery.inventory) if self.discovery else "(dry run: cached repository inventory)",
         })
         return values
 
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
-        if kwargs.get("repair"):
-            saved = self.context.state.get("agent_results", {}).get("planner", {}).get("outputs", {})
-            for name in ("discovery_manifest", "discovery_summary", "discovery_inventory", "discovery_artifacts"):
-                if name in saved:
-                    result.outputs[name] = saved[name]
         if self.discovery is not None:
             result.outputs.update({
                 "discovery_manifest": str(self.discovery.manifest),
@@ -92,19 +73,17 @@ class PlannerAgent(Agent):
         if self.context.dry_run:
             result.outputs["components"] = list(kwargs.get("components") or _DRY_RUN_PLAN)
         elif result.passed:
+            if result.output("changed_files", []):
+                raise EnvelopeError("Planner is read-only; shared source changes belong to the foundations agent.")
             manifest = self.context.evidence_file(result.output("discovery_manifest"))
             collector = (self.context.browser or browser_paths(self.context.settings)).tools_dir / "discover.mjs"
             _, artifacts = validate_collection(manifest, self.context.run_id, self.context.contract.site_url,
                                                self.context.contract.breakpoints, digest(collector))
             self.context.evidence_file(result.output("discovery_summary"))
             self.context.evidence_file(result.output("discovery_inventory"))
-            self.context.evidence_file(result.output("token_manifest"))
+            self.context.evidence_file(result.output("design_tokens"))
             result.outputs["discovery_artifacts"] = [str(path) for path in artifacts]
-            if kwargs.get("repair"):
-                if result.output("components") != list(kwargs.get("components") or []):
-                    raise EnvelopeError("Shared foundation repairs must preserve the validated component plan.")
-            else:
-                result.outputs["components"] = self.validate_plan(result)
+            result.outputs["components"] = self.validate_plan(result)
 
     def validate_plan(self, result: AgentResult) -> list[dict[str, Any]]:
         """Fail fast on a malformed plan, before any implementation agent starts."""

@@ -211,7 +211,8 @@ python run_migration.py --show-plan --no-bootstrap
 
 ```text
 Python + pinned collector: source evidence and cached repository inventory
-  -> Planner: coverage, reuse, ownership, dependencies, shared tokens/styles/policies
+  -> Planner (read-only): coverage, reuse, ownership, dependencies, measured token specification
+  -> Foundations: shared tokens/styles/policies, validated and applied before component work
   -> Component workers: isolated snapshots, bounded dependency waves
   -> Coordinator: validate actual diffs and apply owned changes
   -> Assets: deterministic downloads and DAM upload
@@ -227,17 +228,19 @@ Failed gates -> bounded repairs of owners and affected dependents
 
 | Agent | Role |
 |---|---|
-| `planner` | Consumes prepared evidence, emits the coverage and component plan, and establishes shared tokens, site styles and policies in one isolated invocation. **The number of components it returns is the fan-out width.** |
+| `planner` | Consumes prepared evidence and emits coverage, the component plan and measured token specifications without changing repository sources. **The number of components it returns is the fan-out width.** |
+| `foundations` | Consumes the accepted plan, establishes shared tokens, styles and policies in an isolated checkout, and produces a validated token manifest. |
 | `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
 | `deployer` | Chooses the smallest scoped Maven deploy covering the union of changed files and proves the change is live. |
 | `parity` | Captures fresh live-vs-AEM evidence and diagnoses geometry, properties, media and interactions. Python owns numeric acceptance. |
 
-There are four agent roles and four role prompts. Planning and foundations share
-[aem_agents/agents/planner.py](aem_agents/agents/planner.py) and
-[prompts/planner.md](prompts/planner.md). Later shared-file repairs use the same
-planner in repair mode, without collecting the source again or changing the plan.
-Repair results have separate `planner-repair-attempt-N` identities so the original
-plan and its frozen evidence remain reusable.
+There are five agent roles and five role prompts. The order is strictly
+`plan -> foundations -> implement`: failed planning prevents foundations work,
+and failed foundations prevents every component worker from starting. Shared
+changes are validated and applied before component snapshots are created.
+Later shared-file repairs use the foundations agent without collecting the source
+again or changing the plan. Repair results have separate
+`foundations-repair-attempt-N` identities so the original plan remains reusable.
 
 The `report` phase is a deterministic orchestrator handler, not an agent invocation.
 It writes `completion-report.md` and `report-result.json` from persisted state,
@@ -250,11 +253,11 @@ gates to completion, and a report-write failure prevents completion.
 
 ## Progress logging
 
-Planner and component workers report concise milestones as they work. Examples:
+Planner, foundations and component workers report concise milestones as they work. Examples:
 
 ```text
 [planner 00:30] reported: Section 2/8: Hero | Planning | Checking existing component reuse
-[planner 02:40] reported: Typography | Shared styles | Adding measured font tokens
+[foundations 02:40] reported: Typography | Shared styles | Adding measured font tokens
 [component-hero-attempt-1 00:12] reported: hero | Dialog | Adding authored image and title fields
 [component-hero-attempt-1 01:05] reported: hero | Tests | Running focused model tests
 ```
@@ -293,7 +296,7 @@ these files does not hot-reload an active migration.
 
 ## Runtime deadlines
 
-Overall runtime deadlines are disabled by default for all four agents and source
+Overall runtime deadlines are disabled by default for all five agents and source
 discovery. In [config/agents.yaml](config/agents.yaml), `defaults.timeout_seconds`
 is `null`, with no per-role overrides. In
 [config/migration.yaml](config/migration.yaml), `discovery.page_timeout_seconds`
@@ -496,7 +499,7 @@ deployment and parity checks still run on retries even when a build is reused.
 
 Shared paths are configured in `isolation.foundation_paths`. Missing tokens are
 reported as `foundation_requests`; shared styles and policy requests use the same
-owner-directed mechanism. The coordinator schedules the planner in repair
+owner-directed mechanism. The coordinator schedules the foundations agent in repair
 mode within the existing retry budget. Repairs also include transitive dependents.
 Snapshots are retained under the evidence directory for inspection, so budget disk
 space along with parallelism. On Windows, a short `--evidence-dir` helps avoid long
@@ -506,6 +509,11 @@ paths when copying deeply nested component files.
 
 Snapshots and path validation prevent conflicting code application; they are not
 an OS security sandbox. Copilot tools still run with the invoking user's permissions.
+Every prompt explicitly identifies its source root, also exported as
+`MIGRATION_SOURCE_ROOT`. Historical absolute paths in contracts or evidence are not
+write destinations. Planner source writes are rejected; foundations writes must
+match `isolation.foundation_paths`. Changes in the original checkout fail the gate
+with the offending file names; they are not automatically reverted.
 Use a dedicated restricted account or container when processing untrusted inputs.
 Environment variables redirect only tools that honor them; explicit compiler flags
 must also use the validation workspace. Do not edit shared repository files while
@@ -584,7 +592,7 @@ from the repository root. Omitted URL, target path, and breakpoints are restored
 from that run. Source files, configuration and reusable evidence are fingerprinted.
 Changed source, inputs, configuration, AEM targets, attempt budgets or frozen evidence
 reject reuse without overwriting those changes. Start a new run to accept changed
-inputs. Valid planner, shared-repair and component results are reused; interrupted component
+inputs. Valid planner, foundations, shared-repair and component results are reused; interrupted component
 attempts still consume their budget. Assets, merge, deployment and fresh parity run
 again, even when an earlier parity attempt passed. A final passing attempt may be
 reverified without granting another component implementation attempt.
@@ -593,9 +601,9 @@ Existing evidence is never silently reset, and skipping planning with `--only`
 requires a compatible checkpoint. **State schema is now version 3; older runs require
 a new run rather than an automatic conversion.** Only one migration may run per workspace.
 
-Runs created before the planner/foundations consolidation or reporter removal also
+Runs created before the separate foundations stage or reporter removal also
 require a new run: their configuration fingerprints and role envelopes are incompatible.
-Include `plan` in `--only` when shared-foundation repairs must be allowed.
+Include `foundations` in `--only` when shared-foundation repairs must be allowed.
 
 Regression tests (using the launcher's environment on Windows):
 `design/site-url/scripts/.venv/Scripts/python.exe -B -m unittest discover -s design/site-url/scripts/tests -v`

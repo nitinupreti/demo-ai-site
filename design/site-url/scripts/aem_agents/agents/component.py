@@ -62,6 +62,7 @@ class ComponentAgent(Agent):
         values.update(
             {
                 "component_id": component_id,
+                "foundation_token_manifest": self.context.state.get("foundations", {}).get("token_manifest") or "(dry run: shared token manifest)",
                 "component_json": json.dumps(component, indent=2, ensure_ascii=False),
                 "attempt": attempt,
                 "source_order": component.get("source_order", ""),

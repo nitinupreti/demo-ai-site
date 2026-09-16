@@ -142,18 +142,39 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("details", prompt)
         self.assertIn("comma-separated", prompt)
 
-    def test_planner_is_the_only_shared_foundations_role(self):
-        self.assertNotIn("foundations", AGENT_CLASSES)
-        self.assertNotIn("foundations", self.context.settings.agents)
-        prompt = self.agent.render_prompt("planner")
-        self.assertIn("shared_tokens_ready", prompt)
-        self.assertIn("shared_policies_ready", prompt)
-        self.assertIn("token_manifest", prompt)
-        self.assertIn("ui.frontend/src/main/webpack/site", prompt)
+    def test_planning_precedes_separate_foundations_and_components(self):
+        phases = self.context.settings.phases()
+        self.assertEqual([phase["id"] for phase in phases[:3]], ["plan", "foundations", "implement"])
+        self.assertIn("foundations", AGENT_CLASSES)
+        self.assertNotIn("shared_tokens_ready", self.agent.spec.get("required_checks"))
+        shared = AGENT_CLASSES["foundations"](self.context)
+        self.assertIn("shared_tokens_ready", shared.spec.get("required_checks"))
+        self.assertIn("shared_policies_ready", shared.spec.get("required_checks"))
 
-    def test_planner_repairs_have_separate_attempt_identity(self):
+    def test_foundation_repairs_have_separate_attempt_identity(self):
         self.assertEqual(self.agent.slug(), "planner")
-        self.assertEqual(self.agent.slug(repair=True, attempt=2), "planner-repair-attempt-2")
+        foundations = AGENT_CLASSES["foundations"](self.context)
+        self.assertEqual(foundations.slug(), "foundations")
+        self.assertEqual(foundations.slug(repair=True, attempt=2), "foundations-repair-attempt-2")
+
+    def test_planner_prompt_is_readonly_and_worker_root_is_explicit(self):
+        prompt = self.agent.render_prompt("planner")
+        self.assertIn("read-only for all repository sources", prompt)
+        self.assertIn(f"Source root: `{self.context.repo_root.resolve()}`", prompt)
+        self.assertIn("Never use the original checkout path", prompt)
+        self.assertNotIn("shared_tokens_ready", prompt)
+        self.assertEqual(self.agent.env_extra()["MIGRATION_SOURCE_ROOT"], str(self.context.repo_root.resolve()))
+
+    def test_foundations_validate_tokens_without_replanning(self):
+        agent = AGENT_CLASSES["foundations"](self.context)
+        components = [{"id": "hero"}]
+        result = AgentResult("foundations", "test", "PASS", outputs={"components": components, "token_manifest": str(self.paths[0])})
+        agent.validate_result(result, components=components)
+        with self.assertRaisesRegex(EnvelopeError, "preserve the validated component plan"):
+            agent.validate_result(result, components=[{"id": "other"}])
+        result.outputs["token_manifest"] = str(self.evidence / "missing.json")
+        with self.assertRaisesRegex(EnvelopeError, "Missing, empty"):
+            agent.validate_result(result, components=components)
 
     def test_planner_routes_xf_ownership_to_required_contributions(self):
         target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
@@ -258,7 +279,7 @@ class EvidenceTests(unittest.TestCase):
                 self.assertEqual(output.called, verbose)
 
     def test_progress_displays_actual_tool_activity_without_milestones(self):
-        for role in ("planner", "component"):
+        for role in ("planner", "foundations", "component"):
             agent = AGENT_CLASSES[role](self.context)
             self.context.logger.isEnabledFor.return_value = False
             start = {"type": "tool.execution_start", "data": {
@@ -591,6 +612,9 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.run_planner = MagicMock(return_value=PhaseOutcome("plan", "PASS", [
             AgentResult("planner", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
         ]))
+        self.engine.run_foundations = MagicMock(return_value=PhaseOutcome("foundations", "PASS", [
+            AgentResult("foundations", "test", "PASS", outputs={"components": self.components, "changed_files": []}),
+        ]))
         self.engine.run_assets = MagicMock(return_value=PhaseOutcome("assets", "PASS"))
         self.engine.run_fanout = MagicMock(return_value=PhaseOutcome("implement", "PASS", [
             AgentResult("component", "test", "PASS", outputs={"changed_files": ["ui.apps/hero.html"]}),
@@ -617,13 +641,39 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.preflight = MagicMock()
         self.engine.run_planner.return_value.status = "FAIL"
         self.assertEqual(self.engine.run(), "FAIL")
+        self.engine.run_foundations.assert_not_called()
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
 
-    def test_initial_foundations_do_not_start_a_second_agent(self):
+    def test_validated_foundations_are_not_repeated_in_component_gate(self):
         self.assertEqual(self.run_gate(), "COMPLETE")
         self.engine.run_planner.assert_not_called()
-        self.assertNotIn("foundations", self.phases)
+        self.engine.run_foundations.assert_not_called()
+
+    def test_initial_pipeline_orders_plan_foundations_then_components(self):
+        self.engine.preflight = MagicMock()
+        events = []
+        self.engine.run_planner.side_effect = lambda *args, **kwargs: events.append("plan") or self.engine.run_planner.return_value
+        self.engine.run_foundations.side_effect = lambda *args, **kwargs: events.append("foundations") or self.engine.run_foundations.return_value
+        self.engine.run_fanout.side_effect = lambda *args, **kwargs: events.append("implement") or self.engine.run_fanout.return_value
+        self.engine.run()
+        self.assertEqual(events, ["plan", "foundations", "implement"])
+        self.engine.run_foundations.assert_called_once_with(self.phases["foundations"], components=self.components)
+
+    def test_failed_initial_foundations_never_start_components(self):
+        self.engine.preflight = MagicMock()
+        self.engine.state.update(foundations={})
+        self.engine.run_foundations.return_value.status = "FAIL"
+        self.assertEqual(self.engine.run(), "FAIL")
+        self.assertFalse(self.engine.state.get("foundations"))
+        self.engine.run_fanout.assert_not_called()
+        self.engine.run_single.assert_not_called()
+
+    def test_components_cannot_skip_missing_foundations(self):
+        self.engine.state.update(foundations={})
+        with self.assertRaisesRegex(PipelineError, "No validated shared foundations"):
+            self.run_gate()
+        self.engine.run_fanout.assert_not_called()
 
     def test_planner_rejection_persists_failure_and_reports_no_accepted_plan(self):
         self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
@@ -643,6 +693,56 @@ class OrchestratorTests(unittest.TestCase):
         self.assertIn("failed before a component plan was accepted", text)
         self.assertNotIn("0 unresolved components", text)
         self.assertIn("templates are not component-owned", text)
+
+    def test_planner_source_writes_are_rejected(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        source_path = "ui.frontend/src/main/webpack/site/_tokens.scss"
+        def run(agent, **kwargs):
+            target = agent.context.repo_root / source_path
+            target.parent.mkdir(parents=True)
+            target.write_text("worker tokens", encoding="utf-8")
+            return AgentResult("planner", "test", "PASS")
+        with patch.object(PlannerAgent, "run", run):
+            outcome = Orchestrator.run_planner(self.engine, self.phases["plan"])
+        self.assertFalse(outcome.passed)
+        self.assertIn("Worker changed unowned files", outcome.results[0].failures[0])
+        self.assertFalse((self.engine.settings.repo_root / source_path).exists())
+
+    def test_foundations_apply_before_component_snapshot(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        source_path = "ui.frontend/src/main/webpack/site/_tokens.scss"
+        def foundations(agent, **kwargs):
+            self.assertNotEqual(agent.context.repo_root, self.engine.settings.repo_root)
+            target = agent.context.repo_root / source_path
+            target.parent.mkdir(parents=True)
+            target.write_text("validated tokens", encoding="utf-8")
+            return AgentResult("foundations", "test", "PASS", outputs={"components": self.components})
+        with patch.object(AGENT_CLASSES["foundations"], "run", foundations):
+            outcome = Orchestrator.run_foundations(self.engine, self.phases["foundations"], components=self.components)
+        self.assertTrue(outcome.passed)
+        self.assertEqual(outcome.results[0].output("changed_files"), [source_path])
+        def component(agent, **kwargs):
+            self.assertEqual((agent.context.repo_root / source_path).read_text(encoding="utf-8"), "validated tokens")
+            return AgentResult("component", "test", "PASS")
+        with patch.object(AGENT_CLASSES["component"], "run", component):
+            result, _ = self.engine._run_worker(self.phases["implement"], component=self.components[0])
+        self.assertTrue(result.passed)
+
+    def test_shared_checkout_escape_reports_exact_file_and_does_not_revert(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        target = self.engine.settings.repo_root / "unexpected.txt"
+        def run(agent, **kwargs):
+            target.write_text("external edit", encoding="utf-8")
+            return AgentResult("foundations", "test", "PASS")
+        with patch.object(AGENT_CLASSES["foundations"], "run", run):
+            outcome = Orchestrator.run_foundations(self.engine, self.phases["foundations"], components=self.components)
+        self.assertFalse(outcome.passed)
+        self.assertIn("unexpected.txt", outcome.results[0].failures[0])
+        self.assertIn("No worker changes were merged", outcome.results[0].failures[0])
+        self.assertEqual(target.read_text(encoding="utf-8"), "external edit")
 
     def test_apply_conflict_never_advances_checkpoint(self):
         result = AgentResult("component", "test", "PASS", outputs={"component_id": "hero", "changed_files": []})
@@ -763,20 +863,21 @@ class OrchestratorTests(unittest.TestCase):
             PhaseOutcome("implement", "FAIL", [AgentResult("component", "test", "FAIL", outputs={"component_id": "hero", "foundation_requests": [request]})]),
             PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})]),
         ]
-        self.engine.run_planner.return_value.results[0].outputs["changed_files"] = [request["path"]]
+        self.engine.run_foundations.return_value.results[0].outputs["changed_files"] = [request["path"]]
         self.assertEqual(self.run_gate(), "COMPLETE")
-        self.engine.run_planner.assert_called_once()
-        self.assertTrue(self.engine.run_planner.call_args.kwargs["repair"])
-        self.assertEqual(self.engine.run_planner.call_args.kwargs["feedback"]["hero"]["requests"], [request])
+        self.engine.run_foundations.assert_called_once()
+        self.engine.run_planner.assert_not_called()
+        self.assertTrue(self.engine.run_foundations.call_args.kwargs["repair"])
+        self.assertEqual(self.engine.run_foundations.call_args.kwargs["feedback"]["hero"]["requests"], [request])
         self.assertEqual(self.engine.run_fanout.call_count, 2)
         self.engine.prepare_frontend.assert_called_once()
 
-    def test_shared_repairs_use_planner_and_keep_prior_changes(self):
+    def test_shared_repairs_use_foundations_and_keep_prior_changes(self):
         self.engine.max_attempts = 2
         original = "ui.frontend/src/main/webpack/site/_variables.scss"
         repaired = "ui.frontend/src/main/webpack/site/main.scss"
         self.engine.state.update(foundations={"attempt": 0, "changed_files": [original]})
-        self.engine.run_planner.return_value.results[0].outputs["changed_files"] = [repaired]
+        self.engine.run_foundations.return_value.results[0].outputs["changed_files"] = [repaired]
 
         def run_single(phase, **kwargs):
             failing = phase["id"] == "parity" and kwargs["attempt"] == 1
@@ -788,10 +889,11 @@ class OrchestratorTests(unittest.TestCase):
 
         self.engine.run_single.side_effect = run_single
         self.assertEqual(self.run_gate(), "COMPLETE")
-        self.engine.run_planner.assert_called_once()
-        self.assertEqual(self.engine.run_planner.call_args.args[0]["id"], "plan")
-        self.assertTrue(self.engine.run_planner.call_args.kwargs["repair"])
-        self.assertEqual(self.engine.run_planner.call_args.kwargs["attempt"], 2)
+        self.engine.run_foundations.assert_called_once()
+        self.engine.run_planner.assert_not_called()
+        self.assertEqual(self.engine.run_foundations.call_args.args[0]["id"], "foundations")
+        self.assertTrue(self.engine.run_foundations.call_args.kwargs["repair"])
+        self.assertEqual(self.engine.run_foundations.call_args.kwargs["attempt"], 2)
         self.assertEqual(self.engine.run_fanout.call_count, 2)
         self.assertEqual(set(self.engine.state.get("foundations")["changed_files"]), {original, repaired})
 
@@ -801,7 +903,7 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.state.append_remediation({"attempt": 1, "status": "FAIL", "failing": [
             {"component_id": "hero", "owning_layer": "foundation"},
         ]})
-        self.engine.run_planner.return_value.status = "FAIL"
+        self.engine.run_foundations.return_value.status = "FAIL"
         self.assertEqual(self.run_gate(), "FAIL")
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
@@ -969,12 +1071,12 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.run_fanout.assert_not_called()
         self.assertIn("ui.apps/cached.html", self.engine.run_single.call_args_list[0].kwargs["changed_files"])
 
-    def test_resume_revalidates_latest_planner_repair(self):
+    def test_resume_revalidates_latest_foundations_repair(self):
         self.engine.resume = True
         self.engine.state.update(foundations={"attempt": 1, "changed_files": []})
-        self.engine._cached_result = MagicMock(return_value=AgentResult("planner", "test", "PASS", outputs={"changed_files": []}))
+        self.engine._cached_result = MagicMock(return_value=AgentResult("foundations", "test", "PASS", outputs={"changed_files": []}))
         self.assertEqual(self.run_gate(), "COMPLETE")
-        self.engine._cached_result.assert_called_once_with(self.phases["plan"], components=self.components, repair=True, attempt=1)
+        self.engine._cached_result.assert_called_once_with(self.phases["foundations"], components=self.components, repair=True, attempt=1)
         self.engine.run_planner.assert_not_called()
 
     def test_resume_does_not_reset_attempt_budget(self):
@@ -1145,7 +1247,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_validation_outputs_are_isolated_per_agent_and_attempt(self):
         component = {"id": "hero", "source_order": 0}
         cases = [
-            ("planner", {}), ("planner", {"repair": True, "attempt": 2}),
+            ("planner", {}), ("foundations", {}), ("foundations", {"repair": True, "attempt": 2}),
             ("component", {"component": component, "attempt": 1}),
             ("component", {"component": component, "attempt": 2}),
             ("component", {"component": {"id": "card", "source_order": 1}, "attempt": 1}),
@@ -1189,7 +1291,7 @@ class ConfigurationTests(unittest.TestCase):
                 PlannerAgent(self.context).render_prompt("planner")
 
     def test_worker_prompts_keep_validation_from_changing_dependency_sources(self):
-        for role in ("planner", "component", "deployer"):
+        for role in ("planner", "foundations", "component", "deployer"):
             agent = AGENT_CLASSES[role](self.context)
             prompt = agent.render_prompt(agent.slug(component={"id": "hero"}), component={"id": "hero"})
             with self.subTest(role=role):
@@ -1264,32 +1366,32 @@ class ConfigurationTests(unittest.TestCase):
         collector.assert_not_called()
         self.context.backend.run.assert_not_called()
 
-    def test_planner_repairs_never_recollect_source(self):
-        result = AgentResult("planner", "test", "FAIL")
+    def test_foundations_never_recollect_source(self):
+        result = AgentResult("foundations", "test", "FAIL")
         with patch("aem_agents.agents.planner.collect_discovery") as collector, patch.object(Agent, "run", return_value=result):
-            self.assertIs(PlannerAgent(self.context).run(repair=True, attempt=2), result)
+            for repair in (False, True):
+                self.assertIs(AGENT_CLASSES["foundations"](self.context).run(repair=repair, attempt=2), result)
         collector.assert_not_called()
 
-    def test_planner_repairs_preserve_plan_and_require_token_evidence(self):
+    def test_foundation_repairs_preserve_plan_and_require_token_evidence(self):
         artifact = self.evidence / "frozen.json"
         artifact.write_text("{}", encoding="utf-8")
         components = [{"id": "hero"}]
         discovery = {name: str(artifact) for name in ("discovery_manifest", "discovery_summary", "discovery_inventory")}
         self.state.record_agent_result("planner", {"outputs": {**discovery, "components": components}})
-        agent = PlannerAgent(self.context)
-        self.assertEqual(agent.prompt_values(repair=True)["discovery_summary"], str(artifact))
+        agent = AGENT_CLASSES["foundations"](self.context)
+        self.assertEqual(agent.prompt_values(repair=True)["plan_result_path"], str(agent.result_path("planner")))
         for changed_plan, missing_token in ((False, False), (True, False), (False, True)):
-            result = AgentResult("planner", "test", "PASS", outputs={
+            result = AgentResult("foundations", "test", "PASS", outputs={
                 "components": [{"id": "other"}] if changed_plan else components,
                 "token_manifest": str(self.evidence / "missing.json") if missing_token else str(artifact),
             })
-            with self.subTest(changed_plan=changed_plan, missing_token=missing_token), patch("aem_agents.agents.planner.validate_collection", return_value=({}, (artifact,))), patch.object(agent, "validate_plan") as replan:
+            with self.subTest(changed_plan=changed_plan, missing_token=missing_token), patch.object(PlannerAgent, "validate_plan") as replan:
                 if changed_plan or missing_token:
                     with self.assertRaises(EnvelopeError):
                         agent.validate_result(result, repair=True, components=components)
                 else:
                     agent.validate_result(result, repair=True, components=components)
-                    self.assertEqual(result.output("discovery_manifest"), str(artifact))
                 replan.assert_not_called()
 
     def test_isolated_planner_uses_shared_inventory_cache(self):
@@ -1422,16 +1524,21 @@ class EndToEndTests(unittest.TestCase):
                     outputs = {}
                     status = "PASS"
                     if role == "planner":
+                        test_case.assertNotEqual(kwargs["working_directory"], root)
+                        outputs = {"components": components, "coverage_report": str(check_log),
+                                   "source_selector_map": str(check_log), "design_tokens": str(check_log)}
+                    elif role == "foundations":
                         changed = settings.migration.get("css.token_layer.scss_source")
                         code = kwargs["working_directory"] / changed
                         test_case.assertNotEqual(kwargs["working_directory"], root)
                         test_case.assertFalse((root / changed).exists())
                         code.parent.mkdir(parents=True, exist_ok=True)
                         code.write_text(":root { --site-color-text: #111; }", encoding="utf-8")
-                        outputs = {"components": components, "coverage_report": str(check_log), "source_selector_map": str(check_log),
+                        outputs = {"components": [row["plan"] for row in engine.state.component_rows()],
                                    "changed_files": [changed], "token_manifest": str(check_log)}
                     elif role == "component":
                         test_case.assertTrue((kwargs["working_directory"] / settings.migration.get("css.token_layer.scss_source")).is_file())
+                        test_case.assertIn(str((evidence / "agents/foundations/checks.log").resolve()), kwargs["prompt"])
                         component_id = workspace.name[len("component-"):].rsplit("-attempt-", 1)[0]
                         component = next(row for row in components if row["id"] == component_id)
                         if component_id == "body":
@@ -1509,7 +1616,7 @@ class EndToEndTests(unittest.TestCase):
                     engine.run()
                 self.assertEqual(engine.state.get("status"), "INTERRUPTED")
                 self.assertEqual(sum(row["status"] == "PASS" for row in engine.state.component_rows()), 2)
-                self.assertEqual(calls, ["planner", "component", "component", "deployer", "parity"])
+                self.assertEqual(calls, ["planner", "foundations", "component", "component", "deployer", "parity"])
                 calls.clear()
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")

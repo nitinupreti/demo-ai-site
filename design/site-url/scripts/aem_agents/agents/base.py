@@ -133,6 +133,7 @@ class RunContext:
         browser = self.browser or browser_paths(self.settings)
         return {
             "run_id": self.run_id,
+            "source_root": str(self.repo_root.resolve()),
             "site_url": self.contract.site_url,
             "target_page_path": self.target_page_path or "(not set — create or reuse a page)",
             "breakpoints": ", ".join(str(width) for width in self.contract.breakpoints),
@@ -297,7 +298,16 @@ class Agent:
             ],
             "details": "Describe the measurements or validation performed here.",
         }
-        return render_file(template, values) + self.validation_policy(slug) + (
+        source_policy = (
+            f"# Execution Workspace\n\nCurrent agent: `{self.agent_id}`.\n"
+            f"Source root: `{self.context.repo_root.resolve()}` (also `MIGRATION_SOURCE_ROOT`).\n"
+            "Resolve every repository-relative source path against this root. Use absolute paths under this root "
+            "for source tools. Never use the original checkout path from contracts, inventory, tool history or evidence. "
+            "Those paths identify inputs, not source write destinations. Shared browser/tool modules and evidence "
+            "may live outside the source root; that is not permission to edit their checkout. "
+            "Your role's source ownership restrictions override source-writing steps assigned to other stages in the contract.\n\n"
+        )
+        return source_policy + render_file(template, values) + self.validation_policy(slug) + (
             "\n\n## Machine-readable check evidence\n\n"
             "Each checks[].evidence must be a single file path string or a nonempty JSON array of file path strings. "
             "Every referenced file must exist, be nonempty, and resolve inside this run's evidence directory. "
@@ -380,6 +390,7 @@ class Agent:
     def env_extra(self) -> dict[str, str]:
         environment = {
             "MIGRATION_RUN_ID": self.context.run_id,
+            "MIGRATION_SOURCE_ROOT": str(self.context.repo_root.resolve()),
             "MIGRATION_SITE_URL": self.context.contract.site_url,
             "MIGRATION_EVIDENCE_DIR": self.context.rel(self.context.evidence_dir),
             "AEM_HOST": self.context.aem_host,
@@ -417,7 +428,7 @@ class Agent:
         return action
 
     def _runtime_progress(self, label: str, event_type: str, data: Mapping[str, Any]) -> None:
-        if self.agent_id not in {"planner", "component"}:
+        if self.agent_id not in {"planner", "foundations", "component"}:
             return
         now = time.monotonic()
         if event_type == "model.call_start":
@@ -452,7 +463,7 @@ class Agent:
         self._progress_line(label, f"activity: {message}", now)
 
     def _report_progress(self, label: str, content: str) -> None:
-        if self.agent_id not in {"planner", "component"}:
+        if self.agent_id not in {"planner", "foundations", "component"}:
             return
         for line in content.splitlines():
             if not line.strip().startswith("AEM_PROGRESS "):
@@ -486,7 +497,7 @@ class Agent:
             self._progress_line(label, f"reported: {message}", now)
 
     def _progress_heartbeat(self, label: str) -> None:
-        if self.agent_id not in {"planner", "component"}:
+        if self.agent_id not in {"planner", "foundations", "component"}:
             return
         now = time.monotonic()
         if now - self._progress_notified < 45:

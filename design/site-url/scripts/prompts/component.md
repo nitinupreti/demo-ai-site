@@ -17,9 +17,11 @@ file changes and applies them; reporting a path does not grant ownership.
 | Evidence dir | `{{evidence_dir}}` |
 | Result file | `{{result_path}}` |
 | Contract | `{{contract_file}}` |
+| Validated shared tokens | `{{foundation_token_manifest}}` |
 | Project | `{{project_name}}` (Java package `{{java_package}}`) |
 
-Read the contract file first; its non-negotiable rules override anything here.
+Read the contract's page-quality requirements and the validated shared token manifest.
+The execution workspace and this role's source ownership restrictions remain binding.
 
 ## Progress Updates
 
@@ -37,7 +39,7 @@ action, not just "working". Announce steps before starting them and concise outc
 afterward, such as "Focused model tests: 4 passed" only after observing that result.
 For reused components, explicitly report skipped implementation steps; do not
 create unnecessary code just to follow the example sequence. Report missing tokens
-as a request to the planner, never as permission to edit shared foundations.
+as a request to the foundations agent, never as permission to edit shared foundations.
 
 Keep `action` under 240 characters. Do not include `current`, `total`, percentages,
 private reasoning, credentials or command dumps. Emit updates as work happens, not
@@ -77,7 +79,7 @@ These are the only source paths the coordinator will accept:
 
 {{owned_paths}}
 
-The planner exclusively owns shared tokens, site styles and policies.
+The foundations agent exclusively owns shared tokens, site styles and policies.
 If a required token is missing, return `FAIL` with `outputs.foundation_requests`
 listing its name, measured source value and evidence. Never edit shared files.
 Declare page and XF content through the contribution file below.
@@ -217,14 +219,14 @@ is intentionally excluded, not a completed check.
 token-driven. The site token layer is the single source of truth:
 
 - tokens live in `{{token_clientlib}}`, prefixed `{{token_prefix}}`
-- the SCSS source is `{{token_scss}}`; the planner keeps it in sync
+- the SCSS source is `{{token_scss}}`; the foundations agent keeps it in sync
 - per-component overrides are `{{component_property_prefix}}<component>-<role>` and
   are defined **only** in that component's own stylesheet
 
 The only values that may appear as literals are ones carrying no design decision:
 {{literal_exceptions}}. Everything else — colours, font families, font sizes, line
 heights, letter spacing, radii, shadows, spacing steps, breakpoints — resolves
-through `var(...)`. Request a missing site token from the planner; do not
+through `var(...)`. Request a missing site token from the foundations agent; do not
 add it yourself. A raw hex, a hardcoded font stack, or a
 magic px value for type or spacing in component CSS is a defect even when the
 rendering is pixel-perfect.

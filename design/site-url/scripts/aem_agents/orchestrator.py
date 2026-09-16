@@ -161,11 +161,11 @@ class Orchestrator:
             return
         previous = self.state.get("checkpoint", {})
         validate_artifacts(previous, self.evidence_dir)
-        active = {"planner"}
+        active = {"planner", "foundations"}
         artifacts = set()
         foundation = self.state.get("foundations", {})
         if foundation.get("attempt"):
-            active.add(f"planner-repair-attempt-{foundation['attempt']}")
+            active.add(f"foundations-repair-attempt-{foundation['attempt']}")
         for component in self.state.component_rows():
             if component.get("status") == "PASS":
                 active.add(f"component-{component['id']}-attempt-{component['attempts']}")
@@ -379,9 +379,13 @@ class Orchestrator:
         if self.dry_run:
             return agent.run(**kwargs), None
         slug = agent.slug(**kwargs)
+        scopes = [] if agent.agent_id == "planner" else (
+            foundation_scopes(self.settings) if agent.agent_id == "foundations"
+            else component_scopes(self.settings, kwargs["component"])
+        )
         worker = WorkerWorkspace.create(
             self.settings.repo_root, self.evidence_dir / "workspaces" / slug,
-            foundation_scopes(self.settings) if agent.agent_id == "planner" else component_scopes(self.settings, kwargs["component"]),
+            scopes,
             evidence_dir=self.evidence_dir,
         )
         migration = self.settings.migration
@@ -397,22 +401,32 @@ class Orchestrator:
         return result, changes if result.passed else None
 
     def run_planner(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
+        return self._run_preparation(phase, **kwargs)
+
+    def run_foundations(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
+        return self._run_preparation(phase, **kwargs)
+
+    def _run_preparation(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         phase_id = str(phase["id"])
         agent = self._agent(phase)
         slug = agent.slug(**kwargs)
         self.state.set_phase(phase_id, "RUNNING")
-        operation = "repairing shared foundations" if kwargs.get("repair") else "planning and establishing shared foundations"
+        operation = "planning (read-only)" if agent.agent_id == "planner" else (
+            "repairing shared foundations" if kwargs.get("repair") else "establishing shared foundations"
+        )
         emit(f"\n[{phase_id}] {operation}", "cyan")
         try:
             baseline = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) if not self.dry_run else {}
             result, changes = self._run_worker(phase, **kwargs)
             if not self.dry_run:
-                if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
-                    raise WorkspaceError("The shared checkout changed during planning/foundation work; no changes were applied.")
+                current = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir])
+                changed = [name for name in sorted(current.keys() | baseline.keys()) if current.get(name) != baseline.get(name)]
+                if changed:
+                    raise WorkspaceError(f"The shared checkout changed during {phase_id}: {', '.join(changed)}. No worker changes were merged; existing edits were not reverted.")
                 if result.passed and changes is not None:
                     apply_changes(self.settings.repo_root, [changes])
         except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
-            result = AgentResult("planner", self.run_id, "FAIL", failures=[str(error)], path=str(agent.result_path(slug)))
+            result = AgentResult(agent.agent_id, self.run_id, "FAIL", failures=[str(error)], path=str(agent.result_path(slug)))
             emit(f"  !! {phase_id}: {error}", "red")
         if result.path:
             dump_json(Path(result.path), result.to_dict())
@@ -650,11 +664,27 @@ class Orchestrator:
                 result = outcome.results[0]
                 components = list(result.output("components") or [])
                 self.state.set_components(components)
-                self.state.update(foundations={"attempt": 0, "changed_files": result.output("changed_files", [])})
                 self._save_checkpoint()
                 emit(f"  plan: {len(components)} component(s)", "green")
             else:
                 raise PipelineError("There is no validated plan to resume.")
+
+            foundations_phase = self._phase(phases, "foundations", remediation_ids)
+            saved_foundations = self.state.get("foundations", {})
+            if self.resume and saved_foundations:
+                self._cached_result(foundations_phase, components=components,
+                                    repair=bool(saved_foundations["attempt"]), attempt=saved_foundations["attempt"])
+                self.state.set_phase("foundations", "PASS")
+            elif self._wants(foundations_phase["id"]):
+                outcome = self.run_foundations(foundations_phase, components=components)
+                if not outcome.passed:
+                    return self._finish(phases, outcome.status, terminal_status)
+                result = outcome.results[0]
+                self.state.update(foundations={"attempt": 0, "changed_files": result.output("changed_files", []),
+                                              "token_manifest": result.output("token_manifest")})
+                self._save_checkpoint()
+            else:
+                raise PipelineError("There are no validated shared foundations to resume; run the foundations phase before components.")
 
             # 2 — implement, deploy, score, remediate
             pipeline_status = self._implement_and_gate(
@@ -696,7 +726,7 @@ class Orchestrator:
         terminal_status: str,
     ) -> str:
         implement = self._phase(phases, "implement", remediation_ids)
-        plan_phase = self._phase(phases, "plan", remediation_ids)
+        foundations_phase = self._phase(phases, "foundations", remediation_ids)
         assets = phases.get("assets")
         merge = phases.get("merge")
         deploy = self._phase(phases, "deploy", remediation_ids)
@@ -709,14 +739,14 @@ class Orchestrator:
         changed_files: set[str] = {path for row in self.state.component_rows() for path in row.get("changed_files", [])}
         saved_foundations = self.state.get("foundations", {})
         if not saved_foundations:
-            raise PipelineError("No validated planner foundations are available.")
+            raise PipelineError("No validated shared foundations are available.")
         changed_files.update(saved_foundations.get("changed_files", []))
         needs_implementation = True
         foundations_ready = True
         first_attempt = 1
         if self.resume:
             if saved_foundations["attempt"]:
-                result = self._cached_result(plan_phase, components=components, repair=True, attempt=saved_foundations["attempt"])
+                result = self._cached_result(foundations_phase, components=components, repair=True, attempt=saved_foundations["attempt"])
                 changed_files.update(result.output("changed_files", []))
             history = self.state.get("remediation_history", [])
             first_attempt = max((int(entry["attempt"]) for entry in history), default=0) + 1
@@ -739,9 +769,9 @@ class Orchestrator:
 
         for attempt in range(first_attempt, self.max_attempts + 1):
             if not foundations_ready:
-                if not self._wants(plan_phase["id"]):
+                if not self._wants(foundations_phase["id"]):
                     return "FAIL"
-                outcome = self.run_planner(plan_phase, components=components, feedback=feedback, repair=True, attempt=attempt)
+                outcome = self.run_foundations(foundations_phase, components=components, feedback=feedback, repair=True, attempt=attempt)
                 if outcome.status == "BLOCKED":
                     return "BLOCKED"
                 if not outcome.passed:
@@ -750,7 +780,8 @@ class Orchestrator:
                 foundation_changes = {path for result in outcome.results for path in result.output("changed_files", [])}
                 changed_files.update(foundation_changes)
                 shared_changes = set(self.state.get("foundations", {}).get("changed_files", [])) | foundation_changes
-                self.state.update(foundations={"attempt": attempt, "changed_files": sorted(shared_changes)})
+                self.state.update(foundations={"attempt": attempt, "changed_files": sorted(shared_changes),
+                                              "token_manifest": outcome.results[0].output("token_manifest")})
                 self._save_checkpoint()
                 foundations_ready = True
                 if foundation_changes and (attempt > 1 or self.resume):

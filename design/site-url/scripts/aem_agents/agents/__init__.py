@@ -3,11 +3,13 @@
 from .base import Agent, RunContext
 from .component import ComponentAgent
 from .deployer import DeployerAgent
+from .foundations import FoundationsAgent
 from .parity import ParityAgent
 from .planner import PlannerAgent
 
 AGENT_CLASSES: dict[str, type[Agent]] = {
     PlannerAgent.agent_id: PlannerAgent,
+    FoundationsAgent.agent_id: FoundationsAgent,
     ComponentAgent.agent_id: ComponentAgent,
     DeployerAgent.agent_id: DeployerAgent,
     ParityAgent.agent_id: ParityAgent,
@@ -18,6 +20,7 @@ __all__ = [
     "Agent",
     "ComponentAgent",
     "DeployerAgent",
+    "FoundationsAgent",
     "ParityAgent",
     "PlannerAgent",
     "RunContext",
