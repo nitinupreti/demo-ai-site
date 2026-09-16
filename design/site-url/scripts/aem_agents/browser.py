@@ -94,7 +94,7 @@ def _npm_cli(node: str) -> Path:
     raise EnvelopeError("npm's npm-cli.js was not found. Install Node.js 20+ with npm, then rerun the launcher.")
 
 
-def _run_setup(arguments: list[str], runtime: BrowserToolchain, label: str, timeout: int) -> None:
+def _run_setup(arguments: list[str], runtime: BrowserToolchain, label: str, timeout: int | None) -> None:
     process = None
     try:
         process = subprocess.Popen(
@@ -167,7 +167,7 @@ def ensure_browser(settings: Settings, *, bootstrap: bool = True) -> BrowserTool
             if "Executable doesn't exist" not in str(error) and not incomplete:
                 raise
         emit("  Preparing matching Chromium in the shared cache (missing or interrupted installation).", "cyan")
-        _run_setup([node, str(runtime.module_path), "--install", "--browsers-path", str(runtime.browsers_path)], runtime, "Chromium setup", 330)
+        _run_setup([node, str(runtime.module_path), "--install", "--browsers-path", str(runtime.browsers_path)], runtime, "Chromium setup", None)
         return check_browser(settings)
 
 
@@ -183,20 +183,25 @@ def check_browser(settings: Settings) -> BrowserToolchain:
         raise EnvelopeError("Node.js 20+ is required for the browser preflight.")
     if not runtime.module_path.is_file():
         raise EnvelopeError(f"Shared browser helper is missing: {runtime.module_path}. {setup}")
-    timeout = settings.migration.get("parity.browser_check_timeout_seconds", 15)
-    if type(timeout) is not int or not 1 <= timeout <= 60:
-        raise ConfigError("parity.browser_check_timeout_seconds must be between 1 and 60.")
+    emit("  Checking shared Chromium (no preflight time limit; Ctrl+C to cancel).", "cyan")
     try:
         completed = subprocess.run(
-            [node, str(runtime.module_path), "--browsers-path", str(runtime.browsers_path), "--timeout-ms", str(timeout * 1000)],
+            [node, str(runtime.module_path), "--browsers-path", str(runtime.browsers_path)],
             cwd=runtime.tools_dir, env={**os.environ, **runtime.environment()},
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=timeout + 10, check=False, shell=False,
+            stdout=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+            check=False, shell=False,
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise EnvelopeError(f"Shared browser preflight failed: {error}. {setup}") from error
     if completed.returncode:
-        raise EnvelopeError(f"Shared browser preflight failed: {completed.stderr.strip()[:1500]}. {setup}")
+        detail = (completed.stderr or "").strip() or f"Browser helper exited with code {completed.returncode}; see browser output above"
+        try:
+            failure = json.loads(completed.stdout)
+            if isinstance(failure, dict) and isinstance(failure.get("error"), str):
+                detail = failure["error"]
+        except (TypeError, ValueError):
+            pass
+        raise EnvelopeError(f"Shared browser preflight failed: {detail[:1500]}. {setup}")
     try:
         result = json.loads(completed.stdout)
         expected = json.loads((runtime.tools_dir / "package.json").read_text(encoding="utf-8"))["dependencies"]["playwright"]

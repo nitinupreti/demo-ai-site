@@ -40,10 +40,11 @@ not installed with elevation by this launcher.
 Use `--no-bootstrap` or `AEM_AGENTS_SKIP_BOOTSTRAP=1` to disable automatic Python,
 Node-package and browser installation. In that mode existing dependencies are checked
 and missing dependencies fail with manual setup hints. `--dry-run` and `--show-plan`
-never run Node/browser setup. Other browser launch failures (for example a timeout,
-a rejected complete installation or a missing system library) are reported without reinstall loops.
-The launch timeout defaults to 15 seconds, with a 25-second outer process limit;
-`parity.browser_check_timeout_seconds` controls it.
+never run Node/browser setup. Other browser launch failures (for example a rejected
+complete installation or a missing system library) are reported without reinstall loops.
+Browser preflight has no process, launch or rendering timeout. It prints its current
+phase while waiting; press Ctrl+C to cancel. The former
+`parity.browser_check_timeout_seconds` setting is no longer used.
 
 ### Shared Playwright runtime
 
@@ -79,9 +80,10 @@ Agent prompts still prohibit package/browser installs and cache/lock deletion;
 setup belongs to the launcher, not the planner LLM. These are agent instructions,
 not an OS sandbox. Automatic setup holds a separate setup lock and refuses an existing browser-installer
 lock when a download is needed; inspect the installer before clearing a confirmed
-stale lock. Package setup has a five-minute deadline; browser setup has a 330-second
-outer deadline, a five-minute installer deadline and a 30-second download connection
-timeout. Timeout or cancellation cleans up only the setup process tree. Failed
+stale lock. Package setup and the browser download installer retain five-minute
+deadlines, with a 30-second download connection timeout. The browser setup wrapper
+has no outer deadline because it also verifies the browser. Timeout or cancellation
+cleans up only the setup process tree. Failed
 installs are not marked ready. No setup step requests elevation or deletes locks.
 
 A standalone check never downloads anything:

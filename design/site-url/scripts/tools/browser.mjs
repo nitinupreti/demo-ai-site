@@ -12,7 +12,6 @@ const options = isCommand ? parseArgs({
   options: {
     install: { type: 'boolean', default: false },
     'browsers-path': { type: 'string' },
-    'timeout-ms': { type: 'string', default: '10000' },
   },
 }).values : {};
 const configuredCache = options['browsers-path'] || process.env.PLAYWRIGHT_BROWSERS_PATH;
@@ -32,16 +31,21 @@ const chromiumRevision = browserDefinitions.browsers.find(browser => browser.nam
 
 export const { chromium } = await import('playwright');
 
-export async function checkBrowser(timeout = 10000) {
-  if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 60000) {
-    throw new Error('Browser check timeout must be between 1000 and 60000 milliseconds.');
-  }
+function reportProgress(stage) {
+  if (isCommand) console.error(`Browser preflight: ${stage}`);
+}
+
+export async function checkBrowser() {
   const started = performance.now();
-  const browser = await chromium.launch({ headless: true, timeout });
+  reportProgress('launching Chromium');
+  const browser = await chromium.launch({ headless: true, timeout: 0 });
   try {
+    reportProgress('creating page');
     const page = await browser.newPage({ viewport: { width: 375, height: 200 }, deviceScaleFactor: 1 });
-    page.setDefaultTimeout(timeout);
-    await page.setContent('<title>Browser preflight</title><p id="ready">ready</p>', { timeout });
+    page.setDefaultTimeout(0);
+    page.setDefaultNavigationTimeout(0);
+    reportProgress('rendering and checking viewport');
+    await page.setContent('<title>Browser preflight</title><p id="ready">ready</p>', { timeout: 0 });
     if (await page.locator('#ready').textContent() !== 'ready' || await page.evaluate(() => innerWidth) !== 375) {
       throw new Error('Browser preflight did not render at the requested viewport.');
     }
@@ -55,14 +59,14 @@ export async function checkBrowser(timeout = 10000) {
       elapsed_ms: Math.round(performance.now() - started),
     };
   } finally {
+    reportProgress('closing Chromium');
     await browser.close();
   }
 }
 
 async function main() {
-  const timeout = Number(options['timeout-ms']);
   try {
-    return await checkBrowser(timeout);
+    return await checkBrowser();
   } catch (error) {
     const marker = path.join(cacheDirectory, `chromium_headless_shell-${chromiumRevision}`, 'INSTALLATION_COMPLETE');
     const incomplete = error.message.includes('spawn EFTYPE') && !existsSync(marker);
@@ -88,7 +92,7 @@ async function main() {
   if (installer.error || installer.status !== 0) {
     throw new Error(`Browser installation failed: ${installer.error?.message || installer.status}. Check network/proxy access and installer processes before retrying.`);
   }
-  return checkBrowser(timeout);
+  return checkBrowser();
 }
 
 if (isCommand) {
@@ -97,6 +101,7 @@ if (isCommand) {
   } catch (error) {
     console.error(error.message);
     console.error(`Explicit setup: node ${JSON.stringify(modulePath)} --install --browsers-path ${JSON.stringify(cacheDirectory)}`);
+    console.log(JSON.stringify({ status: 'FAIL', error: error.message }));
     process.exitCode = 1;
   }
 }

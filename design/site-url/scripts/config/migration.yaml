@@ -416,7 +416,6 @@ parity:
   # every retained evidence folder.
   tools_dir: design/site-url/scripts/tools
   browsers_path: design/site-url/scripts/.tools/ms-playwright
-  browser_check_timeout_seconds: 15
   diff_tooling:
     comparator: pixelmatch
     png_codec: pngjs

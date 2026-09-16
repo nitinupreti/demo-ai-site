@@ -436,16 +436,66 @@ class BrowserTests(unittest.TestCase):
             runtime = check_browser(self.settings)
         self.assertEqual(runtime.playwright_version, "1.63.0")
         self.assertNotIn("--install", execute.call_args.args[0])
+        self.assertNotIn("--timeout-ms", execute.call_args.args[0])
         self.assertFalse(execute.call_args.kwargs["shell"])
-        self.assertEqual(execute.call_args.kwargs["timeout"], 25)
+        self.assertNotIn("timeout", execute.call_args.kwargs)
+        self.assertEqual(execute.call_args.kwargs["stdout"], subprocess.PIPE)
+        self.assertNotIn("stderr", execute.call_args.kwargs)
+        self.assertNotIn("capture_output", execute.call_args.kwargs)
         self.assertEqual(execute.call_args.kwargs["env"]["MIGRATION_BROWSER_MODULE"], runtime.module_path.as_uri())
         execute.assert_called_once()
 
-    def test_timeout_reports_setup_hint_without_retrying(self):
-        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", side_effect=subprocess.TimeoutExpired("node", 25)) as execute:
+    def test_legacy_preflight_timeout_does_not_limit_process(self):
+        response = subprocess.CompletedProcess([], 0, json.dumps(self.payload), "")
+        for timeout in (0, 1, 15, None):
+            with self.subTest(timeout=timeout):
+                self.settings.migration = self.settings.migration.merged({"parity": {"browser_check_timeout_seconds": timeout}})
+                with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", return_value=response) as execute:
+                    check_browser(self.settings)
+                self.assertNotIn("--timeout-ms", execute.call_args.args[0])
+                self.assertNotIn("timeout", execute.call_args.kwargs)
+                execute.assert_called_once()
+
+    def test_subprocess_failure_reports_setup_hint_without_retrying(self):
+        with patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", side_effect=subprocess.SubprocessError("launch failed")) as execute:
             with self.assertRaisesRegex(EnvelopeError, "Install dependencies once"):
                 check_browser(self.settings)
         execute.assert_called_once()
+
+    def test_preflight_preserves_failure_with_live_stderr(self):
+        for output, message in (
+            (json.dumps({"status": "FAIL", "error": "Executable doesn't exist"}), "Executable doesn't exist"),
+            ("", "Browser helper exited with code 1"),
+            ("[]", "Browser helper exited with code 1"),
+        ):
+            response = subprocess.CompletedProcess([], 1, output, None)
+            with self.subTest(output=output), patch("aem_agents.browser.shutil.which", return_value="node"), patch("aem_agents.browser.subprocess.run", return_value=response), self.assertRaisesRegex(EnvelopeError, message):
+                check_browser(self.settings)
+
+    def test_preflight_disables_playwright_operation_timeouts(self):
+        runtime = browser_paths(Settings.load(SCRIPTS.parents[2], SCRIPTS / "config"))
+        probe = self.root / "timeouts.mjs"
+        probe.write_text(
+            "import assert from 'node:assert/strict';\n"
+            f"const {{ chromium, checkBrowser }} = await import({json.dumps(runtime.module_path.as_uri())});\n"
+            "const calls = {};\n"
+            "const page = {\n"
+            "  setDefaultTimeout(value) { calls.actionTimeout = value; },\n"
+            "  setDefaultNavigationTimeout(value) { calls.navigationTimeout = value; },\n"
+            "  async setContent(content, options) { calls.contentTimeout = options.timeout; },\n"
+            "  locator() { return { async textContent() { return 'ready'; } }; },\n"
+            "  async evaluate() { return 375; },\n"
+            "};\n"
+            "chromium.launch = async options => {\n"
+            "  calls.launchTimeout = options.timeout;\n"
+            "  return { async newPage() { return page; }, version() { return 'fixture'; }, async close() { calls.closed = true; } };\n"
+            "};\n"
+            "assert.equal((await checkBrowser()).status, 'READY');\n"
+            "assert.deepEqual(calls, { launchTimeout: 0, actionTimeout: 0, navigationTimeout: 0, contentTimeout: 0, closed: true });\n",
+            encoding="utf-8",
+        )
+        response = subprocess.run(["node", str(probe)], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+        self.assertEqual(response.returncode, 0, response.stderr)
 
     def test_wrong_version_or_cache_fails_closed(self):
         for fields in ({"playwright_version": "1.48.0"}, {"browsers_path": str(self.root / "wrong-cache")}, {"module_uri": "file:///wrong/browser.mjs"}):
@@ -465,7 +515,7 @@ class BrowserTests(unittest.TestCase):
         runtime = ensure_browser(settings)
         probe = self.root / "probe.mjs"
         probe.write_text("const { checkBrowser } = await import(process.env.MIGRATION_BROWSER_MODULE);\nconsole.log(JSON.stringify(await checkBrowser()));\n", encoding="utf-8")
-        response = subprocess.run(["node", str(probe)], cwd=self.root, env={**os.environ, **runtime.environment()}, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        response = subprocess.run(["node", str(probe)], cwd=self.root, env={**os.environ, **runtime.environment()}, capture_output=True, text=True, encoding="utf-8", errors="replace")
         self.assertEqual(response.returncode, 0, response.stderr)
         payload = json.loads(response.stdout)
         self.assertEqual(payload["status"], "READY")
@@ -475,10 +525,11 @@ class BrowserTests(unittest.TestCase):
         runtime = browser_paths(Settings.load(SCRIPTS.parents[2], SCRIPTS / "config"))
         empty_cache = self.root / "empty-cache"
         response = subprocess.run(
-            ["node", str(runtime.module_path), "--browsers-path", str(empty_cache), "--timeout-ms", "1000"],
+            ["node", str(runtime.module_path), "--browsers-path", str(empty_cache)],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
         )
         self.assertNotEqual(response.returncode, 0)
+        self.assertIn("Executable doesn't exist", json.loads(response.stdout)["error"])
         self.assertIn("Explicit setup", response.stderr)
         self.assertNotIn("Installing pinned Chromium", response.stderr)
         self.assertFalse(empty_cache.exists())
@@ -546,6 +597,7 @@ class AutomaticBrowserSetupTests(unittest.TestCase):
             self.assertEqual(ensure_browser(self.settings), self.runtime)
         setup.assert_called_once()
         self.assertIn("--install", setup.call_args.args[0])
+        self.assertIsNone(setup.call_args.args[3])
         self.assertEqual(check.call_count, 2)
 
     def test_interrupted_browser_download_uses_official_repair(self):
