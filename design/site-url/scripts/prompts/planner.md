@@ -20,6 +20,7 @@ workers start only after that stage passes.
 | Evidence dir | `{{evidence_dir}}` |
 | Result file | `{{result_path}}` |
 | Contract | `{{contract_file}}` |
+| Bounded planner input index | `{{planning_index}}` |
 | Source summary | `{{discovery_summary}}` |
 | Immutable collector manifest | `{{discovery_manifest}}` |
 | Repository inventory | `{{discovery_inventory}}` |
@@ -57,8 +58,23 @@ send a message; the coordinator supplies a waiting heartbeat.
 
 ## Use the prepared evidence
 
-Read the source summary and repository inventory first. The collector already used
-the shared browser runtime (`{{browser_module_uri}}`) and executed all eleven signal
+Read the bounded planner input index first, followed by its `overview`,
+`inventory-definitions`, and `wide-nodes` packets. These are already prepared
+views: do not write scripts to rediscover file schemas, list sizes, print all
+tokens or extract the same wide-node table. Packet paths are relative to the index.
+Use `nodes` packets to reconcile every observation at every breakpoint; wide nodes
+are only a navigation aid, not a complete section list or coverage proof.
+Token packets already provide property/value/count tables; classify them by the
+actual component ownership you establish, not by guessing from counts alone.
+
+Each projection has an immutable `source` path and JSON `pointer` to its complete
+record. Read these details for actual reuse fields, exact copy, media, styles and
+ambiguities. Text previews are not final copy. Avoid whole-file dumps of raw
+observation/token JSON and repeated schema inspection; use focused JSON field
+queries at the indexed records. Never truncate or drop observations to save time.
+The original source summary and inventory remain available as raw inputs.
+
+The collector already used the shared browser runtime (`{{browser_module_uri}}`) and executed all eleven signal
 scans at every requested breakpoint. The manifest indexes checksummed raw files:
 
 - `initial.json` and `final.json`: actual DOM selectors, exact text and attributes,
@@ -97,11 +113,11 @@ resolved as `{{java_home}}`; do not probe for it.
    `visualViewport.scale`, await `document.fonts.ready` and `document.fonts.check()`
    for every measured non-system family, trigger lazy loading, require visible
    images decoded (`complete`, `naturalWidth > 0`) and visible media
-   `readyState >= 2`. Inject measurement-only CSS that disables animation,
-   transition and smooth scrolling, then sample every block root
+   `readyState >= 2`. Check the saved evidence that the collector injected
+   measurement-only CSS disabling animation, transition and smooth scrolling and sampled every block root
    {{stability_samples}} times at least {{stability_interval_ms}} ms apart and
-   require x/y/width/height deltas ≤ 1 CSS px. Restore motion before capturing
-   interaction evidence. Wrong viewport, unresolved fonts/media, or unstable
+   require x/y/width/height deltas ≤ 1 CSS px. Verify the collector restored motion
+   for interaction evidence. Do not repeat browser actions. Wrong viewport, unresolved fonts/media, or unstable
    layout invalidates the capture.
 
 2. **Exhaustive block discovery.** Build the candidate set from the **union** of

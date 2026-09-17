@@ -50,6 +50,18 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def ensure_resumable_run(evidence_dir: Path) -> None:
+    summary_path = evidence_dir / "completion-summary.json"
+    if not summary_path.is_file():
+        return
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise StateError(f"Could not verify completed-run cleanup state: {summary_path}") from error
+    if isinstance(summary, dict) and summary.get("artifact_type") == "migration-completion-summary" and summary.get("resume_available") is False:
+        raise StateError("This successful run was cleaned after completion and cannot be resumed. Read its completion report or start a new run.")
+
+
 class RunState:
     """``run-state.json`` — the single source of truth for the orchestrator."""
 

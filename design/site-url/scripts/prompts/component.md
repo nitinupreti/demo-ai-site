@@ -149,6 +149,47 @@ Report the same paths in `outputs.authored_paths` so the merge can be verified.
 
 ## Implementation contract
 
+### Deployment evidence contract
+
+Include `outputs.focused_tests` (or the singular `outputs.focused_test`) with the
+exact executable command, optional `working_directory` relative to your source
+root, and check evidence. Prefer an argv array. Report separate commands as separate
+records, not shell pipelines; the deterministic deployer reruns and deduplicates
+these commands on the merged source, without expanding to all core tests.
+
+Provide `outputs.runtime_contract` with `model_probes` and `clientlibs` arrays.
+This describes checks, not permission to change application behavior for testing.
+Keep existing public APIs, model adapters and markup. Do not add an exporter,
+diagnostic servlet or artificial visible marker just to satisfy a probe.
+
+Each Sling Model used by your HTL or declared in your owned Java files needs a
+live probe, including child models. Use an existing exporter for child values or
+a real HTL template that binds that class. A child probe may name `via_model` to
+identify its actual owned parent; the parent source must reference the child type,
+and expectations must exercise the child values, not just the parent's heading.
+For an exporter probe, the owned exported model must already have `@Exporter`.
+If no supported probe can establish
+adaptation, report the exact missing capability; do not claim PASS or invent a probe.
+The worker validates class coverage, bindings and resource ownership, then executes
+fresh read-only requests. Probe types:
+
+- `kind: htl`: `model` (fully qualified class), `resource_path` (under an authored
+  instance), `template` (owned repository-relative HTL file), `expression` (exact
+  model-bound expression in that template), `selector`, and `text` (exact expected
+  trimmed server-rendered value). JavaScript is disabled for this probe.
+- `kind: exporter`: `model`, `resource_path`, and `expected` (nonempty nested JSON
+  object of actual model values, not only `:type`). The worker requests the existing
+  `.model.json` endpoint and checks values and array order/cardinality.
+
+Each component clientlib definition needs a mapping with `path` (actual local
+`/etc.clientlibs/...css` or `.js` request), `kind` (`stylesheet` or `script`) and
+`sources` (owned clientlib `.content.xml` paths). For an embedded library, name the
+embedding request that actually contains it; no extra duplicate library tags.
+The coordinator validates the embedding relationship from library definitions.
+The browser verifies these requests at every breakpoint and mode, including AEM
+cache-busted/minified URL forms. Components without models or component-specific
+clientlibs use empty arrays, not fabricated checks.
+
 ;**MUST load these skills before writing any file: {{required_skills}}.**
 They are the source of truth for this project's HTL, Sling Model, clientlib, dialog,
 and OSGi standards — follow them rather than improvising. Loading is a precondition,

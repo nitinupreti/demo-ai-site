@@ -12,7 +12,7 @@ from ..envelope import AgentResult, EnvelopeError, validate_components
 from ..discovery import DiscoveryEvidence, collect_discovery, validate_collection
 from ..browser import browser_paths
 from ..console import emit
-from ..handoff import prepare_shared_handoff
+from ..handoff import prepare_planner_handoff, prepare_shared_handoff
 from ..render import bullet_list
 from ..workspaces import digest, foundation_scopes, normalize_scope, validate_contribution_targets, validate_ownership
 from .base import Agent, dump_json
@@ -39,6 +39,7 @@ class PlannerAgent(Agent):
     agent_id = "planner"
     discovery: DiscoveryEvidence | None = None
     handoff: dict[str, Any] | None = None
+    planning_handoff: dict[str, Any] | None = None
 
     def __init__(self, context: Any, *, shared: bool = False) -> None:
         super().__init__(context)
@@ -59,10 +60,13 @@ class PlannerAgent(Agent):
         started = time.monotonic()
         self.discovery = None
         self.handoff = None
+        self.planning_handoff = None
         if not self.context.dry_run and self.shared:
             self.prepare_handoff(components=kwargs.get("components") or [], repair=kwargs.get("repair", False), attempt=kwargs.get("attempt", 1))
         if not self.context.dry_run and not self.shared:
             self.discovery = collect_discovery(self.context)
+            self.planning_handoff = prepare_planner_handoff(self.context, self.workspace(self.slug(**kwargs)) / "planning-inputs", self.discovery)
+            emit(f"  planner inputs: {self.planning_handoff['packet_count']} bounded packets prepared in {self.planning_handoff['elapsed_seconds']:.2f}s", "green")
         result = super().run(**kwargs)
         if not self.context.dry_run and self.discovery is not None:
             if result.path:
@@ -71,6 +75,7 @@ class PlannerAgent(Agent):
             self.context.state.record_agent_result(self.slug(**kwargs), {
                 **saved, **result.to_dict(),
                 "discovery_seconds": self.discovery.elapsed_seconds,
+                "input_preparation_seconds": self.planning_handoff["elapsed_seconds"] if self.planning_handoff else 0,
                 "planner_total_seconds": time.monotonic() - started,
             })
         return result
@@ -90,6 +95,7 @@ class PlannerAgent(Agent):
             })
             return values
         values.update({
+            "planning_index": self.planning_handoff["index_path"] if self.planning_handoff else "(dry run: bounded planner input index)",
             "discovery_summary": str(self.discovery.summary) if self.discovery else "(dry run: prepared source summary)",
             "discovery_manifest": str(self.discovery.manifest) if self.discovery else "(dry run: collector manifest)",
             "discovery_inventory": str(self.discovery.inventory) if self.discovery else "(dry run: cached repository inventory)",
@@ -127,6 +133,11 @@ class PlannerAgent(Agent):
         elif result.passed:
             if result.output("changed_files", []):
                 raise EnvelopeError("Planning is read-only; shared source changes belong to the planner's later shared pass.")
+            if self.planning_handoff:
+                if any(digest(Path(name)) != checksum for name, checksum in self.planning_handoff["hashes"].items()):
+                    raise EnvelopeError("Prepared planner inputs or discovery evidence changed during planning.")
+                result.outputs["planning_artifacts"] = self.planning_handoff["artifacts"]
+                result.outputs["planning_metrics"] = {name: self.planning_handoff[name] for name in ("input_bytes", "packet_count", "elapsed_seconds")}
             manifest = self.context.evidence_file(result.output("discovery_manifest"))
             collector = (self.context.browser or browser_paths(self.context.settings)).tools_dir / "discover.mjs"
             _, artifacts = validate_collection(manifest, self.context.run_id, self.context.contract.site_url,

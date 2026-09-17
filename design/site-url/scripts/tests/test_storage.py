@@ -764,6 +764,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_build_outputs_are_not_copied_or_applied(self):
         for output in (
+            ".autofix/.gitignore", ".autofix/analyzer-output.json",
             "core/target/classes/output.class",
             "ui.frontend/dist_validate/main.css", "ui.frontend/dist_validate/nested/main.css.map",
             "ui.frontend/build/check.css", "ui.frontend/coverage/coverage-final.json", "ui.frontend/reports/lint.json",
@@ -784,6 +785,40 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(apply_changes(self.root, [changes]), [self.scope])
                 self.assertEqual(generated.read_bytes(), b"old")
                 self.source.write_text("user's uncommitted source", encoding="utf-8")
+
+    def test_autofix_reports_do_not_change_readonly_worker_sources(self):
+        worker = WorkerWorkspace.create(self.root, self.workers, [])
+        output = worker.root / ".autofix"
+        output.mkdir()
+        (output / ".gitignore").write_text("*\n", encoding="utf-8")
+        (output / "analyzer-output.json").write_text(json.dumps({"findings": [], "warnings": []}), encoding="utf-8")
+        changes = worker.collect()
+        self.assertEqual(changes.changed, {})
+        self.assertEqual(apply_changes(self.root, [changes]), [])
+        self.assertFalse((self.root / ".autofix").exists())
+        self.assertEqual(self.source.read_text(), "user's uncommitted source")
+
+    def test_autofix_exclusion_preserves_hidden_and_nested_source_checks(self):
+        for source in (
+            ".agents/skills/example/SKILL.md",
+            ".github/workflows/build.yml",
+            ".cloudmanager/java-version",
+            "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/components/hero/.content.xml",
+            "core/src/main/java/.autofix/Other.java",
+            ".autofix-extra/report.json",
+        ):
+            with self.subTest(source=source):
+                original = self.root / source
+                original.parent.mkdir(parents=True, exist_ok=True)
+                original.write_text("original source", encoding="utf-8")
+                worker = self.worker()
+                copied = worker.root / source
+                self.assertEqual(copied.read_text(), "original source")
+                copied.write_text("unowned edit", encoding="utf-8")
+                with self.assertRaises(WorkspaceError) as raised:
+                    worker.collect()
+                self.assertIn(source, str(raised.exception))
+                self.assertEqual(original.read_text(), "original source")
 
     def test_validation_output_exclusion_does_not_hide_source_edits(self):
         paths = (

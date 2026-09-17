@@ -14,7 +14,7 @@ from .contract import ContractError, load_contract
 from .envelope import EnvelopeError
 from .orchestrator import Orchestrator, PipelineError
 from .runner import BackendError
-from .state import RunLock, RunState
+from .state import RunLock, RunState, ensure_resumable_run
 
 _EXIT = {"COMPLETE": 0, "DRY_RUN": 0, "FAIL": 1, "BLOCKED": 2}
 
@@ -112,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             if not (args.run_id or args.evidence_dir) or args.dry_run:
                 raise ConfigError("--resume requires --run-id or --evidence-dir, without --dry-run.")
             folder = settings.resolve(args.evidence_dir) if args.evidence_dir else settings.resolve(str(settings.migration.require("run.evidence_root"))) / str(settings.migration.require("run.evidence_dir_pattern")).format(run_id=args.run_id)
+            ensure_resumable_run(folder)
             saved = RunState.load(folder / str(settings.migration.get("run.state_file", "run-state.json"))).get("contract", {})
             overrides = {**{key: saved.get(key) for key in ("site_url", "target_page_path", "breakpoints")}, **overrides}
         contract = load_contract(settings, overrides)

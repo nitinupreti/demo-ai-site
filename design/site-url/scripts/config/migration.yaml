@@ -50,6 +50,7 @@ run:
   state_file: run-state.json
   plan_file: component-plan.json
   report_file: completion-report.md
+  cleanup_on_success: true
   log_file: orchestrator.log
   agent_workspace_dir: agents
   result_file: result.json
@@ -337,9 +338,11 @@ shared_files:
 # ---------------------------------------------------------------------------
 # Build and deploy
 # ---------------------------------------------------------------------------
-# The deployer agent receives this table verbatim. Scoped deploys keep the
-# remediation loop fast; the full reactor build is opt-in.
+# The deterministic deployment worker executes these configured commands.
+# Dependencies order selected scopes; unknown paths require an explicit scope.
 deploy:
+  assessment:
+    source: .agents/skills/code-assessment/scripts/analyzer
   frontend:
     root: ui.frontend
     install: [npm, ci]
@@ -350,6 +353,7 @@ deploy:
   scoped:
     - id: ui-apps
       match: ["ui.apps/**"]
+      depends_on: [core, ui-config]
       description: "Component CSS / HTL / dialog / clientlib"
       command: 'mvn install -pl ui.apps -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: core
@@ -358,6 +362,7 @@ deploy:
       command: 'mvn install -pl core -PautoInstallBundle "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: ui-content
       match: ["ui.content/**"]
+      depends_on: [ui-apps]
       description: "Authored content (FileVault mode=merge)"
       command: 'mvn install -pl ui.content -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
     - id: ui-config
@@ -366,6 +371,7 @@ deploy:
       command: 'mvn install -pl ui.config -PautoInstallPackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests'
   full:
     id: reactor
+    verify_modules: [all]
     description: "Only for a new cross-module artifact or a proven scoped-deploy mismatch"
     command: 'mvn -T 1C install -PautoInstallSinglePackage "-Daem.host={host}" "-Daem.port={port}" -DskipTests -pl all,core,ui.apps,ui.apps.structure,ui.config,ui.content -am'
   focused_tests:
@@ -400,7 +406,7 @@ deploy:
     - "Never parallelize package installs against the same AEM instance."
     - "Never `mvn clean` unless a stale target/ is proven to cause the failure."
     - "A BUILD SUCCESS is not proof the change is live; re-run the HTTP sweep."
-    - "If a deploy still fails, collect every error from that run, fix them all in one pass, and redeploy once. Never fix one error and redeploy to find the next."
+    - "On failure, return evidence to the coordinator for owner-scoped repair. The deployment worker never changes application source."
 
 # ---------------------------------------------------------------------------
 # Visual parity

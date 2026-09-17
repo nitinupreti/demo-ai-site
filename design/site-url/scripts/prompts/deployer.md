@@ -1,8 +1,10 @@
-# Deployer Agent
+# Deterministic Deployment Contract
 
-You are the **deployer**. Every component agent has finished. You receive the union
-of their changed files, deploy the smallest scope that covers them, and prove the
-change is live. You do not implement components.
+This is a reference contract for the **deterministic deployment worker**, not an
+LLM prompt. Python receives the union of changed files, selects configured scopes,
+deploys in dependency order and verifies live evidence. No Copilot session is
+started. Repair instructions describe work delegated to existing source owners,
+not permission for the deployment worker to edit application code.
 
 ## Run inputs
 

@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import logging
 import re
+import stat
 import urllib.error
 import urllib.request
 import uuid
@@ -29,7 +31,7 @@ from .merge import MergeError, latest_contribution_path, merge_contributions
 from .render import markdown_table, to_text
 from .runner import BackendError, create_backend, run_command
 from .scoring import PixelScorer
-from .state import RunState
+from .state import RunState, ensure_resumable_run, utc_now
 from .toolchain import check_maven, check_node, resolve_java_home
 from .agents import AGENT_CLASSES, RunContext
 from .agents.base import dump_json
@@ -104,6 +106,8 @@ class Orchestrator:
 
         self.evidence_dir = evidence_dir.resolve() if evidence_dir else self._evidence_dir()
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        evidence_stat = self.evidence_dir.stat()
+        self._evidence_identity = (evidence_stat.st_dev, evidence_stat.st_ino)
 
         self.max_attempts = int(
             settings.migration.get("pipeline.remediation.max_attempts", None)
@@ -116,6 +120,7 @@ class Orchestrator:
 
         state_path = self.evidence_dir / str(settings.migration.get("run.state_file", "run-state.json"))
         if resume:
+            ensure_resumable_run(self.evidence_dir)
             self.state = RunState.load(state_path)
             if run_id and self.state.get("run_id") != run_id:
                 raise ConfigError("The stored run id does not match --run-id.")
@@ -288,7 +293,7 @@ class Orchestrator:
         self.state.set_phase(phase_id, "RUNNING")
         agent = self._agent(phase)
         emit(f"\n[{phase_id}] {agent.spec.title}", "cyan")
-        readonly = phase["agent"] != "deployer" and not self.dry_run
+        readonly = not self.dry_run
         baseline = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) if readonly else {}
         try:
             result = agent.run(**kwargs)
@@ -763,7 +768,7 @@ class Orchestrator:
             first_attempt = max((int(entry["attempt"]) for entry in history), default=0) + 1
             if history:
                 feedback = {entry["component_id"]: entry for entry in history[-1].get("failing", []) if entry.get("component_id") in by_id}
-                if any(entry.get("owning_layer") == "foundation" for entry in feedback.values()):
+                if any(entry.get("owning_layer") == "foundation" or entry.get("requires_foundations") for entry in feedback.values()):
                     foundations_ready = False
             reusable = set()
             for row in self.state.component_rows():
@@ -774,7 +779,7 @@ class Orchestrator:
             pending = [component for component in components if component["id"] not in reusable]
             unfinished_attempt = max((int(row.get("attempts", 0)) for row in self.state.component_rows() if row["id"] not in reusable), default=0)
             first_attempt = max(first_attempt, unfinished_attempt + 1)
-            needs_implementation = bool(pending) and (not feedback or any(entry.get("owning_layer") not in ("evidence", "foundation") for entry in feedback.values()))
+            needs_implementation = bool(pending) and (not feedback or any(entry.get("owning_layer") not in ("evidence", "foundation", "assets") for entry in feedback.values()))
             if history and history[-1].get("status") == "PASS" and not pending:
                 first_attempt = min(first_attempt, self.max_attempts)
 
@@ -850,7 +855,21 @@ class Orchestrator:
                     return "BLOCKED"
                 if not outcome.passed:
                     emit("  deploy failed; parity cannot be scored on a stale target.", "red")
-                    self._record_attempt(attempt, pending, "DEPLOY_FAILED")
+                    failing = list(outcome.results[0].output("failing_components", [])) if outcome.results else []
+                    self._record_attempt(attempt, pending, "DEPLOY_FAILED", failing)
+                    if any(not isinstance(entry, Mapping) or entry.get("component_id") not in by_id for entry in failing):
+                        return "FAIL"
+                    if not failing:
+                        emit("  no source owner identified; retrying deployment within the existing attempt budget.", "dim")
+                        continue
+                    feedback = {entry["component_id"]: {**entry, "phase": "deploy"} for entry in failing}
+                    repair_ids = {identity for identity, entry in feedback.items() if entry.get("owning_layer") not in ("evidence", "foundation", "assets")}
+                    pending = affected_components(components, repair_ids or set(feedback))
+                    needs_implementation = bool(repair_ids)
+                    foundations_ready = not any(entry.get("owning_layer") == "foundation" or entry.get("requires_foundations") for entry in feedback.values())
+                    if needs_implementation:
+                        for component in pending:
+                            self.state.update_component(component["id"], status="FAILED")
                     continue
                 self.state.update(target_url=outcome.results[0].output("target_url"))
 
@@ -1110,6 +1129,105 @@ class Orchestrator:
         emit(f"  report: {report_path}", "dim")
         return PhaseOutcome(phase_id, "PASS", [result])
 
+    def cleanup_completed_run(self) -> Path | None:
+        enabled = self.settings.migration.get("run.cleanup_on_success", True)
+        if type(enabled) is not bool:
+            raise PipelineError("run.cleanup_on_success must be true or false.")
+        if self.dry_run or self.state.get("status") != "COMPLETE" or not enabled:
+            return None
+        root = self.evidence_dir
+        root_stat = root.lstat()
+        if root.resolve() != root or (root_stat.st_dev, root_stat.st_ino) != self._evidence_identity:
+            raise PipelineError("Cleanup refused: the run directory was replaced or redirected.")
+        if self.settings.repo_root.resolve().is_relative_to(root) or root == self.settings.resolve(str(self.settings.migration.require("run.evidence_root"))):
+            raise PipelineError("Cleanup refused: the run directory is a source or shared scratch root.")
+        summary_path = root / "completion-summary.json"
+        report_result = self.state.get("agent_results", {}).get("report", {})
+        output = report_result.get("outputs", {})
+        if (report_result.get("run_id") != self.run_id or report_result.get("status") != "PASS"
+                or output.get("pipeline_status") != "COMPLETE" or output.get("residual_gaps")):
+            raise PipelineError("Cleanup requires the current run's accepted completion report.")
+        report_path = self.settings.resolve(str(output.get("report_path", "")))
+        if not report_path.is_relative_to(root) or report_path in {summary_path, self.state.path} or not report_path.is_file() or not report_path.stat().st_size:
+            raise PipelineError("Cleanup requires a nonempty report inside this run, separate from its summary.")
+        files, directories = [], []
+        def visit(directory: Path) -> None:
+            info = directory.lstat()
+            if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
+                raise PipelineError("Cleanup refused: filesystem links or junctions exist in the run directory.")
+            for child in directory.iterdir():
+                details = child.lstat()
+                if stat.S_ISLNK(details.st_mode) or getattr(details, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):
+                    raise PipelineError("Cleanup refused: filesystem links or junctions exist in the run directory.")
+                if stat.S_ISDIR(details.st_mode):
+                    visit(child)
+                    directories.append(child)
+                elif stat.S_ISREG(details.st_mode):
+                    files.append((child, details.st_size))
+                else:
+                    raise PipelineError("Cleanup refused: an unsupported filesystem entry exists in the run directory.")
+        visit(root)
+        if summary_path.exists():
+            raise PipelineError("Cleanup refused: the completion summary already exists.")
+        if not self.state.path.resolve().is_relative_to(root):
+            raise PipelineError("Cleanup refused: run state is outside this run.")
+        persisted = json.loads(self.state.path.read_text(encoding="utf-8"))
+        if persisted.get("run_id") != self.run_id or persisted.get("status") != "COMPLETE":
+            raise PipelineError("Cleanup refused: persisted state does not identify this completed run.")
+        summary = {
+            "schema_version": 1, "artifact_type": "migration-completion-summary", "run_id": self.run_id,
+            "status": "COMPLETE", "created_at": self.state.get("created_at"), "completed_at": utc_now(),
+            "site_url": self.contract.site_url, "target_url": self.state.get("target_url"),
+            "breakpoints": self.contract.breakpoints, "visual_pass_ratio": str(self.contract.visual_pass_ratio),
+            "report_file": report_path.relative_to(root).as_posix(), "resume_available": False,
+            "components": [{key: row.get(key) for key in ("id", "status", "attempts")} for row in self.state.component_rows()],
+            "phases": [{key: row.get(key) for key in ("id", "status")} for row in self.state.get("phases", [])],
+            "cleanup": {"status": "RUNNING", "removed_files": 0, "removed_bytes": 0, "errors": []},
+        }
+        with summary_path.open("x", encoding="utf-8") as stream:
+            json.dump(summary, stream, indent=2)
+        note = ("\n\n## Evidence Retention\n\n"
+                "This successful run is retained as a report and completion-summary.json only. "
+                "Detailed evidence, logs, screenshots, temporary scripts, worker checkouts and resume checkpoints "
+                "are intentionally removed after verification. Evidence paths above are historical references, "
+                "not retained files. Scores were verified before cleanup; they cannot be reverified from this "
+                "summary alone. This run cannot be resumed. See completion-summary.json for cleanup status.\n")
+        with report_path.open("a", encoding="utf-8") as stream:
+            stream.write(note)
+        summary["report_sha256"] = digest(report_path)
+        for handler in list(getattr(self.logger, "handlers", [])):
+            if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).resolve().is_relative_to(root):
+                handler.flush()
+                handler.close()
+                self.logger.removeHandler(handler)
+        retained = {report_path, summary_path}
+        files.sort(key=lambda row: row[0] == self.state.path)
+        for path, size in files:
+            if path in retained:
+                continue
+            try:
+                if not path.resolve().is_relative_to(root):
+                    raise OSError("Path escaped the run directory during cleanup.")
+                path.unlink()
+                summary["cleanup"]["removed_files"] += 1
+                summary["cleanup"]["removed_bytes"] += size
+            except OSError as error:
+                summary["cleanup"]["errors"].append({"path": path.relative_to(root).as_posix(), "error": str(error)})
+        for directory in directories:
+            if report_path.is_relative_to(directory):
+                continue
+            try:
+                directory.rmdir()
+            except OSError as error:
+                summary["cleanup"]["errors"].append({"path": directory.relative_to(root).as_posix(), "error": str(error)})
+        summary["cleanup"]["status"] = "FAILED" if summary["cleanup"]["errors"] else "COMPLETE"
+        dump_json(summary_path, summary)
+        if summary["cleanup"]["errors"]:
+            emit(f"  cleanup incomplete: see {summary_path}", "yellow")
+        else:
+            emit(f"  cleanup: removed {summary['cleanup']['removed_files']} temporary files; retained report and summary.", "green")
+        return summary_path
+
     def _finish(
         self, phases: Mapping[str, Any], pipeline_status: str, terminal_status: str
     ) -> str:
@@ -1145,6 +1263,11 @@ class Orchestrator:
             pipeline_status = "FAIL"
 
         self.state.update(status=pipeline_status)
+        if pipeline_status == "COMPLETE" and not self.dry_run:
+            try:
+                self.cleanup_completed_run()
+            except (PipelineError, OSError, ValueError) as error:
+                emit(f"  cleanup could not finish; migration succeeded, but temporary files may remain: {error}", "yellow")
         color = {"COMPLETE": "green", "BLOCKED": "yellow"}.get(pipeline_status, "red")
         emit(f"\nRun {self.run_id} finished: {pipeline_status}", color)
         emit(f"Evidence: {self.evidence_dir}")

@@ -3,13 +3,18 @@ from __future__ import annotations
 import copy
 from dataclasses import replace
 import json
+import logging
 import queue
 import re
+import stat
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
+import zipfile
 from unittest.mock import MagicMock, patch
 
 from PIL import Image
@@ -34,7 +39,9 @@ from aem_agents.toolchain import Toolchain
 from aem_agents.agents import AGENT_CLASSES
 from aem_agents.workspaces import WorkspaceError, digest
 from aem_agents.discovery import DiscoveryEvidence
-from aem_agents.handoff import PACKET_BYTES, prepare_shared_handoff, write_packets
+from aem_agents.handoff import PACKET_BYTES, prepare_planner_handoff, prepare_shared_handoff, write_packets
+from aem_agents.deployment import DeploymentVerifier, DeploymentError, jcr_value, repository_differences
+from xml.etree import ElementTree
 
 
 class EnvelopeTests(unittest.TestCase):
@@ -169,6 +176,22 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("Never use the original checkout path", prompt)
         self.assertNotIn("shared_tokens_ready", prompt)
         self.assertEqual(self.agent.env_extra()["MIGRATION_SOURCE_ROOT"], str(self.context.repo_root.resolve()))
+
+    def test_planner_prompt_uses_bounded_inputs_without_relaxing_coverage(self):
+        self.agent.planning_handoff = {"index_path": str(self.evidence / "planning-inputs/index.json")}
+        prompt = self.agent.render_prompt("planner")
+        self.assertIn(self.agent.planning_handoff["index_path"], prompt)
+        self.assertIn("Never truncate or drop observations", prompt)
+        self.assertIn("Do not repeat browser actions", prompt)
+        self.assertIn("no unclaimed gap of", prompt)
+        self.assertIn("every signal", prompt)
+
+    def test_mutated_planner_projection_is_rejected(self):
+        index = self.paths[0]
+        self.agent.planning_handoff = {"hashes": {str(index): digest(index)}}
+        index.write_text("tampered", encoding="utf-8")
+        with self.assertRaisesRegex(EnvelopeError, "Prepared planner inputs"):
+            self.agent.validate_result(AgentResult("planner", "test", "PASS"))
 
     def test_foundations_validate_tokens_without_replanning(self):
         agent = PlannerAgent(self.context, shared=True)
@@ -813,6 +836,61 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.run_gate(), "FAIL")
         self.engine.run_single.assert_not_called()
 
+    def test_deployment_repairs_only_the_reported_owner_and_dependents(self):
+        self.engine.max_attempts = 2
+        self.components[:] = [{"id": "hero"}, {"id": "related", "depends_on": ["hero"]}, {"id": "footer"}]
+        self.engine.state.set_components(self.components)
+        calls = []
+
+        def deploy(phase, **kwargs):
+            calls.append(phase["id"])
+            failed = phase["id"] == "deploy" and kwargs["attempt"] == 1
+            failures = [{"component_id": "hero", "owning_layer": "component", "hypothesis": "Compile failed", "evidence": ["compile.log"]}] if failed else []
+            result = AgentResult(phase["agent"], "test", "FAIL" if failed else "PASS", outputs={"failing_components": failures, "target_url": "http://test.invalid"})
+            return PhaseOutcome(phase["id"], result.status, [result])
+
+        self.engine.run_single.side_effect = deploy
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual(calls, ["deploy", "deploy", "parity"])
+        repaired = self.engine.run_fanout.call_args.args[1]
+        self.assertEqual({entry["id"] for entry in repaired}, {"hero", "related"})
+        self.assertEqual(self.engine.run_fanout.call_args.args[2]["hero"]["phase"], "deploy")
+
+    def test_shared_or_asset_deployment_failure_does_not_rerun_components(self):
+        self.engine.max_attempts = 2
+        for layer in ("foundation", "assets"):
+            with self.subTest(layer=layer):
+                self.engine.run_fanout.reset_mock()
+                self.engine.run_foundations.reset_mock()
+
+                def deploy(phase, **kwargs):
+                    failed = phase["id"] == "deploy" and kwargs["attempt"] == 1
+                    result = AgentResult(phase["agent"], "test", "FAIL" if failed else "PASS", outputs={"failing_components": [{"component_id": "hero", "owning_layer": layer}] if failed else [], "target_url": "http://test.invalid"})
+                    return PhaseOutcome(phase["id"], result.status, [result])
+
+                self.engine.run_single.side_effect = deploy
+                self.assertEqual(self.run_gate(), "COMPLETE")
+                self.engine.run_fanout.assert_called_once()
+                self.assertEqual(self.engine.run_foundations.call_count, int(layer == "foundation"))
+
+    def test_unmapped_deployment_failure_retries_without_blind_repairs(self):
+        self.engine.max_attempts = 4
+        self.engine.run_single.side_effect = lambda phase, **kwargs: PhaseOutcome(phase["id"], "FAIL", [AgentResult("deployer", "test", "FAIL")])
+        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.engine.run_single.call_count, 4)
+        self.engine.run_fanout.assert_called_once()
+        self.engine.run_foundations.assert_not_called()
+
+    def test_transient_unmapped_deployment_failure_can_recover(self):
+        self.engine.max_attempts = 2
+        def deploy(phase, **kwargs):
+            status = "FAIL" if phase["id"] == "deploy" and kwargs["attempt"] == 1 else "PASS"
+            return PhaseOutcome(phase["id"], status, [AgentResult(phase["agent"], "test", status, outputs={"target_url": "http://test.invalid", "failing_components": []})])
+        self.engine.run_single.side_effect = deploy
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_fanout.assert_called_once()
+        self.assertEqual(self.engine.run_single.call_count, 3)
+
     def test_failed_planner_never_starts_components(self):
         self.engine.preflight = MagicMock()
         self.engine.run_planner.return_value.status = "FAIL"
@@ -1337,6 +1415,178 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(self.engine.state.path.read_bytes(), before)
 
 
+class CleanupTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        contract = load_contract(settings)
+        settings.repo_root = self.root / "repo"
+        settings.repo_root.mkdir()
+        self.engine = Orchestrator(settings, contract, run_id="cleanup-test", evidence_dir=settings.repo_root / "design/scratch/migration-cleanup-test", logger=MagicMock())
+        self.evidence = self.engine.evidence_dir
+        self.report = self.evidence / "completion-report.md"
+        self.report.write_text("# Migration Completion Report\nStatus: COMPLETE\n", encoding="utf-8")
+        self.engine.state.record_agent_result("report", AgentResult("report", self.engine.run_id, "PASS", outputs={"report_path": str(self.report), "pipeline_status": "COMPLETE", "residual_gaps": []}).to_dict())
+        self.engine.state.update(status="COMPLETE")
+        self.temporary = ["discovery/collection/source/1440/bands.json", "workspaces/planner/checkout/core/Example.java", "agents/planner/planning-inputs/index.json", "agents/component/validation/tmp/cache.bin", "assets/image.png", "parity/scores.json", "orchestrator.log", "report-result.json", "component-plan.json"]
+        for name in self.temporary:
+            path = self.evidence / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("temporary", encoding="utf-8")
+
+    def test_cleanup_keeps_only_report_and_compact_summary_for_current_run(self):
+        source = self.engine.settings.repo_root / "component.java"
+        source.write_text("keep source", encoding="utf-8")
+        other = self.evidence.parent / "migration-other/bands.json"
+        other.parent.mkdir()
+        other.write_text("keep other run", encoding="utf-8")
+        summary_path = self.engine.cleanup_completed_run()
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        self.assertEqual({path.name for path in self.evidence.iterdir()}, {"completion-report.md", "completion-summary.json"})
+        self.assertEqual(summary["run_id"], self.engine.run_id)
+        self.assertEqual(summary["cleanup"]["status"], "COMPLETE")
+        self.assertFalse(summary["resume_available"])
+        self.assertGreater(summary["cleanup"]["removed_files"], len(self.temporary))
+        self.assertEqual(summary["report_sha256"], digest(self.report))
+        self.assertIn("historical references", self.report.read_text(encoding="utf-8"))
+        self.assertEqual(source.read_text(), "keep source")
+        self.assertEqual(other.read_text(), "keep other run")
+
+    def test_cleanup_preserves_unsuccessful_and_dry_runs(self):
+        for status in ("FAIL", "BLOCKED", "INTERRUPTED", "DRY_RUN", "RUNNING"):
+            with self.subTest(status=status):
+                self.engine.state.update(status=status)
+                self.assertIsNone(self.engine.cleanup_completed_run())
+                self.assertTrue((self.evidence / self.temporary[0]).is_file())
+        self.engine.state.update(status="COMPLETE")
+        self.engine.dry_run = True
+        self.assertIsNone(self.engine.cleanup_completed_run())
+
+    def test_cleanup_requires_valid_report_and_matching_state(self):
+        self.report.unlink()
+        with self.assertRaisesRegex(PipelineError, "nonempty report"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).exists())
+        self.report.write_text("completed", encoding="utf-8")
+        self.engine.state.update(run_id="different")
+        with self.assertRaisesRegex(PipelineError, "persisted state"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).exists())
+
+    def test_cleanup_never_deletes_an_outside_report(self):
+        outside = self.root / "outside.md"
+        outside.write_text("keep", encoding="utf-8")
+        self.engine.state.record_agent_result("report", AgentResult("report", self.engine.run_id, "PASS", outputs={"report_path": str(outside), "pipeline_status": "COMPLETE"}).to_dict())
+        with self.assertRaises(PipelineError):
+            self.engine.cleanup_completed_run()
+        self.assertEqual(outside.read_text(), "keep")
+
+    def test_cleaned_run_cannot_be_resumed(self):
+        self.engine.cleanup_completed_run()
+        with self.assertRaisesRegex(OSError, "cleaned after completion"):
+            Orchestrator(self.engine.settings, self.engine.contract, resume=True, evidence_dir=self.evidence)
+        with patch("aem_agents.cli.emit") as output, patch("aem_agents.cli.Orchestrator") as construct:
+            self.assertEqual(cli_main(["--resume", "--evidence-dir", str(self.evidence)]), 1)
+        construct.assert_not_called()
+        self.assertIn("cleaned after completion", output.call_args.args[0])
+
+    def test_cleanup_can_be_disabled_before_a_run(self):
+        self.engine.settings.migration = self.engine.settings.migration.merged({"run": {"cleanup_on_success": False}})
+        self.assertIsNone(self.engine.cleanup_completed_run())
+        self.assertTrue((self.evidence / self.temporary[0]).is_file())
+        self.assertTrue(self.engine.state.path.exists())
+
+    def test_ambiguous_cleanup_setting_never_enables_deletion(self):
+        self.engine.settings.migration = self.engine.settings.migration.merged({"run": {"cleanup_on_success": "false"}})
+        with self.assertRaisesRegex(PipelineError, "true or false"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).is_file())
+
+    def test_cleanup_runs_only_after_final_report_acceptance(self):
+        phases = {phase["id"]: phase for phase in self.engine.settings.phases()}
+        for phase in phases:
+            self.engine.state.set_phase(phase, "PASS")
+        self.engine.state.set_components([{"id": "hero"}])
+        self.engine.state.update_component("hero", status="PASS")
+        success = AgentResult("report", self.engine.run_id, "PASS", outputs={"pipeline_status": "COMPLETE", "residual_gaps": []})
+        with patch.object(self.engine, "run_report", return_value=PhaseOutcome("report", "PASS", [success])), patch.object(self.engine, "cleanup_completed_run") as cleanup:
+            self.assertEqual(self.engine._finish(phases, "COMPLETE", "FAILED-FINAL"), "COMPLETE")
+            cleanup.assert_called_once()
+            cleanup.reset_mock()
+            success.outputs["pipeline_status"] = "FAIL"
+            self.assertEqual(self.engine._finish(phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
+            cleanup.assert_not_called()
+        self.assertTrue((self.evidence / self.temporary[0]).is_file())
+
+    def test_cleanup_refuses_junctions_before_removing_any_files(self):
+        junction = self.evidence / "discovery"
+        original = Path.lstat
+        def details(path):
+            actual = original(path)
+            if path == junction:
+                return SimpleNamespace(st_mode=actual.st_mode, st_file_attributes=stat.FILE_ATTRIBUTE_REPARSE_POINT)
+            return actual
+        with patch.object(Path, "lstat", details), self.assertRaisesRegex(PipelineError, "links or junctions"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).exists())
+        self.assertTrue(self.engine.state.path.exists())
+        self.assertFalse((self.evidence / "completion-summary.json").exists())
+
+    def test_cleanup_requires_an_unchanged_run_directory_identity(self):
+        self.engine._evidence_identity = (-1, -1)
+        with self.assertRaisesRegex(PipelineError, "replaced or redirected"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).exists())
+
+    def test_cleanup_closes_only_its_own_log_file_handlers(self):
+        logger = logging.Logger("cleanup-test")
+        internal = logging.FileHandler(self.evidence / "orchestrator.log", encoding="utf-8")
+        external = logging.FileHandler(self.root / "unrelated.log", encoding="utf-8")
+        self.addCleanup(internal.close)
+        self.addCleanup(external.close)
+        logger.addHandler(internal)
+        logger.addHandler(external)
+        logger.warning("fixture")
+        self.engine.logger = logger
+        self.engine.cleanup_completed_run()
+        self.assertNotIn(internal, logger.handlers)
+        self.assertIsNone(internal.stream)
+        self.assertIn(external, logger.handlers)
+        self.assertFalse(external.stream.closed)
+        self.assertIn("fixture", (self.root / "unrelated.log").read_text())
+        self.assertFalse((self.evidence / "orchestrator.log").exists())
+
+    def test_cleanup_records_locked_files_without_claiming_removal(self):
+        locked = self.evidence / self.temporary[0]
+        original = Path.unlink
+        def remove(path, *args, **kwargs):
+            if path == locked:
+                raise PermissionError("fixture file in use")
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "unlink", remove):
+            result = self.engine.cleanup_completed_run()
+        summary = json.loads(result.read_text(encoding="utf-8"))
+        self.assertEqual(summary["cleanup"]["status"], "FAILED")
+        self.assertEqual(summary["status"], "COMPLETE")
+        self.assertTrue(locked.exists())
+        self.assertTrue(any(entry["path"] == self.temporary[0] for entry in summary["cleanup"]["errors"]))
+        self.assertTrue(self.report.exists())
+
+    def test_cleanup_does_not_delete_without_a_saved_summary(self):
+        summary = self.evidence / "completion-summary.json"
+        original = Path.open
+        def open_file(path, *args, **kwargs):
+            if path == summary:
+                raise OSError("fixture disk full")
+            return original(path, *args, **kwargs)
+        with patch.object(Path, "open", open_file), self.assertRaisesRegex(OSError, "disk full"):
+            self.engine.cleanup_completed_run()
+        self.assertTrue((self.evidence / self.temporary[0]).exists())
+        self.assertTrue(self.engine.state.path.exists())
+
+
 class RunnerTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -1711,6 +1961,418 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertEqual(set(agent.spec.get("required_checks")), {row["name"] for row in envelopes[0]["checks"]})
 
 
+class DeploymentTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name).resolve()
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        contract = load_contract(settings)
+        self.context = RunContext(settings, contract, MagicMock(), MagicMock(), "test", self.root / "evidence", MagicMock())
+        self.agent = DeployerAgent(self.context)
+
+    def test_scoped_deployment_is_ordered_and_binds_target(self):
+        plan = self.agent.deployment_plan(["ui.content/page.xml", "ui.apps/component.html", "core/Model.java", "ui.config/service.json"])
+        self.assertEqual([entry["id"] for entry in plan], ["core", "ui-config", "ui-apps", "ui-content"])
+        for entry in plan:
+            self.assertIn(f"-Daem.host={self.context.aem_host}", entry["command"])
+            self.assertIn(f"-Daem.port={self.context.aem_port}", entry["command"])
+        self.context.backend.run.assert_not_called()
+
+    def test_scoped_deployment_deduplicates_and_does_not_expand_to_reactor(self):
+        plan = self.agent.deployment_plan(["ui.apps/a.html", "ui.apps/b.html"])
+        self.assertEqual([entry["id"] for entry in plan], ["ui-apps"])
+        self.assertEqual(self.agent.deployment_plan([]), [])
+        with self.assertRaisesRegex(EnvelopeError, "No configured deployment scope"):
+            self.agent.deployment_plan(["pom.xml"])
+
+    def test_scoped_deployment_rejects_unknown_or_cyclic_dependencies(self):
+        for dependency in ("missing", "ui-apps"):
+            with self.subTest(dependency=dependency):
+                self.context.settings.migration = self.context.settings.migration.merged({"deploy": {"scoped": [
+                    {"id": "ui-apps", "match": ["ui.apps/**"], "depends_on": [dependency], "command": "mvn install"},
+                ]}})
+                with self.assertRaises(EnvelopeError):
+                    self.agent.deployment_plan(["ui.apps/a.html"])
+
+    def test_new_internal_dependency_justifies_configured_reactor(self):
+        self.context.settings.repo_root = self.root
+        before = self.context.evidence_dir / "workspaces/planner/checkout"
+        for root in (before, self.root):
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "pom.xml").write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>demo</groupId><artifactId>root</artifactId><modules><module>core</module><module>ui.apps</module></modules></project>', encoding="utf-8")
+            for module in ("core", "ui.apps"):
+                (root / module).mkdir()
+                (root / module / "pom.xml").write_text(f'<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>demo</groupId><artifactId>{module}</artifactId></project>', encoding="utf-8")
+        self.context.state.get.return_value = {"planner": {"status": "PASS", "run_id": "test", "outputs": {"worker_directory": str(before)}}}
+        self.context.settings.migration = self.context.settings.migration.merged({"deploy": {"full": {"command": "mvn install -pl core,ui.apps -am"}}})
+        self.assertEqual(self.agent.deployment_plan(["ui.apps/pom.xml"])[0]["id"], "ui-apps")
+        path = self.root / "ui.apps/pom.xml"
+        path.write_text(path.read_text().replace('</project>', '<dependencies><dependency><groupId>demo</groupId><artifactId>core</artifactId></dependency></dependencies></project>'), encoding="utf-8")
+        plan = self.agent.deployment_plan(["ui.apps/pom.xml"])
+        self.assertEqual(plan[0]["id"], "reactor")
+        self.assertEqual(plan[0]["justification"]["reason"], "new-cross-module-artifact-or-dependency")
+        with self.assertRaisesRegex(EnvelopeError, "outside Maven"):
+            self.agent.deployment_plan(["ui.apps/pom.xml", "unexpected.txt"])
+
+    def test_scoped_mismatch_uses_reactor_once_then_rechecks_runtime(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        self.context.state.component_rows.return_value = []
+        events = []
+        def execute(command, root, log, environment):
+            events.append(log.stem)
+            log.write_text("BUILD SUCCESS", encoding="utf-8")
+            return 0
+        def runtime(files, plan, directory, environment, started_at):
+            events.append("runtime")
+            proof = directory / "repository.json"
+            proof.write_text(json.dumps({"run_id": "test", "nodes": [{"differences": [{"path": "/content/test", "expected": "new", "actual": "old"}]}]}), encoding="utf-8")
+            if len([event for event in events if event == "runtime"]) == 1:
+                raise DeploymentError("Scoped mismatch", reactor_evidence=str(proof))
+            return {"outputs": {}, "checks": [{"name": name, "status": "PASS", "evidence": str(proof)} for name in self.agent.spec.get("required_checks") if name not in ("focused_tests_pass", "scoped_deploy_succeeded")]}
+        with patch.object(self.agent, "_prepare_target"), patch.object(self.agent, "validate_result"), patch.object(self.agent, "verify_runtime", side_effect=runtime), patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            result = self.agent.run(changed_files=["ui.apps/a.html"])
+        self.assertTrue(result.passed, result.failures)
+        self.assertEqual(events, ["compile", "ui-apps", "runtime", "reactor", "runtime"])
+        self.assertEqual(result.output("reactor_fallback")["reason"], "scoped-runtime-mismatch")
+        self.context.backend.run.assert_not_called()
+
+    def test_worker_executes_without_backend_and_requires_runtime_gates(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        self.context.state.component_rows.return_value = []
+        events = []
+
+        def execute(command, root, log, environment):
+            events.append(log.stem)
+            log.write_text("BUILD SUCCESS\n", encoding="utf-8")
+            return 0
+
+        def runtime(*args):
+            events.append("runtime")
+            path = self.context.evidence_dir / "runtime.json"
+            path.write_text("{}", encoding="utf-8")
+            return {"outputs": {}, "checks": [{"name": name, "status": "PASS", "evidence": str(path)} for name in self.agent.spec.get("required_checks") if name not in ("focused_tests_pass", "scoped_deploy_succeeded")]}
+
+        with patch.object(self.agent, "_prepare_target"), patch.object(self.agent, "validate_result"), patch.object(self.agent, "verify_runtime", side_effect=runtime), patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            result = self.agent.run(changed_files=["ui.content/page.xml", "ui.apps/component.html"])
+        self.assertTrue(result.passed, result.failures)
+        self.assertEqual(events, ["compile", "ui-apps", "ui-content", "runtime"])
+        self.assertEqual(result.output("deployment_model_calls"), 0)
+        self.context.backend.run.assert_not_called()
+
+    def test_worker_stops_before_deployment_when_compile_fails(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        self.context.state.component_rows.return_value = []
+
+        def execute(command, root, log, environment):
+            log.write_text("Compilation failed\n", encoding="utf-8")
+            return 1
+
+        with patch.object(self.agent, "_prepare_target"), patch.object(self.agent, "verify_runtime") as runtime, patch("aem_agents.agents.deployer.run_command", side_effect=execute) as command:
+            result = self.agent.run(changed_files=["ui.apps/component.html"])
+        self.assertEqual(result.status, "FAIL")
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(result.output("deploy_commands"), [])
+        runtime.assert_not_called()
+        self.context.backend.run.assert_not_called()
+
+    def test_reported_focused_tests_are_preserved_and_deduplicated(self):
+        command = 'mvn -pl core -am test "-Dtest=HeroModelTest#adapt"'
+        results = {f"component-{identity}-attempt-2": {
+            "run_id": "test", "status": "PASS", "outputs": {"focused_test": {"command": command, "status": "PASS"}},
+        } for identity in ("hero", "footer")}
+        self.context.state.component_rows.return_value = [{"id": identity, "attempts": 2} for identity in ("hero", "footer")]
+        self.context.state.get.side_effect = lambda name, default=None: results if name == "agent_results" else default
+        self.assertEqual(self.agent.focused_test_plan(), [{"command": ["mvn", "-pl", "core", "-am", "test", "-Dtest=HeroModelTest#adapt"], "working_directory": str(self.context.repo_root.resolve()), "components": ["hero", "footer"]}])
+        results["component-footer-attempt-2"]["outputs"]["focused_test"]["command"] = "node tests/footer.mjs"
+        self.assertEqual(len(self.agent.focused_test_plan()), 2)
+        results["component-hero-attempt-2"]["run_id"] = "old-run"
+        with self.assertRaisesRegex(EnvelopeError, "current-run"):
+            self.agent.focused_test_plan()
+
+    def test_focused_test_relocates_worker_paths_and_preserves_cwd(self):
+        self.context.settings.repo_root = self.root
+        (self.root / "core").mkdir()
+        worker = (self.root / "old-checkout").as_posix()
+        self.context.state.component_rows.return_value = [{"id": "hero", "attempts": 1}]
+        self.context.state.get.return_value = {"component-hero-attempt-1": {"run_id": "test", "status": "PASS", "outputs": {
+            "worker_directory": worker, "focused_test": {"command": ["node", worker + "/test.mjs"], "cwd": worker + "/core"},
+        }}}
+        plan = self.agent.focused_test_plan()
+        self.assertEqual(plan[0]["command"], ["node", str(self.root) + "/test.mjs"])
+        self.assertEqual(plan[0]["working_directory"], str(self.root / "core"))
+
+    def test_missing_or_shell_focused_test_never_falls_back_to_all_tests(self):
+        self.context.state.component_rows.return_value = [{"id": "hero", "attempts": 1}]
+        for test in (None, {"command": "mvn test && mvn install"}, {"command": "mvn install -PautoInstallPackage"}):
+            with self.subTest(test=test):
+                self.context.state.get.return_value = {"component-hero-attempt-1": {"run_id": "test", "status": "PASS", "outputs": {"focused_test": test}}}
+                with self.assertRaises(EnvelopeError):
+                    self.agent.focused_test_plan()
+
+    def test_missing_deployment_executable_is_blocked_without_code_repair(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        with patch.object(self.agent, "_prepare_target"), patch.object(self.agent, "repair_feedback") as repair, patch("aem_agents.agents.deployer.run_command", side_effect=BackendError("Maven unavailable")):
+            result = self.agent.run(changed_files=["ui.apps/a.html"])
+        self.assertEqual(result.status, "BLOCKED")
+        repair.assert_not_called()
+        self.context.backend.run.assert_not_called()
+
+    def test_environment_failure_in_command_log_is_blocked(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        def execute(command, root, log, environment):
+            log.write_text("Could not transfer artifact: status code: 401 Unauthorized\n", encoding="utf-8")
+            return 1
+        with patch.object(self.agent, "_prepare_target"), patch.object(self.agent, "repair_feedback") as repair, patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            result = self.agent.run(changed_files=["ui.apps/a.html"])
+        self.assertEqual(result.status, "BLOCKED")
+        repair.assert_not_called()
+
+    def test_command_failure_routes_owned_file_evidence(self):
+        self.context.settings.repo_root = self.root
+        source = self.root / "core/src/main/java/com/demo/core/models/Hero.java"
+        source.parent.mkdir(parents=True)
+        source.write_text("invalid java", encoding="utf-8")
+        self.context.state.get.side_effect = lambda name, default=None: default
+        self.context.state.component_rows.return_value = [{"id": "hero", "plan": {"id": "hero", "owned_paths": [source.relative_to(self.root).as_posix()]}}]
+        def execute(command, root, log, environment):
+            log.write_text(f"[ERROR] {source}:[3,1] cannot find symbol\n", encoding="utf-8")
+            return 1
+        with patch.object(self.agent, "_prepare_target"), patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            result = self.agent.run(changed_files=[source.relative_to(self.root).as_posix()])
+        self.assertEqual(result.status, "FAIL")
+        self.assertEqual([entry["component_id"] for entry in result.output("failing_components")], ["hero"])
+        self.assertEqual(source.read_text(), "invalid java")
+        self.context.backend.run.assert_not_called()
+
+    def test_scoped_deployment_rejects_overlapping_scopes(self):
+        self.context.settings.migration = self.context.settings.migration.merged({"deploy": {"scoped": [
+            {"id": "apps", "match": ["ui.apps/**"], "command": "mvn install"},
+            {"id": "also-apps", "match": ["ui.apps/**"], "command": "mvn install"},
+        ]}})
+        with self.assertRaisesRegex(EnvelopeError, "Ambiguous deployment scopes"):
+            self.agent.deployment_plan(["ui.apps/a.html"])
+
+    def test_silent_successful_command_has_nonempty_evidence(self):
+        directory = self.context.evidence_dir / "validation"
+        directory.mkdir(parents=True)
+        def execute(command, root, log, environment):
+            log.touch()
+            return 0
+        with patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            self.agent._execute("silent", ["javac"], directory, {}, {})
+        self.assertIn("exit code 0", (directory / "silent.log").read_text())
+
+    def test_assessment_invokes_ootb_analyzer_without_modifying_it(self):
+        analyzer = self.context.settings.resolve(self.context.settings.migration.get("deploy.assessment.source"))
+        source_hashes = {path: digest(path) for path in analyzer.rglob("*.java")}
+        self.context.settings.migration = self.context.settings.migration.merged({"deploy": {"assessment": {"source": str(analyzer)}}})
+        self.context.settings.repo_root = self.root
+        self.context.toolchain = Toolchain(self.root / "jdk", "fixture")
+        source = self.root / "core/src/main/java/Example.java"
+        source.parent.mkdir(parents=True)
+        source.write_text("class Example {}", encoding="utf-8")
+        directory = self.context.evidence_dir / "validation"
+        directory.mkdir(parents=True)
+        commands = []
+
+        def execute(command, root, log, environment):
+            commands.append(command)
+            if "analyzer.Analyze" in command:
+                dump = json.dumps({"findings": [], "warnings": []})
+                log.write_text(dump, encoding="utf-8")
+                generated = self.root / ".autofix"
+                generated.mkdir()
+                (generated / "analyzer-output.json").write_text(dump, encoding="utf-8")
+            else:
+                log.touch()
+            return 0
+
+        outputs = {}
+        with patch("aem_agents.agents.deployer.run_command", side_effect=execute):
+            self.agent._assess([source.relative_to(self.root).as_posix()], directory, {}, outputs)
+        self.assertEqual(len(commands), 2)
+        self.assertIn("analyzer.Analyze", commands[-1])
+        self.assertEqual(commands[-1][-2:], ["--files", "core/src/main/java/Example.java"])
+        self.assertEqual(json.loads(Path(outputs["code_assessment"]).read_text()), {"findings": [], "warnings": []})
+        self.assertEqual({path: digest(path) for path in source_hashes}, source_hashes)
+        self.context.backend.run.assert_not_called()
+
+    def test_worker_dry_run_never_executes_commands(self):
+        self.context.dry_run = True
+        with patch("aem_agents.agents.deployer.run_command") as command:
+            result = self.agent.run(changed_files=["ui.apps/component.html"])
+        self.assertTrue(result.passed)
+        self.assertTrue(result.output("skipped"))
+        command.assert_not_called()
+        self.context.backend.run.assert_not_called()
+
+    def test_repository_comparison_detects_properties_cardinality_and_order(self):
+        source = ElementTree.fromstring('<root enabled="{Boolean}true" count="{Long}2" tags="[one,two]"><first text="Hello"/><second/></root>')
+        live = {"enabled": True, "count": 2, "tags": ["one", "two"], "first": {"text": "Hello"}, "second": {}}
+        self.assertEqual(repository_differences(source, live, {}, "/content/test"), [])
+        self.assertTrue(repository_differences(source, {**live, "stale": "old"}, {}, "/content/test"))
+        changed = dict(live)
+        changed["first"] = {"text": "Old"}
+        self.assertTrue(repository_differences(source, changed, {}, "/content/test"))
+        changed = {key: live[key] for key in ("enabled", "count", "tags", "second", "first")}
+        self.assertTrue(repository_differences(source, changed, {}, "/content/test"))
+        self.assertEqual(jcr_value(r"{String}[one\,two,three]"), ["one,two", "three"])
+
+    def test_runtime_requires_current_run_component_evidence(self):
+        self.context.state.get.return_value = {}
+        with self.assertRaisesRegex(DeploymentError, "No accepted current-run"):
+            DeploymentVerifier(self.context).browser_input([{"id": "hero"}])
+
+    def test_missing_asset_blocks_installation_and_routes_to_asset_phase(self):
+        self.context.settings.repo_root = self.root
+        self.context.state.get.side_effect = lambda name, default=None: default
+        self.context.state.component_rows.return_value = []
+        events = []
+        def execute(command, root, log, environment):
+            events.append(log.stem)
+            log.write_text("BUILD SUCCESS", encoding="utf-8")
+            return 0
+        asset = {"dam_path": "/content/dam/missing.png", "owners": ["hero"]}
+        with patch.object(self.agent, "_prepare_target"), patch("aem_agents.agents.deployer.run_command", side_effect=execute), patch("aem_agents.deployment._declared_assets", return_value=[asset]), patch.object(DeploymentVerifier, "request", side_effect=DeploymentError("HTTP 404")):
+            result = self.agent.run(changed_files=["ui.apps/a.html"])
+        self.assertEqual(result.status, "FAIL")
+        self.assertEqual(events, ["compile"])
+        self.assertEqual(result.output("deploy_commands"), [])
+        self.assertEqual(result.output("failing_components")[0]["owning_layer"], "assets")
+
+    def test_runtime_contract_requires_each_model_and_clientlib(self):
+        self.context.settings.repo_root = self.root
+        template = "ui.apps/src/main/content/jcr_root/apps/demo-ai-site/components/hero/hero.html"
+        source = self.root / template
+        source.parent.mkdir(parents=True)
+        source.write_text('<sly data-sly-use.model="com.demo.core.models.HeroModel"/><h1>${model.title}</h1>', encoding="utf-8")
+        library = source.parent / "clientlib/.content.xml"
+        library.parent.mkdir()
+        library.write_text('<root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:ClientLibraryFolder"/>', encoding="utf-8")
+        component = {"id": "hero"}
+        verifier = DeploymentVerifier(self.context)
+        output = {"authored_paths": ["/content/test/jcr:content/hero"]}
+        with self.assertRaisesRegex(DeploymentError, "Missing live adaptation"):
+            verifier.component_runtime(component, output)
+        probe = {"kind": "htl", "model": "com.demo.core.models.HeroModel", "resource_path": output["authored_paths"][0], "template": template, "expression": "${model.title}", "selector": "h1", "text": "Title"}
+        output["runtime_contract"] = {"model_probes": [probe]}
+        with self.assertRaisesRegex(DeploymentError, "Missing runtime mappings"):
+            verifier.component_runtime(component, output)
+        output["runtime_contract"]["clientlibs"] = [{"path": "/etc.clientlibs/demo-ai-site/components/hero/clientlib.css", "kind": "stylesheet", "sources": [library.relative_to(self.root).as_posix()]}]
+        self.assertEqual(verifier.component_runtime(component, output)["model_probes"], [probe])
+        probe["expression"] = "${model.fake}"
+        with self.assertRaisesRegex(DeploymentError, "actual model-bound"):
+            verifier.component_runtime(component, output)
+
+    def test_clientlib_embedding_is_verified_not_just_claimed(self):
+        self.context.settings.repo_root = self.root
+        root = self.root / "ui.apps/src/main/content/jcr_root/apps/demo-ai-site"
+        paths = [root / "clientlibs/site/.content.xml", root / "components/hero/clientlib/.content.xml"]
+        for path in paths:
+            path.parent.mkdir(parents=True)
+        paths[0].write_text('<root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:ClientLibraryFolder" embed="[hero]"/>', encoding="utf-8")
+        paths[1].write_text('<root xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="cq:ClientLibraryFolder" categories="[hero]"/>', encoding="utf-8")
+        library = {"path": "/etc.clientlibs/demo-ai-site/clientlibs/site.css", "kind": "stylesheet", "sources": [paths[1].relative_to(self.root).as_posix()]}
+        verifier = DeploymentVerifier(self.context)
+        verifier.validate_clientlib_mapping(library)
+        paths[0].write_text(paths[0].read_text().replace('embed="[hero]"', 'embed="[other]"'), encoding="utf-8")
+        with self.assertRaisesRegex(DeploymentError, "does not embed"):
+            verifier.validate_clientlib_mapping(library)
+
+    def test_real_browser_deployment_checks_pages_and_missing_components(self):
+        script = self.root / "deployment-fixture.mjs"
+        module = (SCRIPTS / "tools/deploy.mjs").as_uri()
+        script.write_text(
+            "import assert from 'node:assert/strict';\n"
+            "import http from 'node:http';\n"
+            f"import {{ verifyDeployment }} from {json.dumps(module)};\n"
+            "const server = http.createServer((request, response) => {\n"
+            "  if (request.url === '/content/test/hero.model.json') { response.writeHead(200, {'Content-Type':'application/json'}); response.end(JSON.stringify({title:'Hello',items:['one','two']})); return; }\n"
+            "  if (request.url.startsWith('/etc.clientlibs/site')) { response.writeHead(200, {'Content-Type':'text/css'}); response.end(':root{--site-text:#123}'); return; }\n"
+            "  if (request.url === '/content/dam/test.png') { response.writeHead(200, {'Content-Type':'image/png'}); response.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfoAAAAASUVORK5CYII=', 'base64')); return; }\n"
+            "  if (request.url === '/site.css') { response.writeHead(200, {'Content-Type':'text/css'}); response.end(':root{--site-text:#123} body{color:var(--site-text)}'); return; }\n"
+            "  response.writeHead(200, {'Content-Type':'text/html'});\n"
+            "  response.end(request.url.startsWith('/editor.html') ? '<iframe id=ContentFrame src=/content/test.html?wcmmode=edit></iframe>' : '<!doctype html><title>Fixture</title><link rel=stylesheet href=/site.css><link rel=stylesheet href=/etc.clientlibs/site.lc-123-lc.min.css><style>@media(max-width:767px){#desktop{display:none}}</style><main id=hero><h1>Hello</h1><a href=/valid>Details</a></main><aside id=desktop>Desktop content</aside>');\n"
+            "});\n"
+            "await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));\n"
+            "try {\n"
+            "  const origin = `http://127.0.0.1:${server.address().port}`;\n"
+            "  const input = {schema_version:1,run_id:'test',credentials_env:'DEPLOY_FIXTURE_CREDENTIALS',target_page_path:'/content/test',aem_urls:{disabled:origin+'/content/test.html',author:origin+'/editor.html/content/test.html'},breakpoints:[375,768,1440],modes:['disabled','author'],token_prefix:'--site-',assets:[],components:[{id:'hero',source_order:0,source_selectors:[{instance_id:'hero-1'}],targets:[{instance_id:'hero-1',selector:'#hero'}]}]};\n"
+            "  input.components.push({id:'desktop',source_order:1,visible_breakpoints:[768,1440],source_selectors:[{instance_id:'desktop-1'}],targets:[{instance_id:'desktop-1',selector:'#desktop',breakpoint:768},{instance_id:'desktop-1',selector:'#desktop',breakpoint:1440}]});\n"
+            "  input.assets = [{dam_path:'/content/dam/test.png',owners:['hero']}];\n"
+            "  input.components[0].model_probes = [{kind:'htl',model:'HeroModel',resource_path:'/content/test/hero',selector:'h1',text:'Hello'},{kind:'exporter',model:'ExportedModel',resource_path:'/content/test/hero',expected:{title:'Hello',items:['one','two']}}];\n"
+            "  input.components[0].clientlibs = [{kind:'stylesheet',path:'/etc.clientlibs/site.css',sources:['fixture']}];\n"
+            "  const result = await verifyDeployment(input);\n"
+            "  assert.equal(result.status, 'PASS', JSON.stringify(result.failures));\n"
+            "  assert.equal(result.pages.length, 6);\n"
+            "  assert.equal(result.assets[0].status, 'PASS');\n"
+            "  assert.equal(result.models.length, 2);\n"
+            "  input.breakpoints = [375]; input.modes = ['disabled'];\n"
+            "  input.components[0].targets[0].selector = '#missing';\n"
+            "  const failed = await verifyDeployment(input);\n"
+            "  assert.equal(failed.status, 'FAIL');\n"
+            "  assert(failed.failures.some(entry => entry.component_id === 'hero'));\n"
+            "  input.components[0].targets[0].selector = '#hero';\n"
+            "  input.assets[0].dam_path = '/content/dam/invalid.png';\n"
+            "  const brokenAsset = await verifyDeployment(input);\n"
+            "  assert.equal(brokenAsset.status, 'FAIL');\n"
+            "  assert(brokenAsset.failures.some(entry => entry.owning_layer === 'assets'));\n"
+            "  input.assets = []; input.components[0].model_probes[0].text = 'Wrong'; input.components[0].model_probes[1].expected.items = ['two','one'];\n"
+            "  input.components[0].clientlibs[0].path = '/etc.clientlibs/missing.css';\n"
+            "  const brokenRuntime = await verifyDeployment(input);\n"
+            "  assert.equal(brokenRuntime.status,'FAIL'); assert(brokenRuntime.models.every(model => model.status === 'FAIL'));\n"
+            "  assert(brokenRuntime.failures.some(entry => entry.error.includes('clientlib did not load')));\n"
+            "} finally { await new Promise(resolve => server.close(resolve)); }\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
+    def test_installed_artifacts_require_current_install_and_active_bundle(self):
+        self.context.settings.repo_root = self.root
+        package = self.root / "ui.apps/target/demo.ui.apps-1.0.zip"
+        package.parent.mkdir(parents=True)
+        (self.root / "ui.apps/pom.xml").write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><artifactId>demo.ui.apps</artifactId><version>1.0</version><packaging>content-package</packaging></project>', encoding="utf-8")
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr("META-INF/vault/properties.xml", '<properties><entry key="group">demo</entry><entry key="name">demo.ui.apps</entry><entry key="version">1.0</entry></properties>')
+        manifest = self.root / "core/target/classes/META-INF/MANIFEST.MF"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("Bundle-SymbolicName: demo.core\nBundle-Version: 1.0.0\n", encoding="utf-8")
+        verifier = DeploymentVerifier(self.context)
+        started = time.time()
+        bundle = {"data": [{"symbolicName": "demo.core", "version": "1.0.0", "stateRaw": 32}]}
+        with patch.object(verifier, "json", side_effect=[{"lastUnpacked": started * 1000}, bundle]):
+            self.assertEqual(len(verifier.installed_artifacts(self.agent.deployment_plan(["ui.apps/a.html"]), started)), 2)
+        with patch.object(verifier, "json", return_value={"lastUnpacked": 0}), self.assertRaisesRegex(DeploymentError, "current-attempt"):
+            verifier.installed_artifacts(self.agent.deployment_plan(["ui.apps/a.html"]), started)
+        bundle["data"][0]["stateRaw"] = 4
+        with patch.object(verifier, "json", return_value=bundle), self.assertRaisesRegex(DeploymentError, "active"):
+            verifier.installed_artifacts([], started)
+
+    def test_repository_check_accounts_for_filevault_files_and_namespaces(self):
+        self.context.settings.repo_root = self.root
+        component = "ui.apps/src/main/content/jcr_root/apps/demo/components/hero"
+        directory = self.root / component
+        directory.mkdir(parents=True)
+        (directory / ".content.xml").write_text('<root title="Hero"/>', encoding="utf-8")
+        (directory / "hero.html").write_text("<h1>Hello</h1>", encoding="utf-8")
+        dialog = directory / "_cq_dialog"
+        dialog.mkdir()
+        (dialog / ".content.xml").write_text('<root xmlns:granite="http://www.adobe.com/jcr/granite/1.0" title="Dialog" granite:class="hero-dialog"/>', encoding="utf-8")
+        verifier = DeploymentVerifier(self.context)
+        with patch.object(verifier, "json", side_effect=[{"title": "Hero", "hero.html": {}, "cq:dialog": {}}, {"title": "Dialog", "granite:class": "hero-dialog"}]) as fetch, patch.object(verifier, "request", return_value=b"<h1>Hello</h1>"):
+            reports = verifier.repository([component + suffix for suffix in ("/.content.xml", "/_cq_dialog/.content.xml", "/hero.html")])
+        self.assertTrue(all(not row["differences"] for row in reports))
+        self.assertEqual(fetch.call_args_list[-1].args[0], "/apps/demo/components/hero/cq:dialog.infinity.json")
+
+
 class HandoffTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -1742,6 +2404,33 @@ class HandoffTests(unittest.TestCase):
             for row in json.loads(path.read_text(encoding="utf-8"))["records"]:
                 rows.append(json.loads((directory / row["record_file"]).read_text(encoding="utf-8")) if "record_file" in row else row)
         return rows
+
+    def test_planner_handoff_bounds_inputs_without_dropping_observations(self):
+        source = self.evidence / "source/375"
+        source.mkdir(parents=True)
+        summary = self.evidence / "summary.json"
+        inventory = self.evidence / "inventory.json"
+        summary.write_text(json.dumps({"run_id": "test", "site_url": self.context.contract.site_url, "pages": [{"breakpoint": 375, "headings": [], "viewport": {"width": 375}}]}), encoding="utf-8")
+        inventory.write_text(json.dumps({"roots": [{"kind": "components", "path": "ui.apps/components", "exists": True, "files": ["hero.html"]}], "definitions": [{"path": "hero.xml", "attributes": {"title": "Hero"}, "fields": [{"name": "./title"}]}]}), encoding="utf-8")
+        nodes = [{"selector": "#hero", "text": "long exact copy " * 1000, "rect": {"width": 375, "height": 200}, "styles": {"color": "red"}, "custom": {"keep": True}},
+                 {"selector": "#conditional", "visible": False, "rect": {"width": 0, "height": 0}, "observation_state": "mid-scroll"}]
+        tokens = [{"property": "color", "value": "red", "count": 500, "selectors": ["#hero"] * 500}]
+        (source / "observations.json").write_text(json.dumps(nodes), encoding="utf-8")
+        (source / "tokens.json").write_text(json.dumps(tokens), encoding="utf-8")
+        self.context.contract = replace(self.context.contract, breakpoints=[375])
+        prepared = DiscoveryEvidence(source.parent / "manifest.json", summary, inventory, (), 1, False)
+        originals = {path: digest(path) for path in (summary, inventory, source / "observations.json", source / "tokens.json")}
+        result = prepare_planner_handoff(self.context, self.evidence / "handoff", prepared)
+        rows = self.records(result, "nodes-375")
+        self.assertEqual([row["selector"] for row in rows], ["#hero", "#conditional"])
+        self.assertEqual(rows[0]["text_characters"], len(nodes[0]["text"]))
+        self.assertEqual(len(rows[0]["text"]), 240)
+        self.assertIn("custom", rows[0]["detail_fields"])
+        self.assertEqual(rows[1]["pointer"], "/1")
+        self.assertEqual(self.records(result, "tokens-375")[0]["count"], 500)
+        self.assertEqual(self.records(result, "inventory-definitions")[0]["field_count"], 1)
+        self.assertEqual({path: digest(path) for path in originals}, originals)
+        self.assertTrue(all(Path(name).is_relative_to(self.evidence) for name in result["artifacts"]))
 
     def test_packets_preserve_oversized_and_unicode_records(self):
         records = [{"name": str(index), "value": "\\\"\u2192" * 250} for index in range(20)]
@@ -1852,7 +2541,7 @@ class EndToEndTests(unittest.TestCase):
                     role = workspace.name.split("-")[0]
                     shared = workspace.name.startswith("planner-shared")
                     calls.append("planner-shared" if shared else role)
-                    test_case.assertNotEqual(role, "parity", "Comparison must not invoke the model backend")
+                    test_case.assertNotIn(role, ("deployer", "parity"), "Deterministic workers must not invoke the model backend")
                     check_log = workspace / "checks.log"
                     check_log.write_text("Offline unit-test fixture", encoding="utf-8")
                     outputs = {}
@@ -1884,6 +2573,7 @@ class EndToEndTests(unittest.TestCase):
                         code.parent.mkdir(parents=True, exist_ok=True)
                         code.write_text("<p>Unit test</p>", encoding="utf-8")
                         outputs = {"component_id": component_id, "changed_files": [changed], "resource_type": component["resource_type"],
+                                   "focused_test": {"command": ["node", "tests/component.mjs"], "evidence": str(check_log)},
                                    "parity_targets": [{"instance_id": f"{component_id}-1", "selector": f".{component_id}"}]}
                         contribution = {
                             "component_id": component_id, "source_order": component["source_order"],
@@ -1897,8 +2587,6 @@ class EndToEndTests(unittest.TestCase):
                             page = {name: contribution.pop(name) for name in ("page_path", "parent_path", "template_path", "page_properties", "nodes")}
                             contribution["pages"] = [page, {**page, "page_path": xf_target}]
                         (workspace / "contributions.json").write_text(json.dumps(contribution), encoding="utf-8")
-                    elif role == "deployer":
-                        outputs = {"deploy_commands": [], "target_url": f"http://{engine.context.aem_host}:{engine.context.aem_port}/content/test.html"}
                     payload = {
                         "agent": role, "run_id": "integration", "status": status, "outputs": outputs,
                         "checks": [{"name": name, "status": "PASS", "evidence": str(check_log)} for name in settings.agent(role).get("shared.required_checks" if shared else "required_checks")],
@@ -1939,6 +2627,23 @@ class EndToEndTests(unittest.TestCase):
             build_patch = patch("aem_agents.orchestrator.run_command", side_effect=frontend_command)
             build_mock = build_patch.start()
             self.addCleanup(build_patch.stop)
+            def deployment_command(command, directory, log, environment):
+                log.write_text("Offline deployment command fixture", encoding="utf-8")
+                return 0
+
+            def deployment_runtime(agent, files, plan, directory, environment, started_at):
+                calls.append("deployer")
+                log = directory / "runtime.json"
+                log.write_text("{}", encoding="utf-8")
+                checks = [{"name": name, "status": "PASS", "evidence": str(log)} for name in agent.spec.get("required_checks") if name not in ("focused_tests_pass", "scoped_deploy_succeeded")]
+                return {"outputs": {"runtime_sweep": str(log)}, "checks": checks}
+
+            deploy_patch = patch("aem_agents.agents.deployer.run_command", side_effect=deployment_command)
+            deploy_mock = deploy_patch.start()
+            self.addCleanup(deploy_patch.stop)
+            runtime_patch = patch.object(DeployerAgent, "verify_runtime", deployment_runtime)
+            runtime_patch.start()
+            self.addCleanup(runtime_patch.stop)
             capture_patch = patch.object(ParityAgent, "_capture", capture)
             capture_patch.start()
             self.addCleanup(capture_patch.stop)
@@ -1946,6 +2651,9 @@ class EndToEndTests(unittest.TestCase):
             fixture_manifest = evidence / "collector.json"
             fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
             prepared = DiscoveryEvidence(fixture_manifest, fixture_manifest, fixture_manifest, (fixture_manifest,), .1, False)
+            input_patch = patch("aem_agents.agents.planner.prepare_planner_handoff", return_value={"index_path": str(fixture_manifest), "packet_count": 1, "elapsed_seconds": .01, "input_bytes": 1, "artifacts": [str(fixture_manifest)], "hashes": {str(fixture_manifest): digest(fixture_manifest)}})
+            input_mock = input_patch.start()
+            self.addCleanup(input_patch.stop)
             with patch("aem_agents.orchestrator.create_backend", return_value=backend), patch("aem_agents.orchestrator.check_node", return_value="v22.14.0"), patch("aem_agents.orchestrator.resolve_java_home", return_value=Toolchain(root / "jdk", "fixture")), patch("aem_agents.orchestrator.check_maven", side_effect=lambda tools: tools), patch("aem_agents.orchestrator.ensure_browser", return_value=browser_paths(original)), patch("aem_agents.agents.planner.collect_discovery", return_value=prepared) as collect, patch("aem_agents.agents.planner.validate_collection", return_value=({}, (fixture_manifest,))), patch("aem_agents.orchestrator.emit"), patch("aem_agents.agents.base.emit"):
                 with self.assertRaises(KeyboardInterrupt):
                     engine.run()
@@ -1956,7 +2664,9 @@ class EndToEndTests(unittest.TestCase):
                 engine = Orchestrator(settings, contract, resume=True, skip_probe=True, evidence_dir=evidence, logger=MagicMock())
                 self.assertEqual(engine.run(), "COMPLETE")
                 collect.assert_called_once()
+                input_mock.assert_called_once()
                 self.assertEqual(build_mock.call_count, 2)
+                self.assertEqual(deploy_mock.call_count, 8)
             self.assertEqual(calls, ["deployer"])
             self.assertEqual(engine.state.get("status"), "COMPLETE")
             accepted = next(row["plan"] for row in engine.state.component_rows() if row["id"] == "hero")
@@ -1968,7 +2678,11 @@ class EndToEndTests(unittest.TestCase):
             self.assertEqual(report["pipeline_status"], "COMPLETE")
             self.assertEqual(report["residual_gaps"], [])
             self.assertIn("VISUAL PARITY GATE: PASSED", (evidence / "completion-report.md").read_text(encoding="utf-8"))
-            self.assertTrue((evidence / "report-result.json").is_file())
+            self.assertFalse((evidence / "report-result.json").exists())
+            self.assertEqual({path.name for path in evidence.iterdir()}, {"completion-report.md", "completion-summary.json"})
+            summary = json.loads((evidence / "completion-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["cleanup"]["status"], "COMPLETE")
+            self.assertFalse(summary["resume_available"])
 
 
 if __name__ == "__main__":

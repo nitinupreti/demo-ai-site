@@ -84,12 +84,14 @@ agents:
       focused_test: outputs.focused_test
 
   deployer:
-    title: Deployer
+    title: Deterministic deployment worker
     prompt: deployer.md
     description: >-
-      Receives the union of every component agent's changed files, chooses the
-      smallest scoped Maven deploy that covers them, deploys in dependency order,
-      and proves the change is live with an HTTP and repository sweep.
+      Runs configured validation, tests, OOTB code assessment and scoped Maven
+      deployments in dependency order, then verifies live AEM evidence without
+      a model call. Reuses component-focused tests and supports evidence-backed
+      reactor fallback. Returns repair diagnostics to the existing source owners;
+      never edits application source or treats missing runtime probes as a pass.
     required_result_keys: [agent, run_id, status, deploy_commands, target_url]
     required_checks:
       - focused_tests_pass

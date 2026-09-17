@@ -219,7 +219,7 @@ Python + pinned collector: source evidence and cached repository inventory
   -> Assets: deterministic downloads and DAM upload
   -> Merge: deterministic page/XF contributions and Vault filters
   -> Coordinator: serialized frontend build and verified clientlib application
-  -> Deployer: scoped builds, deployment and runtime checks
+  -> Deployment worker: configured builds, tests, scoped deployment and runtime checks (no LLM)
   -> Fixed Playwright collector: fresh component/state/page captures and measured checks (no LLM)
   -> Pinned scorer: independent pixels, composites and hash receipts
   -> Orchestrator: deterministic completion report from persisted evidence
@@ -231,10 +231,10 @@ Failed gates -> bounded repairs of owners and affected dependents
 |---|---|
 | `planner` | Planning mode emits coverage, the component plan and measured tokens without source edits. Shared mode then establishes tokens, styles and policies in isolation. **The accepted component count is the fan-out width.** |
 | `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
-| `deployer` | Chooses the smallest scoped Maven deploy covering the union of changed files and proves the change is live. |
+| `deployer` | Deterministic worker: executes configured checks and scoped Maven deployments, verifies live evidence, and returns owner-scoped repair diagnostics. No LLM invocation. |
 | `parity` | Coordinator-run collector/validator, not an LLM invocation. Captures and checks styles, fonts, geometry, media and supported interaction states; Python owns acceptance. |
 
-There are three LLM roles plus the deterministic parity phase. The planner has planning and shared-file prompts, with
+There are two LLM roles (planner and component), plus deterministic deployment and parity phases. The planner has planning and shared-file prompts, with
 separate invocations/results so accepted planning is not repeated. The order is strictly
 `plan -> foundations -> implement`: failed planning prevents foundations work,
 and failed foundations prevents every component worker from starting. Shared
@@ -243,6 +243,67 @@ The `foundations` phase is now assigned to `planner` with `mode: shared`; there 
 no separate foundations agent. Initial shared output uses `planner-shared`, and
 repairs use `planner-shared-repair-attempt-N` without recollecting source or changing
 the accepted plan. Both modes retain their own required checks and ownership.
+
+### Deterministic deployment
+
+The `DeployerAgent` class and `deployer-attempt-N` result names remain for pipeline
+compatibility, but deployment never calls the model backend. The worker selects
+configured `deploy.scoped` commands, deduplicates them and orders selected scopes
+by `depends_on`. Missing scopes and dependency cycles fail before commands run.
+The existing full-reactor command is retained for two evidenced cases: new Maven
+artifacts/internal dependencies measured against the accepted planner's original
+source snapshot, or actual live repository differences after successful scoped
+installs. Changing several modules alone is not sufficient. Each fallback records
+its justification and runs the full runtime checks again; at most one fallback is
+made per deployment attempt. Unknown non-Maven paths never authorize a reactor.
+`deploy.full.verify_modules` identifies the installed aggregate package to verify,
+not every build-only module selected by the reactor command.
+
+After the coordinator's frontend build, the worker performs configured target
+hygiene, compile/HTL validation, component-reported focused tests and OOTB code
+assessment for changed Java/OSGi/Maven files. Focused tests are deduplicated by
+command and working directory, with isolated source paths relocated to the merged
+checkout. Maven method selectors and non-Maven test commands are preserved; missing
+commands are reported to their component owner, never replaced by `-Dtest=*`.
+Declared DAM availability is checked before any package installation.
+The analyzer is compiled under the
+validation directory without modifying its OOTB sources. Its checkout-root
+`.autofix/` reports remain excluded from source changes and deployment packages.
+Silent successful commands receive an explicit exit-code log receipt.
+
+Maven deployments run sequentially. Read-only checks verify current-attempt
+package installation timestamps, the expected active core bundle version,
+typed FileVault properties, child order/cardinality and deployed application-file
+bytes. Fixed Playwright checks cover disabled and author content-frame pages at
+all required breakpoints, mapped component instances, shared styles/tokens,
+visible media and declared DAM images. Component `runtime_contract.model_probes`
+identify model-bound HTL expressions or existing exporters, authored resources and
+expected model-derived values. Fresh HTL probe requests disable JavaScript; exporter
+probes check nested JSON values and array order/cardinality. Child models can use
+`via_model` when the owned parent references that child class. Every known model
+needs a probe; an active bundle and an arbitrary nonempty page do not prove adaptation.
+`runtime_contract.clientlibs` maps owned library definitions to exact CSS/JS requests.
+Embedding relationships are checked against source definitions, and browser checks
+accept AEM cache-busted/minified request forms while rejecting missing libraries.
+Components without a usable existing HTL/exporter probe must report the missing
+capability; the pipeline does not add diagnostic servlets, change APIs or invent
+passing evidence. These probes establish the declared model outputs, not arbitrary
+unexercised getter behavior. Visual equivalence remains the separate
+parity gate. The AEM account needs access to Package Manager metadata, repository
+JSON and the bundle console; unavailable access is a prerequisite, not a pass.
+
+Source defects are routed to the component owner and affected dependents; shared
+defects go to planner shared mode. Asset-only failures retry asset handling without
+rerunning component builders. Missing executables/authentication or unavailable
+AEM produce `BLOCKED`; unmapped failures retry deployment within the existing
+attempt budget without triggering blind source repair. Every repaired attempt
+repeats deployment and runtime checks. Invalid/unknown reported owners still fail.
+The worker never edits application source and records `deployment_model_calls: 0`.
+
+These are the existing local-SDK Maven deployments, not a replacement for Cloud
+Manager production pipelines. Start a fresh run after updating this workflow;
+old checkpoint fingerprints are not migrated. Automated fixture tests do not
+establish live AEM compatibility; no AEM deployment is performed by the test suite.
 
 ### Compact shared inputs
 
@@ -296,8 +357,8 @@ layout failures go to planner shared mode; shared-only changes do not rerun ever
 component model. Failure prompts contain measured deltas and references to source,
 AEM, side-by-side and diff files, with full measurements linked separately. After
 repair/deployment the complete page is recaptured to catch regressions. Comparison
-itself records `comparison_model_calls: 0`. Initial implementation and deployment
-still use their existing LLM roles.
+itself records `comparison_model_calls: 0`. Only planning, shared-source work and
+component implementation/repair use LLM roles; deployment is deterministic.
 
 Unsupported or missing mappings and cross-origin embeds fail rather than silently
 passing. The collector does not yet certify arbitrary business interactions, form
@@ -572,8 +633,10 @@ Shared paths are configured in `isolation.foundation_paths`. Missing tokens are
 reported as `foundation_requests`; shared styles and policy requests use the same
 owner-directed mechanism. The coordinator schedules planner shared mode for repair
 mode within the existing retry budget. Repairs also include transitive dependents.
-Snapshots are retained under the evidence directory for inspection, so budget disk
-space along with parallelism. On Windows, a short `--evidence-dir` helps avoid long
+Snapshots are retained under the evidence directory during the run and after
+non-successful runs, so budget disk space along with parallelism. Successful runs
+remove them by default after report acceptance (see Output below).
+On Windows, a short `--evidence-dir` helps avoid long
 paths when copying deeply nested component files.
 
 ## Trust boundaries
@@ -667,9 +730,11 @@ reject reuse without overwriting those changes. Start a new run to accept change
 inputs. Valid planner, planner-shared, shared-repair and component results are reused; interrupted component
 attempts still consume their budget. Assets, merge, deployment and fresh parity run
 again, even when an earlier parity attempt passed. A final passing attempt may be
-reverified without granting another component implementation attempt.
+reverified without granting another component implementation attempt when its
+full evidence was retained. Successful runs cleaned under the default retention
+policy cannot be resumed; the CLI explains this rather than reporting missing state.
 
-Existing evidence is never silently reset, and skipping planning with `--only`
+Existing evidence is never silently reset on startup, and skipping planning with `--only`
 requires a compatible checkpoint. **State schema is now version 3; older runs require
 a new run rather than an automatic conversion.** Only one migration may run per workspace.
 
@@ -682,7 +747,7 @@ Regression tests (using the launcher's environment on Windows):
 
 ## Output
 
-Everything lands under `design/scratch/migration-<run_id>/`:
+During a run, everything lands under `design/scratch/migration-<run_id>/`:
 
 ```
 run-state.json                     orchestrator source of truth
@@ -699,6 +764,36 @@ discovery/collection-*/source/    checksummed source observations and progress b
 parity/                            runner, screenshots, diffs, scores
 parity/verified/verification-*/   coordinator-owned images and hashed receipts
 ```
+
+### Successful-run cleanup
+
+`run.cleanup_on_success: true` is the default in
+[config/migration.yaml](config/migration.yaml). After all migration gates and the
+completion report pass, the coordinator removes the current run's temporary
+files and directories, keeping only:
+
+```text
+completion-report.md               final verified report with a retention notice
+completion-summary.json            run identity, outcome, component/phase statuses and cleanup result
+```
+
+Discovery JSON (including band scans), raw observations, temporary scripts, worker
+checkouts, handoff packets, logs, asset staging copies, screenshots, diffs, receipts,
+agent results and resume checkpoints are deleted. Scores in the retained report
+were verified before deletion; detailed evidence paths are historical references
+and cannot be reopened or reverified. Cleaned successful runs are not resumable.
+The summary records removed file/byte counts, the report hash and any cleanup errors.
+
+Failed, blocked, interrupted, partial and dry runs retain all their evidence for
+diagnosis and compatible resume. Cleanup never sweeps old run folders or touches
+project source, deployed AEM content, OOTB skills or shared browser/npm caches.
+It checks the current run's identity and rejects filesystem links/junctions rather
+than following them. A locked file or other deletion failure emits a warning and
+is recorded in the summary; it does not turn a successful deployment into failure.
+
+Set `run.cleanup_on_success: false` **before starting a run** to keep all evidence,
+including screenshots and checkpoints, for later inspection. Existing saved runs
+are not deleted by installing or testing this cleanup change.
 
 ## Prerequisites
 

@@ -82,6 +82,15 @@ class ComponentAgent(Agent):
         if not feedback:
             return _NO_REMEDIATION
         diagnostic = json.dumps(dict(feedback), indent=2, ensure_ascii=False)
+        if feedback.get("phase") == "deploy":
+            return (
+                "## Deployment repair feedback\n\n"
+                "The deterministic deployment worker found a defect assigned to this component. "
+                "Read the referenced diagnostics and repair only your owned source or authored contributions. "
+                "Address all reported defects together, then run focused checks. Do not deploy, change shared "
+                "files or repair environment prerequisites; return foundation_requests for shared defects.\n\n"
+                f"```json\n{diagnostic}\n```"
+            )
         return (
             "## Parity feedback — act on these measured deltas\n\n"
             "The previous deploy scored this component below the contract threshold. "
