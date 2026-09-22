@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import unittest
 from PIL import Image
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from xml.etree import ElementTree
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -20,10 +20,10 @@ sys.path.insert(0, str(SCRIPTS))
 
 from aem_agents.config import Settings
 from aem_agents.browser import browser_paths, check_browser, ensure_browser
-from aem_agents.assets import AemClient, AssetError, _declared_assets, fetch_assets
+from aem_agents.assets import AemClient, AssetDeclarationError, AssetError, _declared_assets, _download, fetch_assets, validate_asset_declarations
 from aem_agents.merge import latest_contribution_path, read_contributions, merge_contributions, MergeError
 from aem_agents.state import RunLock, RunState, StateError
-from aem_agents.workspaces import WorkerWorkspace, WorkspaceError, apply_changes, validate_ownership
+from aem_agents.workspaces import WorkerWorkspace, WorkspaceError, apply_changes, component_scopes, digest, validate_ownership
 from aem_agents.scoring import PixelScorer
 from aem_agents.envelope import EnvelopeError
 from aem_agents.checkpoints import capture_checkpoint, validate_checkpoint
@@ -307,7 +307,10 @@ class DiscoveryCollectorTests(unittest.TestCase):
                 <style>body{margin:0}main{min-height:1100px}section{height:220px;background:#ace}#late{display:none}a{display:block}
                 #hover-menu,#header-menu{display:none}#trigger:hover + #hover-menu,#trigger:focus + #hover-menu{display:block}
                 #header-trigger:hover + #header-menu,#header-trigger:focus + #header-menu{display:block}</style>
-                <header id="header"><nav class="mega-menu"><a id="header-one" href="/one">One</a><a id="header-two" href="/two">Two</a>
+                <header id="header"><svg id="inline-logo" width="24" height="24" viewBox="0 0 24 24" style="color:rgb(12,34,56)"><path fill="currentColor" d="M0 0h24v24H0z"/></svg>
+                <svg id="recovery-logo" width="24" height="24" viewBox="0 0 24 24" style="filter:opacity(1);transform:translateX(2px);color:rgb(12,34,56)"><path fill="currentColor" d="M0 0h24v24H0z"/></svg>
+                <svg id="hidden-logo" style="display:none"><path d="M0 0h24v24H0z"/></svg>
+                <nav class="mega-menu"><a id="header-one" href="/one">One</a><a id="header-two" href="/two">Two</a>
                 <button id="header-trigger">Header menu</button><div id="header-menu"><a id="submenu-link" href="/hidden">Hidden submenu link</a></div></nav></header>
                 <nav id="top-nav"><a id="top-link" href="/top">Top navigation</a></nav>
                 <main id="main"><section id="hero" class="hero"><h1>Fixture heading</h1><p>Exact source copy.</p></section>
@@ -338,12 +341,44 @@ class DiscoveryCollectorTests(unittest.TestCase):
                 settings.repo_root = root
                 context = SimpleNamespace(settings=settings, contract=contract, browser=browser, evidence_dir=root / "evidence", run_id="fixture")
                 prepared = collect_discovery(context)
-                output = prepared.manifest.parent
+                output = prepared.manifest.parent.resolve()
                 manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
                 self.assertEqual(manifest["status"], "COLLECTED")
                 self.assertEqual(manifest["header_navigation_scope"], "visible-links-only")
                 self.assertEqual(len(manifest["results"]), 3)
                 for width in (375, 768, 1440):
+                    media = json.loads((output / str(width) / "media.json").read_text(encoding="utf-8"))
+                    logo = next(row for row in media if row["selector"] == "#inline-logo")
+                    self.assertEqual(logo["mime"], "image/svg+xml")
+                    self.assertIn("rgb(12, 34, 56)", Path(logo["source_file"]).read_text(encoding="utf-8"))
+                    self.assertNotIn("currentColor", Path(logo["source_file"]).read_text(encoding="utf-8"))
+                    self.assertNotIn("source_file", next(row for row in media if row["selector"] == "#hidden-logo"))
+                    entries = _declared_assets(settings, context.evidence_dir, [{"id": "header", "assets": [logo]}])
+                    self.assertEqual(entries[0]["sha256"], logo["sha256"])
+                    recovery_logo = next(row for row in media if row["selector"] == "#recovery-logo")
+                    self.assertNotIn("source_file", recovery_logo)
+                    recovery = recovery_logo["inline_svg_recovery"]
+                    recovery_path = Path(recovery["source_file"])
+                    self.assertEqual(digest(recovery_path), recovery["sha256"])
+                    captured = json.loads(recovery_path.read_text(encoding="utf-8"))
+                    self.assertIn("M0 0h24v24H0z", captured["original_svg"])
+                    self.assertEqual(digest(Path(captured["source_image"])), captured["source_image_sha256"])
+                    self.assertIn(recovery_path.relative_to(output).as_posix(), {entry["path"] for entry in manifest["artifacts"]})
+                    self.assertIn(Path(captured["source_image"]).relative_to(output).as_posix(), {entry["path"] for entry in manifest["artifacts"]})
+                    owner = f"recovered-logo-{width}"
+                    invocation = context.evidence_dir / f"agents/component-{owner}-attempt-1"
+                    invocation.mkdir(parents=True)
+                    candidate = invocation / "logo.svg"
+                    candidate.write_text(captured["candidate_svg"], encoding="utf-8")
+                    declaration = {"source_file": str(candidate.resolve()), "sha256": digest(candidate),
+                                   "recovery_source": str(recovery_path), "recovery_sha256": recovery["sha256"],
+                                   "dam_path": f"/content/dam/fixture/logo-{width}.svg"}
+                    (invocation / "contributions.json").write_text(json.dumps({"component_id": owner, "assets": [declaration]}), encoding="utf-8")
+                    verification_settings = Settings(settings.repo_root, settings.migration.merged({"parity": {
+                        "tools_dir": str(browser.tools_dir), "browsers_path": str(browser.browsers_path),
+                    }}), settings._agents_config)
+                    validate_asset_declarations(verification_settings, context.evidence_dir, [{"id": owner, "svg_recoveries": [
+                        {"selector": "#recovery-logo", "breakpoint": width, "recovery_source": str(recovery_path)}]}], attempt=1)
                     signals = json.loads((output / str(width) / "signals.json").read_text(encoding="utf-8"))
                     self.assertEqual(len(signals["executed"]), 11)
                     self.assertIn("#late", signals["signals"]["scroll_triggered"])
@@ -382,6 +417,76 @@ class DiscoveryCollectorTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_root_svg_translation_exports_unchanged_artwork(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "svg-translation-test.mjs"
+            module_uri = (SCRIPTS / "tools/discover.mjs").as_uri()
+            package_uri = (SCRIPTS / "tools/package.json").as_uri()
+            script.write_text(
+                "import assert from 'node:assert/strict';\n"
+                "import { createRequire } from 'node:module';\n"
+                f"const {{ PNG }} = createRequire({json.dumps(package_uri)})('pngjs');\n"
+                f"const {{ snapshotDOM, usingBrowser }} = await import({json.dumps(module_uri)});\n"
+                "await usingBrowser(async browser => {\n"
+                "  const page = await browser.newPage({ deviceScaleFactor: 1 });\n"
+                "  for (const width of [375, 768, 1440]) {\n"
+                "    await page.setViewportSize({ width, height: 200 });\n"
+                "    for (const shift of [-2, 2]) {\n"
+                "      await page.setContent(`<body style=\"margin:0;padding:64px;background:white\"><svg id=logo width=33 height=34 viewBox=\"0 0 33 34\" style=\"display:block;transform:translateX(${shift}px);color:rgb(12,34,56)\"><path fill=\"currentColor\" d=\"M3 2h22v28H3z\"/><path fill=\"white\" d=\"M8 7h6v12H8z\"/></svg></body>`);\n"
+                "      const snapshot = await page.evaluate(snapshotDOM, { captureInlineSvg: true });\n"
+                "      const logo = snapshot.media.find(row => row.selector === '#logo');\n"
+                "      assert.equal(logo.inline_svg_error, undefined);\n"
+                "      assert.equal(logo.inline_svg_recovery, undefined);\n"
+                "      assert.equal(logo.rect.x, 64 + shift);\n"
+                "      assert.equal(logo.styles.transform, `matrix(1, 0, 0, 1, ${shift}, 0)`);\n"
+                "      assert(logo.inline_svg.includes('M3 2h22v28H3z'));\n"
+                "      assert(!logo.inline_svg.includes('transform='));\n"
+                "      const reference = PNG.sync.read(await page.locator('#logo').screenshot());\n"
+                "      await page.setContent('<body style=\"margin:0;background:white\"><img id=exported style=\"display:block\"></body>');\n"
+                "      await page.locator('#exported').evaluate(async (image, svg) => { image.src = 'data:image/svg+xml,' + encodeURIComponent(svg); await image.decode(); }, logo.inline_svg);\n"
+                "      const exported = PNG.sync.read(await page.locator('#exported').screenshot());\n"
+                "      assert.equal(exported.width, reference.width);\n"
+                "      assert.equal(exported.height, reference.height);\n"
+                "      assert.deepEqual(exported.data, reference.data);\n"
+                "    }\n"
+                "  }\n"
+                "});\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_unsupported_svg_preserves_llm_recovery_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "svg-recovery-test.mjs"
+            module_uri = (SCRIPTS / "tools/discover.mjs").as_uri()
+            script.write_text(
+                "import assert from 'node:assert/strict';\n"
+                f"const {{ snapshotDOM, usingBrowser }} = await import({json.dumps(module_uri)});\n"
+                "await usingBrowser(async browser => {\n"
+                "  const page = await browser.newPage();\n"
+                "  await page.setContent('<body style=\"background:white\"><svg id=logo width=24 height=24 viewBox=\"0 0 24 24\" style=\"color:rgb(12,34,56)\"><g style=\"transform:translateX(2px)\"><path fill=\"currentColor\" d=\"M0 0h24v24H0z\"/></g></svg></body>');\n"
+                "  const snapshot = await page.evaluate(snapshotDOM, { captureInlineSvg: true });\n"
+                "  const logo = snapshot.media.find(row => row.selector === '#logo');\n"
+                "  assert(logo.inline_svg_error.includes('CSS-only transforms'));\n"
+                "  assert.equal(logo.inline_svg, undefined);\n"
+                "  assert(logo.inline_svg_recovery.original_svg.includes('M0 0h24v24H0z'));\n"
+                "  assert(logo.inline_svg_recovery.candidate_svg.includes('rgb(12, 34, 56)'));\n"
+                "  assert.equal(logo.inline_svg_recovery.unsupported_styles[0].node_index, 1);\n"
+                "  assert.equal(logo.inline_svg_recovery.unsupported_styles[0].transform, 'matrix(1, 0, 0, 1, 2, 0)');\n"
+                "  assert.equal(logo.inline_svg_recovery.background, 'rgb(255, 255, 255)');\n"
+                "  for (const transform of ['rotate(15deg)', 'scale(0.8)', 'translateZ(2px)']) {\n"
+                "    await page.setContent(`<svg id=logo width=24 height=24 style=\"transform:${transform}\"><path d=\"M0 0h24v24H0z\"/></svg>`);\n"
+                "    const transformed = (await page.evaluate(snapshotDOM, { captureInlineSvg: true })).media.find(row => row.selector === '#logo');\n"
+                "    assert.equal(transformed.inline_svg, undefined);\n"
+                "    assert.equal(transformed.inline_svg_recovery.unsupported_styles[0].node_index, 0);\n"
+                "  }\n"
+                "});\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(["node", str(script)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_collector_regexes_and_browser_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -762,6 +867,148 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceError, "unowned"):
             worker.collect()
 
+    def test_component_frontend_sources_are_owned_for_reused_and_new_components(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        for component_id, tier in (("quote-block", 1), ("related-grid", 4)):
+            with self.subTest(component_id=component_id, tier=tier):
+                component = {"id": component_id, "tier": tier, "owned_paths": []}
+                files = [f"ui.frontend/src/main/webpack/components/{name}" for name in (
+                    f"_{component_id}.scss", f"{component_id}.scss", f"{component_id}.css", f"{component_id}.js",
+                )]
+                for name in files:
+                    source = self.root / name
+                    source.parent.mkdir(parents=True, exist_ok=True)
+                    source.write_text("original source", encoding="utf-8")
+                worker = WorkerWorkspace.create(self.root, self.workers, component_scopes(settings, component))
+                for name in files:
+                    (worker.root / name).write_text("component change", encoding="utf-8")
+                    self.assertEqual((self.root / name).read_text(encoding="utf-8"), "original source")
+                changes = worker.collect()
+                self.assertEqual(set(changes.changed), set(files))
+                self.assertEqual(apply_changes(self.root, [changes]), sorted(files))
+                for name in files:
+                    self.assertEqual((self.root / name).read_text(encoding="utf-8"), "component change")
+
+    def test_component_frontend_sources_can_be_created_or_removed(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        scopes = component_scopes(settings, {"id": "quote-block", "owned_paths": []})
+        files = [f"ui.frontend/src/main/webpack/components/{name}" for name in (
+            "_quote-block.scss", "quote-block.scss", "quote-block.css", "quote-block.js",
+        )]
+        worker = WorkerWorkspace.create(self.root, self.workers, scopes)
+        for name in files:
+            source = worker.root / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("new component source", encoding="utf-8")
+        self.assertEqual(apply_changes(self.root, [worker.collect()]), sorted(files))
+        worker = WorkerWorkspace.create(self.root, self.workers, scopes)
+        for name in files:
+            (worker.root / name).unlink()
+            self.assertTrue((self.root / name).is_file())
+        changes = worker.collect()
+        self.assertEqual(changes.changed, dict.fromkeys(files))
+        self.assertEqual(apply_changes(self.root, [changes]), sorted(files))
+        self.assertTrue(all(not (self.root / name).exists() for name in files))
+
+    def test_component_frontend_defaults_do_not_grant_other_source_paths(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        scopes = component_scopes(settings, {"id": "quote-block", "owned_paths": []})
+        for path in (
+            "ui.frontend/src/main/webpack/components/_quote-block-extra.scss",
+            "ui.frontend/src/main/webpack/components/quote-block-extra.js",
+            "ui.frontend/src/main/webpack/components/_related-grid.scss",
+            "ui.frontend/src/main/webpack/components/related-grid.js",
+            "ui.frontend/src/main/webpack/components/quote-block.ts",
+            "ui.frontend/src/main/webpack/components/quote-block.png",
+            "ui.frontend/src/main/webpack/components/quote-block.css.map",
+            "ui.frontend/src/main/webpack/components/quote-block/helper.js",
+            "ui.frontend/src/main/webpack/site/_variables.scss",
+            "ui.frontend/src/main/webpack/site/quote-block.js",
+            "ui.frontend/webpack.common.js",
+            "ui.frontend/package.json",
+            "core/src/main/java/Unassigned.java",
+        ):
+            with self.subTest(path=path):
+                worker = WorkerWorkspace.create(self.root, self.workers, scopes)
+                unowned = worker.root / path
+                unowned.parent.mkdir(parents=True, exist_ok=True)
+                unowned.write_text("unowned edit", encoding="utf-8")
+                with self.assertRaisesRegex(WorkspaceError, "unowned"):
+                    worker.collect()
+
+    def test_component_frontend_defaults_cannot_be_assigned_to_another_worker(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        for name in ("_quote-block.scss", "quote-block.scss", "quote-block.css", "quote-block.js", "QUOTE-BLOCK.js"):
+            with self.subTest(name=name), self.assertRaisesRegex(WorkspaceError, "Conflicting ownership"):
+                validate_ownership(settings, [
+                    {"id": "quote-block", "owned_paths": []},
+                    {"id": "related-grid", "owned_paths": [f"ui.frontend/src/main/webpack/components/{name}"]},
+                ])
+
+    def test_unowned_frontend_deletion_preserves_original_source(self):
+        settings = Settings.load(SCRIPTS.parents[2], SCRIPTS / "config")
+        name = "ui.frontend/src/main/webpack/components/related-grid.js"
+        source = self.root / name
+        source.parent.mkdir(parents=True)
+        source.write_text("existing behavior", encoding="utf-8")
+        worker = WorkerWorkspace.create(self.root, self.workers, component_scopes(settings, {"id": "quote-block"}))
+        (worker.root / name).unlink()
+        with self.assertRaisesRegex(WorkspaceError, "Worker changed unowned files"):
+            worker.collect()
+        self.assertEqual(source.read_text(encoding="utf-8"), "existing behavior")
+
+    def test_new_root_text_dumps_are_preserved_outside_source(self):
+        worker = self.worker()
+        evidence = Path(self.directory.name) / "evidence/validation/worker-diagnostics"
+        (worker.root / "footer_dump.txt").write_text("Footer inspection output", encoding="utf-8")
+        (worker.root / "footer_raw.txt").write_text("Raw footer DOM", encoding="utf-16")
+        (worker.root / self.scope).write_text("valid owned change", encoding="utf-8")
+        changes = worker.collect(diagnostic_dir=evidence)
+        self.assertEqual(set(changes.changed), {self.scope})
+        self.assertEqual({row["source_path"] for row in changes.quarantined}, {"footer_dump.txt", "footer_raw.txt"})
+        self.assertEqual((evidence / "footer_dump.txt").read_text(encoding="utf-8"), "Footer inspection output")
+        self.assertEqual((evidence / "footer_raw.txt").read_text(encoding="utf-16"), "Raw footer DOM")
+        self.assertFalse((worker.root / "footer_dump.txt").exists())
+        self.assertEqual(apply_changes(self.root, [changes]), [self.scope])
+        self.assertFalse((self.root / "footer_dump.txt").exists())
+
+    def test_quarantine_never_hides_existing_nested_or_nontext_changes(self):
+        for name, payload, existing in (("notes.txt", b"changed", True), ("core/footer_raw.txt", b"new", False),
+                                        ("pom.xml", b"new", False), (".instructions.txt", b"new", False),
+                                        ("binary.txt", b"\x00\x01\x02", False), ("huge.txt", b"x" * (2 * 1024 * 1024 + 1), False)):
+            with self.subTest(name=name):
+                if existing:
+                    (self.root / name).write_bytes(b"original")
+                worker = self.worker()
+                (worker.root / "footer_dump.txt").write_text("diagnostic", encoding="utf-8")
+                target = worker.root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(payload)
+                evidence = worker.root.parent / "diagnostics"
+                with self.assertRaisesRegex(WorkspaceError, "unowned"):
+                    worker.collect(diagnostic_dir=evidence)
+                self.assertTrue((worker.root / "footer_dump.txt").exists())
+                self.assertFalse(evidence.exists())
+
+    def test_readonly_workers_do_not_implicitly_quarantine_dumps(self):
+        worker = WorkerWorkspace.create(self.root, self.workers, [])
+        (worker.root / "footer_dump.txt").write_text("not source", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "unowned"):
+            worker.collect()
+
+    def test_quarantine_cannot_overwrite_existing_evidence_or_stay_in_source(self):
+        worker = self.worker()
+        (worker.root / "footer_dump.txt").write_text("new diagnostic", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "outside worker source"):
+            worker.collect(diagnostic_dir=worker.root / "diagnostics")
+        evidence = worker.root.parent / "diagnostics"
+        evidence.mkdir()
+        (evidence / "footer_dump.txt").write_text("prior evidence", encoding="utf-8")
+        with self.assertRaisesRegex(WorkspaceError, "overwrite"):
+            worker.collect(diagnostic_dir=evidence)
+        self.assertEqual((evidence / "footer_dump.txt").read_text(), "prior evidence")
+        self.assertTrue((worker.root / "footer_dump.txt").exists())
+
     def test_build_outputs_are_not_copied_or_applied(self):
         for output in (
             ".autofix/.gitignore", ".autofix/analyzer-output.json",
@@ -930,6 +1177,37 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(MergeError):
             read_contributions(self.settings, self.evidence, [{"id": "hero"}])
 
+    def test_empty_page_diagnostic_identifies_target_without_rejecting_valid_xf(self):
+        fragment = "/content/experience-fragments/demo-ai-site/us/en/site/footer/master"
+        page = "/content/demo-ai-site/us/en/story"
+        pages = [
+            {"page_path": fragment, "nodes": [{"name": "footer", "xml": "<footer/>"}]},
+            {"page_path": page, "nodes": []},
+        ]
+        component = {"id": "footer", "contribution_targets": [fragment, page]}
+        self.contribution("footer", 1, pages=pages)
+        with self.assertRaises(MergeError) as failure:
+            read_contributions(self.settings, self.evidence, [component])
+        self.assertIn("has no authored nodes", str(failure.exception))
+        self.assertIn("pages[1]", str(failure.exception))
+        self.assertIn(page, str(failure.exception))
+        self.assertNotIn(fragment, str(failure.exception))
+        pages[1]["nodes"] = [{"name": "footer-reference", "xml": '<footer-reference sling:resourceType="demo-ai-site/components/experiencefragment" fragmentVariationPath="' + fragment + '"/>'}]
+        self.contribution("footer", 2, pages=pages)
+        contributions, missing = read_contributions(self.settings, self.evidence, [component], attempt=2)
+        self.assertFalse(missing)
+        self.assertEqual(len(contributions), 2)
+
+    def test_cached_contribution_validation_uses_accepted_attempt(self):
+        self.contribution("hero", 1, nodes=[{"name": "hero", "xml": "<hero/>"}], assets=[])
+        self.contribution("hero", 2, nodes=[], assets=[{"source_url": "invalid"}])
+        contributions, missing = read_contributions(self.settings, self.evidence, [{"id": "hero"}], attempt=1)
+        self.assertFalse(missing)
+        self.assertEqual(len(contributions), 1)
+        self.assertEqual(_declared_assets(self.settings, self.evidence, [{"id": "hero"}], attempt=1), [])
+        with self.assertRaises(AssetError):
+            _declared_assets(self.settings, self.evidence, [{"id": "hero"}], attempt=2)
+
     def test_required_contribution_target_cannot_be_omitted(self):
         target = "/content/experience-fragments/demo-ai-site/us/en/site/header/master"
         self.contribution("header", 1, page_path="/content/demo-ai-site/us/en/story", nodes=[{"name": "header", "xml": "<header />"}])
@@ -979,6 +1257,138 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             _declared_assets(self.settings, self.evidence, components)
 
+    def inline_asset(self, payload=None):
+        import hashlib
+        payload = payload or b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#121212" d="M0 0h24v24H0z"/></svg>'
+        source = self.evidence / "discovery/collection-test/source/375/inline-svg/logo.svg"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+        checksum = hashlib.sha256(payload).hexdigest()
+        manifest = self.evidence / "discovery/collection-test/source/manifest.json"
+        manifest.write_text(json.dumps({"artifacts": [{"path": "375/inline-svg/logo.svg", "sha256": checksum, "bytes": len(payload)}]}), encoding="utf-8")
+        return {"source_file": source.relative_to(self.evidence).as_posix(), "sha256": checksum,
+                "dam_path": "/content/dam/header/logo.svg"}
+
+    def test_captured_inline_svg_uploads_without_download(self):
+        asset = self.inline_asset()
+        self.contribution("header", 1, assets=[asset])
+        with patch("aem_agents.assets._download") as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, [{"id": "header"}], "http://test.invalid")
+        self.assertTrue(report.ok)
+        self.assertEqual(len(report.uploaded), 1)
+        download.assert_not_called()
+        uploaded = client.return_value.upload.call_args.args
+        self.assertEqual(uploaded[2], (self.evidence / asset["source_file"]).read_bytes())
+        self.assertEqual(uploaded[3], "image/svg+xml")
+        self.assertEqual(report.uploaded[0].source_file, asset["source_file"])
+        self.assertEqual(report.uploaded[0].sha256, asset["sha256"])
+
+    def test_captured_inline_svg_must_not_claim_recovery_provenance(self):
+        captured = self.inline_asset()
+        invalid = {**captured, "recovery_source": "agents/component-header-attempt-1/recovered-logo.svg",
+                   "recovery_sha256": captured["sha256"]}
+        self.contribution("header", 1, assets=[invalid])
+        with self.assertRaisesRegex(AssetDeclarationError, "evidence directory") as failure:
+            _declared_assets(self.settings, self.evidence, [{"id": "header"}], attempt=1)
+        self.assertTrue(failure.exception.critical)
+        self.contribution("header", 2, assets=[captured])
+        with patch("aem_agents.assets._recovered_svg") as recover:
+            entries = _declared_assets(self.settings, self.evidence, [{"id": "header"}], attempt=2)
+        recover.assert_not_called()
+        self.assertEqual(entries[0]["source_file"], captured["source_file"])
+        self.assertEqual(entries[0]["sha256"], captured["sha256"])
+        self.assertNotIn("recovery_source", entries[0])
+
+    def svg_recovery_asset(self):
+        asset = self.inline_asset()
+        original = self.evidence / asset["source_file"]
+        candidate = self.evidence / "agents/component-header-attempt-1/recovered-logo.svg"
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_bytes(original.read_bytes())
+        record = original.parent.parent / "inline-svg-recovery/logo.json"
+        record.parent.mkdir(parents=True, exist_ok=True)
+        image = record.with_suffix(".png")
+        Image.new("RGBA", (24, 24), "#121212").save(image)
+        record.write_text(json.dumps({
+            "schema_version": 1, "selector": "#logo", "source_url": "https://example.invalid",
+            "original_svg": original.read_text(encoding="utf-8").replace('<svg ', '<svg style="transform:translateX(2px)" '),
+            "candidate_svg": original.read_text(encoding="utf-8"),
+            "unsupported_styles": [{"node_index": 0, "animation_name": "none", "transform": "matrix(1, 0, 0, 1, 2, 0)"}],
+            "background": "rgb(255, 255, 255)", "source_image": str(image.resolve()),
+            "source_image_sha256": digest(image),
+        }), encoding="utf-8")
+        manifest = self.evidence / "discovery/collection-test/source/manifest.json"
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        payload["artifacts"].extend({"path": path.relative_to(manifest.parent).as_posix(), "sha256": digest(path),
+                                     "bytes": path.stat().st_size} for path in (record, image))
+        manifest.write_text(json.dumps(payload), encoding="utf-8")
+        return {**asset, "source_file": candidate.relative_to(self.evidence).as_posix(),
+                "recovery_source": record.relative_to(self.evidence).as_posix(), "recovery_sha256": digest(record)}
+
+    def test_svg_recovery_accepts_verified_artwork_without_downloading(self):
+        asset = self.svg_recovery_asset()
+        self.contribution("header", 1, assets=[asset])
+        entries = _declared_assets(self.settings, self.evidence, [{"id": "header"}])
+        self.assertEqual(entries[0]["recovery_source"], asset["recovery_source"])
+        with patch("aem_agents.assets._download") as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, [{"id": "header"}], "http://test.invalid")
+        self.assertTrue(report.ok, report.failed)
+        download.assert_not_called()
+        self.assertEqual(client.return_value.upload.call_args.args[2], (self.evidence / asset["source_file"]).read_bytes())
+
+    def test_svg_recovery_rejects_redrawing_or_wrong_rendering(self):
+        for before, after, reason in (("M0 0h24v24H0z", "M0 0h12v12H0z", "geometry"),
+                                      ("#121212", "#ff0000", "visual match")):
+            with self.subTest(reason=reason):
+                asset = self.svg_recovery_asset()
+                candidate = self.evidence / asset["source_file"]
+                candidate.write_text(candidate.read_text(encoding="utf-8").replace(before, after), encoding="utf-8")
+                asset["sha256"] = digest(candidate)
+                self.contribution("header", 1, assets=[asset])
+                with self.assertRaisesRegex(AssetDeclarationError, reason) as caught:
+                    _declared_assets(self.settings, self.evidence, [{"id": "header"}])
+                self.assertFalse(caught.exception.critical)
+
+    def test_svg_recovery_keeps_provenance_and_worker_boundaries(self):
+        for field, value in (("recovery_sha256", "0" * 64), ("recovery_source", "../outside.json"),
+                             ("source_file", "agents/component-other-attempt-1/logo.svg"), ("sha256", "0" * 64)):
+            with self.subTest(field=field, value=value):
+                asset = {**self.svg_recovery_asset(), field: value}
+                self.contribution("header", 1, assets=[asset])
+                with self.assertRaises(AssetDeclarationError) as caught:
+                    _declared_assets(self.settings, self.evidence, [{"id": "header"}])
+                self.assertTrue(caught.exception.critical)
+
+    def test_svg_recovery_cannot_be_silently_omitted(self):
+        self.contribution("header", 1, assets=[])
+        for source in (None, "discovery/logo.json"):
+            with self.subTest(source=source), self.assertRaisesRegex(AssetDeclarationError, "Required SVG") as caught:
+                validate_asset_declarations(self.settings, self.evidence, [{"id": "header", "svg_recoveries": [
+                    {"selector": "#logo", "breakpoint": 375, "recovery_source": source}]}], attempt=1)
+            self.assertFalse(caught.exception.critical)
+
+    def test_inline_svg_rejects_unsafe_content_and_tampering(self):
+        cases = [b'<script>alert(1)</script>', b'<path onload="alert(1)"/>', b'<foreignObject/>',
+                 b'<use href="https://example.invalid/icon.svg#logo"/>', b'<path fill="url(https://example.invalid/a)"/>',
+                 b'<use href="#missing"/>', b'<style>path{fill:red}</style>']
+        for body in cases:
+            with self.subTest(body=body):
+                asset = self.inline_asset(b'<svg xmlns="http://www.w3.org/2000/svg">' + body + b'</svg>')
+                with self.assertRaises(AssetError):
+                    _declared_assets(self.settings, self.evidence, [{"id": "header", "assets": [asset]}])
+        for field, value in (("source_file", "../outside.svg"), ("sha256", "0" * 64),
+                             ("source_url", "https://example.invalid/logo.svg"), ("dam_path", "/content/dam/logo.png")):
+            asset = self.inline_asset()
+            asset[field] = value
+            with self.subTest(field=field), self.assertRaises(AssetError):
+                _declared_assets(self.settings, self.evidence, [{"id": "header", "assets": [asset]}])
+        asset = self.inline_asset()
+        (self.evidence / "discovery/collection-test/source/manifest.json").write_text('{"artifacts":[]}', encoding="utf-8")
+        with self.assertRaisesRegex(AssetError, "not registered"):
+            _declared_assets(self.settings, self.evidence, [{"id": "header", "assets": [asset]}])
+
     def test_same_basename_does_not_collide(self):
         components = [{"id": "hero", "assets": [{"source_url": f"https://example.invalid/{name}/logo.png"} for name in ("first", "second")]}]
         entries = _declared_assets(self.settings, self.evidence, components)
@@ -997,6 +1407,140 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(len(report.failed), 1)
         manifest = json.loads(Path(report.manifest_path).read_text(encoding="utf-8"))
         self.assertEqual(manifest["manifest"], report.manifest_path)
+
+    def test_transient_download_retries_without_rebuilding(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets.time.sleep"), patch("aem_agents.assets._download", side_effect=[AssetError("timeout", retryable=True), (b"image", "image/png")]) as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        self.assertTrue(report.ok)
+        self.assertEqual(download.call_count, 2)
+
+    def test_failed_download_does_not_prevent_other_assets(self):
+        components = [{"id": owner, "assets": [{"source_url": f"https://example.invalid/{owner}.png"}]} for owner in ("header", "footer")]
+        with patch("aem_agents.assets._download", side_effect=[AssetError("HTTP 404"), (b"image", "image/png")]) as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        self.assertEqual(download.call_count, 2)
+        self.assertEqual(report.failed[0].owners, ["header"])
+        self.assertEqual(report.failed[0].status, "BLOCKED")
+        self.assertFalse(report.failed[0].critical)
+        self.assertEqual(report.uploaded[0].owners, ["footer"])
+
+    def test_failed_asset_is_listed_for_the_operator_to_resolve(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets._download", side_effect=AssetError("download returned HTTP 403")), patch("aem_agents.assets.AemClient"):
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        listing = self.evidence / "assets/unresolved-assets.json"
+        self.assertTrue(listing.is_file())
+        self.assertEqual(report.unresolved_path, self.settings.relative_to_repo(listing.resolve()))
+        entry = json.loads(listing.read_text(encoding="utf-8"))["assets"][0]
+        self.assertEqual(entry["dam_path"], report.failed[0].dam_path)
+        self.assertEqual(entry["owners"], ["header"])
+        self.assertIn("HTTP 403", entry["failure"])
+        self.assertEqual(entry["local_file"], "")
+
+    def test_operator_supplied_file_replaces_an_undownloadable_asset(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets._download", side_effect=AssetError("download returned HTTP 403")), patch("aem_agents.assets.AemClient"):
+            fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        listing = self.evidence / "assets/unresolved-assets.json"
+        replacement = self.evidence / "rescued-logo.png"
+        replacement.write_bytes(b"rescued bytes")
+        data = json.loads(listing.read_text(encoding="utf-8"))
+        data["assets"][0]["local_file"] = str(replacement)
+        listing.write_text(json.dumps(data), encoding="utf-8")
+
+        with patch("aem_agents.assets._download", side_effect=AssetError("still 403")) as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        download.assert_not_called()
+        self.assertTrue(report.ok)
+        self.assertEqual(report.uploaded[0].supplied_from, str(replacement))
+        self.assertEqual(client.return_value.upload.call_args.args[2], b"rescued bytes")
+        self.assertFalse(listing.exists())
+
+    def test_unreadable_operator_file_is_reported_without_stopping_other_assets(self):
+        components = [{"id": owner, "assets": [{"source_url": f"https://example.invalid/{owner}.png"}]} for owner in ("header", "footer")]
+        with patch("aem_agents.assets._download", side_effect=[AssetError("HTTP 403"), (b"image", "image/png")]), patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        listing = self.evidence / "assets/unresolved-assets.json"
+        data = json.loads(listing.read_text(encoding="utf-8"))
+        data["assets"][0]["local_file"] = str(self.evidence / "absent.png")
+        listing.write_text(json.dumps(data), encoding="utf-8")
+        with patch("aem_agents.assets._download", return_value=(b"image", "image/png")), patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = [False, True]
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        self.assertEqual(report.failed[0].owners, ["header"])
+        self.assertIn("not a readable file", report.failed[0].detail)
+        self.assertEqual(report.uploaded[0].owners, ["footer"])
+
+    def test_retry_exhaustion_is_bounded_and_resumable(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets.time.sleep") as sleep, patch("aem_agents.assets._download", side_effect=AssetError("timeout", retryable=True)) as download, patch("aem_agents.assets.AemClient") as client:
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+        self.assertEqual(download.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+        client.return_value.upload.assert_not_called()
+        self.assertEqual(report.failed[0].status, "BLOCKED")
+
+    def test_resume_reuses_download_after_failed_upload(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets._download", return_value=(b"image", "image/png")) as download, patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.side_effect = AssetError("offline")
+            first = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            self.assertFalse(first.ok)
+            client.return_value.exists.side_effect = [False, True]
+            second = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            self.assertTrue(second.ok)
+            self.assertEqual(download.call_count, 1)
+            client.return_value.exists.side_effect = [True]
+            third = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            self.assertEqual(len(third.skipped), 1)
+            self.assertEqual(download.call_count, 1)
+
+    def test_corrupt_download_cache_is_not_reused(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets._download", return_value=(b"image", "image/png")) as download, patch("aem_agents.assets.AemClient"):
+            fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            next((self.evidence / "assets").glob("*.bin")).write_bytes(b"corrupt")
+            fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            self.assertEqual(download.call_count, 2)
+
+    def test_dam_conflict_is_critical_and_not_overwritten(self):
+        components = [{"id": "header", "assets": [{"source_url": "https://example.invalid/logo.png"}]}]
+        with patch("aem_agents.assets._download", return_value=(b"image", "image/png")), patch("aem_agents.assets.AemClient") as client:
+            client.return_value.exists.return_value = True
+            client.return_value.matches.return_value = False
+            report = fetch_assets(self.settings, self.evidence, components, "http://test.invalid")
+            client.return_value.upload.assert_not_called()
+        self.assertTrue(report.failed[0].critical)
+        self.assertEqual(report.failed[0].status, "FAILED")
+
+    def test_declaration_error_retains_actual_owner(self):
+        with self.assertRaises(AssetDeclarationError) as caught:
+            _declared_assets(self.settings, self.evidence, [{"id": "header", "assets": [{"source_url": "inline SVG"}]}])
+        self.assertEqual(caught.exception.owners, ["header"])
+
+    def test_upload_refreshes_expired_csrf_once(self):
+        client = AemClient("http://test.invalid", "test:test", {})
+        client._csrf = "expired"
+        with patch.object(client, "_request", side_effect=[(403, b""), (200, b'{"token":"fresh"}'), (201, b"")]) as request:
+            client.upload("/content/dam", "logo.svg", b"image", "image/svg+xml", 60)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(request.call_args_list[0].kwargs["headers"]["CSRF-Token"], "expired")
+        self.assertEqual(request.call_args_list[2].kwargs["headers"]["CSRF-Token"], "fresh")
+
+    def test_http_failures_have_explicit_retry_classification(self):
+        for status, retryable in ((404, False), (403, False), (429, True), (503, True)):
+            with self.subTest(status=status), patch("urllib.request.urlopen", side_effect=HTTPError("https://example.invalid", status, "fixture", {}, None)):
+                with self.assertRaises(AssetError) as caught:
+                    _download("https://example.invalid", {})
+                self.assertEqual(caught.exception.retryable, retryable)
+        client = AemClient("http://test.invalid", "test:test", {})
+        with patch.object(client, "_request", return_value=(403, b"denied")), self.assertRaises(AssetError):
+            client.exists("/content/dam/logo.png")
 
     def prepare_template(self):
         self.settings.repo_root = self.evidence / "repo"

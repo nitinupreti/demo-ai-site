@@ -20,6 +20,9 @@ agents:
   planner:
     title: Planner
     prompt: planner.md
+    # Planning is analysis over frozen evidence. The shared pass below writes real
+    # source and pins its own effort; nested modes otherwise inherit this value.
+    effort: medium
     description: >-
       First emits a read-only component plan and measured token specification.
       A separately validated shared pass establishes tokens, styles and policies
@@ -44,6 +47,7 @@ agents:
         - instances
         - visible_breakpoints
         - owning_module
+        - execution_mode
         - owned_paths
         - contribution_targets
         - depends_on
@@ -55,10 +59,22 @@ agents:
       id_pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
       tier_values: [1, 2, 3, 4]
       delivery_values: [component, experience-fragment]
+      execution_mode_values: [authoring, implementation]
+
+    diagnostic:
+      title: Planner recovery diagnosis
+      prompt: recovery.md
+      required_result_keys: [agent, run_id, status, decision]
+      # A successful envelope always carries at least one evidence-backed check;
+      # for a diagnosis that evidence is the reviewed failure packet.
+      required_checks: [failure_evidence_reviewed]
+      outputs:
+        decision: outputs.decision
 
     shared:
       title: Planner shared files
       prompt: foundations.md
+      effort: high
       required_result_keys: [agent, run_id, status, components, changed_files, token_manifest]
       required_checks:
         - shared_tokens_ready
@@ -72,16 +88,27 @@ agents:
     title: Component builder
     prompt: component.md
     description: >-
-      Implements exactly one planned component end to end: dialog, HTL, Sling
-      Model, clientlib, focused test, authored demo content, and policy updates.
-      One instance of this agent is started per planned component.
+      Groups source-ready content authoring across all reuse tiers into a read-only
+      session. Implements source changes individually in isolated source snapshots,
+      with focused-test declarations and authored contributions. Shared source
+      requests go to the planner; deterministic code owns build and acceptance.
     required_result_keys: [agent, run_id, status, component_id, changed_files, parity_targets]
-    required_checks: [every_business_value_authorable, assets_authored_from_dam, focused_test_passes]
+    required_checks: [every_business_value_authorable, assets_authored_from_dam, focused_test_declared]
     outputs:
       changed_files: outputs.changed_files
       resource_type: outputs.resource_type
       authored_paths: outputs.authored_paths
       focused_test: outputs.focused_test
+
+    contribution_repair:
+      title: Component contribution repair
+      prompt: contribution-repair.md
+
+    reuse:
+      title: Component authoring
+      prompt: reuse.md
+      required_result_keys: [agent, run_id, status, results]
+      required_checks: [authoring_results_recorded]
 
   deployer:
     title: Deterministic deployment worker

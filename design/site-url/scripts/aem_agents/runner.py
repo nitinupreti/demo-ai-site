@@ -7,6 +7,7 @@ and pumps the JSON event stream.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -41,10 +42,12 @@ class AgentRun:
     usage: dict[str, Any] = field(default_factory=dict)
     timed_out: bool = False
     session_id: str | None = None
+    completed_early: bool = False
+    lingered_seconds: float = 0.0
 
     @property
     def ok(self) -> bool:
-        return self.exit_code == 0 and not self.timed_out
+        return (self.exit_code == 0 or self.completed_early) and not self.timed_out
 
 
 def _fill(template: str, values: Mapping[str, Any]) -> tuple[str, set[str]]:
@@ -179,6 +182,35 @@ class CopilotBackend:
             env.update({str(k): str(v) for k, v in extra.items()})
         return env
 
+    def launch_args(self, prompt: str, options: Mapping[str, Any], workspace: Path) -> list[str]:
+        argv = [*self._command_prefix(), *self.build_args(prompt, options)]
+        size = len(subprocess.list2cmdline(argv).encode("utf-16-le")) // 2
+        if size < 30000:
+            return argv
+        request = (workspace / "request-prompt.md").absolute()
+        payload = prompt.encode("utf-8")
+        if request.is_symlink() or (request.exists() and request.read_bytes() != payload):
+            raise BackendError("Refusing to replace a different saved prompt in this invocation.")
+        request = request.resolve()
+        if not request.exists():
+            with request.open("xb") as stream:
+                stream.write(payload)
+        short_prompt = (
+            f"Read the complete UTF-8 task instructions from this file before doing any work: {request}\n"
+            "Use file reads in successive ranges if necessary; do not truncate or summarize away requirements. "
+            "Execute that full task with its specified source ownership, validation rules and result path. "
+            "This file is the invocation prompt, not a document to edit. Do not treat its parent folder as the source root."
+        )
+        argv = [*self._command_prefix(), *self.build_args(short_prompt, options)]
+        reduced_size = len(subprocess.list2cmdline(argv).encode("utf-16-le")) // 2
+        if reduced_size >= 30000:
+            raise BackendError("Copilot launch arguments exceed the command-line limit even with file-referenced instructions.")
+        receipt = {"transport": "file-reference", "path": str(request), "bytes": len(payload),
+                   "sha256": hashlib.sha256(payload).hexdigest(), "original_command_utf16_units": size,
+                   "command_utf16_units": reduced_size}
+        (workspace / "prompt-transport.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        return argv
+
     def run(
         self,
         *,
@@ -191,6 +223,7 @@ class CopilotBackend:
         working_directory: Path | None = None,
         env_extra: Mapping[str, str] | None = None,
         on_event: Callable[[Mapping[str, Any]], None] | None = None,
+        completion_ready: Callable[[], bool] | None = None,
     ) -> AgentRun:
         if self._cancelled.is_set():
             raise BackendError("Agent execution was cancelled.")
@@ -198,7 +231,7 @@ class CopilotBackend:
         stream_path = workspace / stream_name
         stderr_path = workspace / stderr_name
 
-        argv = [*self._command_prefix(), *self.build_args(prompt, options)]
+        argv = self.launch_args(prompt, options, workspace)
         started = time.monotonic()
 
         process = None
@@ -216,7 +249,7 @@ class CopilotBackend:
                     self._processes.add(process)
                 if self._cancelled.is_set():
                     raise BackendError("Agent execution was cancelled.")
-                run = self._pump(process, stream_path, stderr_path, timeout_seconds, on_event)
+                run = self._pump(process, stream_path, stderr_path, timeout_seconds, on_event, completion_ready)
         except (OSError, subprocess.SubprocessError) as error:
             raise BackendError(f"Agent process failed: {error}") from error
         finally:
@@ -272,6 +305,7 @@ class CopilotBackend:
         stderr_path: Path,
         timeout_seconds: int | None,
         on_event: Callable[[Mapping[str, Any]], None] | None,
+        completion_ready: Callable[[], bool] | None = None,
     ) -> AgentRun:
         lines: queue.Queue[str | None] = queue.Queue()
 
@@ -292,13 +326,28 @@ class CopilotBackend:
         usage: dict[str, Any] = {}
         session_id: str | None = None
         timed_out = False
+        completion = self.config.get("completion", {})
+        complete_event = str(completion.get("task_complete_event", "session.task_complete"))
+        idle_event = str(completion.get("idle_event", "assistant.idle"))
+        grace = completion.get("grace_seconds", 10)
+        idle_grace = completion.get("idle_grace_seconds", 120)
+        quiet_grace = completion.get("result_quiet_seconds", 120)
+        finish_at: float | None = None
+        finished_since: float | None = None
+        last_event_at: float | None = None
+        completed_early = False
 
         with stream_path.open("w", encoding="utf-8") as stream_file:
             while True:
                 now = time.monotonic()
+                if last_event_at is None:
+                    last_event_at = now
                 remaining = deadline - now if deadline is not None else None
                 if remaining is not None and remaining <= 0:
                     timed_out = True
+                    break
+                if finish_at is not None and now >= finish_at:
+                    completed_early = True
                     break
                 if on_event and now >= heartbeat_at:
                     on_event({"type": "aem.heartbeat"})
@@ -306,9 +355,16 @@ class CopilotBackend:
                 try:
                     line = lines.get(timeout=min(remaining, 1.0) if remaining is not None else 1.0)
                 except queue.Empty:
+                    # A hung CLI stops emitting entirely, so completion must also be
+                    # detectable from the validated result file alone.
+                    if (finish_at is None and quiet_grace is not None and completion_ready is not None
+                            and now - last_event_at >= float(quiet_grace) and completion_ready()):
+                        finish_at = now + (float(grace) if grace is not None else 0.0)
+                        finished_since = last_event_at
                     continue
                 if line is None:
                     break
+                last_event_at = now
                 stream_file.write(line + "\n")
                 stream_file.flush()
                 if not line.strip():
@@ -326,13 +382,21 @@ class CopilotBackend:
                 if event.get("type") == self.config.get("events.result", "result"):
                     usage = dict(event.get("usage") or {})
                     session_id = event.get("sessionId")
+                # The CLI can linger for many minutes after the agent is done; its
+                # result file, not process exit, is what the orchestrator validates.
+                if finish_at is None:
+                    if event.get("type") == complete_event and grace is not None:
+                        finish_at, finished_since = now + float(grace), now
+                    elif (event.get("type") == idle_event and idle_grace is not None
+                          and completion_ready is not None and completion_ready()):
+                        finish_at, finished_since = now + float(idle_grace), now
                 if on_event:
                     on_event(event)
 
-        if timed_out:
+        if timed_out or completed_early:
             self._stop_process(process)
         try:
-            exit_code = process.wait(timeout=30 if deadline is not None else None)
+            exit_code = process.wait(timeout=30 if deadline is not None or completed_early else None)
         except subprocess.TimeoutExpired:
             self._stop_process(process)
             exit_code = process.wait()
@@ -347,6 +411,8 @@ class CopilotBackend:
             usage=usage,
             timed_out=timed_out,
             session_id=session_id,
+            completed_early=completed_early,
+            lingered_seconds=time.monotonic() - finished_since if finished_since is not None else 0.0,
         )
 
 

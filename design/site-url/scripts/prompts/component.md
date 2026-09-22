@@ -11,13 +11,14 @@ file changes and applies them; reporting a path does not grant ownership.
 |---|---|
 | `run_id` | `{{run_id}}` |
 | Component id | `{{component_id}}` |
-| Attempt | `{{attempt}}` of `{{max_attempts}}` |
+| Invocation ID | `{{attempt}}` (recovery limit: `{{max_attempts}}` per failing operation) |
 | `SITE_URL` | `{{site_url}}` |
 | Breakpoints | `{{breakpoints}}` |
 | Evidence dir | `{{evidence_dir}}` |
 | Result file | `{{result_path}}` |
 | Contract | `{{contract_file}}` |
 | Validated shared tokens | `{{foundation_token_manifest}}` |
+| Component discovery index | `{{component_handoff_index}}` |
 | Project | `{{project_name}}` (Java package `{{java_package}}`) |
 
 Read the contract's page-quality requirements and the validated shared token manifest.
@@ -55,21 +56,73 @@ is supplied by the coordinator.
 {{component_json}}
 ```
 
-Source discovery evidence for this component lives under `{{evidence_dir}}`. Use the
-planner's frozen selectors, rects, computed styles, and media manifest as the source
-of truth. Never re-derive source facts by guessing, and never tune CSS to compensate
-for missing discovery or content.
+Start from `{{component_handoff_index}}`. Its bounded, indexed packets contain the
+planned selectors and their descendants at each breakpoint, with every captured
+field preserved: exact copy, rects, computed styles, attributes, states and media.
+Read the nodes and media packets for each breakpoint. An oversized `record_file`
+is a full record, not missing data; use a JSON field query or ranged read.
 
-## MUST — Do not re-capture the source, do not probe the toolchain
+Use the exact `source` path and JSON `pointer` for additional source context.
+Never run recursive searches at the `{{evidence_dir}}` or `design/scratch` roots,
+or across other workers' checkouts. Scoped searches within your own source modules
+are allowed. Read named evidence files directly; do not rediscover schemas or
+rebuild these indexes. The coordinator caches parsed discovery by path and content
+checksum, not past PASS results. These packets do not certify completeness: report
+missing or ambiguous evidence, including an unavailable index. Never guess source
+facts or tune CSS to compensate for missing discovery or content.
+
+## Inline SVG recovery
+
+Automatic extraction failures within your component are supplied directly below.
+An empty list means there is no captured SVG fallback task for this component.
+
+```json
+{{svg_recovery_json}}
+```
+
+For each required logo/icon with recovery evidence, perform the LLM-assisted
+recovery using that exact `recovery_source` JSON and its source screenshot. It
+contains `original_svg`, a paint-resolved `candidate_svg`, unsupported computed
+styles indexed in original DOM order, and the captured background. Read these
+fields with a JSON parser instead of retyping the markup. Start from the candidate
+and correct static presentation, such as translating CSS transforms into SVG
+transforms. A root translation may only position the inline element; do not apply
+that translation twice inside the artwork. Preserve every original vector shape,
+path/points/coordinates and the viewBox. Never redraw, substitute, rasterize or
+claim an existing repository SVG is captured evidence.
+
+Write the derived `.svg` under your own invocation directory beside the result,
+never in discovery or another worker's directory. In `contributions.json` declare:
+
+```json
+{"source_file":"<your derived SVG>","sha256":"<derived SHA-256>","recovery_source":"<supplied recovery JSON>","recovery_sha256":"<supplied context hash>","dam_path":"<intended .svg DAM path>"}
+```
+
+The coordinator checks discovery provenance, original geometry, static SVG safety
+and at least 0.99 screenshot similarity before accepting the asset. It renders the
+derived file locally with no network access; this is separate from final page parity.
+On mismatch, its pixel evidence is returned to you through normal bounded recovery.
+Animations, missing reference screenshots, unsafe/external content and artwork you
+cannot faithfully recover must return `FAIL` with the concrete limitation. Do not
+drop a required logo to pass. Do not launch a browser, alter evidence or upload DAM
+assets yourself. Tier-1 reuse does not exempt a referenced asset from these checks.
+
+## MUST — Do not re-capture the source, do not build, do not probe the toolchain
 
 - **Never open the live site.** The planner already captured this page at every
   breakpoint and froze the evidence under `{{evidence_dir}}`. Do not launch
-  Playwright, fetch `{{site_url}}`, or re-measure anything. Eight other agents are
-  doing the same work you would be duplicating. If the evidence you need is missing
+  Playwright, fetch `{{site_url}}`, or re-measure anything. All component workers
+  share the captured evidence. If the evidence you need is missing
   or ambiguous, report `FAIL` naming the missing artifact — do not go and get it.
+- **Never run Maven.** Not `mvn test`, not `mvn compile`, not `-pl core`, not with
+  `-am`, not "just to check". Your checkout is a fresh copy with no `target/`, so any
+  Maven goal here is a cold reactor build: measured runs spent over thirty minutes on
+  a single focused test that takes seconds in the shared tree, and concurrent workers
+  then fight over one local Maven repository. The deterministic deployer compiles the
+  merged source once and runs your declared test there, after every worker finishes.
 - **`JAVA_HOME` is already correct** — it is `{{java_home}}`, exported into your
-  environment. Run `mvn` directly. Do not run `mvn -v` to check it, do not search for
-  JDKs, and do not prefix commands with `$env:JAVA_HOME=...`.
+  environment. Do not run `mvn -v` to check it, do not search for JDKs, and do not
+  prefix commands with `$env:JAVA_HOME=...`.
 
 {{remediation_block}}
 
@@ -78,6 +131,11 @@ for missing discovery or content.
 These are the only source paths the coordinator will accept:
 
 {{owned_paths}}
+
+Never delete an unowned file to avoid an ownership error. The snapshot includes
+existing files, including uncommitted ones; deleting them is a source change too.
+Leave unowned files untouched and report missing ownership as a blocker. Ownership
+does not authorize removing existing behavior merely because it is not being tested.
 
 The planner's shared pass exclusively owns shared tokens, site styles and policies.
 If a required token is missing, return `FAIL` with `outputs.foundation_requests`
@@ -137,6 +195,17 @@ apply it. A single-threaded merge writes every contribution once, in source orde
   page reference where needed; never edit their repository XML directly.
 - `assets[]` drives the asset phase. Author the `dam_path` you declare here; it will
   exist in DAM before the page is deployed.
+- For an inline SVG, copy its exact `source_file` and `sha256` from the collector's
+  `media.json`, with a `.svg` `dam_path`, and omit `source_url`. The source file is
+  absolute or relative to this run's evidence directory, never your source checkout.
+  Example shape: `{"source_file":"<captured path>","sha256":"<captured hash>","dam_path":"/content/dam/demo-ai-site/brand/logo.svg"}`.
+  Never invent download URLs such as "inline svg", redraw logos, or rewrite evidence.
+  Captured static paths/shapes/gradients/local definitions are supported; text,
+  scripts, animation, external references and unsupported effects are not certified.
+  If automatic extraction failed, use the source-backed Inline SVG recovery path
+  above. Report missing evidence or unrecoverable artwork instead of substituting it.
+  Asset declarations are validated before your result can pass. Downloads, retries,
+  cached transfers and DAM writes belong to the coordinator, not this worker.
 - `filter_roots` is for non-DAM content roots only. A `/content/dam/` root is
   rejected: DAM is uploaded over HTTP, not packaged.
 - Emit one entry per authored instance. Give repeated instances distinct names
@@ -149,13 +218,19 @@ Report the same paths in `outputs.authored_paths` so the merge can be verified.
 
 ## Implementation contract
 
-### Deployment evidence contract
+### Build and test evidence contract
 
-Include `outputs.focused_tests` (or the singular `outputs.focused_test`) with the
-exact executable command, optional `working_directory` relative to your source
-root, and check evidence. Prefer an argv array. Report separate commands as separate
-records, not shell pipelines; the deterministic deployer reruns and deduplicates
-these commands on the merged source, without expanding to all core tests.
+Write the focused test, then **declare** it: include `outputs.focused_tests` (or the
+singular `outputs.focused_test`) with the exact executable command and an optional
+`working_directory` relative to your source root. Prefer an argv array. Report
+separate commands as separate records, not shell pipelines. You do not run them —
+the deterministic deployer compiles the merged source once and reruns every declared
+command, deduplicated, without expanding to all core tests. A test that fails there
+comes back to you with the log.
+
+Declaring a test you did not write, or naming a class that does not exist, fails the
+deploy phase and costs you a full repair cycle. Declaring a command that is not a test
+— an install, deploy, clean, or shell pipeline — is rejected outright.
 
 Provide `outputs.runtime_contract` with `model_probes` and `clientlibs` arrays.
 This describes checks, not permission to change application behavior for testing.
@@ -198,9 +273,10 @@ not a suggestion; list what you loaded in your result.
 Open these `create-component` reference files for the areas you touch:
 {{skill_references}}
 
-Run `code-assessment` on every Java file you generate and fix what it reports before
-you finish. Treat its findings as blocking — especially bare `@Inject` in Sling
-Models, deprecated APIs, unbounded queries, and outbound calls without timeouts.
+Apply the loaded `code-assessment` guidance to every Java file you generate. The
+deterministic deployer runs the original analyzer once over merged changes and sends
+blocking findings back to the owning component. Do not compile or run the analyzer
+in this worker. Do not claim that analysis or tests ran when you only declared them.
 
 **Delivery mechanism.** Your component's `delivery` field decides where the work
 lands. Do not change it — the planner owns that decision.
@@ -293,9 +369,11 @@ once.
 existing editable container and populate exact content, variants, assets, metadata,
 and child order. Update the existing policy; do not fork a template for a variant.
 
-**Validation.** After your first implementation edit, run the cheapest focused
-executable validation before continuing. Run the component's focused test before you
-finish. Do not run a full reactor build — the deployer agent owns deployment.
+**Validation.** After your first implementation edit, use an already-available JSON
+or XML parser or `node --check` for the touched slice and review HTL bindings.
+Do not install tools or run npm, Sass, webpack, Maven or the analyzer. The coordinator
+builds merged frontend source once; the deployer owns compile, tests and assessment.
+Report exact changed files and test declarations so those gates can attribute defects.
 
 ## Coordinator Comparison Targets
 
@@ -348,7 +426,7 @@ Write valid JSON to `{{result_path}}`:
     "contributions": "{{contribution_path}}",
     "authored_paths": ["<jcr path of each authored instance>"],
     "dam_assets": [{"source_url": "<url>", "dam_path": "<path>", "bytes": 0, "mime": "<type>"}],
-    "focused_test": {"command": "<command>", "status": "PASS", "evidence": "<path>"},
+    "focused_test": {"command": ["<argv>"], "working_directory": "<optional path under your source root>"},
     "skills_loaded": ["<each skill you actually loaded>"],
     "authorability_matrix": "<path under evidence dir>",
     "design_facts": "<path under evidence dir>"
@@ -356,7 +434,7 @@ Write valid JSON to `{{result_path}}`:
   "checks": [
     {"name": "every_business_value_authorable", "status": "PASS", "evidence": "<path>"},
     {"name": "assets_authored_from_dam", "status": "PASS", "evidence": "<path>"},
-    {"name": "focused_test_passes", "status": "PASS", "evidence": "<path to command-output log under evidence dir>"}
+    {"name": "focused_test_declared", "status": "PASS", "evidence": "<path under evidence dir naming the test file you wrote and the command you declared>"}
   ],
   "failures": []
 }

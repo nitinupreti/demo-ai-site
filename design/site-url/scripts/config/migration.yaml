@@ -151,6 +151,17 @@ backend:
       message: assistant.message
       error: session.error
       result: result
+    # Measured runs showed the CLI lingering up to 15 minutes after the agent had
+    # finished. The validated result file, not process exit, ends an invocation.
+    # Set either grace to null to wait for the process instead.
+    # `result_quiet_seconds` also covers a CLI that stops emitting events
+    # altogether: measured runs lingered 319-1030s in that state.
+    completion:
+      task_complete_event: session.task_complete
+      idle_event: assistant.idle
+      grace_seconds: 10
+      idle_grace_seconds: 120
+      result_quiet_seconds: 120
 
 # ---------------------------------------------------------------------------
 # Model selection
@@ -173,6 +184,7 @@ discovery:
 
 fanout:
   max_parallel: 5
+  batch_reuse: true
   # Hard ceiling so a bad plan cannot spawn an unbounded number of agents.
   max_components: 40
   min_components: 1
@@ -183,9 +195,10 @@ fanout:
 validation:
   rules:
     - "Write disposable compiler output, coverage, caches and check logs into MIGRATION_VALIDATION_DIR; quote the absolute environment paths in commands. Never invent output folders in source trees or add temporary output to changed_files."
+    - "Write DOM dumps, raw text, JSON inspections and scratch files under MIGRATION_VALIDATION_DIR too, never at the checkout root (for example footer_dump.txt or footer_raw.txt). Quarantined diagnostics are evidence, not owned source."
     - "REPORTS_PATH routes Cypress screenshots, videos and JUnit XML to this invocation. TMP, TEMP and TMPDIR route cooperative tools' temporary files there. Do not change these paths or write another worker's evidence. Tool-specific output flags must also point inside this workspace."
-    - "Use the installed TypeScript compiler with --noEmit for type checking. Use focused Sass or webpack-only compile checks with output explicitly directed into the validation workspace. Never emit JavaScript or source maps beside TypeScript source."
-    - "For permitted dependency setup use npm ci with the existing lockfile. Never run npm install, rewrite or delete manifests/lockfiles, or let npx download missing packages. Report missing or inconsistent dependencies as a setup prerequisite."
+    - "LLM workers: Do not run npm, npx, dependency installers or package managers. Do not run Sass or webpack. Do not run the code-assessment analyzer or compile its sources. The coordinator performs the shared frontend install/build and the deterministic deployer performs compile, declared tests and code assessment on merged source. No worker-local node_modules or compiler discovery is needed."
+    - "For immediate source checks use already-available JSON/XML parsers or node --check, with output under MIGRATION_VALIDATION_DIR. Never emit JavaScript or source maps beside TypeScript source. Preserve package manifests and lockfiles; report missing dependencies as a prerequisite instead of installing them."
     - "The planner's planning pass is read-only for repository sources. Its shared pass and component workers validate source only: do not run clientlib, npm run dev or npm run prod. The coordinator serializes the shared frontend build before deployment. Deployable clientlibs must remain tracked source, never ignored as disposable output."
     - "Shared token, style and policy changes have one owner: the planner in shared mode, after planning passes. Component workers return foundation_requests with paths, measured values and evidence; never edit shared source or broaden ownership to pass a check. The coordinator reruns affected components after shared repairs."
     - "Retain command, exit code and nonempty logs under the evidence workspace. Passing a command is not permission to skip ownership, readiness, deployment or visual-parity checks. These instructions and environment settings do not provide an OS sandbox."
@@ -289,7 +302,12 @@ assets:
   dam_root: /content/dam/demo-ai-site/design
   staging_dir: assets                 # under EVIDENCE_DIR, git-ignored
   manifest_file: assets/manifest.json
+  # Failed downloads are listed here for the operator to retry, correct or replace
+  # with a locally downloaded file; successful entries are removed automatically.
+  unresolved_file: assets/unresolved-assets.json
   timeout_seconds: 60
+  transfer_attempts: 3
+  retry_delay_seconds: 1
   max_bytes: 26214400                 # 25 MB per asset
   user_agent: "aem-migration-assets/1.0"
   allowed_mime_prefixes:
@@ -443,6 +461,8 @@ parity:
 # phase reports failing components and the attempt budget from the prompt
 # contract is not exhausted.
 pipeline:
+  recovery:
+    repeated_failure_limit: 2
   phases:
     - id: plan
       agent: planner

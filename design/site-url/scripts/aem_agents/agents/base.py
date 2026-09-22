@@ -225,6 +225,7 @@ class Agent:
 
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
         if result.passed and not self.context.dry_run:
+            invalid = []
             for check in result.checks:
                 evidence = check.get("evidence")
                 paths = evidence if isinstance(evidence, list) else [evidence]
@@ -234,11 +235,18 @@ class Agent:
                     for path in paths:
                         self.context.evidence_file(path)
                 except (EnvelopeError, OSError, ValueError) as error:
-                    raise EnvelopeError(
-                        f"Agent '{self.agent_id}' check '{check.get('name', '?')}' has invalid evidence: {error}. "
-                        "Use a single file path or a nonempty JSON array of file path strings; "
-                        "put explanations in 'details', not in the paths."
-                    ) from error
+                    # Every check is judged, so recovery can reissue only the bad ones.
+                    check["status"] = "FAIL"
+                    invalid.append({"name": str(check.get("name", "?")), "reason": str(error)})
+            if invalid:
+                failure = EnvelopeError(
+                    f"Agent '{self.agent_id}' has invalid evidence for "
+                    + "; ".join(f"check '{row['name']}': {row['reason']}" for row in invalid)
+                    + ". Use a single file path or a nonempty JSON array of file path strings; "
+                    "put explanations in 'details', not in the paths."
+                )
+                failure.invalid_checks = invalid
+                raise failure
 
     # -- execution ---------------------------------------------------------
 
@@ -346,9 +354,10 @@ class Agent:
 
         if context.backend is None:
             raise EnvelopeError("The agent backend has not been initialized.")
+        options = self.backend_options(slug)
         run = context.backend.run(
             prompt=prompt,
-            options=self.backend_options(slug),
+            options=options,
             workspace=workspace,
             stream_name=str(context.settings.migration.get("run.stream_file", "stream.jsonl")),
             stderr_name=str(context.settings.migration.get("run.stderr_file", "stderr.log")),
@@ -356,10 +365,13 @@ class Agent:
             working_directory=context.repo_root,
             env_extra={**self.env_extra(), **self.validation_environment(slug, prepare=True)},
             on_event=lambda event: self._on_event(label, event),
+            completion_ready=lambda: result_path.is_file() and result_path.stat().st_size > 0,
         )
         context.logger.info(
             "Agent %s exited with %s in %.1fs", slug, run.exit_code, run.duration_seconds
         )
+        if run.completed_early:
+            emit(f"     {slug}: agent finished; stopped the idle CLI after {run.lingered_seconds:.0f}s instead of waiting for it to exit.", "dim")
 
         if run.timed_out:
             raise EnvelopeError(
@@ -371,21 +383,39 @@ class Agent:
                 f"{label} exited with code {run.exit_code}. See {run.stderr_path}"
             )
 
+        rejected: AgentResult | None = None
         try:
-            result = read_result(result_path, self.spec, context.run_id)
-            self.validate_result(result, **kwargs)
+            rejected = read_result(result_path, self.spec, context.run_id)
+            self.validate_result(rejected, **kwargs)
+            result = rejected
         except EnvelopeError as error:
+            outputs: dict[str, Any] = {"invalid_checks": getattr(error, "invalid_checks", [])}
+            if result_path.is_file():
+                # Keep the model's envelope; the FAIL stub below replaces the file.
+                preserved = result_path.with_name(result_path.stem + ".rejected.json")
+                preserved.write_bytes(result_path.read_bytes())
+                outputs["rejected_envelope"] = str(preserved)
             result = AgentResult(
-                agent=self.agent_id, run_id=context.run_id, status="FAIL",
+                agent=self.agent_id, run_id=context.run_id, status="FAIL", outputs=outputs,
+                checks=rejected.checks if rejected is not None else [],
                 failures=[str(error)], path=str(result_path),
             )
             dump_json(result_path, result.to_dict())
             context.state.record_agent_result(slug, result.to_dict())
             raise
+        if not result.passed and str(result.raw.get("status", "")).upper() in {"PASS", "COMPLETE"}:
+            preserved = result_path.with_name(result_path.stem + ".rejected.json")
+            preserved.write_bytes(result_path.read_bytes())
+            result.outputs["rejected_envelope"] = str(preserved)
+        dump_json(result_path, result.to_dict())
         color = "green" if result.passed else ("yellow" if result.blocked else "red")
-        emit(f"  <- {label} {result.summary()}", color)
-        context.state.record_agent_result(slug, {**result.to_dict(), "duration_seconds": run.duration_seconds})
+        emit(f"  <- {label} {self.completion_summary(result)}", color)
+        context.state.record_agent_result(slug, {**result.to_dict(), "duration_seconds": run.duration_seconds,
+                                                 "model": options.get("model") or None, "effort": options.get("effort") or None})
         return result
+
+    def completion_summary(self, result: AgentResult) -> str:
+        return result.summary()
 
     def env_extra(self) -> dict[str, str]:
         environment = {

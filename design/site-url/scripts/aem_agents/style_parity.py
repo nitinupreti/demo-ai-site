@@ -64,7 +64,7 @@ def validate_targets(targets: Any, component: Mapping[str, Any]) -> None:
         raise EnvelopeError("Component must provide parity_targets for coordinator-run comparison.")
     identities = set()
     planned = {row.get("instance_id") for row in component.get("source_selectors", [])}
-    for target in targets:
+    for target_index, target in enumerate(targets):
         if not isinstance(target, Mapping) or any(not isinstance(target.get(name), str) or not target[name] for name in ("instance_id", "selector")):
             raise EnvelopeError("Each parity target needs an instance_id and CSS selector.")
         width, mode, index = target.get("breakpoint"), target.get("mode"), target.get("match_index")
@@ -76,7 +76,7 @@ def validate_targets(targets: Any, component: Mapping[str, Any]) -> None:
             raise EnvelopeError("Invalid target match index.")
         identity = (target["instance_id"], width, mode)
         if target["instance_id"] not in planned:
-            raise EnvelopeError("Parity target does not belong to a planned instance.")
+            raise EnvelopeError(f"{component.get('id', 'component')}: parity_targets[{target_index}].instance_id {target['instance_id']!r} does not belong to a planned instance; use one of {sorted(str(value) for value in planned)}.")
         if identity in identities:
             raise EnvelopeError("Duplicate parity target scope.")
         identities.add(identity)
@@ -84,9 +84,12 @@ def validate_targets(targets: Any, component: Mapping[str, Any]) -> None:
         actions = target.get("interactions", [])
         if not isinstance(roles, list) or not isinstance(actions, list):
             raise EnvelopeError("Parity roles and interactions must be arrays.")
-        for role in roles:
+        for role_index, role in enumerate(roles):
             if not isinstance(role, Mapping) or any(not isinstance(role.get(name), str) or not role[name] for name in ("source_selector", "target_selector")):
-                raise EnvelopeError("Role mappings need relative source and target CSS selectors.")
+                raise EnvelopeError(
+                    f"{component.get('id', 'component')}: parity_targets[{target_index}].roles[{role_index}] "
+                    "must be an object with nonempty source_selector and target_selector relative CSS selectors, not a role label."
+                )
         action_ids = set()
         for action in actions:
             if not isinstance(action, Mapping) or any(not isinstance(action.get(name), str) or not action[name] for name in ("id", "type", "source_selector", "target_selector")):

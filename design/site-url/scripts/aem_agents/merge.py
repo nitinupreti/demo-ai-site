@@ -121,9 +121,13 @@ def _parse_fragment(xml: str, namespaces: Mapping[str, str]) -> ElementTree.Elem
     return children[0]
 
 
-def latest_contribution_path(settings: Settings, evidence_dir: Path, component_id: str) -> Path | None:
+def latest_contribution_path(settings: Settings, evidence_dir: Path, component_id: str, *, attempt: int | None = None) -> Path | None:
     workspace = evidence_dir / str(settings.migration.get("run.agent_workspace_dir", "agents"))
     filename = str(settings.migration.get("shared_files.contribution_file", "contributions.json"))
+    if attempt is not None:
+        if type(attempt) is not int or attempt < 1:
+            raise MergeError("Contribution attempt must be a positive integer.")
+        return workspace / f"component-{component_id}-attempt-{attempt}" / filename
     pattern = re.compile(rf"component-{re.escape(component_id)}-attempt-(\d+)$")
     candidates = [
         (int(match.group(1)), directory / filename)
@@ -134,7 +138,7 @@ def latest_contribution_path(settings: Settings, evidence_dir: Path, component_i
 
 
 def read_contributions(
-    settings: Settings, evidence_dir: Path, components: list[Mapping[str, Any]]
+    settings: Settings, evidence_dir: Path, components: list[Mapping[str, Any]], *, attempt: int | None = None
 ) -> tuple[list[Contribution], list[str]]:
     """Collect one contribution per planned component, newest attempt wins."""
     order_by_id = {
@@ -149,7 +153,7 @@ def read_contributions(
     contributions: list[Contribution] = []
     missing: list[str] = []
     for component_id, source_order in order_by_id.items():
-        raw = latest_contribution_path(settings, evidence_dir, component_id)
+        raw = latest_contribution_path(settings, evidence_dir, component_id, attempt=attempt)
         if raw is None or not raw.is_file():
             missing.append(component_id)
             continue
@@ -168,9 +172,10 @@ def read_contributions(
         missing_targets = [target for target in required_targets if not any(isinstance(page, Mapping) and page.get("page_path") == target for page in pages)]
         if missing_targets:
             raise MergeError(f"Contribution from {component_id} omits required page/XF targets: {', '.join(missing_targets)}")
-        for page in pages:
+        for page_index, page in enumerate(pages):
             if not isinstance(page, Mapping) or not isinstance(page.get("nodes"), list) or not page["nodes"]:
-                raise MergeError(f"Contribution from {component_id} has no authored nodes.")
+                target = page.get("page_path", "missing page_path") if isinstance(page, Mapping) else "invalid page entry"
+                raise MergeError(f"Contribution from {component_id} has no authored nodes (pages[{page_index}], target: {target}).")
             properties = page.get("page_properties", {})
             if not isinstance(properties, Mapping) or any(not isinstance(value, str) for value in properties.values()):
                 raise MergeError(f"Invalid page_properties in {raw}.")

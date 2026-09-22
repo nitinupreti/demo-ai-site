@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import copy
 from dataclasses import replace
 import json
 import logging
+import os
 import queue
 import re
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -23,14 +26,15 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from aem_agents.config import AgentSpec, ConfigError, Settings
-from aem_agents.cli import main as cli_main
+from aem_agents.cli import main as cli_main, _resume_rows
 from aem_agents.browser import browser_paths
 from aem_agents.contract import Threshold, load_contract
 from aem_agents.envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
 from aem_agents.agents.base import Agent, RunContext
 from aem_agents.agents.parity import ParityAgent
 from aem_agents.orchestrator import Orchestrator, PhaseOutcome, PipelineError
-from aem_agents.merge import MergeReport
+from aem_agents.merge import MergeError, MergeReport
+from aem_agents.assets import AssetDeclarationError, AssetRecord, AssetReport
 from aem_agents.runner import CopilotBackend, BackendError, run_command
 from aem_agents.agents.planner import PlannerAgent
 from aem_agents.agents.deployer import DeployerAgent
@@ -39,7 +43,7 @@ from aem_agents.toolchain import Toolchain
 from aem_agents.agents import AGENT_CLASSES
 from aem_agents.workspaces import WorkspaceError, digest
 from aem_agents.discovery import DiscoveryEvidence
-from aem_agents.handoff import PACKET_BYTES, prepare_planner_handoff, prepare_shared_handoff, write_packets
+from aem_agents.handoff import PACKET_BYTES, prepare_component_handoff, prepare_planner_handoff, prepare_shared_handoff, write_packets
 from aem_agents.deployment import DeploymentVerifier, DeploymentError, jcr_value, repository_differences
 from xml.etree import ElementTree
 
@@ -125,6 +129,38 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(EnvelopeError, "all_breakpoints_ready.*stability-1440"):
             self.validate([str(path) for path in self.paths])
 
+    def test_only_the_check_with_bad_evidence_is_marked_failed(self):
+        result = AgentResult("planner", "test", "PASS", outputs={"components": [{"id": "hero"}]}, checks=[
+            {"name": "all_breakpoints_ready", "status": "PASS", "evidence": str(self.paths[0])},
+            {"name": "all_discovery_signals_executed", "status": "PASS", "evidence": str(self.evidence / "overview-375-1.json")},
+            {"name": "exactly_once_coverage", "status": "PASS", "evidence": str(self.paths[1])},
+        ])
+        with self.assertRaises(EnvelopeError) as raised:
+            Agent.validate_result(self.agent, result)
+        self.assertEqual([row["name"] for row in raised.exception.invalid_checks], ["all_discovery_signals_executed"])
+        self.assertEqual([check["status"] for check in result.checks], ["PASS", "FAIL", "PASS"])
+        self.assertEqual(result.outputs["components"], [{"id": "hero"}])
+
+    def test_prepared_packet_label_is_accepted_instead_of_a_typed_filename(self):
+        inputs = self.evidence / "planning-inputs"
+        inputs.mkdir()
+        for name in ("overview-1.json", "headings-375-1.json"):
+            (inputs / name).write_text('{"records": []}', encoding="utf-8")
+        (inputs / "index.json").write_text(json.dumps({"packets": {
+            "overview": [{"file": "overview-1.json"}], "headings-375": [{"file": "headings-375-1.json"}]}}), encoding="utf-8")
+        self.agent.planning_handoff = {"index_path": str(inputs / "index.json"), "hashes": {}}
+        result = AgentResult("planner", "test", "PASS", checks=[
+            {"name": "all_discovery_signals_executed", "status": "PASS", "evidence": "overview"}])
+        self.agent._expand_packet_evidence(result)
+        self.assertEqual(result.checks[0]["evidence"], str(inputs / "overview-1.json"))
+        Agent.validate_result(self.agent, result)
+
+        invented = AgentResult("planner", "test", "PASS", checks=[
+            {"name": "all_discovery_signals_executed", "status": "PASS", "evidence": "overview-375-1.json"}])
+        self.agent._expand_packet_evidence(invented)
+        with self.assertRaisesRegex(EnvelopeError, "Missing, empty, or out-of-run"):
+            Agent.validate_result(self.agent, invented)
+
     def test_empty_or_out_of_run_evidence_is_rejected(self):
         empty = self.evidence / "empty.json"
         empty.touch()
@@ -163,6 +199,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("shared_tokens_ready", shared.spec.get("required_checks"))
         self.assertIn("shared_policies_ready", shared.spec.get("required_checks"))
 
+    def test_planning_reasons_at_lower_effort_than_source_writing_roles(self):
+        planner = PlannerAgent(self.context)
+        self.assertEqual(planner.backend_options("planner")["effort"], "medium")
+        for agent in (PlannerAgent(self.context, shared=True), AGENT_CLASSES["component"](self.context)):
+            self.assertEqual(agent.backend_options("slug")["effort"],
+                             self.context.settings.migration.get("model.effort"))
+        self.assertEqual(PlannerAgent(self.context, diagnostic=True).backend_options("slug")["effort"], "medium")
+
     def test_foundation_repairs_have_separate_attempt_identity(self):
         self.assertEqual(self.agent.slug(), "planner")
         foundations = PlannerAgent(self.context, shared=True)
@@ -174,6 +218,8 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("read-only for all repository sources", prompt)
         self.assertIn(f"Source root: `{self.context.repo_root.resolve()}`", prompt)
         self.assertIn("Never use the original checkout path", prompt)
+        self.assertIn('"contribution_targets": [', prompt)
+        self.assertIn("JSON array of JCR page path strings", prompt)
         self.assertNotIn("shared_tokens_ready", prompt)
         self.assertEqual(self.agent.env_extra()["MIGRATION_SOURCE_ROOT"], str(self.context.repo_root.resolve()))
 
@@ -185,6 +231,166 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("Do not repeat browser actions", prompt)
         self.assertIn("no unclaimed gap of", prompt)
         self.assertIn("every signal", prompt)
+
+    def test_component_svg_recovery_uses_shared_browser_and_preserves_validator_failure(self):
+        self.context.browser = browser_paths(self.context.settings)
+        agent = AGENT_CLASSES["component"](self.context)
+        component = {"id": "header", "source_selectors": [{"instance_id": "header", "selector": "#header"}]}
+        result_path = agent.result_path(agent.slug(component=component))
+        payload = {"agent": "component", "run_id": "test", "status": "PASS", "failures": [],
+                   "outputs": {"component_id": "header", "changed_files": [], "parity_targets": [{"instance_id": "header", "selector": "#header"}]},
+                   "checks": [{"name": name, "status": "PASS", "evidence": str(self.paths[0])}
+                              for name in agent.spec.get("required_checks")]}
+
+        def backend(**kwargs):
+            result_path.write_text(json.dumps(payload), encoding="utf-8")
+            return SimpleNamespace(exit_code=0, duration_seconds=0, completed_early=False, timed_out=False, ok=True)
+
+        self.context.backend = MagicMock()
+        self.context.backend.run.side_effect = backend
+        self.context.settings.repo_root = self.root / "isolated-checkout"
+        with patch.object(agent, "render_prompt", return_value="fixture"), patch("aem_agents.agents.component.read_contributions", return_value=([], [])), patch(
+            "aem_agents.agents.component.validate_asset_declarations", side_effect=AssetDeclarationError("SVG recovery visual match failed", ["header"])
+        ) as validate:
+            result = agent.run(component=component)
+        self.assertFalse(result.passed)
+        self.assertEqual(json.loads(result_path.read_text(encoding="utf-8"))["status"], "FAIL")
+        self.assertEqual(json.loads(Path(result.output("rejected_envelope")).read_text(encoding="utf-8"))["status"], "PASS")
+        settings = validate.call_args.args[0]
+        self.assertEqual(settings.repo_root, self.context.settings.repo_root)
+        self.assertEqual(settings.migration.require("parity.browsers_path"), str(self.context.browser.browsers_path))
+        self.assertFalse(result.output("critical_asset_failure"))
+
+    def test_component_prompt_routes_inputs_without_forbidding_scoped_source_searches(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        prompt = agent.render_prompt("component-header-attempt-1", component={"id": "header"})
+        self.assertIn("Component discovery index", prompt)
+        for name in ("_header.scss", "header.scss", "header.css", "header.js"):
+            self.assertIn(f"ui.frontend/src/main/webpack/components/{name}", prompt)
+        self.assertIn("Never delete an unowned file", prompt)
+        self.assertIn("Scoped searches within your own source modules", prompt)
+        self.assertIn("not past PASS results", prompt)
+        self.assertNotIn("{{component_handoff_index}}", prompt)
+
+    def test_contribution_failure_preserves_candidate_result(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        outputs = {
+            "component_id": "header", "changed_files": ["ui.frontend/src/main/webpack/components/header.js"],
+            "focused_test": {"command": ["mvn", "test", "-pl", "core", "-Dtest=HeaderTest"], "working_directory": "."},
+            "runtime_contract": {"model_probes": [], "clientlibs": []},
+        }
+        result = AgentResult("component", "test", "PASS", outputs=copy.deepcopy(outputs), checks=[
+            {"name": "focused_test_declared", "status": "PASS", "evidence": str(self.paths[0])},
+        ])
+        reason = "Contribution from header has no authored nodes."
+        with patch("aem_agents.agents.component.read_contributions", side_effect=MergeError(reason)):
+            agent.validate_result(result, component={"id": "header"}, attempt=1)
+        self.assertEqual(result.status, "FAIL")
+        self.assertEqual(result.failures, [reason])
+        self.assertEqual(result.outputs, outputs)
+        self.assertEqual(agent.contribution_failure, reason)
+
+    def test_contribution_repair_prompt_is_source_readonly_and_skips_handoff(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        agent.contribution_repair = {
+            "candidate_result": str(self.evidence / "candidate-result.json"),
+            "contribution": str(self.evidence / "contributions.json"),
+            "previous_contribution": str(self.evidence / "previous/contributions.json"),
+            "failure": "Contribution from header has no authored nodes.",
+        }
+        with patch("aem_agents.agents.component.prepare_component_handoff", return_value={}) as prepare:
+            prompt = agent.render_prompt("component-header-attempt-2", component={"id": "header"}, attempt=2)
+        prepare.assert_not_called()
+        self.assertIn("# Contribution-only repair", prompt)
+        self.assertIn("No repository source edits are permitted", prompt)
+        self.assertIn("Do not rebuild dialogs", prompt)
+        self.assertIn("required target", prompt)
+        self.assertIn(agent.contribution_repair["candidate_result"], prompt)
+        self.assertNotIn("# Component Agent", prompt)
+        self.assertNotIn("{{", prompt)
+        self.assertEqual(agent.spec.id, "component")
+
+    def test_reuse_batch_prompt_is_compact_readonly_and_preserves_each_task(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        components = [{"id": identity, "tier": tier, "execution_mode": "authoring", "source_order": index, "notes": "Exact content " * 600,
+                       "source_selectors": [{"instance_id": identity + "-original", "selector": "#source", "breakpoint": width} for width in (375, 768)]}
+                      for index, (identity, tier) in enumerate((("header", 1), ("footer", 2), ("cards", 3), ("banner", 4)))]
+        agent.reuse_components = components
+        prompt = agent.render_prompt(agent.slug(attempt=1), attempt=1)
+        self.assertIn("# Reuse authoring", prompt)
+        self.assertIn("any reuse tier", prompt)
+        self.assertIn("No repository source edits", prompt)
+        self.assertNotIn("# Component Agent", prompt)
+        self.assertNotIn("{{", prompt)
+        self.assertLess(len(prompt.encode("utf-8")), 12000)
+        index = json.loads(Path(agent.reuse_index).read_text(encoding="utf-8"))
+        self.assertEqual(len(index["tasks"]), len(components))
+        for component, task in zip(components, index["tasks"]):
+            packet = json.loads(Path(task["input"]).read_text(encoding="utf-8"))
+            self.assertEqual(packet["component"], component)
+            self.assertIn(f"component-{component['id']}-attempt-1", packet["contribution_path"])
+            template = packet["result_template"]
+            self.assertEqual(template["status"], "BLOCKED")
+            self.assertEqual(template["outputs"]["component_id"], component["id"])
+            self.assertEqual(template["outputs"]["parity_targets"], [
+                {"instance_id": component["id"] + "-original", "selector": "", "roles": [], "interactions": []},
+            ])
+            self.assertEqual(template["outputs"]["focused_test"], {"command": [], "working_directory": "."})
+            self.assertTrue(all(check["status"] == "BLOCKED" for check in template["checks"]))
+        self.assertEqual(agent.spec.id, "component")
+
+    def test_worker_prompts_delegate_expensive_setup_to_coordinator(self):
+        builder = AGENT_CLASSES["component"](self.context)
+        shared = PlannerAgent(self.context, shared=True)
+        for agent, arguments in ((builder, {"component": {"id": "header"}}), (shared, {"components": []})):
+            with self.subTest(role=agent.spec.title):
+                prompt = agent.render_prompt(agent.slug(**arguments), **arguments)
+                self.assertTrue("Do not run npm" in prompt, "Worker must not install dependencies")
+                self.assertTrue("Do not run Sass" in prompt, "Worker must not repeat the frontend compile")
+                self.assertTrue("Do not run the code-assessment analyzer" in prompt, "Worker must not repeat deterministic assessment")
+                self.assertNotIn("Run `code-assessment` on every Java file", prompt)
+
+    def test_reuse_prompt_specifies_captured_svg_and_result_schemas(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        agent.reuse_components = [{"id": "card", "tier": 1}]
+        prompt = agent.render_prompt(agent.slug(attempt=1), attempt=1)
+        for required in ("captured_assets", "Do not add recovery_source", "source_selector", "target_selector",
+                         '"command":', "not argv", "planned instance_id", "AEM", "result_template"):
+            with self.subTest(required=required):
+                self.assertTrue(required in prompt, f"Missing authoring contract: {required}")
+
+    def test_authoring_role_errors_identify_component_and_field(self):
+        from aem_agents.style_parity import validate_targets
+        component = {"id": "card", "source_selectors": [{"instance_id": "planned-card"}]}
+        target = {"instance_id": "planned-card", "selector": ".cmp-card", "roles": ["card-label"]}
+        with self.assertRaises(EnvelopeError) as failure:
+            validate_targets([target], component)
+        self.assertIn("card", str(failure.exception))
+        self.assertIn("roles[0]", str(failure.exception))
+        self.assertIn("source_selector", str(failure.exception))
+        self.assertIn("target_selector", str(failure.exception))
+        target["roles"] = [{"source_selector": "h2", "target_selector": ".cmp-card__title"}]
+        validate_targets([target], component)
+        target["instance_id"] = "invented-card-1"
+        with self.assertRaises(EnvelopeError) as failure:
+            validate_targets([target], component)
+        self.assertIn("invented-card-1", str(failure.exception))
+        self.assertIn("planned-card", str(failure.exception))
+
+    def test_component_rejects_argv_test_key_before_acceptance(self):
+        agent = AGENT_CLASSES["component"](self.context)
+        component = {"id": "header", "source_selectors": [{"instance_id": "header"}]}
+        outputs = {"component_id": "header", "changed_files": [], "parity_targets": [{"instance_id": "header", "selector": ".cmp-header"}]}
+        command = ["mvn", "test", "-pl", "core", "-Dtest=HeaderTest"]
+        with patch("aem_agents.agents.component.read_contributions", return_value=([], [])), patch(
+            "aem_agents.agents.component.validate_asset_declarations"
+        ), patch("aem_agents.agents.component.component_svg_recoveries", return_value=[]):
+            for key, value in (("focused_test", {"argv": command}), ("focused_tests", [{"argv": command}])):
+                with self.subTest(key=key), self.assertRaisesRegex(EnvelopeError, "command.*argv"):
+                    agent.validate_result(AgentResult("component", "test", "PASS", outputs={**outputs, key: value}), component=component)
+            agent.validate_result(AgentResult("component", "test", "PASS", outputs={
+                **outputs, "focused_test": {"command": command, "working_directory": "."},
+            }), component=component)
 
     def test_mutated_planner_projection_is_rejected(self):
         index = self.paths[0]
@@ -243,6 +449,60 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(component["owned_paths"], [content_path, model_path])
         persisted = json.loads((self.evidence / "component-plan.json").read_text(encoding="utf-8"))
         self.assertEqual(persisted["components"], planned)
+
+    def test_planner_normalizes_single_contribution_targets_without_mutating_input(self):
+        targets = ["/content/experience-fragments/demo-ai-site/us/en/site/header/master",
+                   "/content/demo-ai-site/us/en/customers/cursor"]
+        components = [{
+            "id": component_id, "name": component_id, "tier": 1, "delivery": delivery,
+            "source_order": order, "resource_type": f"demo-ai-site/components/{component_id}",
+            "source_selectors": [{"instance_id": component_id, "selector": selector}],
+            "owned_paths": [], "contribution_targets": target,
+        } for order, (component_id, delivery, selector, target) in enumerate([
+            ("site-header", "experience-fragment", "header", targets[0]),
+            ("story", "component", "main", targets[1]),
+        ])]
+        original = copy.deepcopy(components)
+        result = AgentResult("planner", "test", "PASS", outputs={"components": components})
+        planned = self.agent.validate_plan(result)
+        self.assertEqual([component["contribution_targets"] for component in planned], [[target] for target in targets])
+        self.assertEqual(components, original)
+        persisted = json.loads((self.evidence / "component-plan.json").read_text(encoding="utf-8"))
+        self.assertEqual(persisted["components"], planned)
+        self.assertEqual(self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={"components": planned})), planned)
+
+    def test_planner_contribution_shape_errors_are_recoverable_but_paths_stay_critical(self):
+        component = {
+            "id": "site-header", "name": "Header", "tier": 1, "delivery": "experience-fragment",
+            "source_order": 0, "resource_type": "demo-ai-site/components/site-header",
+            "source_selectors": [{"instance_id": "header", "selector": "header"}],
+        }
+        for targets in (None, 42, {"page_path": "/content/demo-ai-site/us/en/story"}, [None], [[]]):
+            with self.subTest(targets=targets), self.assertRaisesRegex(EnvelopeError, "contribution_targets") as raised:
+                self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={
+                    "components": [{**component, "contribution_targets": targets}]}))
+            self.assertNotIsInstance(raised.exception, WorkspaceError)
+        for target in ("", "/content/other-site/en", "/content/demo-ai-site/en/**",
+                       "/content/demo-ai-site/en/../other", "/content/demo-ai-site/en.html",
+                       "/content/demo-ai-site/en/.content.xml"):
+            with self.subTest(target=target), self.assertRaises(WorkspaceError):
+                self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={
+                    "components": [{**component, "contribution_targets": target}]}))
+        self.assertFalse((self.evidence / "component-plan.json").exists())
+
+    def test_planner_execution_mode_is_validated_independently_of_tier(self):
+        component = {"id": "card", "name": "Card", "tier": 2, "delivery": "component", "source_order": 0,
+                     "resource_type": "demo-ai-site/components/card", "source_selectors": [{"selector": "#card"}]}
+        for mode in (None, True, "reuse", ["authoring"], {}):
+            with self.subTest(mode=mode), self.assertRaisesRegex(EnvelopeError, "execution_mode"):
+                self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={
+                    "components": [{**component, "execution_mode": mode}]}))
+        for tier in (1, 2, 3, 4):
+            for mode in ("authoring", "implementation"):
+                with self.subTest(tier=tier, mode=mode):
+                    planned = {**component, "tier": tier, "execution_mode": mode}
+                    result = self.agent.validate_plan(AgentResult("planner", "test", "PASS", outputs={"components": [planned]}))
+                    self.assertEqual(result, [planned])
 
     def test_planner_routes_page_and_footer_targets_without_mutating_input(self):
         page = "/content/demo-ai-site/us/en/story"
@@ -824,6 +1084,8 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.run_single = MagicMock(side_effect=lambda phase, **kwargs: PhaseOutcome(phase["id"], "PASS", [
             AgentResult(phase["agent"], "test", "PASS", outputs={"failing_components": [], "target_url": "http://test.invalid"}),
         ]))
+        self.engine.diagnose_failure = MagicMock(return_value={"action": "retry", "component_ids": [], "repair_shared": False,
+                                                              "reason": "Fixture transient failure", "evidence": []})
         quiet = patch("aem_agents.orchestrator.emit")
         quiet.start()
         self.addCleanup(quiet.stop)
@@ -833,8 +1095,602 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_failed_implementation_never_deploys(self):
         self.engine.run_fanout.return_value.status = "FAIL"
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.engine.run_single.assert_not_called()
+
+    def test_unchanged_components_share_authoring_session_not_builder_sessions(self):
+        components = [{"id": identity, "tier": tier} for identity, tier in (("header", 1), ("footer", 1), ("hero", 4))]
+        self.engine.state.set_components(components)
+        authoring = PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "header"}),
+                                                         AgentResult("component", "test", "PASS", outputs={"component_id": "footer"})])
+        builders = PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})])
+        with patch.object(self.engine, "_run_reuse_batch", create=True, return_value=authoring) as reuse, patch.object(
+            self.engine, "_run_component_batch", return_value=builders
+        ) as build:
+            outcome = Orchestrator.run_fanout(self.engine, self.phases["implement"], components)
+        self.assertTrue(outcome.passed)
+        reuse.assert_called_once()
+        build.assert_called_once()
+        self.assertEqual([component["id"] for component in reuse.call_args.args[1]], ["header", "footer"])
+        self.assertEqual([component["id"] for component in build.call_args.args[1]], ["hero"])
+        self.assertEqual(len(outcome.results), 3)
+
+    def reuse_authoring_batch(self, *, invalid_member=False, invalid_roles=False, mutate_source=False, implementation_gap=False, backend_fails=False, tamper_inputs=False, tiers=(1, 1)):
+        settings = self.engine.settings
+        templates = settings.repo_root / "design/site-url/scripts/prompts"
+        templates.mkdir(parents=True)
+        shutil.copy2(SCRIPTS / "prompts/reuse.md", templates / "reuse.md")
+        components = [{"id": identity, "tier": tier, "execution_mode": "authoring", "source_order": index,
+                       "source_selectors": [{"instance_id": identity + "-1", "selector": "#" + identity, "match_index": 0}]}
+                  for index, (identity, tier) in enumerate(zip(("header", "footer"), tiers))]
+        self.engine.state.set_components(components)
+        original = settings.repo_root / "ui.frontend/src/main/webpack/components/header.js"
+        original.parent.mkdir(parents=True)
+        original.write_text("existing behavior", encoding="utf-8")
+        backend = MagicMock()
+        self.engine.context = RunContext(settings, self.engine.contract, backend, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+
+        def execute(**kwargs):
+            directory = kwargs["workspace"]
+            tasks = json.loads((directory / "authoring-inputs.json").read_text(encoding="utf-8"))["tasks"]
+            results = {}
+            for task in tasks:
+                inputs = json.loads(Path(task["input"]).read_text(encoding="utf-8"))
+                identity = task["component_id"]
+                contribution = Path(inputs["contribution_path"])
+                contribution.parent.mkdir(parents=True, exist_ok=True)
+                nodes = [] if invalid_member and identity == "footer" else [{"name": identity, "xml": f'<{identity} jcr:primaryType="nt:unstructured"/>'}]
+                contribution.write_text(json.dumps({"component_id": identity, "source_order": inputs["component"]["source_order"],
+                                                    "page_path": "/content/demo-ai-site/us/en/test", "nodes": nodes, "assets": []}), encoding="utf-8")
+                evidence = contribution.parent / "authoring-check.json"
+                evidence.write_text("{}", encoding="utf-8")
+                results[identity] = {"agent": "component", "run_id": "test", "status": "PASS", "outputs": {
+                    "component_id": identity, "changed_files": [], "contributions": str(contribution),
+                    "parity_targets": [{"instance_id": identity + "-1", "selector": ".cmp-" + identity, "match_index": 0}],
+                }, "checks": [{"name": name, "status": "PASS", "evidence": str(evidence)}
+                              for name in settings.agent("component").get("required_checks")], "failures": []}
+                if invalid_roles and identity == "footer":
+                    results[identity]["outputs"]["parity_targets"][0]["roles"] = ["global-footer"]
+                if implementation_gap and identity == "footer":
+                    results[identity].update(status="FAIL", failures=["The existing model lacks an authorable field."])
+                    results[identity]["outputs"]["implementation_required"] = {"reason": "Missing authorable field", "evidence": [str(evidence)]}
+                Path(inputs["result_path"]).write_text(json.dumps(results[identity]), encoding="utf-8")
+                results[identity] = inputs["result_path"]
+                if backend_fails == "interrupt":
+                    raise KeyboardInterrupt()
+                if backend_fails:
+                    raise BackendError("Fixture transport failure after first member")
+            if mutate_source:
+                (kwargs["working_directory"] / original.relative_to(settings.repo_root)).write_text("unexpected edit", encoding="utf-8")
+            if tamper_inputs:
+                Path(tasks[0]["input"]).write_text("{}", encoding="utf-8")
+            (directory / "result.json").write_text(json.dumps({"agent": "component", "run_id": "test", "status": "PASS",
+                "outputs": {"results": results}, "checks": [{"name": "authoring_results_recorded", "status": "PASS", "evidence": tasks[0]["input"]}], "failures": []}), encoding="utf-8")
+            return SimpleNamespace(exit_code=0, duration_seconds=1, completed_early=False, timed_out=False, ok=True)
+
+        backend.run.side_effect = execute
+        outcome = self.engine._run_reuse_batch(self.phases["implement"], components, {}, 1)
+        return outcome, backend, original
+
+    def test_reuse_batch_validates_each_component_with_one_model_invocation(self):
+        outcome, backend, original = self.reuse_authoring_batch()
+        self.assertTrue(outcome.passed, [result.failures for result in outcome.results])
+        backend.run.assert_called_once()
+        self.assertEqual({result.output("component_id") for result in outcome.results}, {"header", "footer"})
+        self.assertTrue(all(result.output("changed_files") == [] for result in outcome.results))
+        self.assertEqual(original.read_text(encoding="utf-8"), "existing behavior")
+        self.assertTrue(all(row["accepted_attempt"] == 1 for row in self.engine.state.component_rows()))
+
+    def test_reuse_batch_accepts_source_ready_project_and_core_extensions(self):
+        outcome, backend, original = self.reuse_authoring_batch(tiers=(2, 3))
+        self.assertTrue(outcome.passed, [result.failures for result in outcome.results])
+        backend.run.assert_called_once()
+        self.assertEqual(original.read_text(encoding="utf-8"), "existing behavior")
+        self.assertEqual([row["tier"] for row in self.engine.state.component_rows()], [2, 3])
+
+    def test_reuse_batch_enforces_source_readonly_for_all_tiers(self):
+        outcome, _, original = self.reuse_authoring_batch(tiers=(4, 2), mutate_source=True)
+        self.assertFalse(outcome.passed)
+        self.assertTrue(all(result.output("critical") for result in outcome.results))
+        self.assertEqual(original.read_text(encoding="utf-8"), "existing behavior")
+
+    def test_reuse_batch_keeps_success_when_another_contribution_fails(self):
+        outcome, backend, _ = self.reuse_authoring_batch(invalid_member=True)
+        results = {result.output("component_id"): result for result in outcome.results}
+        self.assertFalse(outcome.passed)
+        self.assertTrue(results["header"].passed)
+        self.assertFalse(results["footer"].passed)
+        self.assertTrue(results["footer"].output("reuse_only"))
+        backend.run.assert_called_once()
+
+    def test_reuse_batch_schema_failure_preserves_proposal_and_finalizes_status(self):
+        with patch("aem_agents.agents.base.emit") as messages:
+            outcome, _, _ = self.reuse_authoring_batch(invalid_roles=True)
+        results = {result.output("component_id"): result for result in outcome.results}
+        self.assertTrue(results["header"].passed)
+        self.assertFalse(results["footer"].passed)
+        rejected = Path(results["footer"].output("rejected_envelope"))
+        payload = json.loads(rejected.read_text(encoding="utf-8"))
+        self.assertEqual(payload["outputs"]["parity_targets"][0]["roles"], ["global-footer"])
+        slug = results["footer"].output("reuse_session")
+        batch = self.engine.state.get("agent_results")[slug]
+        self.assertEqual(batch["status"], "FAIL")
+        self.assertEqual(batch["outputs"]["proposal_status"], "PASS")
+        self.assertEqual(batch["outputs"]["member_statuses"], {"header": "PASS", "footer": "FAIL"})
+        self.assertEqual(json.loads(Path(batch["result_path"]).read_text(encoding="utf-8"))["status"], "FAIL")
+        self.assertTrue(any("validation pending" in str(call.args[0]) for call in messages.call_args_list))
+        self.assertFalse(any("component: PASS" in str(call.args[0]) for call in messages.call_args_list))
+
+    def test_reuse_batch_rejects_source_writes_for_all_members(self):
+        outcome, _, original = self.reuse_authoring_batch(mutate_source=True)
+        self.assertFalse(outcome.passed)
+        self.assertTrue(all(result.output("critical") for result in outcome.results))
+        self.assertEqual(original.read_text(encoding="utf-8"), "existing behavior")
+
+    def test_reuse_batch_routes_proven_implementation_gap_to_builder(self):
+        outcome, _, _ = self.reuse_authoring_batch(implementation_gap=True)
+        results = {result.output("component_id"): result for result in outcome.results}
+        self.assertTrue(results["header"].passed)
+        self.assertFalse(results["footer"].passed)
+        self.assertFalse(results["footer"].output("reuse_only"))
+        self.assertTrue(results["footer"].output("implementation_required"))
+
+    def test_reuse_batch_retains_completed_members_when_backend_fails(self):
+        outcome, backend, original = self.reuse_authoring_batch(backend_fails=True)
+        results = {result.output("component_id"): result for result in outcome.results}
+        self.assertFalse(outcome.passed)
+        self.assertTrue(results["header"].passed)
+        self.assertFalse(results["footer"].passed)
+        self.assertTrue(results["footer"].output("reuse_only"))
+        self.assertEqual(original.read_text(encoding="utf-8"), "existing behavior")
+        backend.run.assert_called_once()
+
+    def test_reuse_batch_checkpoints_completed_members_before_interruption(self):
+        with self.assertRaises(KeyboardInterrupt):
+            self.reuse_authoring_batch(backend_fails="interrupt")
+        rows = {row["id"]: row for row in self.engine.state.component_rows()}
+        self.assertEqual(rows["header"]["status"], "PASS")
+        self.assertEqual(rows["header"]["accepted_attempt"], 1)
+        self.assertEqual(rows["footer"]["status"], "FAIL")
+        self.assertTrue(self.engine.state.get("checkpoint")["artifacts"])
+
+    def test_reuse_batch_rejects_modified_input_packets(self):
+        outcome, _, _ = self.reuse_authoring_batch(tamper_inputs=True)
+        self.assertFalse(outcome.passed)
+        self.assertTrue(all(result.output("critical") for result in outcome.results))
+
+    def test_reuse_routing_preserves_contribution_repairs_and_source_repairs(self):
+        for tier in (1, 2, 3, 4):
+            with self.subTest(tier=tier):
+                components = [{"id": identity, "tier": tier, "execution_mode": "authoring"} for identity in ("header", "footer", "cards")]
+                self.engine.state.set_components(components)
+                feedback = {"header": {"repair_scope": "contributions"}, "footer": {"phase": "parity"}, "cards": {"reuse_only": True}}
+                with patch.object(self.engine, "_run_reuse_batch", return_value=PhaseOutcome("implement", "PASS")) as reuse, patch.object(
+                    self.engine, "_run_component_batch", return_value=PhaseOutcome("implement", "PASS")
+                ) as build:
+                    Orchestrator.run_fanout(self.engine, self.phases["implement"], components, feedback, attempt=2)
+                self.assertEqual([component["id"] for component in reuse.call_args.args[1]], ["cards"])
+                self.assertEqual({component["id"] for component in build.call_args.args[1]}, {"header", "footer"})
+
+    def test_authoring_recovery_is_independent_of_reuse_tier(self):
+        for tier in (1, 2, 3, 4):
+            with self.subTest(tier=tier):
+                components = [{"id": identity, "tier": tier} for identity in ("content-ready", "source-repair")]
+                self.engine.state.set_components(components)
+                feedback = {"content-ready": {"reuse_only": True}, "source-repair": {"phase": "parity"}}
+                with patch.object(self.engine, "_run_reuse_batch", return_value=PhaseOutcome("implement", "PASS")) as author, patch.object(
+                    self.engine, "_run_component_batch", return_value=PhaseOutcome("implement", "PASS")
+                ) as build:
+                    Orchestrator.run_fanout(self.engine, self.phases["implement"], components, feedback, attempt=2)
+                author.assert_called_once()
+                self.assertEqual([component["id"] for component in author.call_args.args[1]], ["content-ready"])
+                self.assertEqual([component["id"] for component in build.call_args.args[1]], ["source-repair"])
+
+    def test_execution_mode_routes_initial_work_independently_of_tier(self):
+        for tier in (1, 2, 3, 4):
+            with self.subTest(tier=tier):
+                components = [{"id": mode, "tier": tier, "execution_mode": mode}
+                              for mode in ("authoring", "implementation")]
+                self.engine.state.set_components(components)
+                with patch.object(self.engine, "_run_reuse_batch", return_value=PhaseOutcome("implement", "PASS")) as author, patch.object(
+                    self.engine, "_run_component_batch", return_value=PhaseOutcome("implement", "PASS")
+                ) as build:
+                    Orchestrator.run_fanout(self.engine, self.phases["implement"], components)
+                author.assert_called_once()
+                build.assert_called_once()
+                self.assertEqual([component["id"] for component in author.call_args.args[1]], ["authoring"])
+                self.assertEqual([component["id"] for component in build.call_args.args[1]], ["implementation"])
+
+    def test_reuse_asset_declaration_failure_stays_in_authoring_recovery(self):
+        self.components[0]["tier"] = 1
+        self.engine.state.set_components(self.components)
+        self.engine.max_attempts = 3
+
+        def execute(phase, components, feedback, attempt):
+            if attempt == 1:
+                self.engine.state.update_component("hero", status="FAIL", attempts=attempt)
+                return PhaseOutcome("implement", "FAIL", [AgentResult("component", "test", "FAIL", outputs={
+                    "component_id": "hero", "reuse_only": True, "asset_failures": [{
+                        "component_id": "hero", "owning_layer": "component", "phase": "assets", "hypothesis": "Invalid asset declaration",
+                    }],
+                }, failures=["Invalid asset declaration"])])
+            self.assertEqual(attempt, 2)
+            self.assertTrue(feedback["hero"].get("reuse_only"))
+            self.assertEqual(feedback["hero"]["phase"], "assets")
+            self.engine.state.update_component("hero", status="PASS", attempts=attempt)
+            return PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})])
+
+        self.engine.run_fanout.side_effect = execute
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_foundations.assert_not_called()
+        self.engine.diagnose_failure.assert_not_called()
+
+    def contribution_candidate(self, *, local_asset=False):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        component = self.components[0]
+        component.update(contribution_targets=["/content/demo-ai-site/us/en/test"], source_selectors=[
+            {"instance_id": "hero-1", "selector": ".source-hero"},
+        ])
+        self.engine.state.set_components(self.components)
+        source_path = "ui.frontend/src/main/webpack/components/hero.js"
+        source = self.engine.settings.repo_root / source_path
+        source.parent.mkdir(parents=True)
+        source.write_text("original behavior", encoding="utf-8")
+
+        def execute(agent, **kwargs):
+            (agent.context.repo_root / source_path).write_text("candidate behavior", encoding="utf-8")
+            directory = agent.workspace(agent.slug(**kwargs))
+            directory.mkdir(parents=True, exist_ok=True)
+            evidence = directory / "source-check.json"
+            evidence.write_text("{}", encoding="utf-8")
+            assets = []
+            if local_asset:
+                asset = directory / "candidate-logo.svg"
+                asset.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
+                assets.append({"source_file": asset.relative_to(self.engine.evidence_dir).as_posix(), "sha256": digest(asset)})
+            contribution = directory / "contributions.json"
+            contribution.write_text(json.dumps({"component_id": "hero", "pages": [
+                {"page_path": component["contribution_targets"][0], "nodes": []},
+            ], "assets": assets}), encoding="utf-8")
+            result = AgentResult("component", "test", "PASS", outputs={
+                "component_id": "hero", "changed_files": [source_path], "contributions": str(contribution),
+                "focused_test": {"command": ["mvn", "test", "-pl", "core", "-Dtest=HeroTest"], "working_directory": str(agent.context.repo_root)},
+                "parity_targets": [{"instance_id": "hero-1", "selector": ".cmp-hero", "match_index": 0}],
+            }, checks=[{"name": name, "status": "PASS", "evidence": str(evidence)}
+                       for name in agent.spec.get("required_checks")], path=str(agent.result_path(agent.slug(**kwargs))))
+            agent.validate_result(result, **kwargs)
+            return result
+
+        with patch.object(AGENT_CLASSES["component"], "run", execute):
+            outcome = self.engine._run_component_batch(self.phases["implement"], self.components, attempt=1)
+        return outcome, source
+
+    def test_contribution_failure_retains_owned_candidate_without_applying(self):
+        outcome, source = self.contribution_candidate()
+        self.assertFalse(outcome.passed)
+        self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+        reference = outcome.results[0].output("contribution_candidate")
+        self.assertIsInstance(reference, dict)
+        receipt = Path(reference["path"])
+        self.assertEqual(digest(receipt), reference["sha256"])
+        candidate = json.loads(receipt.read_text(encoding="utf-8"))
+        self.assertEqual(candidate["component"], self.components[0])
+        self.assertEqual(candidate["run_id"], "test")
+        self.assertEqual(candidate["attempt"], 1)
+        self.assertEqual((Path(candidate["root"]) / source.relative_to(self.engine.settings.repo_root)).read_text(encoding="utf-8"), "candidate behavior")
+        self.assertIn(receipt.relative_to(self.engine.evidence_dir).as_posix(), self.engine.state.get("checkpoint")["artifacts"])
+
+    def test_contribution_repair_uses_candidate_source_without_rebuilding(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+        candidate = json.loads(Path(reference["path"]).read_text(encoding="utf-8"))
+        previous_contribution = Path(candidate["contribution"])
+        previous_bytes = previous_contribution.read_bytes()
+
+        def repair(agent, **kwargs):
+            self.assertEqual(kwargs["attempt"], 2)
+            self.assertEqual((agent.context.repo_root / source.relative_to(self.engine.settings.repo_root)).read_text(encoding="utf-8"), "candidate behavior")
+            self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+            seed = Path(agent.contribution_repair["candidate_result"])
+            result = read_result(seed, agent.spec, "test")
+            self.assertEqual(result.output("focused_test")["working_directory"], str(agent.context.repo_root))
+            contribution = Path(result.output("contributions"))
+            payload = json.loads(contribution.read_text(encoding="utf-8"))
+            payload["pages"][0]["nodes"] = [{"name": "hero", "xml": '<hero jcr:primaryType="nt:unstructured"/>'}]
+            contribution.write_text(json.dumps(payload), encoding="utf-8")
+            result.path = str(agent.result_path(agent.slug(**kwargs)))
+            agent.validate_result(result, **kwargs)
+            return result
+
+        feedback = {"hero": {"repair_scope": "contributions", "contribution_candidate": reference}}
+        with patch.object(AGENT_CLASSES["component"], "run", repair):
+            outcome = self.engine._run_component_batch(self.phases["implement"], self.components, feedback, attempt=2)
+        self.assertTrue(outcome.passed, outcome.results[0].failures)
+        self.assertEqual(source.read_text(encoding="utf-8"), "candidate behavior")
+        self.assertEqual(previous_contribution.read_bytes(), previous_bytes)
+        self.assertEqual(outcome.results[0].output("changed_files"), [source.relative_to(self.engine.settings.repo_root).as_posix()])
+
+    def test_contribution_repair_rejects_source_changes(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+
+        def repair(agent, **kwargs):
+            (agent.context.repo_root / source.relative_to(self.engine.settings.repo_root)).write_text("unexpected rebuild", encoding="utf-8")
+            return AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})
+
+        feedback = {"hero": {"repair_scope": "contributions", "contribution_candidate": reference}}
+        with patch.object(AGENT_CLASSES["component"], "run", repair):
+            outcome = self.engine._run_component_batch(self.phases["implement"], self.components, feedback, attempt=2)
+        self.assertFalse(outcome.passed)
+        self.assertTrue(outcome.results[0].output("critical"))
+        self.assertIn("Worker changed unowned files", outcome.results[0].failures[0])
+        self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+
+    def test_contribution_candidate_tampering_blocks_retry_before_agent(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+        receipt = Path(reference["path"])
+        candidate = json.loads(receipt.read_text(encoding="utf-8"))
+        candidate_source = Path(candidate["root"]) / source.relative_to(self.engine.settings.repo_root)
+        evidence = next(self.engine.evidence_dir / name for name in candidate["artifacts"] if name.endswith("source-check.json"))
+        for target in (receipt, candidate_source, evidence, source):
+            with self.subTest(target=target.name):
+                original = target.read_bytes()
+                target.write_bytes(b"tampered")
+                try:
+                    with patch.object(AGENT_CLASSES["component"], "run") as run, self.assertRaises(WorkspaceError):
+                        self.engine._run_worker(self.phases["implement"], component=self.components[0], attempt=2,
+                                                feedback={"repair_scope": "contributions", "contribution_candidate": reference})
+                    run.assert_not_called()
+                finally:
+                    target.write_bytes(original)
+
+    def test_contribution_repair_cannot_rewrite_copied_source_evidence(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+
+        def repair(agent, **kwargs):
+            seed = json.loads(Path(agent.contribution_repair["candidate_result"]).read_text(encoding="utf-8"))
+            Path(seed["checks"][0]["evidence"]).write_text("rewritten validation", encoding="utf-8")
+            return AgentResult("component", "test", "FAIL", outputs={"component_id": "hero"}, failures=["fixture failure"])
+
+        with patch.object(AGENT_CLASSES["component"], "run", repair), self.assertRaises(WorkspaceError):
+            self.engine._run_worker(self.phases["implement"], component=self.components[0], attempt=2,
+                                    feedback={"repair_scope": "contributions", "contribution_candidate": reference})
+        self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+
+    def test_contribution_repair_relocates_local_asset_references(self):
+        failed, source = self.contribution_candidate(local_asset=True)
+        reference = failed.results[0].output("contribution_candidate")
+
+        def repair(agent, **kwargs):
+            payload = json.loads(Path(agent.contribution_repair["contribution"]).read_text(encoding="utf-8"))
+            asset = payload["assets"][0]
+            self.assertIn("component-hero-attempt-2/", asset["source_file"])
+            self.assertEqual(digest(self.engine.evidence_dir / asset["source_file"]), asset["sha256"])
+            return AgentResult("component", "test", "BLOCKED", outputs={"component_id": "hero"}, failures=["fixture only checks relocation"])
+
+        with patch.object(AGENT_CLASSES["component"], "run", repair):
+            result, changes = self.engine._run_worker(self.phases["implement"], component=self.components[0], attempt=2,
+                                                     feedback={"repair_scope": "contributions", "contribution_candidate": reference})
+        self.assertTrue(result.blocked)
+        self.assertIsNone(changes)
+        self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+
+    def test_repeated_contribution_repair_preserves_candidate_without_applying(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+
+        def repair(agent, **kwargs):
+            result = read_result(Path(agent.contribution_repair["candidate_result"]), agent.spec, "test")
+            result.path = str(agent.result_path(agent.slug(**kwargs)))
+            agent.validate_result(result, **kwargs)
+            return result
+
+        with patch.object(AGENT_CLASSES["component"], "run", repair):
+            for attempt in (2, 3):
+                feedback = {"hero": {"repair_scope": "contributions", "contribution_candidate": reference}}
+                outcome = self.engine._run_component_batch(self.phases["implement"], self.components, feedback, attempt=attempt)
+                self.assertFalse(outcome.passed)
+                reference = outcome.results[0].output("contribution_candidate")
+                candidate = json.loads(Path(reference["path"]).read_text(encoding="utf-8"))
+                self.assertEqual(candidate["attempt"], attempt)
+                self.assertEqual((Path(candidate["root"]) / source.relative_to(self.engine.settings.repo_root)).read_text(encoding="utf-8"), "candidate behavior")
+                self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+
+    def test_contribution_repair_cannot_change_previous_candidate_source(self):
+        failed, source = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+        candidate = json.loads(Path(reference["path"]).read_text(encoding="utf-8"))
+        previous_source = Path(candidate["root"]) / source.relative_to(self.engine.settings.repo_root)
+
+        def repair(agent, **kwargs):
+            previous_source.write_text("altered old candidate", encoding="utf-8")
+            return AgentResult("component", "test", "FAIL", outputs={"component_id": "hero"}, failures=["fixture"])
+
+        with patch.object(AGENT_CLASSES["component"], "run", repair), self.assertRaises(WorkspaceError):
+            self.engine._run_worker(self.phases["implement"], component=self.components[0], attempt=2,
+                                    feedback={"repair_scope": "contributions", "contribution_candidate": reference})
+        self.assertEqual(source.read_text(encoding="utf-8"), "original behavior")
+
+    def test_unowned_source_never_becomes_a_contribution_candidate(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+
+        def execute(agent, **kwargs):
+            (agent.context.repo_root / "pom.xml").write_text("unowned source", encoding="utf-8")
+            agent.contribution_failure = "Missing contribution"
+            return AgentResult("component", "test", "FAIL", outputs={"component_id": "hero"}, failures=[agent.contribution_failure])
+
+        with patch.object(AGENT_CLASSES["component"], "run", execute):
+            outcome = self.engine._run_component_batch(self.phases["implement"], self.components, attempt=1)
+        self.assertFalse(outcome.passed)
+        self.assertTrue(outcome.results[0].output("critical"))
+        self.assertFalse(outcome.results[0].output("contribution_candidate"))
+        self.assertFalse((self.engine.settings.repo_root / "pom.xml").exists())
+
+    def test_recovery_routes_contribution_candidate_to_scoped_retry(self):
+        failed, _ = self.contribution_candidate()
+        reference = failed.results[0].output("contribution_candidate")
+        self.engine.max_attempts = 3
+
+        def execute(phase, components, feedback, attempt):
+            if attempt == 1:
+                return failed
+            self.assertEqual(attempt, 2)
+            self.assertEqual([component["id"] for component in components], ["hero"])
+            self.assertEqual(feedback["hero"]["repair_scope"], "contributions")
+            self.assertEqual(feedback["hero"]["contribution_candidate"], reference)
+            self.engine.state.update_component("hero", status="PASS", attempts=2)
+            return PhaseOutcome("implement", "PASS", [AgentResult("component", "test", "PASS", outputs={"component_id": "hero"})])
+
+        self.engine.run_fanout.side_effect = execute
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual(self.engine.run_fanout.call_count, 2)
+        self.engine.run_foundations.assert_not_called()
+        self.engine.diagnose_failure.assert_not_called()
+
+    def test_footer_dumps_do_not_stop_recovery_for_other_failed_workers(self):
+        self.engine.max_attempts = 4
+        self.components[:] = [{"id": identity} for identity in ("site-header", "site-footer", "story-article-section", "story-card-grid")]
+        self.engine.state.set_components(self.components)
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        def execute(agent, **kwargs):
+            identity = kwargs["component"]["id"]
+            if identity == "site-header":
+                raise EnvelopeError("Reported success without passing checks")
+            if identity == "story-article-section":
+                raise BackendError("Fixture launch failure")
+            if identity == "site-footer":
+                (agent.context.repo_root / "footer_dump.txt").write_text("Footer text", encoding="utf-16")
+                (agent.context.repo_root / "footer_raw.txt").write_text('{"selector":"footer"}', encoding="utf-16")
+            return AgentResult("component", "test", "PASS", outputs={"component_id": identity})
+        with patch.object(AGENT_CLASSES["component"], "run", execute):
+            outcome = self.engine._run_component_batch(self.phases["implement"], self.components, attempt=1)
+        self.assertEqual(outcome.status, "FAIL")
+        self.assertFalse(any(result.output("critical") for result in outcome.results))
+        rows = {row["id"]: row for row in self.engine.state.component_rows()}
+        self.assertEqual(rows["site-footer"]["status"], "PASS")
+        self.assertEqual(rows["story-card-grid"]["status"], "PASS")
+        footer = self.engine.state.get("agent_results")["component-site-footer-attempt-1"]
+        self.assertEqual(len(footer["outputs"]["quarantined_diagnostics"]), 2)
+        self.assertEqual(footer["outputs"]["changed_files"], [])
+        failing = [{"component_id": result.output("component_id"), "owning_layer": "component", "hypothesis": "; ".join(result.failures)}
+                   for result in outcome.results if not result.passed]
+        decision = self.engine.recover_failure("implement", outcome, self.components, failing)
+        self.assertEqual(decision["action"], "repair")
+        self.assertEqual(set(decision["component_ids"]), {"site-header", "story-article-section"})
+        self.assertFalse((self.engine.settings.repo_root / "footer_dump.txt").exists())
+
+    def test_frontend_failure_gets_diagnosis_then_shared_repair(self):
+        self.engine.max_attempts = 3
+        self.engine.prepare_frontend.side_effect = [
+            AgentResult("frontend-build", "test", "FAIL", failures=["Undefined shared Sass token"]),
+            AgentResult("frontend-build", "test", "PASS", outputs={"changed_files": []}),
+        ]
+        with patch.object(self.engine, "diagnose_failure", create=True, return_value={
+            "action": "repair", "component_ids": [], "repair_shared": True,
+            "reason": "Restore the measured shared token", "evidence": [],
+        }) as diagnosis:
+            self.assertEqual(self.run_gate(), "COMPLETE")
+        diagnosis.assert_called_once()
+        self.engine.run_foundations.assert_called_once()
+        self.engine.run_fanout.assert_called_once()
+        self.assertEqual(self.engine.prepare_frontend.call_count, 2)
+
+    def test_phase_failures_do_not_share_one_exhausted_budget(self):
+        self.engine.max_attempts = 2
+        self.engine.prepare_frontend.side_effect = [AgentResult("frontend-build", "test", "FAIL", failures=["temporary frontend error"]),
+                                                   AgentResult("frontend-build", "test", "PASS", outputs={"changed_files": []})]
+        failures = {"deploy": 0, "parity": 0}
+        def execute(phase, **kwargs):
+            identity = phase["id"]
+            failures[identity] += 1
+            status = "FAIL" if failures[identity] == 1 else "PASS"
+            return PhaseOutcome(identity, status, [AgentResult(phase["agent"], "test", status,
+                                failures=["temporary " + identity] if status == "FAIL" else [], outputs={"failing_components": [], "target_url": "http://test.invalid"})])
+        self.engine.run_single.side_effect = execute
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_fanout.assert_called_once()
+        self.assertEqual(self.engine.state.get("recovery_counts"), {"frontend": 1, "deploy": 1, "parity": 1})
+        self.assertEqual(self.engine.diagnose_failure.call_count, 3)
+        self.assertEqual(self.engine.run_single.call_args.kwargs["attempt"], 4)
+
+    def test_asset_outage_pauses_last_round_and_resumes_without_builders(self):
+        self.engine.state.update_component("hero", status="PASS", attempts=1)
+        failure = {"component_id": "hero", "owning_layer": "assets", "hypothesis": "HTTP 503"}
+        self.engine.run_assets.return_value = PhaseOutcome("assets", "BLOCKED", [AgentResult("assets", "test", "BLOCKED", outputs={"failing_components": [failure]})])
+        self.assertEqual(self.run_gate(), "BLOCKED")
+        self.assertEqual(self.engine.state.get("asset_pause")["attempt"], 1)
+        self.assertEqual(self.engine.state.component_rows()[0]["status"], "PASS")
+        self.assertEqual(self.engine.state.get("recovery_counts"), {"assets:hero": 1})
+        self.engine.run_single.assert_not_called()
+        self.engine.prepare_frontend.assert_not_called()
+        self.engine.resume = True
+        self.engine.run_fanout.reset_mock()
+        self.engine.run_assets.return_value = PhaseOutcome("assets", "PASS")
+        with patch.object(self.engine, "_cached_result", return_value=AgentResult("component", "test", "PASS", outputs={"changed_files": ["ui.apps/hero.html"]})):
+            self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_fanout.assert_not_called()
+        self.engine.run_planner.assert_not_called()
+        self.engine.run_foundations.assert_not_called()
+        self.assertIsNone(self.engine.state.get("asset_pause"))
+        self.assertEqual(self.engine.run_single.call_args.kwargs["attempt"], 1)
+
+    def test_invalid_assets_repair_owner_not_previous_pending_component(self):
+        self.engine.max_attempts = 2
+        self.components[:] = [{"id": "header"}, {"id": "article"}]
+        self.engine.state.set_components(self.components)
+        for identity in ("header", "article"):
+            self.engine.state.update_component(identity, status="PASS", attempts=1)
+        failure = {"component_id": "header", "owning_layer": "component", "phase": "assets", "hypothesis": "Invalid URL"}
+        self.engine.run_assets.side_effect = [PhaseOutcome("assets", "FAIL", [AgentResult("assets", "test", "FAIL", outputs={"failing_components": [failure]})]), PhaseOutcome("assets", "PASS")]
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        repair = self.engine.run_fanout.call_args
+        self.assertEqual([row["id"] for row in repair.args[1]], ["header"])
+        self.assertEqual(repair.args[2]["header"], failure)
+        self.assertEqual(self.engine.state.get("remediation_history")[0]["components"], ["header"])
+
+    def test_asset_pause_after_shared_repair_reuses_accepted_component(self):
+        self.engine.resume = True
+        self.engine.max_attempts = 2
+        self.engine.state.update_component("hero", status="FAILED", attempts=1)
+        self.engine.state.record_agent_result("component-hero-attempt-1", {"agent": "component", "run_id": "test", "status": "PASS"})
+        self.engine.state.append_remediation({"attempt": 1, "status": "FAIL", "failing": [{"component_id": "hero", "owning_layer": "foundation"}]})
+        self.engine.state.update(foundations={"attempt": 2, "changed_files": ["ui.frontend/site.scss"]},
+                                 asset_pause={"attempt": 2, "changed_files": ["ui.frontend/site.scss"], "failing": []})
+        with patch.object(self.engine, "_cached_result", return_value=AgentResult("component", "test", "PASS", outputs={"changed_files": []})):
+            self.assertEqual(self.run_gate(), "COMPLETE")
+        self.engine.run_fanout.assert_not_called()
+        self.engine.run_foundations.assert_not_called()
+        self.assertEqual(self.engine.run_single.call_args.kwargs["attempt"], 2)
+        self.assertEqual(self.engine.state.component_rows()[0]["attempts"], 1)
+
+    def test_critical_assets_stop_without_blind_retries(self):
+        self.engine.max_attempts = 4
+        self.engine.run_assets.return_value = PhaseOutcome("assets", "FAIL", [AgentResult("assets", "test", "FAIL", outputs={"critical": True})])
+        self.assertEqual(self.run_gate(), "FAIL")
+        self.engine.run_assets.assert_called_once()
+        self.engine.run_single.assert_not_called()
+
+    def test_asset_phase_returns_blocked_with_owner_evidence(self):
+        record = AssetRecord("https://example.invalid/logo.png", "/content/dam/logo.png", "", "", 0, "", "BLOCKED", "HTTP 404", owners=["hero"])
+        report = AssetReport(failed=[record], manifest_path="assets/manifest.json")
+        with patch("aem_agents.orchestrator.fetch_assets", return_value=report):
+            result = Orchestrator.run_assets(self.engine, self.phases["assets"], self.components)
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertEqual(result.results[0].output("failing_components")[0]["component_id"], "hero")
+        self.assertEqual(result.results[0].output("failing_components")[0]["evidence"], ["assets/manifest.json"])
+
+    def test_asset_phase_returns_declaration_owner_for_repair(self):
+        with patch("aem_agents.orchestrator.fetch_assets", side_effect=AssetDeclarationError("Invalid source", ["hero"])):
+            result = Orchestrator.run_assets(self.engine, self.phases["assets"], self.components)
+        self.assertEqual(result.status, "FAIL")
+        self.assertEqual(result.results[0].output("failing_components")[0]["owning_layer"], "component")
+        self.assertFalse(result.results[0].output("critical"))
 
     def test_deployment_repairs_only_the_reported_owner_and_dependents(self):
         self.engine.max_attempts = 2
@@ -860,6 +1716,7 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.max_attempts = 2
         for layer in ("foundation", "assets"):
             with self.subTest(layer=layer):
+                self.engine.state.update(recovery_counts={}, recovery_repeats={}, recovery_history=[])
                 self.engine.run_fanout.reset_mock()
                 self.engine.run_foundations.reset_mock()
 
@@ -876,8 +1733,9 @@ class OrchestratorTests(unittest.TestCase):
     def test_unmapped_deployment_failure_retries_without_blind_repairs(self):
         self.engine.max_attempts = 4
         self.engine.run_single.side_effect = lambda phase, **kwargs: PhaseOutcome(phase["id"], "FAIL", [AgentResult("deployer", "test", "FAIL")])
-        self.assertEqual(self.run_gate(), "FAIL")
-        self.assertEqual(self.engine.run_single.call_count, 4)
+        self.assertEqual(self.run_gate(), "BLOCKED")
+        self.assertEqual(self.engine.run_single.call_count, 3)
+        self.assertEqual(self.engine.diagnose_failure.call_count, 2)
         self.engine.run_fanout.assert_called_once()
         self.engine.run_foundations.assert_not_called()
 
@@ -894,7 +1752,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_failed_planner_never_starts_components(self):
         self.engine.preflight = MagicMock()
         self.engine.run_planner.return_value.status = "FAIL"
-        self.assertEqual(self.engine.run(), "FAIL")
+        self.assertEqual(self.engine.run(), "BLOCKED")
         self.engine.run_foundations.assert_not_called()
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
@@ -937,7 +1795,7 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.preflight = MagicMock()
         self.engine.state.update(foundations={})
         self.engine.run_foundations.return_value.status = "FAIL"
-        self.assertEqual(self.engine.run(), "FAIL")
+        self.assertEqual(self.engine.run(), "BLOCKED")
         self.assertFalse(self.engine.state.get("foundations"))
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
@@ -1037,7 +1895,7 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_shared_frontend_failure_never_deploys_or_scores(self):
         self.engine.prepare_frontend.return_value = AgentResult("frontend-build", "test", "FAIL", failures=["Build failed"])
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.engine.run_single.assert_not_called()
         self.engine.prepare_frontend.assert_called_once()
 
@@ -1198,7 +2056,7 @@ class OrchestratorTests(unittest.TestCase):
                 "failing_components": [{"component_id": "hero", "owning_layer": "foundation"}] if status == "FAIL" else [],
             })])
         self.engine.run_single.side_effect = compare
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.assertEqual(self.engine.state.component_rows()[0]["attempts"], 1)
         self.assertEqual(self.engine.run_fanout.call_count, 1)
         self.assertEqual(len(self.engine.state.get("remediation_history")), 2)
@@ -1209,8 +2067,9 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.state.append_remediation({"attempt": 1, "status": "FAIL", "failing": [
             {"component_id": "hero", "owning_layer": "foundation"},
         ]})
+        self.engine.state.update(recovery_checkpoint={"stage": "foundations", "pending": ["hero"], "feedback": {}, "attempt": 2, "changed_files": []})
         self.engine.run_foundations.return_value.status = "FAIL"
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.engine.run_fanout.assert_not_called()
         self.engine.run_single.assert_not_called()
 
@@ -1218,7 +2077,7 @@ class OrchestratorTests(unittest.TestCase):
         self.engine.run_single.side_effect = lambda phase, **kwargs: PhaseOutcome(phase["id"], "FAIL" if phase["id"] == "parity" else "PASS", [
             AgentResult(phase["agent"], "test", "FAIL" if phase["id"] == "parity" else "PASS", outputs={"failing_components": []}),
         ])
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
 
     def test_dry_run_does_not_claim_visual_success(self):
         self.engine.dry_run = True
@@ -1235,7 +2094,8 @@ class OrchestratorTests(unittest.TestCase):
     def test_missing_browser_fails_before_starting_copilot(self):
         with patch("aem_agents.orchestrator.check_node", return_value="v22.14.0"), patch("aem_agents.orchestrator.resolve_java_home"), patch("aem_agents.orchestrator.check_maven", return_value=Toolchain(self.engine.evidence_dir / "jdk", "fixture")), patch("aem_agents.orchestrator.ensure_browser", side_effect=EnvelopeError("Browser missing")), patch("aem_agents.orchestrator.create_backend") as backend, self.assertRaises(EnvelopeError):
             self.engine.preflight()
-        backend.assert_not_called()
+        backend.assert_called_once()
+        backend.return_value.run.assert_not_called()
 
     def test_preflight_passes_bootstrap_policy_to_browser_setup(self):
         for enabled in (True, False):
@@ -1250,7 +2110,8 @@ class OrchestratorTests(unittest.TestCase):
             with self.assertRaisesRegex(ConfigError, "Node.js missing"):
                 self.engine.preflight()
         prepare.assert_not_called()
-        backend.assert_not_called()
+        backend.assert_called_once()
+        backend.return_value.run.assert_not_called()
 
     def test_report_is_owned_by_orchestrator(self):
         self.assertNotIn("reporter", AGENT_CLASSES)
@@ -1266,6 +2127,21 @@ class OrchestratorTests(unittest.TestCase):
         self.assertIn("hero", report.read_text(encoding="utf-8"))
         self.assertEqual(self.engine.state.get("agent_results")["report"]["outputs"]["residual_gaps"][0]["component_id"], "hero")
         self.engine.run_single.assert_not_called()
+
+    def test_report_preparity_failure_uses_latest_component_error(self):
+        self.engine.state.update_component("hero", status="FAIL", attempts=2)
+        self.engine.state.append_remediation({"attempt": 1, "status": "IMPLEMENT_FAILED", "failing": [
+            {"component_id": "hero", "owning_layer": "component", "hypothesis": "Old missing asset", "evidence": []},
+        ]})
+        result_path = self.engine.evidence_dir / "agents/component-hero-attempt-2/result.json"
+        result = AgentResult("component", "test", "FAIL", outputs={"component_id": "hero", "critical_asset_failure": True},
+                             failures=["Asset file must remain inside its evidence directory."], path=str(result_path))
+        self.engine.state.record_agent_result("component-hero-attempt-2", result.to_dict())
+        self.engine._finish(self.phases, "FAIL", "FAILED-FINAL")
+        report = self.engine.state.get("agent_results")["report"]["outputs"]
+        self.assertIn("VISUAL PARITY GATE: NOT RUN", report["status_line"])
+        self.assertEqual(report["residual_gaps"][0]["reason"], result.failures[0])
+        self.assertIn(str(result_path), report["residual_gaps"][0]["evidence"])
 
     def test_report_withholds_invalid_screenshot_scores(self):
         for validation, with_receipt in (("FAIL", False), ("PASS", False), ("PASS", True)):
@@ -1352,16 +2228,127 @@ class OrchestratorTests(unittest.TestCase):
             self.engine.state.set_phase(phase, "PASS")
         self.engine.state.update_component("hero", status="PASS")
         with patch.object(self.engine, "run_report", side_effect=OSError("Disk full")):
-            self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
-        self.assertEqual(next(phase for phase in self.engine.state.get("phases") if phase["id"] == "report")["status"], "FAIL")
+            self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "BLOCKED")
+        self.assertEqual(next(phase for phase in self.engine.state.get("phases") if phase["id"] == "report")["status"], "BLOCKED")
+        self.assertEqual(self.engine.state.get("report_pause")["pipeline_status"], "COMPLETE")
+
+    def test_preflight_pause_preserves_existing_repair_cursor(self):
+        saved = {"stage": "implement", "pending": ["hero"], "feedback": {"hero": {"phase": "parity"}}, "attempt": 3, "changed_files": []}
+        self.engine.state.update(recovery_checkpoint=saved)
+        self.engine.pause_recovery({"stage": "preflight"}, "AEM unavailable")
+        self.assertEqual(self.engine.state.get("recovery_checkpoint"), saved)
+
+    def test_exhausted_source_recovery_does_not_launch_another_worker_on_resume(self):
+        self.engine.resume = True
+        self.engine.state.update(recovery_counts={"implement:hero": 1}, recovery_checkpoint={
+            "stage": "implement", "pending": ["hero"], "feedback": {}, "attempt": 2, "changed_files": [], "running": False})
+        self.assertEqual(self.run_gate(), "BLOCKED")
+        self.engine.run_fanout.assert_not_called()
+
+    def test_explicit_grant_adds_one_attempt_without_resetting_history(self):
+        self.engine.state.update(status="BLOCKED", recovery_counts={"implement:hero": 1}, recovery_repeats={"fixture": 2},
+                                 recovery_history=[{"keys": ["implement:hero"], "signature": "fixture", "decision": {"action": "pause"}}])
+        self.engine.grant_recovery_attempt()
+        self.assertEqual(self.engine.state.get("recovery_counts"), {"implement:hero": 1})
+        self.assertEqual(self.engine.state.get("recovery_grants"), {"implement:hero": 1})
+        self.assertEqual(self.engine.state.get("recovery_repeats"), {"fixture": 2})
+        self.assertEqual(len(self.engine.state.get("recovery_approvals")), 1)
+        self.engine.resume = True
+        self.engine.state.update(recovery_checkpoint={"stage": "implement", "pending": ["hero"], "feedback": {},
+                                 "attempt": 1, "reason": "Exhausted", "changed_files": []})
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual(self.engine.run_fanout.call_args.args[3], 2)
+
+    def test_recovery_grant_requires_a_paused_operation(self):
+        with self.assertRaises(ConfigError):
+            self.engine.grant_recovery_attempt()
+        self.assertEqual(cli_main(["--retry-recovery", "--show-plan"]), 1)
+
+    def test_resume_does_not_rebuild_workers_finished_before_interruption(self):
+        self.engine.resume = True
+        self.engine.max_attempts = 4
+        self.components[:] = [{"id": "hero"}, {"id": "footer"}]
+        self.engine.state.set_components(self.components)
+        self.engine.state.update_component("hero", status="PASS", attempts=2, accepted_attempt=2)
+        self.engine.state.update_component("footer", status="RUNNING", attempts=2)
+        self.engine.state.update(recovery_checkpoint={"stage": "implement", "pending": ["hero", "footer"],
+                                 "feedback": {}, "attempt": 2, "changed_files": [], "running": True})
+        with patch.object(self.engine, "_cached_result", return_value=AgentResult("component", "test", "PASS", outputs={"changed_files": []})):
+            self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual([row["id"] for row in self.engine.run_fanout.call_args.args[1]], ["footer"])
+        self.assertEqual(self.engine.run_fanout.call_args.args[3], 3)
+
+    def test_initial_shared_retries_do_not_collide_with_later_invocations(self):
+        self.engine.state.update(preparation_sequences={"plan": 1, "foundations": 2})
+        self.assertEqual(self.run_gate(), "COMPLETE")
+        self.assertEqual(self.engine.run_fanout.call_args.args[3], 3)
+
+    def test_diagnostic_worker_path_uses_readonly_mode_and_records_packet(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, MagicMock(), self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        decision = {"action": "retry", "component_ids": [], "repair_shared": False, "reason": "Temporary failure", "evidence": []}
+        def worker(phase, **kwargs):
+            self.assertEqual(phase["mode"], "diagnostic")
+            packet = json.loads(Path(kwargs["failure_packet"]).read_text(encoding="utf-8"))
+            self.assertEqual(packet["phase"], "merge")
+            self.assertEqual(packet["results"][0]["failures"], ["merge problem"])
+            return AgentResult("planner", "test", "PASS", outputs={"decision": decision}), None
+        with patch.object(self.engine, "_run_worker", side_effect=worker):
+            actual = Orchestrator.diagnose_failure(self.engine, "merge", PhaseOutcome("merge", "FAIL", [AgentResult("merge", "test", "FAIL", failures=["merge problem"])]), self.components)
+        self.assertEqual(actual, decision)
+
+    def test_planner_diagnosis_is_schema_checked_and_read_only(self):
+        context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                             "test", self.engine.evidence_dir, MagicMock())
+        agent = PlannerAgent(context, diagnostic=True)
+        agent.spec._config = agent.spec._config.merged({"prompt_dir": str(SCRIPTS / "prompts")})
+        evidence = self.engine.evidence_dir / "failure.json"
+        evidence.write_text('{"error":"fixture"}', encoding="utf-8")
+        decision = {"action": "repair", "component_ids": ["hero"], "repair_shared": False,
+                    "reason": "Measured component defect", "evidence": [str(evidence)]}
+        result = AgentResult("planner", "test", "PASS", outputs={"decision": decision})
+        agent.validate_result(result, components=self.components)
+        for override in ({"action": "complete"}, {"component_ids": ["unknown"]}, {"repair_shared": "yes"},
+                         {"evidence": []}, {"action": "retry"}, {"component_ids": []}):
+            with self.subTest(override=override), self.assertRaises(EnvelopeError):
+                agent.validate_result(AgentResult("planner", "test", "PASS", outputs={"decision": {**decision, **override}}), components=self.components)
+        self.assertIn("Do not modify repository source", agent.render_prompt("planner-diagnosis-attempt-1", failure_packet=str(evidence)))
+
+    def test_documented_diagnosis_envelope_is_accepted(self):
+        context = RunContext(self.engine.settings, self.engine.contract, None, self.engine.state,
+                             "test", self.engine.evidence_dir, MagicMock())
+        agent = PlannerAgent(context, diagnostic=True)
+        packet = self.engine.evidence_dir / "failure-packet.json"
+        packet.write_text('{"error":"fixture"}', encoding="utf-8")
+        path = self.engine.evidence_dir / "diagnosis-result.json"
+        path.write_text(json.dumps({
+            "agent": "planner", "run_id": "test", "status": "PASS",
+            "outputs": {"decision": {"action": "retry", "component_ids": [], "repair_shared": False,
+                                     "reason": "Transient collector timeout", "evidence": [str(packet)]}},
+            "checks": [{"name": "failure_evidence_reviewed", "status": "PASS", "evidence": [str(packet)],
+                        "details": "Read the recorded failure packet."}],
+            "failures": [],
+        }), encoding="utf-8")
+        result = read_result(path, agent.spec, "test")
+        agent.validate_result(result, components=self.components)
+        self.assertEqual(result.output("decision")["action"], "retry")
+
+    def test_diagnosis_source_edits_are_critical(self):
+        self.engine.context = RunContext(self.engine.settings, self.engine.contract, MagicMock(), self.engine.state,
+                                         "test", self.engine.evidence_dir, MagicMock())
+        def worker(*args, **kwargs):
+            (self.engine.settings.repo_root / "unexpected.txt").write_text("forbidden", encoding="utf-8")
+            return AgentResult("planner", "test", "PASS", outputs={"decision": {"action": "retry"}}), None
+        with patch.object(self.engine, "_run_worker", side_effect=worker), self.assertRaises(WorkspaceError):
+            Orchestrator.diagnose_failure(self.engine, "frontend", PhaseOutcome("frontend", "FAIL"), self.components)
 
     def test_incomplete_prerequisites_cannot_complete(self):
         self.assertEqual(self.engine._finish(self.phases, "COMPLETE", "FAILED-FINAL"), "FAIL")
 
     def test_preflight_failure_is_finalized(self):
         self.engine.preflight = MagicMock(side_effect=PipelineError("offline"))
-        self.assertEqual(self.engine.run(), "FAIL")
-        self.assertEqual(self.engine.state.get("status"), "FAIL")
+        self.assertEqual(self.engine.run(), "BLOCKED")
+        self.assertEqual(self.engine.state.get("status"), "BLOCKED")
 
     def test_resume_preserves_identity_and_components(self):
         resumed = Orchestrator(self.engine.settings, self.engine.contract, resume=True,
@@ -1388,7 +2375,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_resume_does_not_reset_attempt_budget(self):
         self.engine.resume = True
         self.engine.state.append_remediation({"attempt": 1, "status": "FAIL", "failing": []})
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.engine.run_fanout.assert_not_called()
 
     def test_resume_after_final_pass_still_runs_runtime_gates(self):
@@ -1403,7 +2390,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_resume_does_not_repeat_interrupted_component_attempt(self):
         self.engine.resume = True
         self.engine.state.update_component("hero", status="RUNNING", attempts=1)
-        self.assertEqual(self.run_gate(), "FAIL")
+        self.assertEqual(self.run_gate(), "BLOCKED")
         self.engine.run_fanout.assert_not_called()
 
     def test_resume_rejects_changed_contract_without_overwriting(self):
@@ -1491,6 +2478,18 @@ class CleanupTests(unittest.TestCase):
             self.assertEqual(cli_main(["--resume", "--evidence-dir", str(self.evidence)]), 1)
         construct.assert_not_called()
         self.assertIn("cleaned after completion", output.call_args.args[0])
+
+    def test_listing_reports_the_resume_stage_and_why_a_run_is_unavailable(self):
+        def row() -> dict:
+            return {entry["run_id"]: entry for entry in _resume_rows(self.engine.settings)}[self.engine.run_id]
+
+        self.assertEqual(row()["resumable"], "no")
+        self.assertIn("complete", row()["detail"].lower())
+        self.engine.state.update(status="BLOCKED", recovery_checkpoint={"stage": "deploy", "pending": [], "feedback": {}, "attempt": 2, "changed_files": []})
+        self.assertEqual((row()["resumable"], row()["stage"]), ("yes", "deploy"))
+        (self.engine.settings.repo_root / "edited-after-the-run.java").write_text("changed", encoding="utf-8")
+        self.assertEqual(row()["resumable"], "no")
+        self.assertIn("Source changed since the checkpoint", row()["detail"])
 
     def test_cleanup_can_be_disabled_before_a_run(self):
         self.engine.settings.migration = self.engine.settings.migration.merged({"run": {"cleanup_on_success": False}})
@@ -1596,6 +2595,52 @@ class RunnerTests(unittest.TestCase):
         with patch.object(CopilotBackend, "_resolve_executable", return_value="test"), patch.object(CopilotBackend, "_probe_version", return_value="test"):
             self.backend = CopilotBackend(settings)
 
+    def test_oversized_prompt_uses_complete_file_reference(self):
+        prompt = 'Full instructions "quoted"\n' * 4000
+        options = {"model": "fixture-model", "effort": "high", "session_name": "fixture", "max_continues": 3}
+        with patch("aem_agents.runner.subprocess.Popen") as start, patch.object(self.backend, "_pump", return_value=SimpleNamespace(duration_seconds=0)):
+            start.return_value.poll.return_value = 0
+            self.backend.run(prompt=prompt, options=options, workspace=self.workspace, stream_name="stream.jsonl", stderr_name="stderr.log", timeout_seconds=None)
+        argv = start.call_args.args[0]
+        self.assertNotIn(prompt, argv)
+        request = self.workspace / "request-prompt.md"
+        self.assertEqual(request.read_text(encoding="utf-8"), prompt)
+        self.assertIn(str(request.resolve()), argv[argv.index("-p") + 1])
+        self.assertIn("Read the complete", argv[argv.index("-p") + 1])
+        self.assertEqual(argv[argv.index("--model") + 1], "fixture-model")
+        self.assertEqual(argv[argv.index("--effort") + 1], "high")
+        receipt = json.loads((self.workspace / "prompt-transport.json").read_text(encoding="utf-8"))
+        self.assertEqual(receipt["transport"], "file-reference")
+        self.assertEqual(receipt["bytes"], len(prompt.encode("utf-8")))
+        self.assertLess(receipt["command_utf16_units"], 30000)
+
+    def test_short_prompt_keeps_original_argv_and_existing_request_is_protected(self):
+        self.assertEqual(self.backend.launch_args("small prompt", {}, self.workspace),
+                         [*self.backend._command_prefix(), *self.backend.build_args("small prompt", {})])
+        self.assertFalse((self.workspace / "request-prompt.md").exists())
+        request = self.workspace / "request-prompt.md"
+        request.write_text("existing evidence", encoding="utf-8")
+        with self.assertRaisesRegex(BackendError, "different saved prompt"):
+            self.backend.launch_args("full prompt\n" * 4000, {}, self.workspace)
+        self.assertEqual(request.read_text(), "existing evidence")
+
+    def test_native_process_receives_short_args_and_full_prompt_file(self):
+        fixture = self.workspace / "fake_cli.py"
+        fixture.write_text(
+            "import hashlib, json, pathlib, sys\n"
+            "prompt = sys.argv[sys.argv.index('-p') + 1]\n"
+            "assert len(prompt) < 2000\n"
+            "source = pathlib.Path(prompt.splitlines()[0].split('before doing any work: ', 1)[1])\n"
+            "print(json.dumps({'type': 'assistant.message', 'data': {'content': hashlib.sha256(source.read_bytes()).hexdigest()}}))\n",
+            encoding="utf-8")
+        prompt = 'Complete "instructions"\n' * 5000
+        with patch.object(self.backend, "_command_prefix", return_value=[sys.executable, str(fixture)]):
+            result = self.backend.run(prompt=prompt, options={}, workspace=self.workspace, stream_name="native.jsonl", stderr_name="native.stderr", timeout_seconds=30)
+        self.assertTrue(result.ok, (self.workspace / "native.stderr").read_text())
+        receipt = json.loads((self.workspace / "prompt-transport.json").read_text(encoding="utf-8"))
+        event = json.loads((self.workspace / "native.jsonl").read_text(encoding="utf-8"))
+        self.assertEqual(event["data"]["content"], receipt["sha256"])
+
     def test_shared_build_command_logs_and_cleans_up_on_cancellation(self):
         process = MagicMock()
         process.wait.side_effect = KeyboardInterrupt()
@@ -1668,6 +2713,61 @@ class RunnerTests(unittest.TestCase):
             result = self.backend._pump(process, stream, self.workspace / "stderr.log", None, on_event)
         self.assertTrue(result.ok)
 
+    def test_completed_agent_does_not_wait_for_a_lingering_cli(self):
+        fixture = self.workspace / "lingering_cli.py"
+        fixture.write_text(
+            "import json, sys, time\n"
+            "print(json.dumps({'type': 'session.task_complete', 'data': {'summary': 'done'}}), flush=True)\n"
+            "time.sleep(600)\n",
+            encoding="utf-8")
+        self.backend.config = self.backend.config.merged({"completion": {"grace_seconds": 0.2}})
+        started = time.monotonic()
+        with patch.object(self.backend, "_command_prefix", return_value=[sys.executable, str(fixture)]):
+            result = self.backend.run(prompt="finish", options={}, workspace=self.workspace,
+                                      stream_name="linger.jsonl", stderr_name="linger.stderr", timeout_seconds=None)
+        self.assertLess(time.monotonic() - started, 60)
+        self.assertTrue(result.completed_early)
+        self.assertTrue(result.ok)
+        self.assertIn("session.task_complete", (self.workspace / "linger.jsonl").read_text(encoding="utf-8"))
+
+    def test_silent_cli_is_stopped_once_the_result_file_is_ready(self):
+        fixture = self.workspace / "silent_cli.py"
+        fixture.write_text(
+            "import json, time\n"
+            "print(json.dumps({'type': 'assistant.message', 'data': {'content': 'working'}}), flush=True)\n"
+            "time.sleep(600)\n",
+            encoding="utf-8")
+        self.backend.config = self.backend.config.merged(
+            {"completion": {"grace_seconds": 0.1, "result_quiet_seconds": 0.3}})
+        started = time.monotonic()
+        with patch.object(self.backend, "_command_prefix", return_value=[sys.executable, str(fixture)]):
+            result = self.backend.run(prompt="finish", options={}, workspace=self.workspace,
+                                      stream_name="silent.jsonl", stderr_name="silent.stderr",
+                                      timeout_seconds=None, completion_ready=lambda: True)
+        self.assertLess(time.monotonic() - started, 60)
+        self.assertTrue(result.completed_early)
+        self.assertTrue(result.ok)
+        self.assertGreater(result.lingered_seconds, 0)
+
+    def test_silent_cli_without_a_result_file_keeps_waiting(self):
+        incoming = MagicMock()
+        incoming.get.side_effect = [queue.Empty(), queue.Empty(), None]
+        process = MagicMock()
+        process.wait.return_value = 0
+        self.backend.config = self.backend.config.merged({"completion": {"result_quiet_seconds": 0}})
+        with patch("aem_agents.runner.queue.Queue", return_value=incoming), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", return_value=0):
+            result = self.backend._pump(process, self.workspace / "silent2.jsonl", self.workspace / "stderr.log", None, None, lambda: False)
+        self.assertFalse(result.completed_early)
+
+    def test_idle_without_completion_waits_for_the_result_file(self):
+        incoming = MagicMock()
+        incoming.get.side_effect = [json.dumps({"type": "assistant.idle", "data": {}}), None]
+        process = MagicMock()
+        process.wait.return_value = 0
+        with patch("aem_agents.runner.queue.Queue", return_value=incoming), patch("aem_agents.runner.threading.Thread"), patch("aem_agents.runner.time.monotonic", side_effect=[0, 0, 1, 2]):
+            result = self.backend._pump(process, self.workspace / "idle.jsonl", self.workspace / "stderr.log", None, None, lambda: False)
+        self.assertFalse(result.completed_early)
+
     def test_interrupted_or_failed_pump_always_stops_process(self):
         for error in (KeyboardInterrupt(), RuntimeError("callback failed")):
             process = MagicMock()
@@ -1735,7 +2835,7 @@ class ConfigurationTests(unittest.TestCase):
         for role, kwargs in cases:
             agent = PlannerAgent(self.context, shared=True) if role == "planner-shared" else AGENT_CLASSES[role](self.context)
             self.context.backend.run.reset_mock()
-            self.context.backend.run.return_value = SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=0)
+            self.context.backend.run.return_value = SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=0, completed_early=False, lingered_seconds=0.0)
             result = AgentResult(agent.agent_id, "test", "PASS")
             with self.subTest(role=role, kwargs=kwargs), patch("aem_agents.agents.base.read_result", return_value=result), patch.object(agent, "validate_result"), patch("aem_agents.agents.base.emit"):
                 Agent.run(agent, **kwargs)
@@ -1775,8 +2875,8 @@ class ConfigurationTests(unittest.TestCase):
             with self.subTest(role=role):
                 self.assertIn("MIGRATION_VALIDATION_DIR", prompt)
                 self.assertIn("REPORTS_PATH", prompt)
-                self.assertIn("--noEmit", prompt)
-                self.assertIn("npm ci", prompt)
+                self.assertIn("node --check", prompt)
+                self.assertIn("Do not run npm", prompt)
                 self.assertIn("lockfile", prompt)
                 self.assertIn("clientlib", prompt)
 
@@ -1907,15 +3007,18 @@ class ConfigurationTests(unittest.TestCase):
         with self.assertRaises(EnvelopeError):
             self.context.record_target_url("http://wrong.invalid:1234/content/discovered.html")
 
-    def test_malformed_contribution_is_an_envelope_failure(self):
+    def test_malformed_contribution_returns_failed_candidate(self):
         component = {"id": "hero", "source_order": 0}
         agent = AGENT_CLASSES["component"](self.context)
         workspace = agent.workspace(agent.slug(component=component))
         workspace.mkdir(parents=True)
         (workspace / "contributions.json").write_text(json.dumps({"component_id": "hero", "nodes": []}), encoding="utf-8")
         result = AgentResult("component", "test", "PASS", outputs={"component_id": "hero", "changed_files": []})
-        with self.assertRaises(EnvelopeError):
-            agent.validate_result(result, component=component)
+        agent.validate_result(result, component=component)
+        self.assertFalse(result.passed)
+        self.assertEqual(result.status, "FAIL")
+        self.assertIn("has no authored nodes", agent.contribution_failure)
+        self.assertEqual(result.failures, [agent.contribution_failure])
 
     def test_all_deploy_commands_bind_host_and_port(self):
         table = DeployerAgent(self.context).deploy_table()
@@ -1925,6 +3028,21 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertIn(f"-Daem.port={self.context.aem_port}", line)
         self.assertNotIn("{host}", table)
         self.assertNotIn("{port}", table)
+
+    def test_component_cannot_pass_with_placeholder_asset_url(self):
+        component = {"id": "hero", "source_order": 0}
+        agent = AGENT_CLASSES["component"](self.context)
+        workspace = agent.workspace(agent.slug(component=component))
+        workspace.mkdir(parents=True)
+        (workspace / "contributions.json").write_text(json.dumps({"component_id": "hero", "nodes": [{"name": "hero", "xml": "<hero/>"}],
+                                                                 "assets": [{"source_url": "inline SVG"}]}), encoding="utf-8")
+        result = AgentResult("component", "test", "PASS", outputs={"component_id": "hero", "changed_files": []})
+        agent.validate_result(result, component=component)
+        self.assertFalse(result.passed)
+        feedback = result.output("asset_failures")[0]
+        self.assertEqual(feedback["component_id"], "hero")
+        self.assertEqual(feedback["phase"], "assets")
+        self.assertIn("Asset declaration repair", agent.remediation_block(feedback))
 
     def test_frontend_command_uses_an_existing_script(self):
         package = json.loads((SCRIPTS.parents[2] / "ui.frontend" / "package.json").read_text(encoding="utf-8"))
@@ -2405,6 +3523,28 @@ class HandoffTests(unittest.TestCase):
                 rows.append(json.loads((directory / row["record_file"]).read_text(encoding="utf-8")) if "record_file" in row else row)
         return rows
 
+    def component_discovery(self, pages=None):
+        pages = pages or {375: {
+            "nodes": [{"selector": "#header", "parent": "body", "text": "Header"},
+                      {"selector": "#header-logo", "parent": "#header", "styles": {"color": "red"}},
+                      {"selector": "#footer", "parent": "body", "text": "Footer"}],
+            "media": [{"selector": "#header-logo", "visible": True, "src": "https://example.org/logo.svg"}],
+        }}
+        source = self.evidence / "discovery/source"
+        source.mkdir(parents=True)
+        manifest = source / "manifest.json"
+        manifest.write_text("{}", encoding="utf-8")
+        for width, page in pages.items():
+            directory = source / str(width)
+            directory.mkdir()
+            for kind, filename in (("nodes", "observations.json"), ("media", "media.json")):
+                (directory / filename).write_text(json.dumps(page[kind]), encoding="utf-8")
+        self.context.contract = replace(self.context.contract, breakpoints=list(pages))
+        self.context.state.get.side_effect = lambda key, default=None: {
+            "discovery_cache": {"manifest": str(manifest)}
+        }.get(key, default)
+        return source
+
     def test_planner_handoff_bounds_inputs_without_dropping_observations(self):
         source = self.evidence / "source/375"
         source.mkdir(parents=True)
@@ -2417,6 +3557,9 @@ class HandoffTests(unittest.TestCase):
         tokens = [{"property": "color", "value": "red", "count": 500, "selectors": ["#hero"] * 500}]
         (source / "observations.json").write_text(json.dumps(nodes), encoding="utf-8")
         (source / "tokens.json").write_text(json.dumps(tokens), encoding="utf-8")
+        recovery = {"source_file": "captured-logo.json", "sha256": "1" * 64, "source_image": "logo.png"}
+        (source / "media.json").write_text(json.dumps([{"selector": "#logo", "visible": True, "inline_svg_error": "CSS transform",
+                                   "inline_svg_recovery": recovery}]), encoding="utf-8")
         self.context.contract = replace(self.context.contract, breakpoints=[375])
         prepared = DiscoveryEvidence(source.parent / "manifest.json", summary, inventory, (), 1, False)
         originals = {path: digest(path) for path in (summary, inventory, source / "observations.json", source / "tokens.json")}
@@ -2428,9 +3571,280 @@ class HandoffTests(unittest.TestCase):
         self.assertIn("custom", rows[0]["detail_fields"])
         self.assertEqual(rows[1]["pointer"], "/1")
         self.assertEqual(self.records(result, "tokens-375")[0]["count"], 500)
+        self.assertEqual(self.records(result, "svg-recovery")[0]["recovery_source"], recovery["source_file"])
+        self.assertEqual(self.records(result, "svg-recovery")[0]["recovery_sha256"], recovery["sha256"])
         self.assertEqual(self.records(result, "inventory-definitions")[0]["field_count"], 1)
         self.assertEqual({path: digest(path) for path in originals}, originals)
         self.assertTrue(all(Path(name).is_relative_to(self.evidence) for name in result["artifacts"]))
+
+    def test_component_svg_recovery_inputs_are_scoped_by_source_ancestry(self):
+        source = self.evidence / "discovery/fixture/source/375"
+        source.mkdir(parents=True)
+        manifest = source.parent / "manifest.json"
+        manifest.write_text("{}", encoding="utf-8")
+        self.context.contract = replace(self.context.contract, breakpoints=[375])
+        self.context.state.get.side_effect = lambda key, default=None: {"discovery_cache": {"manifest": str(manifest)}}.get(key, default)
+        (source / "observations.json").write_text(json.dumps([
+            {"selector": "#header", "parent": "body"}, {"selector": "#hero", "parent": "body"},
+            {"selector": "#header-logo", "parent": "#header-link"}, {"selector": "#header-link", "parent": "#header"},
+            {"selector": "#footer-logo", "parent": "#footer"},
+        ]), encoding="utf-8")
+        (source / "media.json").write_text(json.dumps([
+            {"selector": f"#{owner}-logo", "visible": True, "inline_svg_error": "CSS transform", "inline_svg_recovery": {
+                "source_file": f"{owner}.json", "sha256": "1" * 64, "source_image": f"{owner}.png"}}
+            for owner in ("header", "footer")
+        ]), encoding="utf-8")
+        agent = AGENT_CLASSES["component"](self.context)
+        values = agent.prompt_values(component={"id": "header", "source_selectors": [{"selector": "#header"}]})
+        rows = json.loads(values["svg_recovery_json"])
+        self.assertEqual([row["selector"] for row in rows], ["#header-logo"])
+        self.assertEqual(rows[0]["recovery_source"], "header.json")
+        values = agent.prompt_values(component={"id": "hero", "source_selectors": [{"selector": "#hero"}]})
+        self.assertEqual(json.loads(values["svg_recovery_json"]), [])
+
+    def test_reuse_task_exposes_successful_svg_exports_without_recovery_fields(self):
+        logo = {"selector": "#header-logo", "tag": "svg", "visible": True, "source_type": "inline-svg",
+                "source_url": "", "source_file": str(self.evidence / "discovery/source/375/inline-svg/logo.svg"), "sha256": "a" * 64}
+        source = self.component_discovery({375: {
+            "nodes": [{"selector": "#header", "parent": "body"}, {"selector": "#header-logo", "parent": "#header"}],
+            "media": [logo, {**logo, "selector": "#footer-logo", "source_file": "unrelated.svg"}],
+        }})
+        agent = AGENT_CLASSES["component"](self.context)
+        agent.reuse_components = [{"id": "header", "tier": 1, "assets": [],
+                                   "source_selectors": [{"instance_id": "header", "selector": "#header"}]}]
+        agent.reuse_prompt_values(1, {})
+        index = json.loads(Path(agent.reuse_index).read_text(encoding="utf-8"))
+        task = json.loads(Path(index["tasks"][0]["input"]).read_text(encoding="utf-8"))
+        self.assertEqual(task["svg_recoveries"], [])
+        self.assertEqual(len(task["captured_assets"]), 1)
+        captured = task["captured_assets"][0]
+        self.assertEqual(captured["source_file"], logo["source_file"])
+        self.assertEqual(captured["sha256"], logo["sha256"])
+        self.assertEqual(captured["selector"], logo["selector"])
+        self.assertEqual(captured["breakpoint"], 375)
+        self.assertEqual(captured["source"], str(source / "375/media.json"))
+        self.assertEqual(captured["pointer"], "/0")
+        self.assertNotIn("recovery_source", captured)
+
+    def test_component_handoff_preserves_exact_scoped_source_records(self):
+        source = self.evidence / "discovery/source/375"
+        source.mkdir(parents=True)
+        manifest = source.parent / "manifest.json"
+        manifest.write_text("{}", encoding="utf-8")
+        self.context.contract = replace(self.context.contract, breakpoints=[375])
+        self.context.state.get.side_effect = lambda key, default=None: {
+            "discovery_cache": {"manifest": str(manifest)}
+        }.get(key, default)
+        nodes = [
+            {"selector": "#header", "parent": "body", "styles": {"color": "rgb(1, 2, 3)"}},
+            {"selector": "#header-title", "parent": "#header", "text": "Exact authored copy " * 1000,
+             "attributes": {"aria-label": "Source title"}, "custom": {"preserve": True}},
+            {"selector": "#header-logo", "parent": "#header"},
+            {"selector": "#footer-title", "parent": "#footer", "text": "Unrelated footer"},
+        ]
+        media = [{"selector": "#header-logo", "visible": True, "src": "https://example.org/logo.svg"},
+                 {"selector": "#footer-title", "visible": True, "src": "https://example.org/footer.png"}]
+        (source / "observations.json").write_text(json.dumps(nodes), encoding="utf-8")
+        (source / "media.json").write_text(json.dumps(media), encoding="utf-8")
+        originals = {path: digest(path) for path in source.iterdir()}
+        agent = AGENT_CLASSES["component"](self.context)
+        values = agent.prompt_values(component={"id": "header", "source_selectors": [{"selector": "#header"}]})
+        handoff = {"index_path": values["component_handoff_index"]}
+        rows = self.records(handoff, "nodes-375")
+        self.assertEqual([row["record"] for row in rows], nodes[:3])
+        self.assertEqual(rows[1]["pointer"], "/1")
+        self.assertEqual(Path(rows[1]["source"]), source / "observations.json")
+        self.assertEqual([row["record"] for row in self.records(handoff, "media-375")], media[:1])
+        self.assertTrue(Path(handoff["index_path"]).is_relative_to(self.evidence))
+        self.assertEqual({path: digest(path) for path in originals}, originals)
+
+    def test_component_handoff_rejects_missing_planned_roots_before_writing(self):
+        self.component_discovery()
+        for selectors in (("#missing",), ("#header", "#missing")):
+            with self.subTest(selectors=selectors):
+                target = self.evidence / "invalid-handoff"
+                component = {"id": "cards", "source_selectors": [{"selector": selector} for selector in selectors]}
+                with self.assertRaisesRegex(EnvelopeError, "cards.*375.*#missing"):
+                    prepare_component_handoff(self.context, target, component)
+                self.assertFalse(target.exists())
+
+    def test_component_handoff_rejects_missing_breakpoint_mapping(self):
+        self.component_discovery({width: {
+            "nodes": [{"selector": "#header", "parent": "body"}], "media": [],
+        } for width in (375, 768)})
+        component = {"id": "header", "source_selectors": [{"selector": "#header", "breakpoint": 375}]}
+        with self.assertRaisesRegex(EnvelopeError, "header.*768.*selector"):
+            prepare_component_handoff(self.context, self.evidence / "invalid-handoff", component)
+
+    def test_planner_rejects_unresolved_source_before_accepting_plan(self):
+        self.component_discovery()
+        component = {"id": "cards", "name": "Cards", "tier": 1, "delivery": "component", "source_order": 0,
+                     "resource_type": "demo-ai-site/components/cards",
+                     "source_selectors": [{"instance_id": "cards-1", "selector": "#missing", "match_index": 0}]}
+        planner = PlannerAgent(self.context)
+        result = AgentResult("planner", "test", "PASS", outputs={"components": [component]})
+        with self.assertRaisesRegex(EnvelopeError, "cards.*375.*#missing"):
+            planner.validate_plan(result)
+        self.assertFalse((self.evidence / "component-plan.json").exists())
+        component["source_selectors"][0]["selector"] = "#header"
+        self.assertEqual(planner.validate_plan(result)[0]["id"], "cards")
+        self.assertEqual(result.output("source_validation")["cards"]["375"], ["#header"])
+
+    def test_parallel_component_handoffs_share_parsing_without_sharing_packets(self):
+        self.component_discovery()
+        components = [{"id": f"header-{index}", "source_selectors": [{"selector": "#header"}]} for index in range(6)]
+
+        def prepare(component):
+            return prepare_component_handoff(self.context, self.evidence / component["id"], component)
+
+        with patch("aem_agents.handoff.json.loads", wraps=json.loads) as parse:
+            with ThreadPoolExecutor(max_workers=6) as workers:
+                handoffs = list(workers.map(prepare, components))
+            self.assertEqual(parse.call_count, 2)
+        self.assertEqual(sum(handoff["cache_misses"] for handoff in handoffs), 2)
+        self.assertEqual(sum(handoff["cache_hits"] for handoff in handoffs), 10)
+        self.assertEqual(len({handoff["index_path"] for handoff in handoffs}), 6)
+        for component, handoff in zip(components, handoffs):
+            index = json.loads(Path(handoff["index_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(index["component_id"], component["id"])
+            self.assertEqual(handoff["selected_record_count"], 3)
+            self.assertEqual(handoff["source_record_count"], 4)
+            self.assertEqual([row["record"]["selector"] for row in self.records(handoff, "nodes-375")],
+                             ["#header", "#header-logo"])
+
+    def test_component_cache_uses_content_hash_not_size_or_timestamp(self):
+        source = self.component_discovery()
+        component = {"id": "header", "source_selectors": [{"selector": "#header"}]}
+        first = prepare_component_handoff(self.context, self.evidence / "first", component)
+        path = source / "375/observations.json"
+        original = path.stat()
+        nodes = json.loads(path.read_text(encoding="utf-8"))
+        nodes[0]["text"] = "NewHdr"
+        path.write_text(json.dumps(nodes), encoding="utf-8")
+        os.utime(path, ns=(original.st_atime_ns, original.st_mtime_ns))
+        self.assertEqual(path.stat().st_size, original.st_size)
+        self.assertEqual(path.stat().st_mtime_ns, original.st_mtime_ns)
+        second = prepare_component_handoff(self.context, self.evidence / "second", component)
+        self.assertEqual(second["cache_hits"], 1)
+        self.assertEqual(second["cache_misses"], 1)
+        self.assertEqual(self.records(second, "nodes-375")[0]["record"]["text"], "NewHdr")
+        self.assertEqual(self.records(first, "nodes-375")[0]["record"]["text"], "Header")
+        path.unlink()
+        with self.assertRaisesRegex(EnvelopeError, "Missing, empty, or out-of-run"):
+            prepare_component_handoff(self.context, self.evidence / "missing", component)
+
+    def test_component_cache_is_bounded_and_isolated_by_evidence_path(self):
+        from aem_agents.handoff import _read_discovery_records
+
+        source = self.component_discovery()
+        original = source / "375/observations.json"
+        for index in range(15):
+            path = source / f"other-{index}.json"
+            path.write_bytes(original.read_bytes())
+            _read_discovery_records(path, digest(path))
+        info = _read_discovery_records.cache_info()
+        self.assertEqual(info.maxsize, 12)
+        self.assertEqual(info.currsize, 12)
+        component = {"id": "header", "source_selectors": [{"selector": "#header"}]}
+        handoff = prepare_component_handoff(self.context, self.evidence / "handoff", component)
+        self.assertEqual(handoff["cache_misses"], 2)
+
+    def test_component_handoffs_accept_variable_plan_sizes_names_and_breakpoints(self):
+        components = [{"id": f"custom-block-{index * 7 + 3}",
+                       "source_selectors": [{"selector": f"#source-{index * 11 + 5}"}]}
+                      for index in range(19)]
+        breakpoints = [421, 917, 1537]
+        nodes = [{"selector": component["source_selectors"][0]["selector"], "parent": "body",
+                  "text": component["id"]} for component in components]
+        self.component_discovery({width: {"nodes": nodes, "media": []} for width in breakpoints})
+        for count in (1, 7, len(components)):
+            with self.subTest(component_count=count):
+                prepared_ids = []
+                for component in components[:count]:
+                    handoff = prepare_component_handoff(
+                        self.context, self.evidence / f"plan-{count}" / component["id"], component)
+                    index = json.loads(Path(handoff["index_path"]).read_text(encoding="utf-8"))
+                    prepared_ids.append(index["component_id"])
+                    self.assertEqual(set(index["roots"]), {str(width) for width in breakpoints})
+                    self.assertEqual(handoff["selected_record_count"], len(breakpoints))
+                    for width in breakpoints:
+                        records = self.records(handoff, f"nodes-{width}")
+                        self.assertEqual(len(records), 1)
+                        self.assertEqual(records[0]["record"]["text"], component["id"])
+                self.assertEqual(prepared_ids, [component["id"] for component in components[:count]])
+
+    def test_component_handoff_respects_breakpoints_hidden_states_and_selector_cycles(self):
+        self.component_discovery({
+            375: {"nodes": [{"selector": "#mobile", "parent": "body"},
+                            {"selector": "#menu", "parent": "#mobile", "visible": False, "observation_state": "default"},
+                            {"selector": "#menu", "parent": "#mobile", "visible": True, "observation_state": "open"},
+                            {"selector": "#cycle-one", "parent": "#cycle-two"},
+                            {"selector": "#cycle-two", "parent": "#cycle-one"},
+                            {"selector": "#mobile-other", "parent": "body"}], "media": []},
+            768: {"nodes": [{"selector": "#tablet", "parent": "body"}], "media": []},
+            1440: {"nodes": [{"selector": "#desktop", "parent": "body"},
+                             {"selector": "#desktop > svg", "parent": "#uncaptured"}], "media": []},
+        })
+        component = {"id": "header", "visible_breakpoints": [375, 1440], "source_selectors": [
+            {"selector": "#mobile", "breakpoint": 375}, {"selector": "#desktop", "breakpoint": 1440}]}
+        handoff = prepare_component_handoff(self.context, self.evidence / "handoff", component)
+        mobile = [row["record"] for row in self.records(handoff, "nodes-375")]
+        self.assertEqual([row["selector"] for row in mobile], ["#mobile", "#menu", "#menu"])
+        self.assertFalse(mobile[1]["visible"])
+        self.assertEqual(mobile[2]["observation_state"], "open")
+        self.assertEqual([row["record"]["selector"] for row in self.records(handoff, "nodes-1440")],
+                         ["#desktop", "#desktop > svg"])
+        index = json.loads(Path(handoff["index_path"]).read_text(encoding="utf-8"))
+        self.assertNotIn("nodes-768", index["packets"])
+        self.assertEqual(self.records(handoff, "media-375"), [])
+
+    def test_component_handoff_detects_input_and_packet_tampering(self):
+        source = self.component_discovery()
+        component = {"id": "header", "source_selectors": [{"selector": "#header"}]}
+        agent = AGENT_CLASSES["component"](self.context)
+        agent.prompt_values(component=component)
+        for path in [source / "375/observations.json", Path(agent.handoff["artifacts"][0])]:
+            with self.subTest(path=path):
+                original = path.read_bytes()
+                self.addCleanup(path.write_bytes, original)
+                path.write_text("[]", encoding="utf-8")
+                with self.assertRaisesRegex(EnvelopeError, "Prepared component inputs changed"):
+                    agent.validate_result(AgentResult("component", "test", "PASS"), component=component)
+                path.write_bytes(original)
+        result = AgentResult("component", "test", "FAIL", outputs={"component_id": "header", "changed_files": []})
+        agent.validate_result(result, component=component)
+        self.assertEqual(result.output("handoff_artifacts"), agent.handoff["artifacts"])
+        self.assertEqual(result.output("handoff_metrics")["selected_record_count"], 3)
+        self.assertEqual(result.output("handoff_metrics")["cache_misses"], 2)
+
+    def test_component_handoff_retries_keep_prior_attempt_and_use_shared_cache(self):
+        self.component_discovery()
+        component = {"id": "header", "source_selectors": [{"selector": "#header"}]}
+        agent = AGENT_CLASSES["component"](self.context)
+        first = agent.prompt_values(component=component)
+        original = dict(agent.handoff["hashes"])
+        worker_context = replace(self.context, settings=Settings(
+            self.root / "worker-checkout", self.context.settings.migration, self.context.settings._agents_config))
+        worker = AGENT_CLASSES["component"](worker_context)
+        second = worker.prompt_values(component=component, attempt=2)
+        self.assertNotEqual(first["component_handoff_index"], second["component_handoff_index"])
+        self.assertEqual(worker.handoff["cache_hits"], 2)
+        self.assertEqual(worker.handoff["cache_misses"], 0)
+        for path, checksum in original.items():
+            self.assertEqual(digest(Path(path)), checksum)
+
+    def test_component_handoff_rejects_malformed_or_outside_inputs(self):
+        source = self.component_discovery()
+        component = {"id": "header", "source_selectors": [{"selector": "#header"}]}
+        with self.assertRaisesRegex(EnvelopeError, "inside this run"):
+            prepare_component_handoff(self.context, self.root / "outside", component)
+        for invalid in ("not JSON", "{}", '[{"selector": null}]'):
+            with self.subTest(invalid=invalid):
+                (source / "375/observations.json").write_text(invalid, encoding="utf-8")
+                with self.assertRaises(EnvelopeError):
+                    prepare_component_handoff(self.context, self.evidence / "invalid", component)
+        self.context.dry_run = True
+        self.assertEqual(prepare_component_handoff(self.context, self.evidence / "dry-run", component), {})
 
     def test_packets_preserve_oversized_and_unicode_records(self):
         records = [{"name": str(index), "value": "\\\"\u2192" * 250} for index in range(20)]
@@ -2593,7 +4007,7 @@ class EndToEndTests(unittest.TestCase):
                         "failures": [],
                     }
                     (workspace / "result.json").write_text(json.dumps(payload), encoding="utf-8")
-                    return SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=.01)
+                    return SimpleNamespace(timed_out=False, ok=True, exit_code=0, duration_seconds=.01, completed_early=False, lingered_seconds=0.0)
 
             backend = FixtureBackend()
             def capture(agent, planned):
@@ -2650,6 +4064,13 @@ class EndToEndTests(unittest.TestCase):
             engine = Orchestrator(settings, contract, run_id="integration", skip_probe=True, evidence_dir=evidence, logger=MagicMock())
             fixture_manifest = evidence / "collector.json"
             fixture_manifest.write_text("Offline collector fixture", encoding="utf-8")
+            for width in contract.breakpoints:
+                source = evidence / str(width)
+                source.mkdir()
+                (source / "media.json").write_text("[]", encoding="utf-8")
+                (source / "observations.json").write_text(json.dumps([
+                    {"selector": component["source_selectors"][0]["selector"], "parent": "body"} for component in components
+                ]), encoding="utf-8")
             prepared = DiscoveryEvidence(fixture_manifest, fixture_manifest, fixture_manifest, (fixture_manifest,), .1, False)
             input_patch = patch("aem_agents.agents.planner.prepare_planner_handoff", return_value={"index_path": str(fixture_manifest), "packet_count": 1, "elapsed_seconds": .01, "input_bytes": 1, "artifacts": [str(fixture_manifest)], "hashes": {str(fixture_manifest): digest(fixture_manifest)}})
             input_mock = input_patch.start()

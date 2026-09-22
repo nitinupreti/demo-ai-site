@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+import hashlib
 import json
 from pathlib import Path
+from threading import Lock
 import time
 from typing import Any, Iterable, Mapping
 import xml.etree.ElementTree as ET
@@ -12,6 +15,7 @@ from .envelope import EnvelopeError
 from .workspaces import digest, foundation_scopes, relative_path
 
 PACKET_BYTES = 8000
+_DISCOVERY_CACHE_LOCK = Lock()
 
 
 def _encoded(value: Any) -> str:
@@ -119,7 +123,7 @@ def prepare_planner_handoff(context: Any, directory: Path, discovery: Any) -> di
     pages = summary.get("pages", [])
     if not isinstance(pages, list) or {page.get("breakpoint") for page in pages} != set(context.contract.breakpoints) or len(pages) != len(context.contract.breakpoints):
         raise EnvelopeError("Planner handoff needs each required breakpoint exactly once.")
-    overview = []
+    overview, svg_recoveries = [], []
     for page_index, page in enumerate(pages):
         width = page["breakpoint"]
         source = discovery.manifest.parent / str(width)
@@ -134,13 +138,22 @@ def prepare_planner_handoff(context: Any, directory: Path, discovery: Any) -> di
         values = project(tokens, tokens_path, ("property", "value", "count"))
         packet(f"tokens-{width}", values)
         packet(f"headings-{width}", project(page.get("headings", []), summary_path, ("selector", "tag", "text", "rect"), f"/pages/{page_index}/headings"))
+        media_path = source / "media.json"
+        media = load(media_path)
+        for index, entry in enumerate(media):
+            if entry.get("visible") and entry.get("inline_svg_error"):
+                recovery = entry.get("inline_svg_recovery") or {}
+                svg_recoveries.append({"breakpoint": width, "selector": entry["selector"], "error": entry["inline_svg_error"],
+                                       "recovery_source": recovery.get("source_file"), "recovery_sha256": recovery.get("sha256"),
+                                       "source_image": recovery.get("source_image"), "source": str(media_path), "pointer": f"/{index}"})
         overview.append({key: page[key] for key in ("breakpoint", "viewport", "title", "issues", "signals_executed", "candidate_count", "media_count", "conditional_selectors", "third_party_embeds") if key in page})
         overview[-1].update(observed_nodes=len(nodes), wide_nodes=len(wide), measured_token_values=len(values), source=str(summary_path), pointer=f"/pages/{page_index}")
     packet("overview", overview)
+    packet("svg-recovery", svg_recoveries)
     index = {"schema_version": 1, "run_id": context.run_id, "site_url": context.contract.site_url,
              "manifest": str(discovery.manifest), "counts": counts, "packets": groups, "input_schemas": schemas,
              "reading_contract": {
-                 "order": "Read overview, inventory-definitions and wide-nodes first; then all nodes for every breakpoint. Token tables already contain measured property/value/count records.",
+                 "order": "Read overview, inventory-definitions, svg-recovery and wide-nodes first; then all nodes for every breakpoint. Token tables already contain measured property/value/count records.",
                  "references": "Packet paths resolve relative to this index; source is an absolute immutable input path and pointer is a JSON pointer into it. No source fields were deleted.",
                  "text": "text is a preview of at most 240 characters, never final copy. Read the full source record for exact content and attributes.",
                  "scope": "Wide nodes are a navigation aid, NOT accepted sections. All observations remain in nodes packets; hidden/conditional nodes and all discovery signals still require coverage reconciliation.",
@@ -153,6 +166,145 @@ def prepare_planner_handoff(context: Any, directory: Path, discovery: Any) -> di
     return {"index_path": str(index_path), "packet_count": sum(len(pages) for pages in groups.values()),
             "input_bytes": sum(Path(path).stat().st_size for path in inputs), "elapsed_seconds": time.monotonic() - started,
             "artifacts": [str(path) for path in artifacts], "hashes": {**inputs, **{str(path): digest(path) for path in artifacts}}}
+
+
+@lru_cache(maxsize=12)
+def _read_discovery_records(path: Path, checksum: str) -> tuple[tuple[dict[str, Any], ...], dict[str, Any]]:
+    content = path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != checksum:
+        raise EnvelopeError(f"Discovery evidence changed while preparing component inputs: {path}")
+    records = json.loads(content.decode("utf-8"))
+    if not isinstance(records, list) or any(
+        not isinstance(row, dict) or not isinstance(row.get("selector"), str) or not row["selector"]
+        for row in records
+    ):
+        raise EnvelopeError(f"Expected discovery object records with selectors in {path}.")
+    return tuple(records), {row["selector"]: row.get("parent") for row in records}
+
+
+def _component_records(context: Any, component: Mapping[str, Any]) -> Iterable[dict[str, Any]]:
+    saved = context.state.get("discovery_cache", {})
+    if context.dry_run or not isinstance(saved, Mapping) or not saved.get("manifest"):
+        return
+    source = context.evidence_file(saved["manifest"]).parent
+    for width in context.contract.breakpoints:
+        if component.get("visible_breakpoints") is not None and width not in component["visible_breakpoints"]:
+            continue
+        roots = {entry["selector"] for entry in component.get("source_selectors", [])
+                 if entry.get("breakpoint", width) == width and isinstance(entry.get("selector"), str)}
+        if not roots:
+            raise EnvelopeError(f"{component['id']}: {width}px has no planned source selector; correct the component plan.")
+        try:
+            inputs, hashes, cache_hits = {}, {}, 0
+            for label, filename in (("nodes", "observations.json"), ("media", "media.json")):
+                path = context.evidence_file(str(source / str(width) / filename))
+                checksum = digest(path)
+                with _DISCOVERY_CACHE_LOCK:
+                    previous_hits = _read_discovery_records.cache_info().hits
+                    records, parents = _read_discovery_records(path, checksum)
+                    cache_hits += _read_discovery_records.cache_info().hits - previous_hits
+                inputs[label] = (path, records, parents)
+                hashes[str(path)] = checksum
+            parents = inputs["nodes"][2]
+            missing = sorted(roots - parents.keys())
+            if missing:
+                raise EnvelopeError(f"{component['id']}: {width}px planned source selectors are absent from captured observations: {', '.join(missing)}. Correct the component plan before implementation.")
+
+            def belongs(selector: str) -> bool:
+                visited = set()
+                ancestor = selector
+                while ancestor and ancestor not in visited and ancestor not in roots:
+                    visited.add(ancestor)
+                    ancestor = parents.get(ancestor)
+                return ancestor in roots or any(selector.startswith(root + " > ") for root in roots)
+
+            selected = {
+                label: [{"source": str(path), "pointer": f"/{index}", "record": row}
+                        for index, row in enumerate(records) if belongs(row["selector"])]
+                for label, (path, records, _) in inputs.items()
+            }
+            yield {"breakpoint": width, "roots": sorted(roots), "hashes": hashes, **selected,
+                   "source_record_count": sum(len(records) for _, records, _ in inputs.values()),
+                   "cache_hits": cache_hits, "cache_misses": len(inputs) - cache_hits}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+            raise EnvelopeError(f"Cannot prepare discovery inputs for {component['id']}: {error}") from error
+
+
+def _svg_recoveries(pages: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for page in pages:
+        for row in page["media"]:
+            entry = row["record"]
+            if not entry.get("visible") or not entry.get("inline_svg_error"):
+                continue
+            recovery = entry.get("inline_svg_recovery") or {}
+            rows.append({"breakpoint": page["breakpoint"], "selector": entry["selector"], "error": entry["inline_svg_error"],
+                         "recovery_source": recovery.get("source_file"), "recovery_sha256": recovery.get("sha256"),
+                         "source_image": recovery.get("source_image")})
+    return rows
+
+
+def validate_component_sources(context: Any, components: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, list[str]]]:
+    return {component["id"]: {str(page["breakpoint"]): page["roots"] for page in _component_records(context, component)}
+            for component in components}
+
+
+def component_svg_recoveries(context: Any, component: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return _svg_recoveries(_component_records(context, component))
+
+
+def prepare_component_handoff(context: Any, directory: Path, component: Mapping[str, Any]) -> dict[str, Any]:
+    started = time.monotonic()
+    directory = directory.resolve()
+    if not directory.is_relative_to(context.evidence_dir.resolve()):
+        raise EnvelopeError("Component handoff must remain inside this run's evidence directory.")
+    pages = list(_component_records(context, component))
+    if not pages:
+        return {}
+    directory.mkdir(parents=True, exist_ok=True)
+    artifacts, groups, counts, inputs = [], {}, {}, {}
+    for page in pages:
+        inputs.update(page["hashes"])
+        for kind in ("nodes", "media"):
+            label = f"{kind}-{page['breakpoint']}"
+            groups[label], written = write_packets(directory, label, page[kind])
+            counts[label] = len(page[kind])
+            artifacts.extend(written)
+    index = {
+        "schema_version": 1, "run_id": context.run_id, "component_id": component["id"],
+        "roots": {str(page["breakpoint"]): page["roots"] for page in pages},
+        "counts": counts, "packets": groups, "source_hashes": inputs,
+        "reading_contract": {
+            "order": "Read nodes and media for each listed breakpoint before implementing this component.",
+            "records": "record contains every captured field verbatim, including exact text, styles, attributes and hidden states. No source values were summarized.",
+            "paths": "Packet and record_file paths resolve relative to this index. source and pointer identify the original immutable JSON record.",
+            "oversized": "Use a JSON field query or ranged read for record_file entries; oversized records are preserved, not truncated.",
+            "scope": "Only the planned selectors and their captured descendants are included. Use exact referenced source paths for additional context; never glob the evidence or workspaces tree.",
+            "gates": "This is a retrieval aid, not proof of completeness or a cached validation verdict. Report missing or ambiguous evidence; all acceptance gates still apply.",
+        },
+    }
+    index_path = _write(directory / "index.json", index)
+    artifacts.append(index_path)
+    if any(digest(Path(path)) != checksum for path, checksum in inputs.items()):
+        raise EnvelopeError("Discovery evidence changed while preparing component inputs.")
+    captured_assets = []
+    for page in pages:
+        for row in page["media"]:
+            entry = row["record"]
+            if entry.get("inline_svg_error") or not (entry.get("source_url") or (entry.get("source_file") and entry.get("sha256"))):
+                continue
+            captured_assets.append({"breakpoint": page["breakpoint"], "source": row["source"], "pointer": row["pointer"],
+                                    **{name: entry[name] for name in ("selector", "tag", "visible", "source_type", "source_url", "source_file", "sha256", "mime")
+                                       if name in entry}})
+    return {"index_path": str(index_path), "svg_recoveries": _svg_recoveries(pages), "captured_assets": captured_assets,
+            "packet_count": sum(len(group) for group in groups.values()),
+            "source_record_count": sum(page["source_record_count"] for page in pages),
+            "selected_record_count": sum(counts.values()), "elapsed_seconds": time.monotonic() - started,
+            "cache_hits": sum(page["cache_hits"] for page in pages), "cache_misses": sum(page["cache_misses"] for page in pages),
+            "input_bytes": sum(Path(path).stat().st_size for path in inputs),
+            "prepared_bytes": sum(path.stat().st_size for path in artifacts),
+            "artifacts": [str(path) for path in artifacts],
+            "hashes": {**inputs, **{str(path): digest(path) for path in artifacts}}}
 
 
 def prepare_shared_handoff(context: Any, directory: Path, components: list[Mapping[str, Any]]) -> dict[str, Any]:

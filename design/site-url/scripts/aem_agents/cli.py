@@ -9,12 +9,13 @@ from pathlib import Path
 from typing import Any
 
 from .config import ConfigError, Settings, find_repo_root
+from .checkpoints import validate_checkpoint
 from .console import emit, get_logger
 from .contract import ContractError, load_contract
 from .envelope import EnvelopeError
 from .orchestrator import Orchestrator, PipelineError
 from .runner import BackendError
-from .state import RunLock, RunState, ensure_resumable_run
+from .state import RunLock, RunState, StateError, ensure_resumable_run
 
 _EXIT = {"COMPLETE": 0, "DRY_RUN": 0, "FAIL": 1, "BLOCKED": 2}
 
@@ -35,6 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--evidence-dir", help="Override the generated evidence directory.")
     parser.add_argument("--run-id", help="Choose a run id; existing runs require --resume.")
     parser.add_argument("--resume", action="store_true", help="Reuse validated plan/component checkpoints from --run-id or --evidence-dir.")
+    parser.add_argument("--list-runs", action="store_true", help="Show recorded runs, the stage each one would resume at, and why a run cannot be resumed.")
+    parser.add_argument("--retry-recovery", action="store_true", help="With --resume, authorize one additional attempt for the last paused recovery operation; preserve its history.")
     parser.add_argument("--model", help="Model id passed to the agent backend.")
     parser.add_argument("--effort", help="Reasoning effort, when the model advertises it.")
     parser.add_argument(
@@ -98,6 +101,55 @@ def _contract_overrides(args: argparse.Namespace) -> dict[str, Any]:
     return overrides
 
 
+def _resume_rows(settings: Settings) -> list[dict[str, str]]:
+    """Report every recorded run and whether the orchestrator would accept a resume."""
+    root = settings.resolve(str(settings.migration.require("run.evidence_root")))
+    prefix, _, suffix = str(settings.migration.require("run.evidence_dir_pattern")).partition("{run_id}")
+    state_file = str(settings.migration.get("run.state_file", "run-state.json"))
+    rows = []
+    for folder in sorted(root.glob(f"{prefix}*{suffix}") if root.is_dir() else [], key=lambda path: path.name):
+        if not (folder / state_file).is_file():
+            continue
+        row = {"run_id": folder.name[len(prefix): len(folder.name) - len(suffix) or None], "evidence": str(folder)}
+        try:
+            state = RunState.load(folder / state_file)
+        except StateError as error:
+            rows.append({**row, "status": "UNREADABLE", "stage": "-", "resumable": "no", "detail": str(error)})
+            continue
+        status = str(state.get("status", "UNKNOWN"))
+        cursor = state.get("recovery_checkpoint") or {}
+        detail = ""
+        try:
+            ensure_resumable_run(folder)
+            if state.get("dry_run") or status == "DRY_RUN":
+                detail = "Dry runs cannot be resumed as real migrations."
+            elif status == "COMPLETE":
+                detail = "Already complete; read the completion report."
+            else:
+                validate_checkpoint(state.get("checkpoint"), settings, state.get("contract", {}), folder)
+        except (StateError, ConfigError, OSError) as error:
+            detail = str(error)
+        rows.append({**row, "status": status, "stage": str(cursor.get("stage") or state.get("current_phase") or "plan"),
+                     "resumable": "no" if detail else "yes", "detail": detail})
+    return rows
+
+
+def _list_runs(settings: Settings) -> int:
+    rows = _resume_rows(settings)
+    if not rows:
+        emit("No recorded runs were found.", "yellow")
+        return 0
+    for row in rows:
+        emit(f"\n{row['run_id']}  [{row['status']}]", "cyan")
+        emit(f"  evidence:  {row['evidence']}", "dim")
+        emit(f"  next stage: {row['stage']}", "dim")
+        if row["resumable"] == "yes":
+            emit(f"  resume:    python design/site-url/scripts/run_migration.py --resume --run-id {row['run_id']}", "green")
+        else:
+            emit(f"  not resumable: {row['detail']}", "yellow")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -106,7 +158,11 @@ def main(argv: list[str] | None = None) -> int:
     config_dir = Path(args.config_dir).resolve() if args.config_dir else scripts_dir / "config"
 
     try:
+        if args.retry_recovery and (not args.resume or args.dry_run or args.show_plan):
+            raise ConfigError("--retry-recovery requires a real --resume operation.")
         settings = Settings.load(repo_root, config_dir, _overrides(args))
+        if args.list_runs:
+            return _list_runs(settings)
         overrides = _contract_overrides(args)
         if args.resume:
             if not (args.run_id or args.evidence_dir) or args.dry_run:
@@ -151,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
                 logger=get_logger(None, args.verbose),
                 resume=args.resume,
                 bootstrap=not args.no_bootstrap,
+                retry_recovery=args.retry_recovery,
             )
             orchestrator.logger = get_logger(
                 orchestrator.evidence_dir / str(settings.migration.get("run.log_file", "orchestrator.log")),

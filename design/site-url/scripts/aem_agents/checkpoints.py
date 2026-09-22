@@ -12,8 +12,9 @@ from .contract import RunContract
 from .workspaces import digest, relative_path, source_manifest
 
 
-def configuration_fingerprint(settings: Settings, contract: RunContract) -> str:
-    value = {"migration": settings.migration.data, "agents": settings._agents_config.data, "contract": contract.as_dict()}
+def configuration_fingerprint(settings: Settings, contract: RunContract | Mapping[str, Any]) -> str:
+    saved = contract.as_dict() if isinstance(contract, RunContract) else dict(contract)
+    value = {"migration": settings.migration.data, "agents": settings._agents_config.data, "contract": saved}
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
 
@@ -57,7 +58,7 @@ def capture_checkpoint(settings: Settings, contract: RunContract, evidence_dir: 
     }
 
 
-def validate_checkpoint(checkpoint: Any, settings: Settings, contract: RunContract, evidence_dir: Path) -> None:
+def validate_checkpoint(checkpoint: Any, settings: Settings, contract: RunContract | Mapping[str, Any], evidence_dir: Path) -> None:
     if not isinstance(checkpoint, Mapping) or checkpoint.get("schema_version") != 1 or not isinstance(checkpoint.get("source_files"), dict) or not isinstance(checkpoint.get("artifacts"), dict):
         raise ConfigError("This run has no compatible fingerprinted checkpoint. Start a new run.")
     if checkpoint.get("configuration") != configuration_fingerprint(settings, contract):

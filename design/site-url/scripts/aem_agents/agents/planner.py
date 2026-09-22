@@ -12,7 +12,7 @@ from ..envelope import AgentResult, EnvelopeError, validate_components
 from ..discovery import DiscoveryEvidence, collect_discovery, validate_collection
 from ..browser import browser_paths
 from ..console import emit
-from ..handoff import prepare_planner_handoff, prepare_shared_handoff
+from ..handoff import prepare_planner_handoff, prepare_shared_handoff, validate_component_sources
 from ..render import bullet_list
 from ..workspaces import digest, foundation_scopes, normalize_scope, validate_contribution_targets, validate_ownership
 from .base import Agent, dump_json
@@ -41,22 +41,27 @@ class PlannerAgent(Agent):
     handoff: dict[str, Any] | None = None
     planning_handoff: dict[str, Any] | None = None
 
-    def __init__(self, context: Any, *, shared: bool = False) -> None:
+    def __init__(self, context: Any, *, shared: bool = False, diagnostic: bool = False) -> None:
         super().__init__(context)
         self.shared = shared
-        if shared:
-            self.spec = AgentSpec(self.agent_id, self.spec.get("shared"), self.spec._config.data)
+        self.diagnostic = diagnostic
+        if shared or diagnostic:
+            self.spec = AgentSpec(self.agent_id, self.spec.get("diagnostic" if diagnostic else "shared"), self.spec._config.data)
 
     def slug(self, repair: bool = False, attempt: int = 1, **_: Any) -> str:
+        if self.diagnostic:
+            return f"planner-diagnosis-attempt-{attempt}"
         if self.shared:
             return f"planner-shared-repair-attempt-{attempt}" if repair else "planner-shared"
-        return self.agent_id
+        return f"planner-attempt-{attempt}" if attempt > 1 else self.agent_id
 
     def prepare_handoff(self, components: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
         self.handoff = prepare_shared_handoff(self.context, self.workspace(self.slug(**kwargs)) / "handoff", list(components))
         return self.handoff
 
     def run(self, **kwargs: Any) -> AgentResult:
+        if self.diagnostic:
+            return super().run(**kwargs)
         started = time.monotonic()
         self.discovery = None
         self.handoff = None
@@ -64,7 +69,19 @@ class PlannerAgent(Agent):
         if not self.context.dry_run and self.shared:
             self.prepare_handoff(components=kwargs.get("components") or [], repair=kwargs.get("repair", False), attempt=kwargs.get("attempt", 1))
         if not self.context.dry_run and not self.shared:
-            self.discovery = collect_discovery(self.context)
+            saved = self.context.state.get("discovery_cache", {})
+            if saved:
+                manifest = self.context.evidence_file(saved["manifest"])
+                collector = (self.context.browser or browser_paths(self.context.settings)).tools_dir / "discover.mjs"
+                _, artifacts = validate_collection(manifest, self.context.run_id, self.context.contract.site_url,
+                                                   self.context.contract.breakpoints, digest(collector))
+                self.discovery = DiscoveryEvidence(manifest, self.context.evidence_file(saved["summary"]),
+                                                   self.context.evidence_file(saved["inventory"]), artifacts, saved["elapsed_seconds"], True)
+            else:
+                self.discovery = collect_discovery(self.context)
+                self.context.state.update(discovery_cache={"manifest": str(self.discovery.manifest), "summary": str(self.discovery.summary),
+                                                          "inventory": str(self.discovery.inventory), "elapsed_seconds": self.discovery.elapsed_seconds,
+                                                          "artifacts": [str(path) for path in self.discovery.artifacts]})
             self.planning_handoff = prepare_planner_handoff(self.context, self.workspace(self.slug(**kwargs)) / "planning-inputs", self.discovery)
             emit(f"  planner inputs: {self.planning_handoff['packet_count']} bounded packets prepared in {self.planning_handoff['elapsed_seconds']:.2f}s", "green")
         result = super().run(**kwargs)
@@ -82,6 +99,9 @@ class PlannerAgent(Agent):
 
     def prompt_values(self, **kwargs: Any) -> dict[str, Any]:
         values = super().prompt_values(**kwargs)
+        if self.diagnostic:
+            values["failure_packet"] = kwargs.get("failure_packet", "(dry run)")
+            return values
         if self.shared:
             values.update({
                 "operation": "repair" if kwargs.get("repair") else "establish",
@@ -99,10 +119,61 @@ class PlannerAgent(Agent):
             "discovery_summary": str(self.discovery.summary) if self.discovery else "(dry run: prepared source summary)",
             "discovery_manifest": str(self.discovery.manifest) if self.discovery else "(dry run: collector manifest)",
             "discovery_inventory": str(self.discovery.inventory) if self.discovery else "(dry run: cached repository inventory)",
+            "recovery_feedback": json.dumps(kwargs.get("feedback") or {}, indent=2),
         })
         return values
 
+    def _expand_packet_evidence(self, result: AgentResult) -> None:
+        """Accept a prepared packet label so filenames never have to be retyped."""
+        index_path = Path(self.planning_handoff["index_path"]) if (self.planning_handoff or {}).get("index_path") else None
+        if index_path is None:
+            return
+        try:
+            packets = json.loads(index_path.read_text(encoding="utf-8"))["packets"]
+        except (OSError, ValueError, KeyError, TypeError):
+            # Without a readable packet map there is nothing to expand; cited paths
+            # still have to resolve to real evidence files.
+            return
+        if not isinstance(packets, dict):
+            return
+        for check in result.checks:
+            evidence = check.get("evidence")
+            entries = evidence if isinstance(evidence, list) else [evidence]
+            expanded: list[Any] = []
+            for entry in entries:
+                pages = packets.get(entry) if isinstance(entry, str) else None
+                if pages:
+                    expanded.extend(str(index_path.parent / page["file"]) for page in pages)
+                else:
+                    expanded.append(entry)
+            if expanded:
+                check["evidence"] = expanded if isinstance(evidence, list) or len(expanded) > 1 else expanded[0]
+
     def validate_result(self, result: AgentResult, **kwargs: Any) -> None:
+        if self.diagnostic:
+            super().validate_result(result, **kwargs)
+            if self.context.dry_run:
+                result.outputs["decision"] = {"action": "pause", "component_ids": [], "repair_shared": False, "reason": "Dry run", "evidence": []}
+            elif result.passed:
+                decision = result.output("decision")
+                known = {component["id"] for component in kwargs.get("components", [])}
+                if not isinstance(decision, dict) or decision.get("action") not in ("retry", "repair", "pause"):
+                    raise EnvelopeError("Diagnosis must choose retry, repair or pause; it cannot certify success.")
+                owners = decision.get("component_ids")
+                if not isinstance(owners, list) or any(not isinstance(owner, str) or owner not in known for owner in owners) or len(set(owners)) != len(owners):
+                    raise EnvelopeError("Diagnosis names invalid component owners.")
+                if type(decision.get("repair_shared")) is not bool or not isinstance(decision.get("reason"), str) or not decision["reason"].strip():
+                    raise EnvelopeError("Diagnosis requires an explanation and an explicit shared-repair flag.")
+                if decision["action"] == "repair" and not (owners or decision["repair_shared"]):
+                    raise EnvelopeError("Repair diagnosis needs a source owner.")
+                if decision["action"] != "repair" and (owners or decision["repair_shared"]):
+                    raise EnvelopeError("Only a repair decision may select source owners.")
+                evidence = decision.get("evidence")
+                if not isinstance(evidence, list) or not evidence:
+                    raise EnvelopeError("Diagnosis must cite current-run evidence.")
+                for path in evidence:
+                    self.context.evidence_file(path)
+            return
         if self.shared:
             super().validate_result(result, **kwargs)
             components = list(kwargs.get("components") or [])
@@ -127,6 +198,8 @@ class PlannerAgent(Agent):
                 "discovery_inventory": str(self.discovery.inventory),
                 "discovery_artifacts": [str(path) for path in self.discovery.artifacts],
             })
+        if not self.context.dry_run:
+            self._expand_packet_evidence(result)
         super().validate_result(result, **kwargs)
         if self.context.dry_run:
             result.outputs["components"] = list(kwargs.get("components") or _DRY_RUN_PLAN)
@@ -160,6 +233,7 @@ class PlannerAgent(Agent):
         components = self.prioritize(components)
         corrections = self.route_content_ownership(components)
         validate_ownership(self.context.settings, components)
+        result.outputs["source_validation"] = validate_component_sources(self.context, components)
         if corrections:
             result.outputs["ownership_corrections"] = corrections
             for correction in corrections:

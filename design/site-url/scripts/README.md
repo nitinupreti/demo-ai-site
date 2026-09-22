@@ -209,12 +209,150 @@ python run_migration.py --show-plan --no-bootstrap
 
 ## How it works
 
+### Common failure recovery
+
+Component and planner-shared workers may accidentally create root-level text dumps.
+The coordinator quarantines only newly added, non-hidden root `.txt` files that decode
+as UTF-8 or BOM-marked UTF-16, contain no binary control characters, and fit within
+2 MiB per file / 8 MiB per collection. These are retained under the invocation's
+`validation/worker-diagnostics`, with source names, hashes and sizes in the result.
+They are not merged or deployed. Every other unowned change must pass the existing
+ownership rules: existing files, nested files, source/config files and mixed violations
+are still rejected. Read-only planning/diagnosis does not get this cleanup allowance.
+Workers must still write diagnostics directly under `MIGRATION_VALIDATION_DIR`.
+
+When serialized CLI arguments reach 30,000 UTF-16 code units, the launcher stores the
+entire prompt in `request-prompt.md` and sends a short instruction to read that file
+in full. `prompt-transport.json` records its hash, byte length and argument sizes.
+This avoids Windows error 206 without truncating the prompt, reducing acceptance
+requirements or changing model/permission settings. This is a file-reference prompt,
+not an undocumented native CLI prompt-file option; the model must read it using tools.
+
+Recoverable failures no longer exhaust a shared page-wide loop. The coordinator
+persists a phase cursor, accepted component attempts, diagnostic history and counters
+per failing phase/owner. Component and shared-file defects return to their existing
+LLM owners with the actual failure evidence. Unmapped failures, frontend builds,
+asset outages, preflight issues and failed reporting writes can invoke the planner's
+new **read-only diagnostic mode**. It returns only retry, scoped repair or pause;
+Python validates owners and evidence before acting. No new top-level agent role is added.
+
+Validated discovery is reused when planning itself needs correction. Successful
+components, cached asset bytes and unchanged frontend build receipts remain reusable.
+When only a component's authored contribution is invalid, its otherwise valid result
+metadata and ownership-checked source diff are retained as an unaccepted candidate.
+The coordinator records a hashed `contribution-candidate.json` receipt with source
+and evidence fingerprints; it does not merge that source on a failed attempt.
+The existing component agent's `contribution_repair` mode starts from a copy of that
+candidate, uses a short contribution-only prompt, and skips full discovery handoff,
+implementation and build work. Previous attempt artifacts are not overwritten.
+Source additions, edits and deletions during this mode, changed candidate evidence,
+or intervening edits to affected main-checkout files are rejected. The coordinator
+reruns component acceptance after the contribution repair before applying any source.
+
+For example, a footer can have valid XF nodes but an empty separate page entry.
+The diagnostic identifies the specific `pages[index]` and target. The repair must
+provide the required page/XF nodes, not rebuild the dialog or model, drop a required
+target or invent a duplicate footer. A plan/template conflict that cannot be fixed
+within contribution-only scope must be reported as BLOCKED. This mode retains the
+existing retry budgets and all downstream asset, merge, deploy and parity gates.
+It is a restricted invocation of the same component role, not a new agent or a
+guarantee that all failure types can be repaired without source changes.
+
+Retries run the failed operation; source repairs re-enter assets/merge/build/deploy/
+parity as required. All required gates still apply. Resuming a paused parity check
+revalidates deployment first; a report-only I/O pause can regenerate the report from
+the validated run without rebuilding or claiming a new live verification.
+
+The default limit comes from `max_attempts_per_component`, now scoped to the failing
+phase and owner, with `pipeline.recovery.repeated_failure_limit` bounding repeated
+identical failures. A pause remains BLOCKED, not COMPLETE. Plain resume does not reset
+budgets. To explicitly authorize one further attempt for the last paused operation:
+
+```powershell
+python design/site-url/scripts/run_migration.py --resume --run-id YOUR_RUN_ID --retry-recovery
+```
+
+This records an approval and retains counters/history; it does not relax validation
+or permit unlimited automatic model calls. Use plain `--resume` for a restored
+external prerequisite. Source/config/evidence fingerprints must still match. Old
+runs from before this workflow change are not converted or given new counters.
+Ownership violations, corrupted evidence and unsafe conflicts remain hard failures.
+Diagnosis uses copied sources and post-run guards, not an OS sandbox. If the backend
+or persistent storage is unavailable, model-assisted diagnosis may itself be unavailable.
+
+### Asset recovery and inline SVGs
+
+The collector saves visible static inline SVGs under each breakpoint's discovery
+directory and registers their hashes in the discovery manifest. The LLM copies
+`source_file`, `sha256` and a `.svg` `dam_path` into an asset declaration instead of
+inventing a `source_url`. Python validates containment, manifest membership, checksum
+and a restricted static SVG vocabulary, then uploads those bytes to DAM without a
+download. Inherited paint colors are captured. Text, scripts, foreign content,
+animation, external references and unsupported effects are not silently converted
+or accepted. No SVG is injected as untrusted HTML into a component template.
+
+Successful inline SVG exports are listed directly in authoring tasks as
+`captured_assets`, with their breakpoint, selector, source JSON pointer, source_file
+and sha256. An empty planner assets list or empty svg_recoveries list does not mean
+those exports are missing. Use the captured SVG directly with its DAM destination;
+do not add recovery fields. Recovery declarations instead require a supplied
+discovery recovery JSON and a derived SVG inside the owning invocation. Mixing
+these two forms remains rejected by the evidence-provenance checks.
+
+Pure 2D CSS translations of the outer SVG position the element on the page; they
+are retained in layout observations, not baked into the exported vector artwork.
+Child transforms, rotations, scaling and other unsupported effects still require
+recovery. This avoids shifting or clipping artwork twice when matching an
+element-relative reference screenshot.
+
+When automatic SVG export fails, discovery preserves the original markup,
+paint-resolved candidate, unsupported computed styles and a reference screenshot
+as checksummed `inline-svg-recovery` artifacts. The planner gets an indexed recovery
+list; the existing component LLM gets only failures inside its source roots. It may
+write a derived SVG under its own invocation and declare `recovery_source` and
+`recovery_sha256` alongside the derivative's `source_file`, `sha256` and `dam_path`.
+It must preserve original vector geometry and the viewBox, never redraw the logo.
+The coordinator checks source provenance, worker containment and static SVG safety,
+then uses the shared browser without network access and requires at least 0.99
+pixel similarity to the reference. Matching validations are reused in-process;
+final page parity still runs separately. A missing required recovery or a visual
+mismatch returns component repair feedback rather than silently dropping the logo.
+Animations and missing/unrecoverable source evidence are not certified. No new LLM
+role is created, and the component agent still does not recapture the live site.
+
+Malformed declarations fail component acceptance and return owner-specific repair
+feedback. Temporary network failures and HTTP 408/425/429/500/502/503/504 get up to
+`assets.transfer_attempts` local attempts (default 3) with exponential delay starting
+at `assets.retry_delay_seconds` (default 1). Expired CSRF tokens refresh once per
+write. Authentication errors and missing remote resources do not retry blindly.
+Other declared assets continue processing even when one transfer is unavailable.
+
+Successful downloads are cached under the run's asset staging directory and verified
+by checksum before reuse. An existing DAM asset is reused only when its bytes match;
+different existing bytes are a critical conflict and are never overwritten. This
+cache is independent of Maven builds and component invocation budgets.
+
+If required media remains unavailable, the run pauses as **BLOCKED**, not FAIL. Its
+accepted plan, foundations, components and downloaded bytes are preserved. Merge,
+build, deploy and parity do not run against incomplete media. After restoring asset
+availability, use `python design/site-url/scripts/run_migration.py --resume --run-id YOUR_RUN_ID`.
+An asset pause resumes the same pipeline round, even at the last allowed round,
+without invoking accepted component builders again. It does not reset repair budgets.
+Unsafe paths, evidence tampering, incompatible declarations and DAM byte conflicts
+remain hard failures. Required assets are never silently dropped or counted as PASS.
+
+Resume still requires unchanged source/configuration and intact checkpoints. These
+workflow changes require a fresh run for older evidence, including runs whose repair
+budget was already exhausted; existing generated application sources remain reusable
+by the planner. No old run state or counter is rewritten by this change.
+
 ```text
 Python + pinned collector: source evidence and cached repository inventory
   -> Planner (read-only): coverage, reuse, ownership, dependencies, measured token specification
   -> Python: compact, lossless shared-work handoff and source/policy inspection
   -> Planner (shared mode): tokens/styles/policies, validated and applied before component work
-  -> Component workers: isolated snapshots, bounded dependency waves
+  -> Component authoring mode: one read-only session per source-ready group, across tiers
+  -> Component builders: isolated source edits for new/extended components and source repairs
   -> Coordinator: validate actual diffs and apply owned changes
   -> Assets: deterministic downloads and DAM upload
   -> Merge: deterministic page/XF contributions and Vault filters
@@ -229,12 +367,12 @@ Failed gates -> bounded repairs of owners and affected dependents
 
 | Agent | Role |
 |---|---|
-| `planner` | Planning mode emits coverage, the component plan and measured tokens without source edits. Shared mode then establishes tokens, styles and policies in isolation. **The accepted component count is the fan-out width.** |
-| `component` | Implements one component in a copied source checkout; declares authored page/XF content as contributions. |
+| `planner` | Planning mode emits coverage, the component plan and measured tokens without source edits. Planned selectors must resolve in frozen discovery before plan acceptance. Shared mode then establishes tokens, styles and policies in isolation. |
+| `component` | Groups source-ready authoring across all tiers in one read-only session per dependency wave; source implementation and repairs use individual builders. Every component retains its own contribution, result and validation gates. |
 | `deployer` | Deterministic worker: executes configured checks and scoped Maven deployments, verifies live evidence, and returns owner-scoped repair diagnostics. No LLM invocation. |
 | `parity` | Coordinator-run collector/validator, not an LLM invocation. Captures and checks styles, fonts, geometry, media and supported interaction states; Python owns acceptance. |
 
-There are two LLM roles (planner and component), plus deterministic deployment and parity phases. The planner has planning and shared-file prompts, with
+There are two LLM roles (planner and component), plus deterministic deployment and parity phases. The planner has planning, shared-file and read-only diagnosis prompts, with
 separate invocations/results so accepted planning is not repeated. The order is strictly
 `plan -> foundations -> implement`: failed planning prevents foundations work,
 and failed foundations prevents every component worker from starting. Shared
@@ -243,6 +381,59 @@ The `foundations` phase is now assigned to `planner` with `mode: shared`; there 
 no separate foundations agent. Initial shared output uses `planner-shared`, and
 repairs use `planner-shared-repair-attempt-N` without recollecting source or changing
 the accepted plan. Both modes retain their own required checks and ownership.
+
+### Hybrid component execution
+
+With `fanout.batch_reuse: true` (the default), source-ready authoring tasks from
+any reuse tier share the existing component role's compact `reuse` prompt and one source snapshot. Full
+task specifications and exact discovery packets live in indexed evidence files,
+not repeated full builder prompts. Plans select `execution_mode: authoring` for
+content-only work or `execution_mode: implementation` for pending source changes.
+The mode is independent of the tier: project extensions, Core Component extensions
+and new components can enter authoring once their required implementation is available.
+Missing or incomplete source still requires implementation; selecting authoring does
+not waive component/runtime validation. When the field is omitted, compatibility
+defaults are authoring for Tier 1 and implementation for Tiers 2-4.
+Components requiring source implementation
+then use individual workers up to `fanout.max_parallel`. Dependency waves remain
+barriers; a component is never authored before its required predecessors pass.
+
+Reuse authoring cannot edit repository sources. Each member writes its own result
+as it finishes; the coordinator independently checks those results and retains
+completed members even after a session interruption or transport failure. One
+failed member cannot certify or discard the others. Authoring-only retry feedback
+can select this path for any tier; source-repair feedback overrides the planned mode.
+An evidence-backed
+`implementation_required` failure routes that component to a source-repair worker;
+ordinary authoring failures remain in the reuse path. The separate contribution-only
+candidate-repair mode is unchanged. No new top-level agent is introduced.
+
+Each authoring task includes a `BLOCKED` result_template with the exact planned
+instance IDs, canonical focused_test.command field, required checks, and empty
+fields to complete from evidence. The template is not a passing result. Parity
+targets use rendered AEM selectors; explicit roles are objects with relative
+source_selector/target_selector pairs, not string labels. Invalid instances and
+roles report the component and field index; focused_test.argv is rejected before
+acceptance instead of reaching deployment.
+
+The CLI completion message says coordinator validation is pending. The coordinator
+then persists the batch verdict and member_statuses after member validation; its
+proposal_status retains the agent's original verdict. Rejected member and batch
+envelopes are preserved for diagnosis. A failure before visual comparison is
+reported as parity NOT RUN, not a failed visual score, and residual gaps use the
+latest component failure rather than an earlier repair's diagnostic.
+
+LLM workers must not install frontend dependencies, compile Sass/webpack or run
+the code-assessment analyzer. They use lightweight available structural checks
+and declare focused tests. Shared frontend builds and deterministic deployment
+checks still run on merged source before deployment. The source guard is not an
+OS sandbox; tool restrictions here also depend on worker instruction compliance.
+
+This reduces session/setup duplication, not the acceptance requirements. All
+components still must pass before page merge/deployment, and live parity is still
+required. It does not fix external model transport latency or impose new timeouts.
+Set `fanout.batch_reuse: false` before a fresh run to use per-component builders for
+all tiers. Saved runs require unchanged configuration and source fingerprints.
 
 ### Deterministic deployment
 
@@ -325,6 +516,51 @@ Post-edit checks must use actual edited source, not the pre-edit handoff snapsho
 
 This reduces duplicated prompt context and mechanical model work; live response
 times still depend on the model and tooling. No tool-call cap or new timeout is added.
+
+### Component context and run-local cache
+
+Each component invocation receives a `discovery-inputs/index.json` beside its
+result. Python selects its planned selectors and captured descendants at the
+applicable breakpoints, then writes bounded node/media packets. Component names
+and counts come from the accepted plan for the supplied site URL; breakpoints come
+from the run contract. This optimization has no site-specific component list,
+expected component count or fixed breakpoint set.
+
+The planner checks every planned source root at every applicable breakpoint before
+accepting the plan. A missing mapping or missing root fails with component ID,
+breakpoint and selector, instead of launching a worker with an empty handoff.
+The same check runs when inputs are prepared; missing evidence is never inferred
+from selector prefixes or silently treated as unchanged reuse.
+
+Every captured field is preserved, including exact copy, attributes, styles,
+hidden states and unknown fields. Oversized records use the same full-record
+references as the shared handoff. Original source paths and JSON pointers remain
+available; the worker must report missing evidence rather than infer it. Prompts
+direct workers to these files instead of recursively searching the
+evidence/workspaces tree. Scoped searches within the worker's own source modules
+remain permitted.
+
+Parsing and selector-parent indexes share a process-local LRU cache, capped at
+a bounded number of file versions to control memory use. This is not a limit on
+components or breakpoints: evicted files are parsed again when needed. Keys are
+absolute evidence paths plus SHA-256 content hashes, so different runs cannot
+reuse each other's entries. Lookups still hash files; this saves JSON parsing and
+indexing, not all disk I/O. Concurrent workers share one parse per cached version.
+Changes invalidate entries even when size and timestamp are unchanged. The cache
+is not persisted across process restarts.
+
+Packets remain invocation-local, are hash-checked before accepting the result,
+and join existing checkpoint protection through `outputs.handoff_artifacts`.
+`outputs.handoff_metrics` records full/selected record counts, input/prepared
+bytes, packet count, preparation seconds and parse-cache hits/misses. Preparation
+counts and timing also appear in the coordinator log. No model response, build,
+deployment or parity verdict is cached by this feature; existing gates still run.
+
+Use each run's handoff metrics to measure context reduction and cache reuse;
+results depend on the supplied site's content and plan. These metrics measure
+input preparation, not end-to-end migration or LLM speedups. Start a fresh
+migration after updating these scripts/prompts because existing checkpoints
+fingerprint source files; old evidence is not rewritten.
 
 ### Model-free comparison and selective repair
 
@@ -444,7 +680,8 @@ cancel it when necessary. Cancelling still cleans up the owned subprocesses.
 Individual navigation, font/media readiness, HTTP requests, browser startup and
 dependency setup retain their operation-specific limits. These report failed
 operations rather than ending an otherwise active agent merely for taking too long.
-Remediation-attempt limits and the Copilot continuation budget are unchanged.
+The Copilot continuation budget is unchanged. Recovery budgets are per failing operation,
+not per page-wide invocation ID.
 
 ## Planner latency
 
@@ -550,9 +787,14 @@ measurements inside an artifact or replace the required browser and parity gates
 ## Ownership and dependencies
 
 The planner declares `owned_paths` for additional files such as exact Java model,
-helper and test paths and component-scoped frontend files. Each component owns its
-own application directory automatically. Overlapping ownership, unknown dependency
-ids and cycles are rejected before workers start. `depends_on` is a completion
+helper and test paths and other component-scoped frontend files. Each component owns
+its application directory and the exact `_<id>.scss`, `<id>.scss`, `<id>.css` and
+`<id>.js` files under `ui.frontend/src/main/webpack/components/` automatically,
+including reused components. This is not an extension wildcard or permission for
+other component files, asset folders or shared site files. Other source paths still
+need explicit ownership. Both defaults and declared paths are shown in the worker prompt and
+checked for conflicting owners before workers start. Unknown dependency ids and
+cycles are also rejected. `depends_on` is a completion
 barrier; `priority_prefixes` only orders submissions within an already-ready wave.
 
 Content delivery and file ownership are separate. Page and Experience Fragment
@@ -577,8 +819,12 @@ report that visual parity was not run rather than showing zero unresolved compon
 Workers receive copies of eligible current source files, including uncommitted
 changes, without build outputs, virtual environments or installed dependencies.
 Python derives the actual diff, rejects unowned changes, checks that the original
-files have not changed meanwhile, and applies accepted changes serially. Each wave
-sees its prerequisites' applied files. Maven output stays in the worker checkout.
+files have not changed meanwhile, and applies accepted changes serially. Deletions
+also count as changes: workers must leave unowned files untouched, not delete them
+to avoid an ownership error. Each wave
+sees its prerequisites' applied files. Because a worker checkout has no `target/`,
+any Maven goal there is a cold reactor build: workers therefore declare the focused
+test they wrote and the deployer runs it once on the merged, warm checkout.
 Page and XF content are applied separately through the existing contribution merge.
 
 ### Shared Validation Policy
@@ -597,9 +843,11 @@ Each invocation gets an evidence workspace under `agents/<slug>/validation`:
 | `TMP`, `TEMP`, `TMPDIR` | Temporary files for tools honoring OS temp settings |
 
 Paths are absolute, scoped per worker/attempt and checked to remain inside the
-current run's evidence directory. Use `tsc --noEmit` for type checking and the
-existing lockfile with `npm ci` for permitted dependency installation. Workers do
-not run shared clientlib generation for compile checks. Lockfiles, source files
+current run's evidence directory. Workers use already-available JSON/XML parsing
+or `node --check` for immediate structural checks. The coordinator owns locked
+`npm ci` and the shared frontend build; the deployer owns compilation, declared
+tests and the original code-assessment analyzer. Workers do not install dependencies
+or run Sass/webpack/analyzers. Lockfiles, source files
 and deployable assets remain protected; failure to obey the policy is not fixed
 by automatically expanding ownership or deleting user changes.
 
@@ -713,6 +961,7 @@ python run_migration.py --url https://example.com/page [options]
 --evidence-dir PATH    Override the generated evidence directory (relative to the repo root)
 --run-id ID            Choose an id; an existing run requires --resume
 --resume               Reuse validated checkpoints from --run-id or --evidence-dir
+--retry-recovery       With --resume, grant one additional recovery attempt without resetting history
 --skip-probe           Do not probe SITE_URL and AEM first
 --dry-run              Resolve config, render every prompt, invoke nothing
 --show-plan            Print the resolved contract and pipeline, then exit
@@ -727,11 +976,12 @@ from the repository root. Omitted URL, target path, and breakpoints are restored
 from that run. Source files, configuration and reusable evidence are fingerprinted.
 Changed source, inputs, configuration, AEM targets, attempt budgets or frozen evidence
 reject reuse without overwriting those changes. Start a new run to accept changed
-inputs. Valid planner, planner-shared, shared-repair and component results are reused; interrupted component
-attempts still consume their budget. Assets, merge, deployment and fresh parity run
-again, even when an earlier parity attempt passed. A final passing attempt may be
-reverified without granting another component implementation attempt when its
-full evidence was retained. Successful runs cleaned under the default retention
+inputs. Valid planner, planner-shared, shared-repair and component results are reused;
+interrupted component attempts still consume their budget. A phase recovery cursor
+continues the failed operation, not every previous build. Source repairs repeat the
+required downstream gates. A paused parity phase repeats deployment verification
+before collecting fresh comparisons; a report-only I/O pause reuses verified evidence.
+Successful runs cleaned under the default retention
 policy cannot be resumed; the CLI explains this rather than reporting missing state.
 
 Existing evidence is never silently reset on startup, and skipping planning with `--only`

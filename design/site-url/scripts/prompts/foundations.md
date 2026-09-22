@@ -73,8 +73,10 @@ In repair mode, retain the accepted plan and frozen discovery. Change only the
 requested shared foundations and produce fresh validation evidence. Do not repeat
 coverage mapping or component reuse decisions.
 
-Run a focused executable check immediately after the first source edit. Produce a
-token manifest recording names, values, source evidence and usage by component.
+Use an already-available JSON/XML parser for a focused structural check after the
+first source edit. Do not install dependencies or run Sass, webpack or the analyzer;
+the coordinator builds and validates the merged frontend. Produce a token manifest
+recording names, values, source evidence and usage by component.
 If no shared edits are necessary, validate the existing files and still produce
 the manifest. Batch independent validations, retaining every command's exit code
 and evidence. Repair specific failures rather than repeating the survey. Do not

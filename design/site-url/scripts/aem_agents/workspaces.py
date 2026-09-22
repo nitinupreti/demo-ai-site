@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import stat
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
@@ -93,11 +94,17 @@ def scopes_overlap(first: str, second: str) -> bool:
 def component_scopes(settings: Settings, component: Mapping[str, Any]) -> list[str]:
     project = str(settings.migration.require("project.name"))
     component_id = str(component["id"])
-    default = f"ui.apps/src/main/content/jcr_root/apps/{project}/components/{component_id}/**"
+    defaults = [
+        f"ui.apps/src/main/content/jcr_root/apps/{project}/components/{component_id}/**",
+        f"ui.frontend/src/main/webpack/components/_{component_id}.scss",
+        f"ui.frontend/src/main/webpack/components/{component_id}.scss",
+        f"ui.frontend/src/main/webpack/components/{component_id}.css",
+        f"ui.frontend/src/main/webpack/components/{component_id}.js",
+    ]
     declared = component.get("owned_paths", [])
     if not isinstance(declared, list) or any(not isinstance(path, str) for path in declared):
         raise WorkspaceError(f"{component_id}: owned_paths must be a list of paths.")
-    scopes = sorted({normalize_scope(path) for path in [default, *declared]})
+    scopes = sorted({normalize_scope(path) for path in [*defaults, *declared]})
     allowed_roots = (
         f"ui.apps/src/main/content/jcr_root/apps/{project}/components/",
         "core/src/main/java/", "core/src/test/java/",
@@ -154,6 +161,7 @@ class ChangeSet:
     root: Path
     baseline: dict[str, str]
     changed: dict[str, str | None]
+    quarantined: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -175,16 +183,57 @@ class WorkerWorkspace:
                 raise WorkspaceError(f"Source changed during snapshot: {name}")
         return cls(root, baseline, [normalize_scope(scope) for scope in scopes])
 
-    def collect(self) -> ChangeSet:
+    def collect(self, *, diagnostic_dir: Path | None = None) -> ChangeSet:
         current = source_manifest(self.root)
         changed = {
             name: current.get(name) for name in sorted(self.baseline.keys() | current.keys())
             if self.baseline.get(name) != current.get(name)
         }
         violations = [name for name in changed if not any(owns(name, scope) for scope in self.scopes)]
+        quarantined = []
+        if violations and diagnostic_dir is not None:
+            payloads = {}
+            for name in violations:
+                source = self.root / name
+                if name in self.baseline or "/" in name or name.startswith(".") or not name.lower().endswith(".txt") or current.get(name) is None:
+                    break
+                if source.stat().st_size > 2 * 1024 * 1024:
+                    break
+                with source.open("rb") as stream:
+                    payload = stream.read(2 * 1024 * 1024 + 1)
+                if len(payload) > 2 * 1024 * 1024 or sum(len(value) for value in payloads.values()) + len(payload) > 8 * 1024 * 1024:
+                    break
+                try:
+                    text = payload.decode("utf-16" if payload.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig")
+                except UnicodeError:
+                    break
+                if any(ord(character) < 32 and character not in "\t\r\n" for character in text):
+                    break
+                if hashlib.sha256(payload).hexdigest() != current[name]:
+                    raise WorkspaceError(f"Diagnostic output changed during collection: {name}")
+                payloads[name] = payload
+            if len(payloads) == len(violations):
+                if diagnostic_dir.resolve().is_relative_to(self.root.resolve()):
+                    raise WorkspaceError("Quarantined diagnostics must be outside worker source.")
+                for candidate in (diagnostic_dir, *diagnostic_dir.parents):
+                    if candidate.is_symlink() or (candidate.exists() and getattr(candidate.lstat(), "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)):
+                        raise WorkspaceError("Diagnostic storage cannot use symbolic links or junctions.")
+                diagnostic_dir.mkdir(parents=True, exist_ok=True)
+                if any((diagnostic_dir / name).exists() for name in payloads):
+                    raise WorkspaceError("Refusing to overwrite existing quarantined diagnostics.")
+                for name, payload in payloads.items():
+                    target = diagnostic_dir / name
+                    with target.open("xb") as stream:
+                        stream.write(payload)
+                    if digest(target) != current[name] or digest(self.root / name) != current[name]:
+                        raise WorkspaceError(f"Diagnostic output changed before quarantine: {name}")
+                    (self.root / name).unlink()
+                    quarantined.append({"source_path": name, "evidence": str(target.resolve()), "sha256": current[name], "bytes": len(payload)})
+                    changed.pop(name)
+                violations = []
         if violations:
             raise WorkspaceError("Worker changed unowned files: " + ", ".join(violations))
-        return ChangeSet(self.root, self.baseline, changed)
+        return ChangeSet(self.root, self.baseline, changed, quarantined)
 
 
 def apply_changes(destination: Path, changes: Iterable[ChangeSet]) -> list[str]:

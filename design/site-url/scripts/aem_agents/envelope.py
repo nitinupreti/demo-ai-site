@@ -187,6 +187,7 @@ def validate_components(
     id_pattern = schema.get("id_pattern")
     tier_values = schema.get("tier_values")
     delivery_values = schema.get("delivery_values")
+    execution_modes = schema.get("execution_mode_values", ("authoring", "implementation"))
     compiled = re.compile(str(id_pattern)) if id_pattern else None
 
     seen: set[str] = set()
@@ -217,7 +218,17 @@ def validate_components(
                 f"Component {component_id!r} has delivery {component.get('delivery')!r}; "
                 f"allowed values are {delivery_values}."
             )
-        validated.append(dict(component))
+        if "execution_mode" in component and component["execution_mode"] not in execution_modes:
+            raise EnvelopeError(f"Component {component_id!r} has invalid execution_mode; allowed values are {execution_modes}.")
+        targets = component.get("contribution_targets", [])
+        if isinstance(targets, str):
+            targets = [targets]
+        if not isinstance(targets, list) or any(not isinstance(target, str) for target in targets):
+            raise EnvelopeError(f"{component_id}: contribution_targets must be a list of JCR page path strings; use [] when empty.")
+        normalized = dict(component)
+        if "contribution_targets" in component:
+            normalized["contribution_targets"] = targets
+        validated.append(normalized)
     dependency_waves(validated)
     return validated
 

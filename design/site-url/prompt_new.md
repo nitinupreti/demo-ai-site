@@ -170,13 +170,20 @@ content by tuning CSS.
 
 ## Bounded remediation
 
-Each failing component is capped at `max_attempts_per_component` total attempts. An
-attempt must begin from a live-DOM diagnostic, test one falsifiable root-cause
+Automatic recovery is capped at `max_attempts_per_component` attempts per failing
+phase and component owner, or per phase when no owner is identified. Invocation IDs
+are monotonic evidence identifiers, not a shared page-wide attempt budget. An
+attempt must begin from the relevant recorded diagnostic, test one falsifiable root-cause
 hypothesis, and — when the geometry delta is non-zero — close the geometry gap before
 typography or color. If the same gap survives two consecutive attempts, stop tuning
 CSS and reassess the component's block boundary, structure, or reuse tier.
 
-When the budget is exhausted, the component is terminal. Report it in
-`residual_gaps` with its final ratio, owning-layer trace, evidence paths, and why
-further remediation was not viable. Never restart discovery solely because the budget
-ran out, and never emit a completion status with residual gaps outstanding.
+When automatic recovery is exhausted, pause the run as BLOCKED with its phase cursor,
+accepted outputs and history intact. Report the unresolved work in `residual_gaps`
+with measured ratios when available, owning-layer trace and evidence paths. Reuse
+validated discovery and accepted component artifacts; never restart solely because
+another operation exhausted its budget. `--resume --retry-recovery` explicitly
+authorizes one additional attempt for the last paused operation without resetting
+history. Read-only planner diagnosis may select retry, owner-scoped repair or pause;
+it cannot certify success, override ownership or weaken deterministic checks.
+Integrity violations remain hard failures. Never emit completion with outstanding gaps.

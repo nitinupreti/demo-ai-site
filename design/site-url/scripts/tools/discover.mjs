@@ -138,9 +138,9 @@ export function snapshotDOM(options = {}) {
       record.owner_selector = selectorFor(owner);
     }
   }
-  const media = Array.from(document.querySelectorAll('img,video,audio,iframe,embed,object,canvas')).map(element => {
+  const media = Array.from(document.querySelectorAll('img,video,audio,iframe,embed,object,canvas,svg')).filter(element => element.localName !== 'svg' || !element.parentElement?.closest('svg')).map(element => {
     const record = records.get(element);
-    return { selector: selectorFor(element), tag: element.localName, visible: record?.visible || false, rect: boxFor(element),
+    const result = { selector: selectorFor(element), tag: element.localName, visible: record?.visible || false, rect: boxFor(element),
       source_url: element.currentSrc || element.src || element.data || '', attributes: record?.attributes || {},
       sources: Array.from(element.querySelectorAll('source,track')).map(child => ({ tag: child.localName, src: child.src, type: child.type || '', kind: child.kind || '' })),
       complete: element.complete ?? null, natural_width: element.naturalWidth ?? null, natural_height: element.naturalHeight ?? null,
@@ -149,6 +149,66 @@ export function snapshotDOM(options = {}) {
       muted: element.muted ?? null, loop: element.loop ?? null, plays_inline: element.playsInline ?? null,
       styles: record?.styles || {},
     };
+    if (element.localName === 'svg') {
+      result.source_type = 'inline-svg';
+      if (options.captureInlineSvg && record?.visible) {
+        const clone = element.cloneNode(true);
+        const originals = [element, ...element.querySelectorAll('*')];
+        const copies = [clone, ...clone.querySelectorAll('*')];
+        const presentation = ['color', 'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity',
+          'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray', 'stroke-dashoffset',
+          'opacity', 'clip-rule', 'clip-path', 'mask', 'mask-type', 'stop-color', 'stop-opacity', 'vector-effect',
+          'shape-rendering', 'display', 'visibility'];
+        const unsupported = [];
+        originals.forEach((original, index) => {
+          const copy = copies[index];
+          const computed = getComputedStyle(original);
+          const cssTransform = computed.transform !== 'none' && !original.hasAttribute('transform');
+          const transform = cssTransform ? new DOMMatrixReadOnly(computed.transform) : null;
+          const rootTranslation = index === 0 && transform?.is2D
+            && transform.a === 1 && transform.b === 0 && transform.c === 0 && transform.d === 1;
+          if (computed.animationName !== 'none' || computed.filter !== 'none' || computed.mixBlendMode !== 'normal'
+              || cssTransform && !rootTranslation) {
+            unsupported.push({ node_index: index, animation_name: computed.animationName, filter: computed.filter,
+              mix_blend_mode: computed.mixBlendMode, transform: computed.transform, transform_origin: computed.transformOrigin,
+              transform_box: computed.transformBox, has_transform_attribute: original.hasAttribute('transform') });
+          }
+          for (const attribute of Array.from(copy.attributes)) {
+            if (/^(class|style|role|tabindex|focusable)$/.test(attribute.name) || /^(aria-|data-)/.test(attribute.name)) copy.removeAttribute(attribute.name);
+          }
+          for (const property of presentation) {
+            let value = computed.getPropertyValue(property).trim();
+            if (value.includes('url(')) {
+              value = value.replace(/url\(["']?([^"')]+)["']?\)/g, (match, reference) => {
+                const resolved = new URL(reference, location.href);
+                const pageUrl = new URL(location.href);
+                return resolved.origin === pageUrl.origin && resolved.pathname === pageUrl.pathname && resolved.search === pageUrl.search && resolved.hash
+                  ? `url(${resolved.hash})` : match;
+              });
+            }
+            if (value && !(value === 'none' && ['clip-path', 'mask'].includes(property))) copy.setAttribute(property, value);
+          }
+        });
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', String(record.rect.width));
+        clone.setAttribute('height', String(record.rect.height));
+        if (unsupported.length) {
+          result.inline_svg_error = 'Static SVG export does not support animation, filters, blending or CSS-only transforms.';
+          let background = 'rgb(255, 255, 255)';
+          for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+            const color = getComputedStyle(ancestor).backgroundColor;
+            if (color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') {
+              background = color;
+              break;
+            }
+          }
+          result.inline_svg_recovery = { schema_version: 1, selector: result.selector, source_url: location.href,
+            original_svg: new XMLSerializer().serializeToString(element), candidate_svg: new XMLSerializer().serializeToString(clone),
+            unsupported_styles: unsupported, background, rect: record.rect };
+        } else result.inline_svg = new XMLSerializer().serializeToString(clone);
+      }
+    }
+    return result;
   });
   const embeds = Array.from(document.querySelectorAll('iframe,embed,object,script[src]')).map(element => ({
     selector: selectorFor(element), tag: element.localName, src: element.src || element.data || '',
@@ -342,7 +402,12 @@ async function collectBreakpoint(browser, config, width, progress) {
           controls.add(candidate.selector);
           const locator = page.locator(candidate.selector);
           try {
-            await locator.hover({ timeout: config.readiness_timeout_ms });
+            try {
+              await locator.hover({ timeout: config.readiness_timeout_ms });
+            } catch {
+              // Overlay anchors and long scroll animations stall an actionable hover; force dispatches it anyway.
+              await locator.hover({ timeout: config.readiness_timeout_ms, force: true });
+            }
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
             const hover = await page.evaluate(snapshotDOM, { viewportOnly: true, state: `hover:${candidate.selector}` });
             merge(hover);
@@ -387,7 +452,42 @@ async function collectBreakpoint(browser, config, width, progress) {
             .filter(image => image.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
             .map(image => image.decode()))), config.readiness_timeout_ms, 'Image decode');
         } catch (error) { issues.push({ gate: 'media', error: error.message }); }
-        save('media.json', await page.evaluate(snapshotDOM).then(snapshot => snapshot.media));
+        const capturedMedia = await page.evaluate(snapshotDOM, { captureInlineSvg: true }).then(snapshot => snapshot.media);
+        for (const media of capturedMedia) {
+          if (media.inline_svg_recovery) {
+            const recovery = media.inline_svg_recovery;
+            const identity = createHash('sha256').update(JSON.stringify(recovery)).digest('hex');
+            const relative = `${width}/inline-svg-recovery/${identity}.json`;
+            const target = path.join(config.output_dir, relative);
+            mkdirSync(path.dirname(target), { recursive: true });
+            try {
+              const image = `${width}/inline-svg-recovery/${identity}.png`;
+              const payload = await page.locator(media.selector).screenshot({ path: path.join(config.output_dir, image) });
+              recovery.source_image = path.join(config.output_dir, image);
+              recovery.source_image_sha256 = createHash('sha256').update(payload).digest('hex');
+              artifacts.push(image);
+            } catch (error) { recovery.capture_error = error.message; }
+            const payload = Buffer.from(JSON.stringify(recovery, null, 2) + '\n', 'utf8');
+            writeFileSync(target, payload, { flag: 'wx' });
+            artifacts.push(relative);
+            media.inline_svg_recovery = { source_file: target, sha256: createHash('sha256').update(payload).digest('hex'),
+              source_image: recovery.source_image || null, capture_error: recovery.capture_error || null };
+          }
+          if (!media.inline_svg) continue;
+          const payload = Buffer.from(media.inline_svg, 'utf8');
+          media.sha256 = createHash('sha256').update(payload).digest('hex');
+          const relative = `${width}/inline-svg/${media.sha256}.svg`;
+          const target = path.join(config.output_dir, relative);
+          mkdirSync(path.dirname(target), { recursive: true });
+          if (!artifacts.includes(relative)) {
+            writeFileSync(target, payload, { flag: 'wx' });
+            artifacts.push(relative);
+          }
+          media.source_file = target;
+          media.mime = 'image/svg+xml';
+          delete media.inline_svg;
+        }
+        save('media.json', capturedMedia);
         await page.evaluate(() => { for (const media of document.querySelectorAll('video,audio')) media.pause(); });
         await page.evaluate(() => window.scrollTo(0, 0));
       });

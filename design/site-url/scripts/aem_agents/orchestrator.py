@@ -9,9 +9,11 @@ attempt budget before reporting.
 from __future__ import annotations
 
 import concurrent.futures
+import hashlib
 import json
 import logging
 import re
+import shutil
 import stat
 import urllib.error
 import urllib.request
@@ -26,7 +28,7 @@ from .checkpoints import capture_checkpoint, evidence_paths, validate_artifacts,
 from .console import emit
 from .contract import RunContract
 from .envelope import AgentResult, EnvelopeError, affected_components, dependency_waves, read_result
-from .assets import AssetError, fetch_assets
+from .assets import AssetDeclarationError, AssetError, fetch_assets
 from .merge import MergeError, latest_contribution_path, merge_contributions
 from .render import markdown_table, to_text
 from .runner import BackendError, create_backend, run_command
@@ -86,6 +88,7 @@ class Orchestrator:
         logger: Any = None,
         resume: bool = False,
         bootstrap: bool = True,
+        retry_recovery: bool = False,
     ) -> None:
         self.settings = settings
         self.contract = contract
@@ -100,6 +103,8 @@ class Orchestrator:
             raise ConfigError("run_id must contain only letters, digits, dots, underscores, and hyphens.")
         if resume and (dry_run or not (run_id or evidence_dir)):
             raise ConfigError("--resume needs --run-id or --evidence-dir and cannot be combined with --dry-run.")
+        if retry_recovery and not resume:
+            raise ConfigError("Recovery grants require --resume.")
         known_phases = {str(phase["id"]) for phase in settings.phases()}
         if only_phases and (set(only_phases) - known_phases or (not resume and "plan" not in only_phases)):
             raise ConfigError("--only must name valid phases; skipping plan requires --resume.")
@@ -158,6 +163,8 @@ class Orchestrator:
             validate_checkpoint(self.state.get("checkpoint"), settings, contract, self.evidence_dir)
         else:
             self._save_checkpoint()
+        if retry_recovery:
+            self.grant_recovery_attempt()
 
     # -- setup -------------------------------------------------------------
 
@@ -168,18 +175,29 @@ class Orchestrator:
         validate_artifacts(previous, self.evidence_dir)
         active = {"planner", "planner-shared"}
         artifacts = set()
+        discovery = self.state.get("discovery_cache", {})
+        if discovery:
+            artifacts.update(Path(path).resolve() for path in [discovery["manifest"], discovery["summary"], discovery["inventory"], *discovery["artifacts"]])
         foundation = self.state.get("foundations", {})
         if foundation.get("attempt"):
             active.add(f"planner-shared-repair-attempt-{foundation['attempt']}")
         for component in self.state.component_rows():
-            if component.get("status") == "PASS":
-                active.add(f"component-{component['id']}-attempt-{component['attempts']}")
-                contribution = latest_contribution_path(self.settings, self.evidence_dir, component["id"])
+            accepted_attempt = component.get("accepted_attempt", component.get("attempts", 0))
+            accepted = self.state.get("agent_results", {}).get(f"component-{component['id']}-attempt-{accepted_attempt}", {})
+            if component.get("status") == "PASS" or accepted.get("status") == "PASS":
+                active.add(f"component-{component['id']}-attempt-{accepted_attempt}")
+                contribution = self.evidence_dir / str(self.settings.migration.get("run.agent_workspace_dir", "agents")) / f"component-{component['id']}-attempt-{accepted_attempt}" / str(self.settings.migration.get("shared_files.contribution_file", "contributions.json"))
                 if contribution and contribution.is_file():
                     artifacts.add(contribution.resolve())
         for slug, result in self.state.get("agent_results", {}).items():
             if slug in active and result.get("status") in {"PASS", "COMPLETE"}:
                 artifacts.update(evidence_paths(result, self.settings, self.evidence_dir))
+            candidate = result.get("outputs", {}).get("contribution_candidate")
+            if candidate:
+                receipt = self.settings.resolve(candidate["path"]).resolve()
+                if not receipt.is_relative_to(self.evidence_dir.resolve()) or digest(receipt) != candidate["sha256"]:
+                    raise WorkspaceError("Retained contribution candidate changed before checkpointing.")
+                artifacts.add(receipt)
         if self.state.get("frontend_build", {}).get("status") == "PASS":
             artifacts.update(evidence_paths(self.state.get("frontend_build"), self.settings, self.evidence_dir))
         plan = self.evidence_dir / str(self.settings.migration.get("run.plan_file", "component-plan.json"))
@@ -216,6 +234,9 @@ class Orchestrator:
                 self.evidence_dir, self.logger, dry_run=True,
             )
             return
+        backend = create_backend(self.settings)
+        self.context = RunContext(self.settings, self.contract, backend, self.state, self.run_id,
+                                  self.evidence_dir, self.logger)
         node_version = check_node()
         toolchain = check_maven(resolve_java_home(self.settings))
         emit(f"  Node.js: {node_version}; Maven: {toolchain.maven_version}", "green")
@@ -243,7 +264,6 @@ class Orchestrator:
             status = probe(aem_url, "AEM author", timeout)
             emit(f"  AEM reachable: HTTP {status}", "green")
 
-        backend = create_backend(self.settings)
         emit(f"  agent backend: {backend.version}", "green")
 
         self.context = RunContext(
@@ -282,11 +302,146 @@ class Orchestrator:
             ) from error
         assert self.context is not None
         if agent_id == "planner":
-            return factory(self.context, shared=phase.get("mode") == "shared")
+            return factory(self.context, shared=phase.get("mode") == "shared", diagnostic=phase.get("mode") == "diagnostic")
         return factory(self.context)
+
+    def diagnose_failure(self, phase_id: str, outcome: PhaseOutcome, components: list[Mapping[str, Any]]) -> dict[str, Any]:
+        sequence = int(self.state.get("diagnosis_sequence", 0)) + 1
+        self.state.update(diagnosis_sequence=sequence)
+        directory = self.evidence_dir / "agents" / f"planner-diagnosis-attempt-{sequence}"
+        packet = directory / "failure-packet.json"
+        dump_json(packet, {"run_id": self.run_id, "phase": phase_id, "status": outcome.status,
+                           "results": [result.to_dict() for result in outcome.results],
+                           "components": components, "frontend_build": self.state.get("frontend_build", {}),
+                           "history": self.state.get("recovery_history", [])})
+        baseline, packet_hash = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]), digest(packet)
+        self._save_checkpoint()
+        emit(f"  asking planner for read-only recovery diagnosis: {phase_id}", "cyan")
+        if self.context is None or self.context.backend is None:
+            return {"action": "pause", "component_ids": [], "repair_shared": False,
+                "reason": "Agent backend unavailable; restore tooling/authentication and resume.", "evidence": [str(packet)]}
+        try:
+            result, _ = self._run_worker({"id": phase_id, "agent": "planner", "mode": "diagnostic"},
+                                         attempt=sequence, components=components, failure_packet=str(packet))
+            if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
+                raise WorkspaceError("Recovery diagnosis changed the shared checkout.")
+            if digest(packet) != packet_hash:
+                raise WorkspaceError("Recovery diagnosis changed its failure evidence.")
+            validate_artifacts(self.state.get("checkpoint"), self.evidence_dir)
+            if not result.passed:
+                raise PipelineError("Recovery diagnosis did not produce a valid decision.")
+            return dict(result.output("decision"))
+        except WorkspaceError:
+            raise
+        except (EnvelopeError, BackendError, ConfigError, OSError, ValueError, PipelineError) as error:
+            return {"action": "pause", "component_ids": [], "repair_shared": False,
+                    "reason": f"Recovery diagnosis unavailable: {error}", "evidence": [str(packet)]}
 
     def _wants(self, phase_id: str) -> bool:
         return self.only_phases is None or phase_id in self.only_phases
+
+    def recover_failure(self, phase_id: str, outcome: PhaseOutcome, components: list[Mapping[str, Any]],
+                        failing: list[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+        known = {str(component["id"]) for component in components}
+        failing = list(failing or [])
+        if any(not isinstance(entry, Mapping) or entry.get("component_id") not in known for entry in failing):
+            raise PipelineError("Recovery feedback contains an unknown component owner.")
+        if any(result.output("critical") or result.output("critical_asset_failure") for result in outcome.results):
+            return {"action": "stop", "reason": "Critical failure; automatic recovery is prohibited."}
+        owners = sorted({str(entry["component_id"]) for entry in failing})
+        keys = [f"{phase_id}:{owner}" for owner in owners] or [phase_id]
+        failures = [message for result in outcome.results for message in result.failures]
+        reasons = failures + [str(entry.get("hypothesis", "")) for entry in failing]
+        signature = hashlib.sha256(json.dumps({"phase": phase_id, "owners": owners, "reasons": [re.sub(r"attempt-\d+", "attempt-N", reason) for reason in reasons]}, sort_keys=True).encode()).hexdigest()
+        counters = self.state.get("recovery_counts", {})
+        repeated = self.state.get("recovery_repeats", {})
+        for key in keys:
+            counters[key] = int(counters.get(key, 0)) + 1
+        repeated[signature] = int(repeated.get(signature, 0)) + 1
+        self.state.update(recovery_counts=counters, recovery_repeats=repeated)
+        limit = int(self.settings.migration.get("pipeline.recovery.repeated_failure_limit", 2))
+        grants = self.state.get("recovery_grants", {})
+        repeat_grants = self.state.get("recovery_repeat_grants", {})
+        repeated_limit = limit + int(repeat_grants.get(signature, 0))
+        exhausted = any(counters[key] >= self.max_attempts + int(grants.get(key, 0)) for key in keys) or repeated[signature] > repeated_limit
+        component_ids = sorted({str(entry["component_id"]) for entry in failing if entry.get("owning_layer") not in ("foundation", "assets", "evidence")})
+        shared = any(entry.get("owning_layer") == "foundation" or entry.get("requires_foundations") for entry in failing)
+        if (component_ids or shared) and not exhausted and outcome.status != "BLOCKED":
+            decision = {"action": "repair", "component_ids": component_ids, "repair_shared": shared,
+                        "reason": "; ".join(reasons) or f"Repair the recorded {phase_id} defect", "evidence": []}
+        elif repeated[signature] > repeated_limit:
+            decision = {"action": "pause", "component_ids": [], "repair_shared": False,
+                        "reason": "Identical failure repeated; preserving work rather than repeating model calls.", "evidence": []}
+        else:
+            decision = self.diagnose_failure(phase_id, outcome, components)
+        if exhausted:
+            decision = {**decision, "action": "pause", "component_ids": [], "repair_shared": False,
+                        "reason": f"Recovery budget reached for {', '.join(keys)}. {decision['reason']}"}
+        history = self.state.get("recovery_history", [])
+        history.append({"phase": phase_id, "status": outcome.status, "keys": keys, "signature": signature,
+                        "counts": {key: counters[key] for key in keys}, "decision": decision,
+                        "failing": failing, "results": [result.to_dict() for result in outcome.results]})
+        self.state.update(recovery_history=history)
+        emit(f"  recovery {phase_id}: {decision['action']} - {decision['reason']}", "yellow")
+        return decision
+
+    def grant_recovery_attempt(self) -> None:
+        history = self.state.get("recovery_history", [])
+        if self.state.get("status") != "BLOCKED" or not history or history[-1]["decision"]["action"] != "pause":
+            raise ConfigError("There is no paused recovery operation to authorize.")
+        last = history[-1]
+        grants = self.state.get("recovery_grants", {})
+        for key in last["keys"]:
+            grants[key] = int(grants.get(key, 0)) + 1
+        signatures = self.state.get("recovery_repeat_grants", {})
+        signatures[last["signature"]] = int(signatures.get(last["signature"], 0)) + 1
+        approvals = self.state.get("recovery_approvals", [])
+        approvals.append({"at": utc_now(), "keys": last["keys"], "signature": last["signature"], "additional_attempts": 1})
+        self.state.update(recovery_grants=grants, recovery_repeat_grants=signatures, recovery_approvals=approvals)
+
+    def pause_recovery(self, cursor: dict[str, Any], reason: str) -> str:
+        retained = self.state.get("recovery_checkpoint") if cursor["stage"] == "preflight" else None
+        self.state.update(recovery_checkpoint=retained or {**cursor, "running": False, "reason": reason}, status="BLOCKED")
+        phase = "deploy" if cursor["stage"] == "frontend" else cursor["stage"]
+        self.state.set_phase(phase, "BLOCKED", error=reason)
+        self._save_checkpoint()
+        emit(f"  progress preserved; resume with --resume --run-id {self.run_id}", "cyan")
+        return "BLOCKED"
+
+    def prepare_with_recovery(self, phase: Mapping[str, Any], components: list[Mapping[str, Any]]) -> PhaseOutcome:
+        phase_id = str(phase["id"])
+        counts = self.state.get("recovery_counts", {})
+        if counts.get(phase_id, 0) >= self.max_attempts + self.state.get("recovery_grants", {}).get(phase_id, 0):
+            return PhaseOutcome(phase_id, "BLOCKED")
+        feedback = self.state.get("preparation_feedback", {}).get(phase_id, {})
+        while True:
+            sequences = self.state.get("preparation_sequences", {})
+            sequence = int(sequences.get(phase_id, 0)) + 1
+            sequences[phase_id] = sequence
+            self.state.update(preparation_sequences=sequences)
+            if phase_id == "plan":
+                outcome = self.run_planner(phase, **({"attempt": sequence, "feedback": feedback} if sequence > 1 else {}))
+            else:
+                outcome = self.run_foundations(phase, components=components,
+                                               **({"repair": True, "attempt": sequence, "feedback": feedback} if sequence > 1 else {}))
+            if outcome.passed:
+                result = outcome.results[0]
+                canonical = "planner" if phase_id == "plan" else "planner-shared"
+                if sequence > 1:
+                    result.path = str(self.evidence_dir / "agents" / canonical / "result.json")
+                    dump_json(Path(result.path), result.to_dict())
+                    self.state.record_agent_result(canonical, result.to_dict())
+                return outcome
+            decision = self.recover_failure(phase_id, outcome, components)
+            if decision["action"] == "stop":
+                return PhaseOutcome(phase_id, "FAIL", outcome.results)
+            feedback = {"failure": [result.to_dict() for result in outcome.results], "diagnosis": decision}
+            saved = self.state.get("preparation_feedback", {})
+            saved[phase_id] = feedback
+            self.state.update(preparation_feedback=saved)
+            if decision["action"] == "pause" or (phase_id == "plan" and decision["action"] == "repair"):
+                self.pause_recovery({"stage": phase_id, "pending": [], "feedback": feedback, "attempt": sequence, "changed_files": []}, decision["reason"])
+                return PhaseOutcome(phase_id, "BLOCKED", outcome.results)
 
     def run_single(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         phase_id = str(phase["id"])
@@ -303,7 +458,7 @@ class Orchestrator:
             emit(f"  !! {phase_id}: {error}", "red")
         changed_readonly = readonly and source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline
         if changed_readonly:
-            result = AgentResult(str(phase["agent"]), self.run_id, "FAIL", failures=["Read-only agent changed repository sources; changes were not accepted."])
+            result = AgentResult(str(phase["agent"]), self.run_id, "FAIL", outputs={"critical": True}, failures=["Read-only agent changed repository sources; changes were not accepted."])
             self.state.record_agent_result(agent.slug(**kwargs), result.to_dict())
         self.state.set_phase(phase_id, result.status)
         if not changed_readonly:
@@ -328,10 +483,18 @@ class Orchestrator:
             report = fetch_assets(
                 self.settings, self.evidence_dir, components, f"http://{host}:{port}"
             )
+        except AssetDeclarationError as error:
+            failing = [{"component_id": owner, "owning_layer": "component", "phase": "assets", "hypothesis": str(error)}
+                       for owner in error.owners]
+            self.state.set_phase(phase_id, "FAIL", error=str(error), failing_components=failing)
+            result = AgentResult("assets", self.run_id, "FAIL", outputs={"failing_components": failing, "critical": error.critical}, failures=[str(error)])
+            emit(f"  asset declaration needs repair: {error}", "yellow")
+            return PhaseOutcome(phase_id, "FAIL", [result])
         except AssetError as error:
-            emit(f"  !! asset phase failed: {error}", "red")
-            self.state.set_phase(phase_id, "FAIL", error=str(error))
-            return PhaseOutcome(phase_id=phase_id, status="FAIL")
+            status = "FAIL" if error.critical else "BLOCKED"
+            emit(f"  asset phase {status.lower()}: {error}", "yellow")
+            self.state.set_phase(phase_id, status, error=str(error))
+            return PhaseOutcome(phase_id, status, [AgentResult("assets", self.run_id, status, outputs={"critical": error.critical}, failures=[str(error)])])
 
         emit(
             f"  {len(report.uploaded)} uploaded, {len(report.skipped)} already present, "
@@ -339,10 +502,26 @@ class Orchestrator:
             "green" if report.ok else "yellow",
         )
         for record in report.failed:
-            emit(f"  !! {record.source_url} -> {record.detail}", "red")
-        status = "PASS" if report.ok else "FAIL"
-        self.state.set_phase(phase_id, status, **report.to_dict())
-        return PhaseOutcome(phase_id=phase_id, status=status)
+            emit(f"  !! {record.source_url or record.source_file} -> {record.detail}", "yellow")
+        if report.failed:
+            emit(f"\n  {len(report.failed)} asset(s) need your input; nothing else in the run is affected:", "yellow")
+            for record in report.failed:
+                emit(f"    - {record.dam_path}  ({', '.join(record.owners) or 'no owner'})", "yellow")
+                emit(f"      from {record.source_url or record.source_file}", "dim")
+                emit(f"      {record.detail}", "dim")
+            if report.unresolved_path:
+                emit(f"  Set 'local_file' to a file you downloaded yourself in {report.unresolved_path},", "cyan")
+                emit("  or fix 'source_url'; leave it as-is to retry the same request.", "cyan")
+                emit(f"  Then: python design/site-url/scripts/run_migration.py --resume --run-id {self.run_id}", "cyan")
+        critical = any(record.critical for record in report.failed)
+        status = "PASS" if report.ok else "FAIL" if critical else "BLOCKED"
+        failing = [{"component_id": owner, "owning_layer": "assets", "phase": "assets", "hypothesis": record.detail,
+                    "source_url": record.source_url, "source_file": record.source_file, "dam_path": record.dam_path,
+                    "evidence": [report.manifest_path] if report.manifest_path else []}
+                   for record in report.failed for owner in record.owners]
+        self.state.set_phase(phase_id, status, error="; ".join(record.detail for record in report.failed), failing_components=failing, **report.to_dict())
+        result = AgentResult("assets", self.run_id, status, outputs={"failing_components": failing, "critical": critical, **report.to_dict()})
+        return PhaseOutcome(phase_id, status, [result])
 
     def run_merge(
         self, phase: Mapping[str, Any], components: list[Mapping[str, Any]]
@@ -392,17 +571,164 @@ class Orchestrator:
             scopes,
             evidence_dir=self.evidence_dir,
         )
+        repair = None
+        feedback = kwargs.get("feedback") or {}
+        if agent.agent_id == "component" and feedback.get("repair_scope") == "contributions":
+            repair = self._prepare_contribution_repair(
+                agent, worker, kwargs["component"], int(kwargs.get("attempt", 1)), feedback.get("contribution_candidate"),
+            )
         migration = self.settings.migration
         if agent.agent_id == "planner":
             cache = self.settings.resolve(str(migration.get("discovery.inventory_cache_dir", "design/site-url/scripts/.tools/inventory")))
             migration = migration.merged({"discovery": {"inventory_cache_dir": str(cache)}})
         isolated_settings = Settings(worker.root, migration, self.settings._agents_config)
         agent.context = replace(agent.context, settings=isolated_settings)
-        result = agent.run(**kwargs)
-        changes = worker.collect()
+        try:
+            result = agent.run(**kwargs)
+        finally:
+            if repair is not None:
+                WorkerWorkspace(worker.root, repair["source_files"], []).collect()
+                try:
+                    validate_artifacts(repair, self.evidence_dir)
+                except ConfigError as error:
+                    raise WorkspaceError(str(error)) from error
+        if agent.agent_id == "component" or (agent.agent_id == "planner" and agent.shared):
+            validation = agent.validation_environment(slug)
+            diagnostic_dir = Path(validation["MIGRATION_VALIDATION_DIR"]) / "worker-diagnostics"
+            if not diagnostic_dir.resolve().is_relative_to(self.evidence_dir.resolve()):
+                raise WorkspaceError("Diagnostic storage escaped this run's evidence.")
+            changes = worker.collect(diagnostic_dir=diagnostic_dir)
+        else:
+            changes = worker.collect()
+        if changes.quarantined:
+            result.outputs["quarantined_diagnostics"] = changes.quarantined
+            emit(f"  {slug}: retained {len(changes.quarantined)} new root text dump(s) under validation/worker-diagnostics; not source changes.", "yellow")
         result.outputs["changed_files"] = sorted(changes.changed)
         result.outputs["worker_directory"] = str(worker.root)
+        result.outputs.pop("contribution_candidate", None)
+        if agent.agent_id == "component" and getattr(agent, "contribution_failure", None):
+            result.outputs["contribution_candidate"] = self._retain_contribution_candidate(
+                agent, worker, changes, result, kwargs["component"], int(kwargs.get("attempt", 1)),
+            )
         return result, changes if result.passed else None
+
+    def _retain_contribution_candidate(self, agent: Any, worker: WorkerWorkspace, changes: ChangeSet,
+                                       result: AgentResult, component: Mapping[str, Any], attempt: int) -> dict[str, str]:
+        directory = agent.workspace(agent.slug(component=component, attempt=attempt))
+        contribution = directory / str(self.settings.migration.get("shared_files.contribution_file", "contributions.json"))
+        artifacts = evidence_paths(result.to_dict(), agent.context.settings, self.evidence_dir)
+        if contribution.is_file():
+            artifacts.add(contribution.resolve())
+            try:
+                payload = json.loads(contribution.read_text(encoding="utf-8"))
+                artifacts.update(evidence_paths(payload, agent.context.settings, self.evidence_dir))
+                evidence_settings = Settings(self.evidence_dir, self.settings.migration, self.settings._agents_config)
+                artifacts.update(evidence_paths(payload, evidence_settings, self.evidence_dir))
+            except (UnicodeError, ValueError):
+                pass
+        if result.path:
+            artifacts.discard(Path(result.path).resolve())
+        sources = dict(worker.baseline)
+        for name, checksum in changes.changed.items():
+            if checksum is None:
+                sources.pop(name, None)
+            else:
+                sources[name] = checksum
+        receipt = directory / "contribution-candidate.json"
+        dump_json(receipt, {
+            "schema_version": 1, "run_id": self.run_id, "component": dict(component), "attempt": attempt,
+            "root": str(worker.root.resolve()), "scopes": worker.scopes,
+            "baseline": worker.baseline, "changed": changes.changed, "source_files": sources,
+            "artifacts": {path.relative_to(self.evidence_dir.resolve()).as_posix(): digest(path) for path in sorted(artifacts)},
+            "result": result.to_dict(), "contribution": str(contribution.resolve()),
+            "failure": agent.contribution_failure,
+        })
+        return {"path": str(receipt.resolve()), "sha256": str(digest(receipt))}
+
+    def _prepare_contribution_repair(self, agent: Any, worker: WorkerWorkspace, component: Mapping[str, Any],
+                                     attempt: int, reference: Any) -> dict[str, Any]:
+        try:
+            if not isinstance(reference, Mapping):
+                raise WorkspaceError("Contribution repair requires a retained candidate receipt.")
+            receipt = agent.context.evidence_file(reference["path"])
+            if digest(receipt) != reference["sha256"]:
+                raise WorkspaceError("Retained contribution candidate receipt changed.")
+            candidate = json.loads(receipt.read_text(encoding="utf-8"))
+            previous_attempt = candidate["attempt"]
+            if (candidate["schema_version"] != 1 or candidate["run_id"] != self.run_id
+                    or candidate["component"] != dict(component) or type(previous_attempt) is not int
+                    or not 0 < previous_attempt < attempt or candidate["scopes"] != worker.scopes):
+                raise WorkspaceError("Retained contribution candidate does not match this component and attempt.")
+            previous_slug = agent.slug(component=component, attempt=previous_attempt)
+            previous_directory = agent.workspace(previous_slug).resolve()
+            registered = self.state.get("agent_results", {}).get(previous_slug, {}).get("outputs", {}).get("contribution_candidate")
+            if registered != dict(reference) or receipt != previous_directory / "contribution-candidate.json":
+                raise WorkspaceError("Contribution repair candidate is not registered by this coordinator.")
+            source = Path(candidate["root"])
+            expected_parent = (self.evidence_dir / "workspaces" / previous_slug).resolve()
+            if source.is_symlink() or source.resolve().parent != expected_parent or not source.is_dir():
+                raise WorkspaceError("Retained contribution source escaped its worker workspace.")
+            retained = WorkerWorkspace(source, candidate["baseline"], worker.scopes)
+            changes = retained.collect()
+            if changes.changed != candidate["changed"] or source_manifest(source) != candidate["source_files"]:
+                raise WorkspaceError("Retained contribution candidate source changed.")
+            validate_artifacts(candidate, self.evidence_dir)
+            apply_changes(worker.root, [changes])
+            directory = agent.workspace(agent.slug(component=component, attempt=attempt)).resolve()
+            directory.mkdir(parents=True, exist_ok=True)
+            contribution = directory / str(self.settings.migration.get("shared_files.contribution_file", "contributions.json"))
+            protected = dict(candidate["artifacts"])
+            for name in candidate["artifacts"]:
+                original = self.evidence_dir / relative_path(name)
+                if not original.resolve().is_relative_to(previous_directory):
+                    continue
+                target = directory / original.resolve().relative_to(previous_directory)
+                if target.exists():
+                    raise WorkspaceError("Refusing to overwrite evidence while preparing contribution repair.")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(original, target)
+                if digest(target) != candidate["artifacts"][name]:
+                    raise WorkspaceError("Contribution evidence changed while copying the candidate.")
+                if target != contribution:
+                    protected[target.relative_to(self.evidence_dir.resolve()).as_posix()] = candidate["artifacts"][name]
+
+            def relocate(value: Any) -> Any:
+                if isinstance(value, dict):
+                    return {key: relocate(child) for key, child in value.items()}
+                if isinstance(value, list):
+                    return [relocate(child) for child in value]
+                if isinstance(value, str):
+                    locations = ((source, worker.root), (previous_directory, directory),
+                                 (previous_directory.relative_to(self.evidence_dir.resolve()), directory.relative_to(self.evidence_dir.resolve())))
+                    for before, after in locations:
+                        if value in (str(before), before.as_posix()):
+                            value = str(after)
+                        value = value.replace(str(before) + "\\", str(after) + "\\")
+                        value = value.replace(before.as_posix() + "/", after.as_posix() + "/")
+                return value
+
+            if contribution.is_file():
+                try:
+                    payload = json.loads(contribution.read_text(encoding="utf-8"))
+                except (UnicodeError, ValueError):
+                    pass
+                else:
+                    dump_json(contribution, relocate(payload))
+            result = relocate(candidate["result"])
+            result.update(status="PASS", failures=[], result_path=str(agent.result_path(agent.slug(component=component, attempt=attempt))))
+            result["outputs"].update(contributions=str(contribution), worker_directory=str(worker.root), changed_files=sorted(changes.changed))
+            result["outputs"].pop("rejected_envelope", None)
+            seed = directory / "candidate-result.json"
+            dump_json(seed, result)
+            agent.contribution_repair = {"candidate_result": str(seed), "contribution": str(contribution),
+                                         "previous_contribution": candidate["contribution"], "failure": candidate["failure"]}
+            protected[receipt.relative_to(self.evidence_dir.resolve()).as_posix()] = reference["sha256"]
+            protected[seed.relative_to(self.evidence_dir.resolve()).as_posix()] = str(digest(seed))
+            return {"source_files": source_manifest(worker.root), "artifacts": protected}
+        except (EnvelopeError, ConfigError, OSError, ValueError, TypeError, KeyError) as error:
+            if isinstance(error, WorkspaceError):
+                raise
+            raise WorkspaceError(f"Cannot reuse retained contribution candidate: {error}") from error
 
     def run_planner(self, phase: Mapping[str, Any], **kwargs: Any) -> PhaseOutcome:
         return self._run_preparation(phase, **kwargs)
@@ -419,6 +745,7 @@ class Orchestrator:
             "repairing shared foundations" if kwargs.get("repair") else "establishing shared foundations"
         )
         emit(f"\n[{phase_id}] {operation}", "cyan")
+        applying = False
         try:
             baseline = source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) if not self.dry_run else {}
             result, changes = self._run_worker(phase, **kwargs)
@@ -428,9 +755,10 @@ class Orchestrator:
                 if changed:
                     raise WorkspaceError(f"The shared checkout changed during {phase_id}: {', '.join(changed)}. No worker changes were merged; existing edits were not reverted.")
                 if result.passed and changes is not None:
+                    applying = True
                     apply_changes(self.settings.repo_root, [changes])
         except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
-            result = AgentResult(agent.agent_id, self.run_id, "FAIL", failures=[str(error)], path=str(agent.result_path(slug)))
+            result = AgentResult(agent.agent_id, self.run_id, "FAIL", outputs={"critical": applying or isinstance(error, WorkspaceError)}, failures=[str(error)], path=str(agent.result_path(slug)))
             emit(f"  !! {phase_id}: {error}", "red")
         if result.path:
             dump_json(Path(result.path), result.to_dict())
@@ -473,6 +801,7 @@ class Orchestrator:
         logs = []
         self.state.update(frontend_build={"status": "RUNNING", "changed_files": saved.get("changed_files", [])})
         emit(f"\n[deploy] building shared frontend from merged source (attempt {attempt})", "cyan")
+        applying = False
         try:
             for name, command in zip(("install", "build"), commands):
                 log = Path(environment["MIGRATION_VALIDATION_DIR"]) / f"{name}.log"
@@ -488,11 +817,12 @@ class Orchestrator:
                 raise PipelineError("Frontend build produced no deployable clientlibs.")
             if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
                 raise WorkspaceError("Shared source changed during the frontend build; no generated files were applied.")
+            applying = True
             applied = apply_changes(self.settings.repo_root, [changes])
         except (PipelineError, EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
             self.state.update(frontend_build={"status": "FAIL", "failures": [str(error)], "logs": logs, "changed_files": saved.get("changed_files", [])})
             emit(f"  !! shared frontend: {error}", "red")
-            return AgentResult("frontend-build", self.run_id, "FAIL", failures=[str(error)])
+            return AgentResult("frontend-build", self.run_id, "FAIL", outputs={"critical": applying or isinstance(error, WorkspaceError)}, failures=[str(error)])
         changed = sorted(set(applied) | set(generated) | set(saved.get("changed_files", [])))
         receipt = agent.workspace(slug) / "build-result.json"
         record = {"status": "PASS", "run_id": self.run_id, "inputs": inputs, "outputs": generated,
@@ -526,12 +856,122 @@ class Orchestrator:
         for component_id in pending:
             self.state.update_component(component_id, status="PLANNED")
         results = []
+        feedback = feedback or {}
         for wave in waves:
-            outcome = self._run_component_batch(phase, wave, feedback, attempt)
-            results.extend(outcome.results)
-            if not outcome.passed:
-                return PhaseOutcome(str(phase["id"]), outcome.status, results)
+            reusable = [component for component in wave if not self.dry_run
+                        and self.settings.migration.get("fanout.batch_reuse", True)
+                        and (feedback.get(component["id"], {}).get("reuse_only")
+                             or (not feedback.get(component["id"])
+                                 and component.get("execution_mode", "authoring" if component.get("tier") == 1 else "implementation") == "authoring"))]
+            builders = [component for component in wave if component not in reusable]
+            outcomes = []
+            if reusable:
+                outcomes.append(self._run_reuse_batch(phase, reusable, feedback, attempt))
+            critical = any(result.output("critical") for outcome in outcomes for result in outcome.results)
+            if builders and not critical:
+                outcomes.append(self._run_component_batch(phase, builders, feedback, attempt))
+            results.extend(result for outcome in outcomes for result in outcome.results)
+            if any(not outcome.passed for outcome in outcomes):
+                status = "FAIL" if critical else "BLOCKED" if any(outcome.status == "BLOCKED" for outcome in outcomes) else "FAIL"
+                self.state.set_phase(str(phase["id"]), status)
+                return PhaseOutcome(str(phase["id"]), status, results)
         return PhaseOutcome(str(phase["id"]), "PASS", results)
+
+    def _run_reuse_batch(self, phase: Mapping[str, Any], components: list[Mapping[str, Any]],
+                         feedback: Mapping[str, Mapping[str, Any]], attempt: int) -> PhaseOutcome:
+        agent = self._agent(phase)
+        agent.reuse_components = components
+        slug = agent.slug(attempt=attempt)
+        self.state.set_phase(str(phase["id"]), "RUNNING", fanout=len(components), attempt=attempt, mode="reuse")
+        for component in components:
+            self.state.update_component(component["id"], status="RUNNING", attempts=attempt, error=None)
+        emit(f"\n[implement] authoring {len(components)} source-ready components in one source-read-only session", "cyan")
+        worker = WorkerWorkspace.create(self.settings.repo_root, self.evidence_dir / "workspaces" / slug, [], evidence_dir=self.evidence_dir)
+        agent.context = replace(agent.context, settings=Settings(worker.root, self.settings.migration, self.settings._agents_config))
+        results = []
+        batch = None
+        batch_error = None
+        interrupted = False
+        try:
+            try:
+                batch = agent.run(attempt=attempt, feedback=feedback)
+            except KeyboardInterrupt:
+                interrupted = True
+            except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
+                batch_error = str(error)
+            finally:
+                worker.collect()
+                if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != worker.baseline:
+                    raise WorkspaceError("The shared checkout changed during reuse authoring; no component work was accepted.")
+                if any(digest(Path(path)) != checksum for path, checksum in getattr(agent, "reuse_input_hashes", {}).items()):
+                    raise WorkspaceError("Reuse authoring inputs changed during execution.")
+            entries = batch.output("results", {}) if batch is not None else {}
+            for component in components:
+                member = AGENT_CLASSES["component"](agent.context)
+                member.handoff = getattr(agent, "reuse_handoffs", {}).get(component["id"], {})
+                member_slug = member.slug(component=component, attempt=attempt)
+                target = member.result_path(member_slug)
+                try:
+                    entry = entries.get(component["id"]) if isinstance(entries, Mapping) else None
+                    if entry is not None and (not isinstance(entry, str) or Path(entry).resolve() != target.resolve()):
+                        raise EnvelopeError(f"Reuse result path does not belong to {component['id']}.")
+                    if not target.is_file():
+                        raise EnvelopeError(f"No authoring result for {component['id']}: {batch_error or 'session incomplete'}")
+                    result = read_result(target, member.spec, self.run_id)
+                    if result.output("changed_files"):
+                        raise EnvelopeError("Authoring-only work cannot report source changes; request an implementation repair.")
+                    implementation = result.output("implementation_required")
+                    if implementation:
+                        if result.passed or not isinstance(implementation, Mapping) or not implementation.get("reason") or not implementation.get("evidence"):
+                            raise EnvelopeError("Implementation repair requires a failed result with a reason and evidence.")
+                        for evidence in implementation["evidence"]:
+                            member.context.evidence_file(evidence)
+                    member.validate_result(result, component=component, attempt=attempt)
+                except (EnvelopeError, OSError, ValueError) as error:
+                    result = AgentResult("component", self.run_id, "FAIL", failures=[str(error)])
+                result.path = str(target)
+                result.outputs.pop("contribution_candidate", None)
+                result.outputs.update(component_id=component["id"], changed_files=[], worker_directory=str(worker.root), reuse_session=slug)
+                result.outputs["reuse_only"] = not bool(result.output("implementation_required"))
+                results.append(result)
+        except (EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
+            results = [AgentResult("component", self.run_id, "FAIL", outputs={"component_id": component["id"],
+                         "critical": isinstance(error, WorkspaceError), "reuse_only": True}, failures=[str(error)]) for component in components]
+        for component, result in zip(components, results):
+            if not result.path:
+                result.path = str(AGENT_CLASSES["component"](self.context).result_path(f"component-{component['id']}-attempt-{attempt}"))
+            if not result.passed and Path(result.path).is_file():
+                rejected = Path(result.path).with_name("result.rejected.json")
+                rejected.write_bytes(Path(result.path).read_bytes())
+                result.outputs["rejected_envelope"] = str(rejected)
+            self.state.update_component(component["id"], status=result.status, changed_files=[],
+                                        **({"accepted_attempt": attempt} if result.passed else {}))
+            self._persist_worker(result, component, attempt)
+        status = "PASS" if all(result.passed for result in results) else "BLOCKED" if any(result.blocked for result in results) else "FAIL"
+        saved = self.state.get("agent_results", {}).get(slug, {})
+        proposal_status = batch.status if batch is not None else saved.get("status")
+        batch = batch or AgentResult("component", self.run_id, status)
+        batch.path = str(agent.result_path(slug))
+        if proposal_status == "PASS" and status != "PASS" and Path(batch.path).is_file():
+            rejected = Path(batch.path).with_name("result.rejected.json")
+            rejected.write_bytes(Path(batch.path).read_bytes())
+            batch.outputs["rejected_envelope"] = str(rejected)
+        batch.status = status
+        batch.outputs.update(proposal_status=proposal_status,
+                             member_statuses={result.output("component_id"): result.status for result in results},
+                             results={result.output("component_id"): result.path for result in results})
+        batch.failures = [f"{result.output('component_id')}: {failure}" for result in results for failure in result.failures]
+        dump_json(Path(batch.path), batch.to_dict())
+        self.state.record_agent_result(slug, {**saved, **batch.to_dict()})
+        emit(f"  <- Component authoring validated: {status} | {sum(result.passed for result in results)}/{len(results)} accepted",
+             "green" if status == "PASS" else "yellow" if status == "BLOCKED" else "red")
+        if not interrupted:
+            self.state.set_phase(str(phase["id"]), status)
+        if not any(result.output("critical") for result in results):
+            self._save_checkpoint()
+        if interrupted:
+            raise KeyboardInterrupt()
+        return PhaseOutcome(str(phase["id"]), status, results)
 
     def _run_component_batch(
         self,
@@ -544,7 +984,7 @@ class Orchestrator:
         self.state.set_phase(phase_id, "RUNNING", fanout=len(components), attempt=attempt)
         emit(
             f"\n[{phase_id}] fanning out {len(components)} agent(s), "
-            f"{self.max_parallel} at a time (attempt {attempt}/{self.max_attempts})",
+            f"{self.max_parallel} at a time (invocation {attempt}; recovery limit {self.max_attempts} per operation)",
             "cyan",
         )
 
@@ -580,6 +1020,7 @@ class Orchestrator:
                 except (EnvelopeError, BackendError, ConfigError, OSError, ValueError,
                     concurrent.futures.CancelledError) as error:
                     errors.append(f"{component_id}: {error}")
+                    results.append(AgentResult("component", self.run_id, "FAIL", outputs={"component_id": component_id, "critical": isinstance(error, WorkspaceError)}, failures=[str(error)]))
                     self.state.update_component(component_id, status="ERROR", error=str(error))
                     emit(f"  !! {component_id} failed: {error}", "red")
                     if self.stop_on_first_failure:
@@ -610,15 +1051,18 @@ class Orchestrator:
                 if source_manifest(self.settings.repo_root, excluded=[self.evidence_dir]) != baseline:
                     raise WorkspaceError("The shared checkout changed during fan-out; no worker changes were applied.")
                 apply_changes(self.settings.repo_root, [changes for _, result, changes in validated if result.passed and changes is not None])
-        except WorkspaceError as error:
+        except (WorkspaceError, OSError) as error:
             changes_applied = False
             errors.append(str(error))
             for _, result, _ in validated:
                 if result.passed:
                     result.status = "FAIL"
+                    result.outputs["critical"] = True
                     result.failures.append(str(error))
         for component, result, _ in validated:
             self.state.update_component(str(component["id"]), status=result.status, changed_files=result.output("changed_files", []))
+            if result.passed and changes_applied:
+                self.state.update_component(str(component["id"]), accepted_attempt=attempt)
             self._persist_worker(result, component, attempt)
 
         status = "PASS" if results and not errors and all(r.passed for r in results) else "FAIL"
@@ -649,7 +1093,16 @@ class Orchestrator:
         pipeline_status = "FAIL"
 
         try:
-            self.preflight()
+            while True:
+                try:
+                    self.preflight()
+                    break
+                except (PipelineError, ConfigError, BackendError, EnvelopeError, OSError, ValueError) as error:
+                    outcome = PhaseOutcome("preflight", "BLOCKED", [AgentResult("preflight", self.run_id, "BLOCKED", failures=[str(error)])])
+                    decision = self.recover_failure("preflight", outcome, [])
+                    if decision["action"] != "retry":
+                        self.pause_recovery({"stage": "preflight", "pending": [], "feedback": {}, "attempt": 1, "changed_files": []}, decision["reason"])
+                        return self._finish(phases, "BLOCKED", terminal_status)
             # 1 — plan
             plan_phase = self._phase(phases, "plan", remediation_ids)
             saved_plan = self.state.get("agent_results", {}).get("planner", {})
@@ -662,7 +1115,7 @@ class Orchestrator:
                     raise PipelineError("Saved component state does not match the validated plan.")
                 self.state.set_phase("plan", "PASS")
             elif self._wants(plan_phase["id"]):
-                outcome = self.run_planner(plan_phase)
+                outcome = self.prepare_with_recovery(plan_phase, [])
                 if not outcome.passed:
                     return self._finish(phases, outcome.status, terminal_status)
                 result = outcome.results[0]
@@ -676,7 +1129,7 @@ class Orchestrator:
             counts = {tier: sum(component.get("tier") == tier for component in components) for tier in (1, 2, 3, 4)}
             label = "Planner dry-run placeholder" if self.dry_run else "Planner accepted"
             messages = [f"{label}: {len(components)} component definitions for {target}.",
-                        f"Component workers scheduled after shared-file validation: {len(components)}. "
+                        "Components scheduled after shared-file validation; source-ready authoring may share a session. "
                         f"Reuse unchanged: {counts[1]}; extend existing/Core: {counts[2] + counts[3]}; new: {counts[4]}."]
             for component in sorted(components, key=lambda row: row.get("source_order", 0)):
                 messages.append(f"  {component['id']} | {component.get('delivery', 'component')} | tier {component.get('tier', 'unspecified')}")
@@ -692,7 +1145,7 @@ class Orchestrator:
                                     repair=bool(saved_foundations["attempt"]), attempt=saved_foundations["attempt"])
                 self.state.set_phase("foundations", "PASS")
             elif self._wants(foundations_phase["id"]):
-                outcome = self.run_foundations(foundations_phase, components=components)
+                outcome = self.prepare_with_recovery(foundations_phase, components)
                 if not outcome.passed:
                     return self._finish(phases, outcome.status, terminal_status)
                 result = outcome.results[0]
@@ -703,9 +1156,14 @@ class Orchestrator:
                 raise PipelineError("There are no validated shared foundations to resume; run the foundations phase before components.")
 
             # 2 — implement, deploy, score, remediate
-            pipeline_status = self._implement_and_gate(
-                phases, components, remediation_ids, terminal_status
-            )
+            if self.resume and (self.state.get("report_pause") or {}).get("pipeline_status") == "COMPLETE":
+                pipeline_status = "COMPLETE"
+            else:
+                if self.state.get("report_pause"):
+                    self.state.update(report_pause=None)
+                pipeline_status = self._implement_and_gate(
+                    phases, components, remediation_ids, terminal_status
+                )
         except (PipelineError, EnvelopeError, BackendError, ConfigError, OSError, ValueError) as error:
             emit(f"\nERROR: {error}", "red")
             if self.logger:
@@ -741,201 +1199,184 @@ class Orchestrator:
         remediation_ids: list[str],
         terminal_status: str,
     ) -> str:
-        implement = self._phase(phases, "implement", remediation_ids)
-        foundations_phase = self._phase(phases, "foundations", remediation_ids)
-        assets = phases.get("assets")
-        merge = phases.get("merge")
-        deploy = self._phase(phases, "deploy", remediation_ids)
-        parity = self._phase(phases, "parity", remediation_ids)
-
         by_id = {str(component["id"]): component for component in components}
-        pending = list(components)
-        feedback: dict[str, Mapping[str, Any]] = {}
-        attempts: dict[str, int] = {str(component["id"]): 0 for component in components}
-        changed_files: set[str] = {path for row in self.state.component_rows() for path in row.get("changed_files", [])}
         saved_foundations = self.state.get("foundations", {})
         if not saved_foundations:
             raise PipelineError("No validated shared foundations are available.")
+        changed_files = {path for row in self.state.component_rows() for path in row.get("changed_files", [])}
         changed_files.update(saved_foundations.get("changed_files", []))
-        needs_implementation = True
-        foundations_ready = True
-        first_attempt = 1
+        prepared_attempt = max(self.state.get("preparation_sequences", {}).values(), default=0)
+        initial_attempt = prepared_attempt + 1 if prepared_attempt > 1 else 1
+        cursor = {"stage": "implement", "pending": list(by_id), "feedback": {}, "attempt": initial_attempt, "changed_files": sorted(changed_files)}
         if self.resume:
             if saved_foundations["attempt"]:
-                result = self._cached_result(foundations_phase, components=components, repair=True, attempt=saved_foundations["attempt"])
-                changed_files.update(result.output("changed_files", []))
-            history = self.state.get("remediation_history", [])
-            first_attempt = max((int(entry["attempt"]) for entry in history), default=0) + 1
-            if history:
-                feedback = {entry["component_id"]: entry for entry in history[-1].get("failing", []) if entry.get("component_id") in by_id}
-                if any(entry.get("owning_layer") == "foundation" or entry.get("requires_foundations") for entry in feedback.values()):
-                    foundations_ready = False
+                self._cached_result(phases["foundations"], components=components, repair=True, attempt=saved_foundations["attempt"])
             reusable = set()
             for row in self.state.component_rows():
-                if row.get("status") == "PASS":
-                    result = self._cached_result(implement, component=by_id[row["id"]], attempt=int(row["attempts"]))
+                accepted_attempt = row.get("accepted_attempt", row.get("attempts", 0))
+                accepted = self.state.get("agent_results", {}).get(f"component-{row['id']}-attempt-{accepted_attempt}", {})
+                if row.get("status") == "PASS" or accepted.get("status") == "PASS":
+                    result = self._cached_result(phases["implement"], component=by_id[row["id"]], attempt=int(accepted_attempt))
                     changed_files.update(result.output("changed_files", []))
                     reusable.add(row["id"])
-            pending = [component for component in components if component["id"] not in reusable]
-            unfinished_attempt = max((int(row.get("attempts", 0)) for row in self.state.component_rows() if row["id"] not in reusable), default=0)
-            first_attempt = max(first_attempt, unfinished_attempt + 1)
-            needs_implementation = bool(pending) and (not feedback or any(entry.get("owning_layer") not in ("evidence", "foundation", "assets") for entry in feedback.values()))
-            if history and history[-1].get("status") == "PASS" and not pending:
-                first_attempt = min(first_attempt, self.max_attempts)
+            saved = self.state.get("recovery_checkpoint")
+            if saved and saved.get("stage") in ("foundations", "implement", "assets", "merge", "frontend", "deploy", "parity"):
+                cursor = dict(saved)
+                cursor["attempt"] += int(bool(saved.get("running")) or bool(saved.get("reason") and saved["stage"] != "assets"))
+                cursor.pop("reason", None)
+                if cursor["stage"] == "parity":
+                    cursor["stage"] = "deploy"
+                if saved.get("running") and cursor["stage"] == "implement":
+                    finished = {row["id"] for row in self.state.component_rows() if row.get("status") == "PASS"
+                                and row.get("accepted_attempt", row.get("attempts")) == saved["attempt"]}
+                    cursor["pending"] = [identity for identity in cursor["pending"] if identity not in finished]
+                    if not cursor["pending"]:
+                        cursor["stage"] = "assets"
+            elif self.state.get("asset_pause"):
+                pause = self.state.get("asset_pause")
+                cursor.update(stage="assets", pending=[], attempt=pause["attempt"], changed_files=pause["changed_files"])
+            else:
+                pending_ids = [identity for identity in by_id if identity not in reusable]
+                cursor.update(stage="implement" if pending_ids else "assets", pending=pending_ids,
+                              attempt=max((int(row.get("attempts", 0)) for row in self.state.component_rows()), default=0) + 1)
+                history = self.state.get("remediation_history", [])
+                if history and history[-1].get("status") != "PASS":
+                    return self.pause_recovery(cursor, "No compatible phase recovery checkpoint; saved work was not discarded.")
+            if saved and saved.get("running") and saved.get("stage") in ("implement", "foundations"):
+                counts = self.state.get("recovery_counts", {})
+                keys = [f"implement:{identity}" for identity in saved["pending"]] if saved["stage"] == "implement" else ["foundations"]
+                for key in keys:
+                    counts[key] = int(counts.get(key, 0)) + 1
+                self.state.update(recovery_counts=counts)
+            elif not saved and any(row.get("status") == "RUNNING" and row.get("attempts", 0) >= self.max_attempts for row in self.state.component_rows()):
+                return self.pause_recovery(cursor, "Interrupted component attempt consumed its budget; retained evidence requires review.")
+            missing = set(by_id) - reusable - set(cursor["pending"])
+            if missing:
+                raise PipelineError("Recovery cursor would skip unvalidated components: " + ", ".join(sorted(missing)))
+            changed_files.update(cursor.get("changed_files", []))
 
-        for attempt in range(first_attempt, self.max_attempts + 1):
-            if not foundations_ready:
-                if not self._wants(foundations_phase["id"]):
-                    return "FAIL"
-                outcome = self.run_foundations(foundations_phase, components=components, feedback=feedback, repair=True, attempt=attempt)
-                if outcome.status == "BLOCKED":
-                    return "BLOCKED"
-                if not outcome.passed:
-                    self._record_attempt(attempt, pending, "FOUNDATIONS_FAILED")
-                    continue
-                foundation_changes = {path for result in outcome.results for path in result.output("changed_files", [])}
-                changed_files.update(foundation_changes)
-                shared_changes = set(self.state.get("foundations", {}).get("changed_files", [])) | foundation_changes
-                self.state.update(foundations={"attempt": attempt, "changed_files": sorted(shared_changes),
-                                              "token_manifest": outcome.results[0].output("token_manifest")})
-                self._save_checkpoint()
-                foundations_ready = True
-            for component in pending:
-                attempts[str(component["id"])] = attempt
-
-            if needs_implementation and self._wants(implement["id"]):
-                outcome = self.run_fanout(implement, pending, feedback, attempt)
-                if outcome.status == "BLOCKED":
-                    return "BLOCKED"
-                for result in outcome.results:
+        order = ["implement", "assets", "merge", "frontend", "deploy", "parity"]
+        while True:
+            stage = cursor["stage"]
+            attempt = cursor["attempt"]
+            if stage not in (*order, "foundations") or type(attempt) is not int or attempt < 1 or any(identity not in by_id for identity in cursor["pending"]):
+                raise PipelineError("Invalid recovery cursor.")
+            phase_id = "deploy" if stage == "frontend" else stage
+            if not self._wants(phase_id):
+                return self.pause_recovery(cursor, f"Required phase {phase_id} was excluded.")
+            counts = self.state.get("recovery_counts", {})
+            grants = self.state.get("recovery_grants", {})
+            if stage in ("implement", "foundations") and (counts.get(stage, 0) >= self.max_attempts + grants.get(stage, 0) or any(counts.get(f"{stage}:{identity}", 0) >= self.max_attempts + grants.get(f"{stage}:{identity}", 0) for identity in cursor["pending"])):
+                return self.pause_recovery(cursor, f"{stage} recovery budget remains exhausted; resume does not reset it.")
+            cursor.update(changed_files=sorted(changed_files), running=True)
+            self.state.update(recovery_checkpoint=cursor)
+            pending = [by_id[identity] for identity in cursor["pending"]]
+            try:
+                if stage == "foundations":
+                    outcome = self.run_foundations(phases[stage], components=components, feedback=cursor["feedback"], repair=True, attempt=attempt)
+                elif stage == "implement":
+                    outcome = self.run_fanout(phases[stage], pending, cursor["feedback"], attempt)
+                elif stage == "assets":
+                    outcome = self.run_assets(phases[stage], components)
+                elif stage == "merge":
+                    outcome = self.run_merge(phases[stage], components)
+                elif stage == "frontend":
+                    frontend = self.prepare_frontend(changed_files, attempt)
+                    outcome = PhaseOutcome("frontend", frontend.status, [frontend])
+                elif stage == "deploy":
+                    module = str(self.settings.migration.get("deploy.frontend.root", "ui.frontend"))
+                    deploy_files = [path for path in sorted(changed_files) if not owns(path, module + "/**")]
+                    outcome = self.run_single(phases[stage], changed_files=deploy_files, attempt=attempt)
+                else:
+                    outcome = self.run_single(phases[stage], components=components, attempt=attempt)
+            except WorkspaceError:
+                raise
+            except (BackendError, EnvelopeError, OSError, ValueError) as error:
+                outcome = PhaseOutcome(stage, "FAIL", [AgentResult(stage, self.run_id, "FAIL", failures=[str(error)])])
+            cursor["running"] = False
+            for result in outcome.results:
+                if result.passed:
                     changed_files.update(result.output("changed_files", []) or [])
-                if not outcome.passed:
-                    for result in outcome.results:
-                        requests = result.output("foundation_requests", [])
-                        component_id = result.output("component_id")
-                        if requests and component_id in by_id:
-                            foundations_ready = False
-                            feedback[component_id] = {"component_id": component_id, "owning_layer": "foundation", "requests": requests}
-                    self._record_attempt(attempt, pending, "IMPLEMENT_FAILED", list(feedback.values()))
-                    failed_ids = {row["id"] for row in self.state.component_rows() if row.get("status") != "PASS"}
-                    pending = [component for component in pending if component["id"] in failed_ids]
-                    if not pending:
-                        return "FAIL"
-                    continue
-                needs_implementation = False
-
-            if assets is not None and self._wants(str(assets["id"])):
-                outcome = self.run_assets(assets, components)
-                if not outcome.passed:
-                    emit("  asset upload failed; the page would render broken media.", "red")
-                    self._record_attempt(attempt, pending, "ASSETS_FAILED")
-                    continue
-
-            if merge is not None and self._wants(str(merge["id"])):
-                outcome = self.run_merge(merge, components)
-                if not outcome.passed:
-                    emit("  merge failed; deploying now would ship a page missing components.", "red")
-                    self._record_attempt(attempt, pending, "MERGE_FAILED")
-                    needs_implementation = True
-                    continue
-                for result in outcome.results:
-                    changed_files.update(result.output("changed_files", []))
-
-            if self._wants(deploy["id"]):
-                frontend = self.prepare_frontend(changed_files, attempt)
-                if not frontend.passed:
-                    self.state.set_phase(deploy["id"], "FAIL", error="; ".join(frontend.failures))
-                    self._record_attempt(attempt, pending, "FRONTEND_BUILD_FAILED")
-                    return "FAIL"
-                changed_files.update(frontend.output("changed_files", []))
-                module = str(self.settings.migration.get("deploy.frontend.root", "ui.frontend"))
-                deploy_files = [path for path in sorted(changed_files) if not owns(path, module + "/**")]
-                outcome = self.run_single(deploy, changed_files=deploy_files, attempt=attempt)
-                if outcome.status == "BLOCKED":
-                    return "BLOCKED"
-                if not outcome.passed:
-                    emit("  deploy failed; parity cannot be scored on a stale target.", "red")
-                    failing = list(outcome.results[0].output("failing_components", [])) if outcome.results else []
-                    self._record_attempt(attempt, pending, "DEPLOY_FAILED", failing)
-                    if any(not isinstance(entry, Mapping) or entry.get("component_id") not in by_id for entry in failing):
-                        return "FAIL"
-                    if not failing:
-                        emit("  no source owner identified; retrying deployment within the existing attempt budget.", "dim")
-                        continue
-                    feedback = {entry["component_id"]: {**entry, "phase": "deploy"} for entry in failing}
-                    repair_ids = {identity for identity, entry in feedback.items() if entry.get("owning_layer") not in ("evidence", "foundation", "assets")}
-                    pending = affected_components(components, repair_ids or set(feedback))
-                    needs_implementation = bool(repair_ids)
-                    foundations_ready = not any(entry.get("owning_layer") == "foundation" or entry.get("requires_foundations") for entry in feedback.values())
-                    if needs_implementation:
-                        for component in pending:
-                            self.state.update_component(component["id"], status="FAILED")
-                    continue
-                self.state.update(target_url=outcome.results[0].output("target_url"))
-
-            if not self._wants(parity["id"]):
-                return "FAIL"
-
-            outcome = self.run_single(parity, components=components, attempt=attempt)
-            if outcome.status == "BLOCKED":
-                return "BLOCKED"
-
-            failing = list(outcome.results[0].output("failing_components") or []) if outcome.results else []
-            self._record_attempt(attempt, pending, outcome.status, failing)
-
-            if outcome.passed and outcome.results and not failing:
-                if self.dry_run:
-                    return "DRY_RUN"
-                for component_id in by_id:
-                    self.state.update_component(component_id, status="PASS")
-                emit(
-                    f"\nVisual parity gate passed on attempt {attempt} "
-                    f"(threshold {self.contract.visual_pass_ratio}).",
-                    "green",
-                )
-                return "COMPLETE"
-
-            if not failing:
+            failing = [entry for result in outcome.results for entry in result.output("failing_components", [])]
+            if outcome.passed and not failing:
+                if stage == "foundations":
+                    shared = set(saved_foundations.get("changed_files", [])) | {path for result in outcome.results for path in result.output("changed_files", [])}
+                    saved_foundations = {"attempt": attempt, "changed_files": sorted(shared), "token_manifest": outcome.results[0].output("token_manifest")}
+                    self.state.update(foundations=saved_foundations)
+                    cursor["stage"] = "implement" if pending else "assets"
+                elif stage == "parity":
+                    self._record_attempt(attempt, components, "PASS")
+                    self.state.update(recovery_checkpoint=None, asset_pause=None)
+                    if self.dry_run:
+                        return "DRY_RUN"
+                    for identity in by_id:
+                        self.state.update_component(identity, status="PASS")
+                    return "COMPLETE"
+                else:
+                    if stage == "implement":
+                        cursor["pending"] = []
+                    if stage == "assets":
+                        self.state.update(asset_pause=None)
+                    if stage == "deploy" and outcome.results:
+                        self.state.update(target_url=outcome.results[0].output("target_url"))
+                    cursor["stage"] = order[order.index(stage) + 1]
+                cursor["changed_files"] = sorted(changed_files)
+                self.state.update(recovery_checkpoint=cursor)
+                self._save_checkpoint()
                 continue
 
-            feedback = {
-                str(item.get("component_id")): item
-                for item in failing
-                if isinstance(item, Mapping) and item.get("component_id") in by_id
-            }
-            unknown = {
-                str(item.get("component_id"))
-                for item in failing
-                if isinstance(item, Mapping) and item.get("component_id") not in by_id
-            }
-            if unknown:
-                emit(
-                    "  parity reported components that are not in the plan: "
-                    + ", ".join(sorted(unknown)),
-                    "yellow",
-                )
+            if stage == "implement":
+                rows = {row["id"]: row for row in self.state.component_rows()}
+                for result in outcome.results:
+                    identity = result.output("component_id")
+                    failing.extend({**entry, **({"reuse_only": True} if result.output("reuse_only") else {})}
+                                   for entry in result.output("asset_failures", []))
+                    if result.output("foundation_requests") and identity in by_id:
+                        failing.append({"component_id": identity, "owning_layer": "foundation", "requests": result.output("foundation_requests"),
+                                        "hypothesis": "Component requires shared tokens or policy changes."})
+                failures_by_id = {entry["component_id"] for entry in failing}
+                for component in pending:
+                    identity = component["id"]
+                    if rows[identity].get("status") != "PASS" and identity not in failures_by_id:
+                        component_results = [result for result in outcome.results if result.output("component_id") == identity]
+                        messages = [message for result in component_results for message in result.failures]
+                        candidate = next((result.output("contribution_candidate") for result in component_results
+                                          if result.output("contribution_candidate")), None)
+                        failing.append({"component_id": identity, "owning_layer": "component", "phase": stage,
+                                        "hypothesis": "; ".join(messages) or rows[identity].get("error") or "Implementation validation failed; inspect this invocation's result and logs.",
+                                        **({"repair_scope": "contributions", "contribution_candidate": candidate} if candidate else {}),
+                                        **({"reuse_only": True} if any(result.output("reuse_only") for result in component_results) else {}),
+                                        "evidence": [str(self.evidence_dir / "agents" / f"component-{identity}-attempt-{attempt}")]})
+                cursor["pending"] = [entry["component_id"] for entry in failing]
+            failing = [{**entry, "phase": entry.get("phase", stage)} for entry in failing]
+            self._record_attempt(attempt, [by_id[entry["component_id"]] for entry in failing if entry.get("component_id") in by_id], stage.upper() + "_FAILED", failing)
+            decision = self.recover_failure(stage, outcome, components, failing)
+            cursor["changed_files"] = sorted(changed_files)
+            cursor["feedback"] = {str(entry["component_id"]): dict(entry) for entry in failing}
+            if stage == "foundations":
+                cursor["feedback"]["recovery"] = {"phase": stage, "diagnosis": decision, "results": [result.to_dict() for result in outcome.results]}
+            if decision["action"] == "stop":
                 return "FAIL"
-            pending = affected_components(components, set(feedback))
-            needs_implementation = any(item.get("owning_layer") not in ("evidence", "foundation") for item in feedback.values())
-            if any(item.get("owning_layer") == "foundation" for item in feedback.values()):
-                foundations_ready = False
-            emit(
-                f"  {len(pending)} component(s) below threshold: "
-                + ", ".join(sorted(feedback)),
-                "yellow",
-            )
-            for component_id in feedback:
-                self.state.update_component(component_id, status="FAILED")
-
-        for component_id in (str(c["id"]) for c in pending):
-            self.state.update_component(component_id, status=terminal_status)
-        if pending:
-            emit(
-                f"\nAttempt budget of {self.max_attempts} exhausted; "
-                f"{len(pending)} component(s) marked {terminal_status}.",
-                "red",
-            )
-        return "FAIL"
+            if decision["action"] == "pause":
+                if stage == "assets":
+                    self.state.update(asset_pause={"attempt": attempt, "changed_files": sorted(changed_files), "failing": failing})
+                return self.pause_recovery(cursor, decision["reason"])
+            if decision["action"] == "repair":
+                repaired = set(decision["component_ids"])
+                if stage == "implement":
+                    repaired.update(cursor["pending"])
+                cursor["pending"] = [component["id"] for component in affected_components(components, repaired)]
+                for identity in cursor["pending"]:
+                    cursor["feedback"].setdefault(identity, {"component_id": identity, "owning_layer": "component", "phase": stage,
+                                                           "hypothesis": decision["reason"], "evidence": decision.get("evidence", [])})
+                    self.state.update_component(identity, status="REPAIR_PENDING")
+                if decision["repair_shared"]:
+                    cursor["feedback"]["shared"] = {"owning_layer": "foundation", "phase": stage, "hypothesis": decision["reason"], "evidence": decision.get("evidence", [])}
+                cursor["stage"] = "foundations" if decision["repair_shared"] else "implement"
+            elif stage == "deploy" and any(entry.get("owning_layer") == "assets" for entry in failing):
+                cursor["stage"] = "assets"
+            cursor["attempt"] = attempt + 1
+            self.state.update(recovery_checkpoint=cursor)
 
     def _record_attempt(
         self,
@@ -1004,7 +1445,7 @@ class Orchestrator:
         interactions = records(parity.get("interaction_scores"))
         rows = state["components"]
         expected = [results.get("planner", {}), latest("deployer")[1], parity_result]
-        expected.extend(results.get(f"component-{row['id']}-attempt-{row['attempts']}", {}) for row in rows)
+        expected.extend(results.get(f"component-{row['id']}-attempt-{row.get('accepted_attempt', row['attempts'])}", {}) for row in rows)
         if pipeline_status == "COMPLETE" and (
             any(result.get("run_id") != self.run_id or result.get("status") != "PASS" for result in expected)
             or not scores or not composites or not parity.get("verification") or parity.get("failing_components")
@@ -1017,11 +1458,19 @@ class Orchestrator:
         for entry in state["remediation_history"]:
             diagnostics.update({row.get("component_id"): row for row in records(entry.get("failing"))})
         diagnostics.update({row.get("component_id"): row for row in records(parity.get("failing_components"))})
+        diagnostics.update({row.get("component_id"): row for row in records((state.get("asset_pause") or {}).get("failing"))})
+        for recovery in state.get("recovery_history", []):
+            diagnostics.update({row.get("component_id"): row for row in records(recovery.get("failing"))})
         gaps = []
         if pipeline_status not in {"COMPLETE", "DRY_RUN"}:
             for component in rows:
                 component_id = component["id"]
                 detail = diagnostics.get(component_id, {})
+                current = results.get(f"component-{component_id}-attempt-{component.get('attempts', 0)}", {})
+                if component.get("status") in {"FAIL", "ERROR", "BLOCKED"} and current.get("run_id") == self.run_id and current.get("failures"):
+                    detail = {**detail, "owning_layer": detail.get("owning_layer", "component"),
+                              "hypothesis": "; ".join(to_text(failure) for failure in current["failures"]),
+                              "evidence": [current["result_path"]] if current.get("result_path") else detail.get("evidence", [])}
                 if component.get("status") == "PASS" and parity_result.get("run_id") == self.run_id and parity_result.get("status") == "PASS" and scores and composites and all(valid_score(row) for row in scores + composites) and not detail:
                     continue
                 measured = [row["ratio"] for row in scores if row.get("component_id") == component_id and valid_score(row)]
@@ -1042,6 +1491,8 @@ class Orchestrator:
         }.get(pipeline_status, f"VISUAL PARITY GATE: FAILED - {len(gaps)} unresolved components - see residual gaps and failed phases")
         if pipeline_status == "FAIL" and not rows:
             status_line = "VISUAL PARITY GATE: NOT RUN - migration failed before a component plan was accepted; see recorded failures"
+        elif pipeline_status == "FAIL" and not parity_result and any(entry.get("id") == "parity" and entry.get("status") == "PENDING" for entry in state["phases"]):
+            status_line = "VISUAL PARITY GATE: NOT RUN - migration failed before visual comparison; see recorded failures"
         sections = [
             "# Migration Completion Report", f"Run: `{self.run_id}`", f"Status: **{pipeline_status}**",
             status_line, f"Source: {self.contract.site_url}", f"AEM page: {state.get('target_url') or 'not recorded'}",
@@ -1244,7 +1695,20 @@ class Orchestrator:
         report_phase = phases.get("report")
         if report_phase and self._wants("report"):
             try:
-                outcome = self.run_report(report_phase, pipeline_status=pipeline_status)
+                while True:
+                    try:
+                        outcome = self.run_report(report_phase, pipeline_status=pipeline_status)
+                        self.state.update(report_pause=None)
+                        break
+                    except OSError as error:
+                        failed = PhaseOutcome("report", "FAIL", [AgentResult("report", self.run_id, "FAIL", failures=[str(error)])])
+                        decision = self.recover_failure("report", failed, [row["plan"] for row in self.state.component_rows()])
+                        self._save_checkpoint()
+                        if decision["action"] != "retry":
+                            self.state.update(report_pause={"pipeline_status": pipeline_status, "reason": decision["reason"]}, status="BLOCKED")
+                            self.state.set_phase("report", "BLOCKED", error=decision["reason"])
+                            emit(f"  report paused; accepted work retained. Resume with --resume --run-id {self.run_id}", "yellow")
+                            return "BLOCKED"
                 if not outcome.passed:
                     pipeline_status = "FAIL"
                 elif pipeline_status == "COMPLETE" and (
