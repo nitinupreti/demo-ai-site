@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { runAgentRole } from './agent.mjs';
 import { createRenderer } from './console.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
-import { acquireAssets } from './assets.mjs';
+import { acquireAssets, ensureFilterRoot } from './assets.mjs';
 import {
   focusedTestPlan, planDeployment, runDeployment, runValidation, validationPlan,
 } from './deploy.mjs';
@@ -342,6 +342,13 @@ export async function orchestrate(rawOptions, services) {
     return { status: 'FAIL', phases, state, plan, assets };
   }
   const assetsMessage = `${assets.manifest.length} assets in ${damPath}`;
+  // Done here rather than in foundations: a resumed run skips that agent but still needs the root.
+  const filterWritten = ensureFilterRoot({
+    repoRoot,
+    filterPath: plan.shared?.content_filter || 'ui.content/src/main/content/META-INF/vault/filter.xml',
+    damPath,
+  });
+  if (filterWritten) renderer.note(`filter.xml now covers ${damPath}`);
   if (assetsIntact) reusePhase(phase, assetsMessage);
   else endPhase(phase, 'PASS', assetsMessage);
 
@@ -563,6 +570,7 @@ export async function orchestrate(rawOptions, services) {
   // 6. Deploy — exclusive, deterministic.
   const changedFiles = workerResults.flatMap((entry) => entry.applied || [])
     .concat(assets.written)
+    .concat(filterWritten ? [filterWritten] : [])
     .concat(composed.written.map((file) => path.relative(repoRoot, file)));
   phase = startPhase('deploy');
   const steps = [focusedTestPlan(workerResults), ...planDeployment(changedFiles, options.aemPort)].filter(Boolean);

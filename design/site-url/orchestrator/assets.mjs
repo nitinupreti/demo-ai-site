@@ -163,6 +163,32 @@ function mimeFor(response, url) {
 }
 
 /**
+ * FileVault refuses to package a node no filter root covers, so the DAM folder this run writes
+ * must be declared. The path is computed, never authored, so the filter entry is too.
+ * Inserted before any ancestor root, which may carry excludes that would otherwise win.
+ */
+export function ensureFilterRoot({ repoRoot, filterPath, damPath }) {
+  const absolute = path.join(repoRoot, filterPath);
+  if (!fs.existsSync(absolute)) return null;
+  const contents = fs.readFileSync(absolute, 'utf8');
+  if (contents.includes(`<filter root="${damPath}"`)) return null;
+
+  const entry = `    <filter root="${damPath}"/>`;
+  const eol = contents.includes('\r\n') ? '\r\n' : '\n';
+  const lines = contents.split(/\r?\n/);
+  const ancestor = lines.findIndex((line) => {
+    const match = line.match(/<filter\s+root="([^"]+)"/);
+    return match && damPath.startsWith(`${match[1]}/`);
+  });
+  const at = ancestor >= 0 ? ancestor : lines.findIndex((line) => line.includes('</workspaceFilter>'));
+  if (at < 0) return null;
+
+  lines.splice(at, 0, entry);
+  fs.writeFileSync(absolute, lines.join(eol), 'utf8');
+  return filterPath;
+}
+
+/**
  * Downloads every discovered image into `damRoot`, replacing whatever was there before.
  * Returns a manifest mapping each source URL to the DAM path workers must author.
  */
