@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://demo-ai-site/aem-migration/plan.schema.json",
+  "title": "Migration plan",
+  "description": "Written by the planner agent, validated by the orchestrator before any component worker starts. Defines how many components exist, who owns which files, and the dependency waves for fan-out.",
+  "type": "object",
+  "required": ["run_id", "source_fingerprint", "breakpoints", "components"],
+  "additionalProperties": true,
+  "properties": {
+    "run_id": { "type": "string", "minLength": 1 },
+    "source_fingerprint": { "type": "string", "minLength": 1 },
+    "breakpoints": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
+    "shared": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "owned_paths": { "type": "array", "items": { "type": "string" } },
+        "template_path": { "type": ["string", "null"] },
+        "policy_path": { "type": ["string", "null"] },
+        "experience_fragment_root": { "type": ["string", "null"] },
+        "page_path": { "type": ["string", "null"] }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "tier", "role", "instances", "owned_paths", "contribution", "parity_targets"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+          "tier": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "role": { "type": "string", "enum": ["chrome", "content"] },
+          "execution_mode": { "type": "string", "enum": ["authoring", "implementation"] },
+          "reuse_target": { "type": ["string", "null"] },
+          "resource_type": { "type": "string" },
+          "instances": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "visibility_by_bp": { "type": "object" },
+          "owned_paths": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "contribution": {
+            "type": "object",
+            "required": ["kind", "path"],
+            "additionalProperties": true,
+            "properties": {
+              "kind": { "type": "string", "enum": ["page-fragment", "experience-fragment"] },
+              "path": { "type": "string", "minLength": 1 },
+              "order_index": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "parity_targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["instance", "source", "target"],
+              "additionalProperties": true,
+              "properties": {
+                "instance": { "type": "string" },
+                "source": { "type": "object" },
+                "target": { "type": "object" },
+                "signature_text": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "assets": { "type": "array", "items": { "type": "object" } },
+          "depends_on": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "waves": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } }
+  }
+}

@@ -68,6 +68,23 @@
       }
     },
     "timings": { "type": "object" },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "stage": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["PENDING", "STARTED", "PASS", "FAIL", "BLOCKED", "COMPLETE"] },
+          "started_at": { "type": ["string", "null"] },
+          "ended_at": { "type": ["string", "null"] },
+          "duration_seconds": { "type": ["number", "null"] },
+          "activity": { "type": "integer" }
+        }
+      }
+    },
     "events": { "type": "array", "items": { "type": "object" } },
     "stage_results": { "type": "object" }
   }

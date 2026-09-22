@@ -16,9 +16,21 @@ Emit a `component_coverage_matrix` alongside the Component File Matrix:
 | Stage 1 block | Instances | Tier | resource_type | Files landed (dialog / HTL / model / clientlib / test) | Authored under | Status |
 |---|---|---|---|---|---|---|
 
-`Status = COMPLETE` requires every column filled. Any `MISSING` / `PLANNED` / `SKIPPED` row blocks Stage 3. If a discovered block has no viable Tier decision, record `tier: null`, the rejected tiers and reasons, and the exact decision required from the user; emit Stage 2 `status: BLOCKED` with `next_stage: null`. Do not silently omit it or enter Stage 3. Only an explicit user decision may change the block scope, after which rerun this gate.
+`Status = COMPLETE` requires every column filled. Any `MISSING` / `PLANNED` / `SKIPPED` row blocks Stage 3. For global chrome, `Authored under` MUST be an Experience Fragment variation path, never a page or template node. If a discovered block has no viable Tier decision, record `tier: null`, the rejected tiers and reasons, and the exact decision required from the user; emit Stage 2 `status: BLOCKED` with `next_stage: null`. Do not silently omit it or enter Stage 3. Only an explicit user decision may change the block scope, after which rerun this gate.
 
 Stage 2 has no authority to invent a component that Stage 1 did not surface, and no authority to skip one that Stage 1 did surface. Every implementation and remediation change must trace back to a Stage 1 row.
+
+## MUST — Global Chrome Uses Experience Fragments
+
+Site header, footer, and any other chrome shared across pages (announcement bars, utility bars, mega-menu overlays) MUST be delivered as Experience Fragments. Authoring the chrome component directly into a page or into the template structure is a `FAIL`.
+
+1. Author the chrome component inside the XF master variation, for example `/content/experience-fragments/<project>/<country>/<lang>/site/header/master`. The variation node keeps `cq:xfVariantType="web"`, `cq:xfMasterVariation="{Boolean}true"`, the project `xfpage` resource type, and the project XF web-variation template.
+2. Reference each fragment from the **template structure** using the project Experience Fragment proxy (`sling:resourceType="<project>/components/experiencefragment"`, which inherits `core/wcm/components/experiencefragment/v2/experiencefragment`) with `fragmentVariationPath` pointing at the master variation. Mark those structure nodes non-editable so authors change the fragment, not a per-page copy.
+3. The page's own `.content.xml` MUST NOT contain a chrome component node. Its `root` holds only the editable main container.
+4. Declare each XF path as an owned filter root in `ui.content` **before** any broad `mode="merge"` root, otherwise a redeploy leaves stale child nodes from the previous fragment content.
+5. Stage 3 verifies the deployed page renders the chrome through the fragment, and Stage 4 scores the chrome instances at their rendered selectors exactly as any other component.
+
+The chrome component itself is still a normal project component with its own Sling Model, dialog, HTL and clientlib. Only its authored placement changes.
 
 ## Stage Execution Contract
 

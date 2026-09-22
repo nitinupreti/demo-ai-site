@@ -51,6 +51,7 @@ export function createRunState(statePath, { runId, launcher, inputs, stageIds })
       result_path: null,
       checks: [],
     })),
+    components: [],
     timings: { phases: {} },
     events: [],
     stage_results: {},
@@ -100,12 +101,44 @@ export function applyProgress(statePath, progress) {
     state.current_stage = entry.stage;
   }
   if (progress.message) entry.message = String(progress.message).slice(0, 400);
-  state.events.push({ at: now, type: 'STAGE_PROGRESS', stage: entry.stage, status });
+  if (progress.component) recordComponent(state, progress.component, status, entry.stage);
+  state.events.push({ at: now, type: 'STAGE_PROGRESS', stage: entry.stage, status, component: progress.component || null });
   state.timings.phases[entry.stage] = {
     started_at: entry.started_at,
     ended_at: entry.ended_at,
     duration_seconds: entry.duration_seconds,
   };
+  writeAtomic(statePath, state);
+  return state;
+}
+
+function recordComponent(state, id, status, stage) {
+  state.components = state.components || [];
+  let component = state.components.find((entry) => entry.id === id);
+  if (!component) {
+    component = {
+      id, stage, status: 'PENDING', started_at: null, ended_at: null, duration_seconds: null, activity: 0,
+    };
+    state.components.push(component);
+  }
+  const now = new Date().toISOString();
+  if (status === 'STARTED') {
+    component.status = 'STARTED';
+    component.started_at = component.started_at || now;
+    component.stage = stage;
+  } else if (TERMINAL_STAGE_STATUS.has(status)) {
+    component.status = status;
+    component.ended_at = now;
+    component.duration_seconds = seconds(component.started_at, now);
+  }
+  return component;
+}
+
+/** Records observed activity against a component even when the agent never declared it. */
+export function touchComponent(statePath, id, stage) {
+  const state = readRunState(statePath);
+  const component = recordComponent(state, id, 'STARTED', stage);
+  component.activity += 1;
   writeAtomic(statePath, state);
   return state;
 }
@@ -196,6 +229,12 @@ export function summarize(state) {
   return {
     status: state.status,
     duration_seconds: state.duration_seconds,
+    components: (state.components || []).map((component) => ({
+      id: component.id,
+      status: component.status,
+      duration_seconds: component.duration_seconds,
+      activity: component.activity,
+    })),
     stages: state.stages.map((stage) => ({
       stage: stage.stage,
       status: stage.status,

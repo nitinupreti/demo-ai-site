@@ -106,6 +106,7 @@ The Remediation Loop MUST NOT run without an upper bound. Every failing componen
 
 - `MUST`, `FAIL`, and `STOP` are completion-blocking. STOP only for unreadable/missing sources, conflicting authorities, unresolved external blockers, or explicit user input requirements. Other failures require in-turn remediation.
 - No visible block may be omitted, including headless blocks such as marquees, tickers, announcement bars, background-media strips, and overlays.
+- Global chrome (site header, footer, announcement/utility bars, mega-menu overlays) is authored in Experience Fragments and referenced from the template structure by `fragmentVariationPath`. Chrome authored directly into a page or template is a failure.
 - Every business-editable value must be authored. Do not hardcode copy, links, assets, item counts, or visual choices unless the component contract explicitly permits it.
 - Every color role uses a curated token select with `other`; choosing `other` reveals a validated custom-hex field. Models sanitize custom values and HTL exposes them only through protected CSS custom properties.
 - Author DAM paths, never remote or temporary URLs. Preserve media class: video remains video, animation remains animation, and a poster is not a substitute.

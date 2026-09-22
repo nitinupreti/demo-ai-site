@@ -8,8 +8,10 @@ import readlinePromises from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  applyProgress, createRunState, finalizeRunState, ingestStageResults, markRunStarted, readRunState, summarize,
+  applyProgress, createRunState, finalizeRunState, ingestStageResults, markRunStarted, readRunState,
+  summarize, touchComponent,
 } from './orchestrator/state.mjs';
+import { createRenderer, detectComponent } from './orchestrator/console.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -578,6 +580,7 @@ function createRuntimePrompt(options, runId, evidenceDir, statePath) {
     '- The user explicitly authorizes autonomous component creation for this run. When a component workflow normally asks for field confirmation, derive the smallest exact field contract from accepted source evidence, persist it in `design-facts`, and proceed without inventing additional fields.',
     '- Before each stage, print one line exactly as `MIGRATION_PROGRESS {"stage":"<stage-id>","status":"STARTED","message":"<short message>"}`.',
     '- After each stage, print the same format with `PASS`, `FAIL`, or `BLOCKED`, and write the full stage_result envelope to `STAGE_RESULTS_DIR/<stage-id>.json` before continuing.',
+    '- Announce component work the same way so the operator can follow progress: print `MIGRATION_PROGRESS {"stage":"<stage-id>","component":"<component-id>","status":"STARTED","message":"<what you are building>"}` before you touch a component, and the same line with `PASS` or `FAIL` when that component is finished. Use the exact kebab-case component id from the Stage 1 hand-off.',
     '- RUN_STATE is owned by the launcher. Read it when you need run inputs, but never write to it; the launcher records stage status, timing and checks from your progress lines and envelopes.',
     '- Every stage envelope must carry the RUN_ID above and at least one check. An envelope claiming PASS while any check is FAIL is recorded as FAIL.',
     '- A build success is not completion. Finish only under the completion contract in the canonical prompt.',
@@ -602,15 +605,16 @@ function appendProgress(filePath, event) {
   fs.appendFileSync(filePath, `${JSON.stringify({ at: new Date().toISOString(), ...event })}\n`, 'utf8');
 }
 
-function displayAgentEvent(event, progressPath, statePath) {
+function displayAgentEvent(event, context) {
+  const { progressPath, statePath, renderer } = context;
   if (event.type === 'session.auto_mode_resolved') {
-    console.log(color.green(`Agent ready: ${event.data?.chosenModel || 'GitHub Copilot'}`));
+    renderer.note(`agent ready: ${event.data?.chosenModel || 'GitHub Copilot'}`);
     appendProgress(progressPath, { type: 'AGENT_READY', model: event.data?.chosenModel });
     return;
   }
 
   if (event.type === 'session.mcp_server_status_changed' && event.data?.status === 'connected') {
-    console.log(color.dim(`  [service] ${event.data.serverName} connected`));
+    renderer.note(`service ${event.data.serverName} connected`);
     return;
   }
 
@@ -621,20 +625,25 @@ function displayAgentEvent(event, progressPath, statePath) {
         input: request.arguments || request.input || request.tool?.arguments || {},
       };
       const summary = summarizeTool(block);
-      console.log(color.dim(`  [tool] ${summary}`));
+      renderer.activity(block.name, summary);
+      recordActivityComponent(statePath, context, summary);
       appendProgress(progressPath, { type: 'TOOL_REQUESTED', tool: block.name, summary });
     }
     if (event.data?.content?.trim()) {
-      console.log(event.data.content.trim());
       for (const line of event.data.content.split(/\r?\n/)) {
         const match = line.match(/^MIGRATION_PROGRESS\s+(.+)$/);
-        if (!match) continue;
+        if (!match) {
+          if (line.trim()) renderer.note(line);
+          continue;
+        }
         try {
           const progress = JSON.parse(match[1]);
           appendProgress(progressPath, { type: 'STAGE_PROGRESS', ...progress });
           applyProgress(statePath, progress);
+          announceProgress(renderer, context, progress);
         } catch (error) {
           appendProgress(progressPath, { type: 'INVALID_PROGRESS_LINE', line, error: error.message });
+          renderer.warn(`unparsable progress line: ${line.slice(0, 80)}`);
         }
       }
     }
@@ -647,23 +656,22 @@ function displayAgentEvent(event, progressPath, statePath) {
       input: event.data?.arguments || event.data?.input || event.data?.tool?.arguments || {},
     };
     const summary = summarizeTool(block);
-    console.log(color.dim(`  [tool] ${summary}`));
+    renderer.activity(block.name, summary);
+    recordActivityComponent(statePath, context, summary);
     appendProgress(progressPath, { type: 'TOOL_STARTED', tool: block.name, summary });
     return;
   }
 
   if (event.type === 'session.error') {
     const message = event.data?.message || event.data?.error || 'Unknown Copilot session error';
-    console.log(color.red(`Agent error: ${message}`));
+    renderer.warn(`agent error: ${message}`);
     appendProgress(progressPath, { type: 'AGENT_ERROR', message });
     return;
   }
 
   if (event.type === 'result') {
-    const failed = event.exitCode !== 0;
-    const label = failed ? color.red('Agent failed') : color.green('Agent finished');
     const requests = event.usage?.premiumRequests;
-    console.log(`${label}${requests === undefined ? '' : ` (premium requests: ${requests})`}`);
+    renderer.note(`agent finished, exit ${event.exitCode}${requests === undefined ? '' : `, premium requests ${requests}`}`);
     appendProgress(progressPath, {
       type: 'AGENT_RESULT',
       exit_code: event.exitCode,
@@ -673,7 +681,33 @@ function displayAgentEvent(event, progressPath, statePath) {
   }
 }
 
-async function runAgent(copilot, options, runtimePrompt, evidenceDir, statePath) {
+function announceProgress(renderer, context, progress) {
+  const status = String(progress.status || '').toUpperCase();
+  if (progress.component) {
+    if (status === 'STARTED') renderer.componentStarted(progress.component, progress.message);
+    else renderer.componentFinished(progress.component, status);
+    return;
+  }
+  if (status === 'STARTED') {
+    context.stage = progress.stage;
+    renderer.stageStarted(progress.stage, progress.message);
+  } else {
+    renderer.stageFinished(progress.stage, status, progress.message);
+  }
+}
+
+/** Attributes observed file activity to a component so progress is visible without agent narration. */
+function recordActivityComponent(statePath, context, summary) {
+  const component = detectComponent(summary);
+  if (!component) return;
+  try {
+    touchComponent(statePath, component, context.stage);
+  } catch {
+    // Never let bookkeeping interrupt the run.
+  }
+}
+
+async function runAgent(copilot, options, runtimePrompt, evidenceDir, statePath, renderer) {
   const streamPath = path.join(evidenceDir, 'agent-stream.jsonl');
   const stderrPath = path.join(evidenceDir, 'agent-stderr.log');
   const progressPath = path.join(evidenceDir, 'launcher-progress.jsonl');
@@ -725,16 +759,19 @@ async function runAgent(copilot, options, runtimePrompt, evidenceDir, statePath)
   child.stderr.on('data', (chunk) => process.stderr.write(color.yellow(chunk.toString())));
 
   const lines = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+  const context = { progressPath, statePath, renderer, stage: null };
+  renderer.startHeartbeat();
   for await (const line of lines) {
     rawStream.write(`${line}\n`);
     if (!line.trim()) continue;
     try {
-      displayAgentEvent(JSON.parse(line), progressPath, statePath);
+      displayAgentEvent(JSON.parse(line), context);
     } catch {
-      console.log(line);
+      renderer.note(line);
       appendProgress(progressPath, { type: 'UNPARSED_AGENT_OUTPUT', line });
     }
   }
+  renderer.stopHeartbeat();
 
   const exitCode = await exitPromise;
   rawStream.end();
@@ -859,9 +896,17 @@ async function main() {
     return;
   }
 
-  console.log(color.cyan('\nStarting migration. Press Ctrl+C to stop the agent.\n'));
+  const renderer = createRenderer({ stageIds });
+  renderer.runHeader({
+    siteUrl: options.siteUrl,
+    aemUrl: aemBaseUrl,
+    runId,
+    evidenceDir: relativeToRepo(evidenceDir),
+    model: options.model,
+    effort: options.effort,
+  });
   markRunStarted(statePath);
-  const exitCode = await runAgent(copilot, options, runtimePrompt, evidenceDir, statePath);
+  const exitCode = await runAgent(copilot, options, runtimePrompt, evidenceDir, statePath, renderer);
   if (options.agentSmokeTest) {
     if (exitCode !== 0) {
       throw new Error(`GitHub Copilot CLI exited with code ${exitCode}. See ${path.join(evidenceDir, 'agent-stderr.log')}`);
@@ -883,29 +928,18 @@ async function main() {
   });
 
   const summary = summarize(finalState);
-  console.log(color.cyan('\nRun complete'));
-  console.log(`Status: ${summary.status}`);
-  if (summary.duration_seconds !== null) {
-    console.log(`Duration: ${(summary.duration_seconds / 60).toFixed(1)} min`);
-  }
-  for (const stage of summary.stages) {
-    const duration = stage.duration_seconds === null ? '' : ` (${stage.duration_seconds}s)`;
-    const failing = stage.failing_checks.length ? ` failing: ${stage.failing_checks.join(', ')}` : '';
-    console.log(`  ${stage.stage.padEnd(24)} ${stage.status}${duration}${failing}`);
-  }
+  renderer.summary(summary, {
+    evidenceDir: relativeToRepo(evidenceDir),
+    targetUrl: finalUrl,
+    components: summary.components,
+  });
   if (!ingested.length) {
     console.log(color.yellow(`  No stage envelopes were written to ${relativeToRepo(stagesDir)}.`));
   }
-  console.log(`Evidence: ${evidenceDir}`);
   if (exitCode !== 0) {
     throw new Error(`GitHub Copilot CLI exited with code ${exitCode}. See ${path.join(evidenceDir, 'agent-stderr.log')}`);
   }
-  if (finalUrl) {
-    console.log(`AEM page: ${finalUrl}`);
-    if (options.openResult) openUrl(finalUrl);
-  } else {
-    console.log(color.yellow('No final target URL was recorded. Check run-state.json for the terminal stage result.'));
-  }
+  if (finalUrl && options.openResult) openUrl(finalUrl);
 }
 
 main().catch((error) => {
