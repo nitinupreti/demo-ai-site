@@ -5,9 +5,18 @@ This file owns source readiness, exhaustive block discovery, manifests, and froz
 ## Stage Execution Contract
 
 - Input: `SITE_URL`, breakpoints, evidence directory, and the orchestrator `run_id`.
-- Execute every requirement in this file against the live source. Do not inspect the AEM target during this stage.
-- Required outputs: readiness report, full-page screenshots, `score_manifest`, `coverage_report`, ownership map, per-instance source selector map, source-DOM manifests, responsive/state matrix, media manifest, metadata, and frozen scoring denominators.
-- Exit gate: every breakpoint is ready, every discovery signal ran, every visible candidate is claimed exactly once, and no `UNCLAIMED` gap is 20 CSS px or more.
+- Run the frozen capture tool first; it performs readiness, the discovery-signal union, selector generation, computed-style capture, media capture and coverage banding at every breakpoint:
+
+```powershell
+node design/site-url/tools/discover.mjs --url <SITE_URL> --out <EVIDENCE_DIR>/discovery --breakpoints <BREAKPOINTS> --run-id <RUN_ID>
+```
+
+- `discovery/discovery.json` is the frozen source evidence. Read it; never hand-write, edit or estimate its contents. The tool exits non-zero when any breakpoint fails readiness or any unclaimed coverage gap reaches 20 CSS px.
+- Your judgement work is what the tool cannot decide: naming each instance, grouping instances into components, the no-omission audit against the catalog below, and the Tier hand-off to Stage 2. Do not inspect the AEM target during this stage.
+- Required outputs: `discovery.json` (readiness, instances, selectors, rects, styles, media, coverage, `source_fingerprint`), full-page screenshots, the `inventory_audit` table, the ownership map, and the frozen scoring denominators.
+- Exit gate: `discovery.json` reports `status: PASS`, every catalog row is answered with evidence or a negative citation, and every instance is claimed exactly once.
+
+The requirements below define what the tool captures and what you must verify in its output. If a reviewer identifies an omitted block, rerun the tool and refresh downstream evidence in the same run.
 
 ## Readiness At Every Breakpoint
 
@@ -127,15 +136,18 @@ stage_result:
   status: PASS|FAIL|BLOCKED
   inputs_consumed: [SITE_URL, breakpoints]
   outputs:
-    readiness_report: <artifact>
-    score_manifest: <artifact>
-    coverage_report: <artifact>
+    discovery_artifact: <EVIDENCE_DIR>/discovery/discovery.json
+    source_fingerprint: <source_fingerprint from discovery.json>
+    readiness_report: <discovery.json readiness[]>
+    score_manifest: <discovery.json instances[]>
+    coverage_report: <discovery.json coverage>
     ownership_map: <artifact>
-    source_selector_map: <artifact>
+    source_selector_map: <discovery.json instances[].selector>
     inventory_audit: <artifact>
-    dom_state_media_manifests: <artifacts>
-    frozen_denominators: <artifact>
+    dom_state_media_manifests: <discovery.json instances[].styles and .media>
+    frozen_denominators: <discovery.json denominators>
   checks:
+    - {name: discovery_tool_status_pass, status: PASS|FAIL, evidence: <discovery.json status>}
     - {name: all_breakpoints_ready, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_discovery_signals_executed, status: PASS|FAIL, evidence: <artifact>}
     - {name: inventory_audit_complete, status: PASS|FAIL, evidence: <artifact — every catalog row answered>}

@@ -1,0 +1,18 @@
+{
+  "name": "aem-migration-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frozen deterministic capture and scoring tools for the AEM URL migration pipeline.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.56.0",
+    "pngjs": "^7.0.0"
+  }
+}

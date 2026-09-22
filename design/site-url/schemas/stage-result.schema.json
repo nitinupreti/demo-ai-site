@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://demo-ai-site/aem-migration/stage-result.schema.json",
+  "title": "Stage result envelope",
+  "description": "Written by an agent to <EVIDENCE_DIR>/stages/<stage>.json. The launcher validates this file; an agent never writes run-state.json.",
+  "type": "object",
+  "required": ["stage", "run_id", "status", "outputs", "checks"],
+  "additionalProperties": true,
+  "properties": {
+    "stage": {
+      "type": "string",
+      "enum": [
+        "01-source-discovery",
+        "02-component-authoring",
+        "03-assets-runtime",
+        "04-visual-parity",
+        "05-completion-output"
+      ]
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "COMPLETE"] },
+    "inputs_consumed": { "type": "array", "items": { "type": "string" } },
+    "outputs": { "type": "object" },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "BLOCKED"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "failures": { "type": "array", "items": { "type": "object" } },
+    "next_stage": { "type": ["string", "null"] }
+  }
+}

@@ -16,12 +16,26 @@ These values control every stage. A stage file may add detail but MUST NOT weake
 ```yaml
 required_breakpoints: [375, 768, 1440] # unless BREAKPOINTS explicitly replaces them
 visual_pass_ratio: "> 0.90"            # compare the unrounded matched/total ratio
+match_gates: [typography, color, spacing, images, svg, glyph_substitutions, structure]
 max_attempts_per_component: 4          # Round 1: 3; Round 2: 1
 default_evidence_dir: design/scratch/migration-<run_id>
 completion_requires: [stage_01_pass, stage_02_pass, stage_03_pass, stage_04_pass, no_residual_gaps]
 ```
 
-Create one `run_id` before Stage 1 and preserve it. Write stage artifacts and a machine-readable `run-state.json` under `EVIDENCE_DIR` so later stages consume files rather than reconstructed chat summaries.
+The target is AEM as a Cloud Service components — Sling Models, HTL, Coral 3 dialogs, client libraries and authored content. This is not an Edge Delivery Services project; never produce EDS blocks, `blocks/` folders, or document-authored markup.
+
+## MUST — Frozen Tools Own Evidence And Scores
+
+Two checked-in tools are the only valid producers of source evidence and visual scores. Read their output; never reimplement, replace, edit, estimate or round it.
+
+| Purpose | Command | Artifact |
+|---|---|---|
+| Source capture (Stage 1) | `node design/site-url/tools/discover.mjs --url <SITE_URL> --out <EVIDENCE_DIR>/discovery --breakpoints <BREAKPOINTS> --run-id <RUN_ID>` | `discovery/discovery.json` + full-page PNGs |
+| Visual parity (Stage 4) | `node design/site-url/tools/parity.mjs --config <EVIDENCE_DIR>/parity/parity-config.json --out <EVIDENCE_DIR>/parity` | `parity/parity.json` + crops, masks, side-by-side PNGs |
+
+Install their dependencies once with `npm install` inside `design/site-url/tools` when `node_modules` is absent. Both tools exit non-zero on failure. Modifying anything under `design/site-url/tools/` to relax a gate invalidates the run.
+
+`run_id` is supplied by the launcher. `EVIDENCE_DIR/run-state.json` is owned by the launcher: read it for run inputs, never write to it. Each stage writes its envelope to `EVIDENCE_DIR/stages/<stage-id>.json`; the launcher validates the envelope, stamps timing, and records the verdict. An envelope claiming `PASS` while any check is `FAIL`, or carrying a different `run_id`, is recorded as `FAIL`.
 
 ## MUST — Decoded Video And Stable Geometry Gate
 
@@ -64,7 +78,7 @@ The successful path executes these five stages in strict sequential order using 
 1. **Source discovery and coverage** — [01-source-discovery.md](01-source-discovery.md). Complete and freeze source evidence before inspecting the target.
 2. **Reuse, component implementation, and authoring** — [02-component-authoring.md](02-component-authoring.md). Component Coverage Gate is a precondition for Stage 3.
 3. **Assets, build, deployment, and runtime checks** — [03-assets-runtime.md](03-assets-runtime.md).
-4. **Visual parity and remediation** — [04-visual-parity.md](04-visual-parity.md). MUST run after every deploy affecting appearance or behavior. Owns parity-runner selection, the Side-by-Side Locator Screenshot rule, and the Remediation Loop. Use an existing project runner or create a run-scoped runner under `EVIDENCE_DIR`; no bundled runner is assumed.
+4. **Visual parity and remediation** — [04-visual-parity.md](04-visual-parity.md). MUST run after every deploy affecting appearance or behavior. Owns the frozen parity runner, the Side-by-Side Locator Screenshot rule, and the Remediation Loop.
 5. **Completion report** — [05-completion-output.md](05-completion-output.md). Read only when preparing the final response.
 
 If a later stage exposes missing or stale evidence, return to the owning stage, refresh that evidence, and continue. Never compensate for missing discovery or content by tuning CSS.
@@ -95,8 +109,9 @@ The Remediation Loop MUST NOT run without an upper bound. Every failing componen
 - Every business-editable value must be authored. Do not hardcode copy, links, assets, item counts, or visual choices unless the component contract explicitly permits it.
 - Every color role uses a curated token select with `other`; choosing `other` reveals a validated custom-hex field. Models sanitize custom values and HTL exposes them only through protected CSS custom properties.
 - Author DAM paths, never remote or temporary URLs. Preserve media class: video remains video, animation remains animation, and a poster is not a substitute.
-- Use Playwright/Chromium for live source and target evidence. Property equality alone cannot establish visual parity.
+- Use the frozen tools for live source and target evidence. Property equality alone cannot establish visual parity.
 - Every component instance, component-type minimum, and page composite must be strictly `>90%` at every required breakpoint. `90.000%` fails.
+- A percentage above the threshold is not sufficient on its own. Every instance must also clear the structured match gates: typography (family, size, weight, line-height, letter-spacing), colour (font colour, background colour/image, border colours, shadows), spacing (margin, padding, gap, border width and box position), inline images (source, intrinsic size, rendered box, object-fit, alt), inline SVG (viewBox, path geometry, paints, box) and structure. Icon glyphs such as `⌄`, `▼`, `→`, `×`, `▶` in target text are an automatic failure.
 - A component passes only when exhaustive source coverage, geometry, property, screenshot, interaction/media, and authorability checks all pass.
 - User rejection invalidates the affected evidence and score; recapture and remediate.
 - Never modify generated/vendor paths: `target/`, `dist/`, `node_modules/`, `.m2/`, Core Component libraries, or template `initial`/`structure` trees.
@@ -106,7 +121,7 @@ The Remediation Loop MUST NOT run without an upper bound. Every failing componen
 1. Read `AGENTS.md`, `CLAUDE.md`, and `.aem-skills-config.yaml` when present.
 2. Use `create-component` for every Tier 2/3/4 component. Run `code-assessment` on generated Java/OSGi/Maven code before completion.
 3. Inspect only `SITE_URL` and exact resources referenced by its DOM, CSS, or captured network traffic. Do not crawl linked pages, submit forms, forward cookies, or inspect unrelated embeds.
-4. Node.js Playwright/Chromium only for site modes. Use an existing project Playwright suite or a generated run-scoped runner under `EVIDENCE_DIR`. Whichever path is chosen MUST satisfy the same evidence contract with `locator.screenshot()` plus `pixelmatch` and `pngjs`/`sharp` (see [04-visual-parity.md](04-visual-parity.md)).
+4. Use the frozen tools above for every capture and every score. They already enforce identical viewport, colour scheme, locale, font readiness, media decode and motion state on both sides; a hand-rolled runner does not and is not permitted.
 5. Keep an inline `design-facts` block current throughout implementation:
 
 ```yaml

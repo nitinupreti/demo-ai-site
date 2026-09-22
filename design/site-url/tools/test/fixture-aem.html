@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Parity fixture - AEM target with seeded defects</title>
+  <style>
+    /* Seeded defects, one owning layer per component:
+       #site-header  identical            -> expect PASS / exact
+       #hero         h1 font-size 48px    -> typography, changes height -> unequal crops
+       #cta          brand colour changed -> colour token, geometry unchanged
+       #cards        card padding 22px    -> spacing, geometry unchanged (fixed row height) */
+    :root { --brand: #d9480f; --ink: #14161a; --paper: #ffffff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink);
+           font-family: Arial, Helvetica, sans-serif; }
+    header { height: 72px; display: flex; align-items: center; padding: 0 24px;
+             background: #f4f5f7; border-bottom: 1px solid #e1e4e8; }
+    header strong { font-size: 18px; letter-spacing: .02em; }
+    .hero { padding: 48px 24px; }
+    .hero h1 { margin: 0 0 16px; font-size: 48px; line-height: 1.1; font-weight: 700; }
+    .hero p { margin: 0; font-size: 16px; line-height: 1.5; max-width: 40em; color: #4a5160; }
+    .cta { height: 120px; display: flex; align-items: center; padding: 0 24px; background: #eef2ff; }
+    .cta a { display: inline-block; padding: 12px 20px; border-radius: 6px;
+             background: var(--brand); color: #fff; text-decoration: none;
+             font-size: 15px; font-weight: 700; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; height: 160px; }
+    .cards article { padding: 22px; border: 1px solid #e1e4e8; border-radius: 8px; background: #fff; }
+    .cards h2 { margin: 0 0 8px; font-size: 16px; }
+    .cards p { margin: 0; font-size: 14px; color: #5b6472; }
+  </style>
+</head>
+<body>
+  <header id="site-header"><strong>Fixture Co</strong></header>
+  <section class="hero" id="hero">
+    <h1>Migrate a page without guessing</h1>
+    <p>The parity gate compares rendered pixels, geometry and computed styles so remediation edits the layer that actually differs.</p>
+  </section>
+  <section class="cta" id="cta"><a href="#start">Start a migration</a></section>
+  <section class="cards" id="cards">
+    <article><h2>Discovery</h2><p>Every visible block is claimed exactly once.</p></article>
+    <article><h2>Authoring</h2><p>Every business value is an authored field.</p></article>
+    <article><h2>Parity</h2><p>Scores come from pixels, never from prose.</p></article>
+  </section>
+</body>
+</html>

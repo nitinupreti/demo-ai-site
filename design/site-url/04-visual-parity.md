@@ -2,36 +2,51 @@
 
 This file owns component scoring, exact checks, screenshots, interaction comparison, anti-gaming rules, and remediation. Run it in the same migration run as every appearance/behavior deploy.
 
-## MUST — Deterministic Parity Runner
+## MUST — Frozen Parity Runner
 
-A permanently frozen harness is not required. Reproducible inputs, capture behavior, and scoring are required. Choose exactly one runner path before the first baseline:
+`design/site-url/tools/parity.mjs` is the only permitted scorer. Do not select, generate, fork or patch a runner.
 
-1. an existing project Playwright visual-test runner; or
-2. a generated Node.js runner stored under `<EVIDENCE_DIR>/parity/runner/`.
+```powershell
+node design/site-url/tools/parity.mjs --config <EVIDENCE_DIR>/parity/parity-config.json --out <EVIDENCE_DIR>/parity
+```
 
-The selected runner MUST:
+Your only authoring task is the run config, built from Stage 1 source selectors and Stage 2 target selectors:
 
-- consume Stage 1 source instance selectors, Stage 2 target selectors, URLs, and all observed breakpoints from a run-specific config; do not rely on a fixed component list;
-- use Playwright/Chromium and `locator.screenshot()` for homologous component-instance crops;
-- capture full-page source and target screenshots;
-- use `pixelmatch` with `pngjs` or `sharp` for pixel counts, diff masks, and labelled side-by-side images;
-- emit the screenshot-validation metadata and score fields required below as machine-readable JSON;
-- keep credentials in environment variables, not committed config; and
-- write all generated files only under `<EVIDENCE_DIR>/parity/`.
+```jsonc
+{
+  "run_id": "<RUN_ID>",
+  "source_url": "<SITE_URL>",
+  "targets": [{ "mode": "disabled", "url": "http://<AEM_HOST>:<AEM_PORT>/<page>.html?wcmmode=disabled" }],
+  "breakpoints": [375, 768, 1440],
+  "threshold": 0.9,
+  "auth": { "username": "admin", "password_env": "AEM_PASSWORD" },
+  "components": [{
+    "id": "<component-id>",
+    "source": { "css": "<stage 1 selector>", "match_index": 0 },
+    "target": { "css": "<stage 2 selector>", "match_index": 0 },
+    "signature_text": "<first words of the instance>",
+    "visibility_by_bp": { "375": true, "768": true, "1440": true }
+  }]
+}
+```
 
-Before accepting the first score, run a preflight against one component at every breakpoint and prove: both selectors resolve to the intended instance, final URLs and viewport/DPR are recorded, fonts and media are ready, crops are non-blank, dimensions are comparable, and all required artifacts exist. If the selected runner cannot pass this preflight, repair it or choose the other permitted runner path before scoring.
+Credentials come from the environment variable named by `password_env`; never write a password into the config. The tool records `runner_revision` as a hash of its own sources plus the config, so a config change invalidates earlier scores and requires recapture.
 
-After preflight, record SHA-256 hashes for the runner, run config, and dependency lockfile. These files are frozen only for the current baseline/remediation run. A necessary runner or config change creates a new runner revision, invalidates all scores produced by the old revision, and requires recapture of every affected component and breakpoint. Manual clipping, DOM serialization, CSS-only comparison, and scores from mixed runner revisions are invalid.
+The runner already enforces, identically on both sides: exact viewport and DPR, forced light colour scheme, fixed locale and timezone, lazy-load and dynamic-injection settle, `document.fonts.ready`, image decode, video decode with a deterministic seek, motion freeze, and three stable-geometry samples 500 ms apart. If a capture fails readiness, every score for that breakpoint is withheld rather than reported.
+
+## MUST — Read The Verdict, Never Restate It
+
+`parity.json` is the single source of truth for scores. Copy values from it; do not recompute, round up, average, or describe a score the tool did not emit. When a score is `WITHHELD`, report `SCORE WITHHELD` with the tool's reason — never a percentage.
 
 ## MUST — Diagnose Before Edit
 
-Every Round 1 attempt 1 for every failing component MUST begin with a live-DOM diagnostic pair captured by an equivalent command from the selected runner:
+Every Round 1 attempt 1 for every failing component MUST begin with the tool's own deltas for that instance and breakpoint:
 
-- MUST run the selected diagnostic command for the failing instance and breakpoint and copy the resulting `deltas` block into `remediation_history` before touching any CSS/HTL/model file.
-- MUST base attempt 1 edits on the reported deltas (`fontFamily`, `fontSize`, `lineHeight`, `padding`, `backgroundColor`, `gridTemplateColumns`, etc.), not on plausible-looking values inferred from class names.
-- If the diagnostic reports `deltas.rect.w != 0` or `deltas.rect.h != 0`, attempt 1 MUST address the geometry gap (container/grid/full-bleed) before typography or color.
-- MUST run the diagnostic again before every subsequent attempt to a component that regressed relative to its previous best score. Consecutive regressions with no refreshed diagnostic are treated as unrecorded attempts.
-- If either selector returns no element or resolves to the wrong instance, do not edit component code. Correct the owning Stage 1/2 selector artifact, create a new runner revision, rerun preflight, and recapture affected scores.
+- MUST copy the component's `deltas` block from `parity.json` into `remediation_history` before touching any CSS/HTL/model file.
+- MUST base attempt 1 edits on the reported deltas. `deltas.hot_regions` names the exact target elements under the differing pixels; `owning_layer_hint` names the layer that owns the failure. Use them instead of plausible-looking values inferred from class names.
+- If `deltas.rect.w` or `deltas.rect.h` is non-zero, or the result reports `dimension_mismatch`, attempt 1 MUST address the geometry gap (container/grid/full-bleed) before typography or colour.
+- MUST rerun the tool before every subsequent attempt to a component that regressed relative to its previous best score. Consecutive regressions with no refreshed run are treated as unrecorded attempts.
+- If either selector returns no element or resolves to the wrong instance, do not edit component code. Correct the owning Stage 1/2 selector artifact, update the run config, and rerun.
 
 ## MUST — Broad Fix Batches (working-set discipline)
 
@@ -63,14 +78,14 @@ Keep `<EVIDENCE_DIR>/run-state.json` as the source of truth for remediation stat
 
 ## Stage Execution Contract
 
-- Inputs: accepted Stages 1-3 results, frozen denominators, Stage 1 source selector map, Stage 2 target selector map verified by Stage 3, deployed target URLs, and the same `run_id`.
-- Execute the full Playwright comparison at every breakpoint for every block/instance. Do not substitute CSS declarations or selected properties for rendered evidence.
-- Required outputs: readiness matrix, per-instance geometry/property/interaction tables, full and component screenshots, side-by-side/diff artifacts, scores, remediation history, and final minima/composites.
-- Passing gate: all prerequisites pass and every raw instance, component-type minimum, and page composite is strictly above 90% at every breakpoint. After bounded retries, Stage 4 may terminate with `FAIL`; that terminal result permits Stage 5 reporting but never completion.
+- Inputs: accepted Stages 1-3 results, frozen denominators, the Stage 1 source selector map from `discovery.json`, the Stage 2 target selector map verified by Stage 3, deployed target URLs, and the same `run_id`.
+- Build the parity run config, run `parity.mjs` at every breakpoint for every instance, and read its verdict. Do not substitute CSS declarations or selected properties for rendered evidence.
+- Required outputs: `parity/parity.json`, its preflight block, per-instance geometry/property/gate tables, full and component screenshots, side-by-side/diff artifacts, scores, and remediation history.
+- Passing gate: all prerequisites pass, every structured match gate is `PASS`, and every raw instance, component-type minimum and page composite is strictly above 90% at every breakpoint. After bounded retries, Stage 4 may terminate with `FAIL`; that terminal result permits Stage 5 reporting but never completion.
 
 ## Readiness And Scope
 
-Use real Playwright/Chromium for the live source, disabled target, and author target at every required breakpoint. Assert that the live source fingerprint still matches Stage 1, then assert identical CSS viewport, DPR/scale, font readiness, media decode, motion state, and stable geometry before capture. Source drift invalidates affected Stage 1 evidence; other readiness failures block scoring.
+Scoring covers the live source, disabled target, and author target at every required breakpoint. Assert that `discovery.json`'s `source_fingerprint` still matches Stage 1 before trusting a comparison; the runner then enforces identical CSS viewport, DPR/scale, colour scheme, font readiness, media decode, motion state, and stable geometry before capture. Source drift invalidates affected Stage 1 evidence; other readiness failures withhold scores rather than producing them.
 
 Every source instance maps exactly once to a target owner. Missing, duplicated, orphaned, or structurally combined/split regions fail.
 
@@ -97,17 +112,17 @@ Section and CTA background/foreground/border/radius mismatches are hard failures
 
 ## Screenshot Gate
 
-At every breakpoint:
+`parity.mjs` performs every step below at every breakpoint. Your obligation is to confirm the artifacts exist in `parity.json` and to cite them; never substitute a manual capture.
 
-1. Use Playwright to navigate one page to the exact live `SITE_URL` and a second page to the deployed AEM disabled URL. Record both final URLs after redirects. A local copy, cached historical image, CSS preview, or authored mock is not a source substitute.
-2. In source and target, assert the requested `window.innerWidth`, DPR, `visualViewport.scale`, font/media readiness, and stable homologous component roots; clear hover, trigger lazy loading, freeze animation for static capture, and scroll the roots into equivalent positions.
-3. Save full-page source and target screenshots from Playwright in the current run.
-4. Save source and target region screenshots for every component instance at native DPR. Source crop is always the live-site instance; target crop is always the corresponding deployed AEM instance.
-5. Produce a labeled side-by-side image with `LIVE SITE` on the left and `AEM` on the right, plus a pixel-diff mask derived from those exact two files.
-6. Validate both crops before scoring: non-empty, not mostly uniform/blank, expected component text/media present, matching viewport/DPR, matching homologous instance IDs, and identical pixel dimensions. Do not resize, stretch, or pad unequal crops; withhold the score and remediate geometry instead. Emit URL, timestamp, viewport, DPR, file path, byte size, dimensions, and content-validation result for each crop.
-7. Only after Step 6 passes, record matched pixels, differing pixels, total pixels, and unrounded `visualMatchRatio`; derive `visualMatchPercent` only for display.
+1. One page navigates to the exact live `SITE_URL` and a second to the deployed AEM disabled URL, recording both final URLs after redirects. A local copy, cached historical image, CSS preview, or authored mock is not a source substitute.
+2. Both pages assert the requested `window.innerWidth`, DPR, `visualViewport.scale`, font and media readiness, and stable homologous roots; motion is frozen and lazy loading triggered before capture.
+3. Full-page source and target screenshots are saved for the current run.
+4. Region screenshots are saved for every component instance at native DPR — source crop from the live site, target crop from the deployed AEM instance.
+5. A labelled side-by-side image is produced with `LIVE SITE` on the left and `AEM` on the right, plus a pixel-diff mask derived from those exact two files.
+6. Both crops are validated before scoring: non-empty, not mostly uniform, matching viewport/DPR, matching homologous instance, and identical pixel dimensions. Unequal crops are never resized, stretched or padded; the authoritative score is withheld, the status is `FAIL`, and an overlap diagnostic plus `dimension_mismatch` is reported so the geometry gap is actionable.
+7. Only after validation passes are matched pixels, differing pixels, total pixels and the unrounded `visual_match_ratio` recorded. `visual_match_percent` is derived for display only.
 
-Pixel comparison must use homologous non-blank crops. Reject wrong viewport, empty/mostly background crops, mismatched DPR, stale screenshots, different animation frames, and comparisons dominated by whitespace. Property equality never overrides screenshot failure.
+Pixel comparison uses homologous non-blank crops. Wrong viewport, empty crops, mismatched DPR, stale screenshots and different animation frames are rejected by the tool. Property equality never overrides screenshot failure.
 
 ### Score Issuance Gate
 
@@ -129,9 +144,27 @@ Calculate frozen weighted axis scores from `01-source-discovery.md`. Instance sc
 - weighted property/structure score;
 - `visualMatchPercent`;
 - authorability score;
-- media/interaction prerequisites.
+- media/interaction prerequisites;
+- every structured match gate below.
 
 Every raw instance, component-type minimum, and page composite must be strictly `>90%`; exactly 90% fails. A high page average cannot hide a failed component or axis.
+
+## Structured Match Gates
+
+`parity.mjs` emits a `gates` object per instance. **Every gate must be `PASS` for the instance to pass, regardless of the pixel percentage.** A component can score 95% and still fail here — that is intended, because a wrong brand colour or a 6 px padding drift moves few pixels.
+
+| Gate | Compared for every text role and layout child | Failure means |
+|---|---|---|
+| `typography` | `fontFamily` stack, `fontSize`, `fontWeight`, `fontStyle`, `lineHeight`, `letterSpacing`, `wordSpacing`, `textTransform`, `textDecorationLine`, `textAlign`, `whiteSpace` | wrong face, size, weight or leading |
+| `color` | font `color`, `backgroundColor`, `backgroundImage`/`Size`/`Position`/`Repeat`, all four border colours, `outlineColor`, `boxShadow`, `textShadow`, `opacity`, `textDecorationColor` | wrong token or hardcoded value |
+| `spacing` | all four margins and paddings, `rowGap`/`columnGap`, border widths, `display`, flex/grid properties, and each child's position and size within the component | box-model or layout drift beyond 1 CSS px |
+| `images` | resolved source, load state, intrinsic width/height, rendered box, `objectFit`, `objectPosition`, `borderRadius`, `alt` | missing, substituted, unloaded, or re-proportioned image |
+| `svg` | `viewBox`, path/shape geometry hash, shape count, `fill`, `stroke`, `color`, `strokeWidth`, rendered box | redrawn, approximated or recoloured inline SVG |
+| `glyph_substitutions` | icon-shaped characters in target text that the source does not have | a Unicode glyph used instead of a real icon asset |
+| `structure` | direct child element sequence of the component root | regions combined, split or reordered |
+| `rendered_fonts` | platform fonts actually rasterised, read over CDP | a declared family that silently fell back |
+
+The tool reports each failure with the owning selector, the property, and both values, so remediation edits the exact declaration that differs rather than guessing.
 
 ## Remediation Loop
 
@@ -182,18 +215,18 @@ stage_result:
   status: PASS|FAIL|BLOCKED
   inputs_consumed: [01-source-discovery:<result-id>, 02-component-authoring:<result-id>, 03-assets-runtime:<result-id>]
   outputs:
-    readiness_matrix: <artifact>
-    geometry_property_interaction_tables: <artifacts>
+    parity_artifact: <EVIDENCE_DIR>/parity/parity.json
+    parity_runner_revision: <runner_revision from parity.json>
     screenshot_and_diff_index: <artifact>
     per_instance_scores: <artifact>
     component_minima_and_page_composites: <artifact>
     remediation_history: <artifact>
-    parity_runner: <path, revision, hashes, preflight artifact>
   checks:
     - {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_screenshot_scores_above_90, status: PASS|FAIL, evidence: <artifact>}
+    - {name: all_match_gates_pass, status: PASS|FAIL, evidence: <parity.json gates>}
     - {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_final_minima_and_composites_above_90, status: PASS|FAIL, evidence: <artifact>}
   failures: []

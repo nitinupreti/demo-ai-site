@@ -17,7 +17,8 @@ Only `status: COMPLETE` flips the pipeline. `FAIL` or `BLOCKED` closes the curre
 ## Stage Execution Contract
 
 - Inputs: terminal results from Stages 1-4 with the same `run_id`; Stages 1-3 must be `PASS`, while Stage 4 may be `PASS`, `FAIL`, or `BLOCKED`.
-- Validate each upstream result envelope, its required outputs/checks, dependency IDs, and evidence freshness. Do not recreate or infer missing results.
+- Validate each upstream envelope in `EVIDENCE_DIR/stages/`, its required outputs/checks, dependency IDs, and evidence freshness. Do not recreate or infer missing results.
+- Every score, pixel count and gate verdict is copied from `parity/parity.json`. Every duration is copied from the launcher-owned `run-state.json` (`timings.stages` and `timings.total_seconds`). Do not estimate either.
 - Produce the mandatory tables/artifacts summary below.
 - Exit gate for `COMPLETE`: Stages 1-4 are accepted `PASS` results, all evidence belongs to this run, all coverage/component/asset/visual rows reconcile, and residual gaps are empty.
 
@@ -30,6 +31,8 @@ Only `status: COMPLETE` flips the pipeline. `FAIL` or `BLOCKED` closes the curre
 5. Coverage report per breakpoint proving no unclaimed gap of 20 CSS px or more and showing each block's discovery signals.
 6. Color-authorability matrix per component: role, selected token key, custom hex, correct conditional visibility, sanitized model value, deployed CSS property, and round-trip result.
 7. Asset manifest with source/local/DAM paths, MIME, bytes, deployment method, reachability, and decode status.
+8. Structured match-gate table per component: `typography`, `color`, `spacing`, `images`, `svg`, `glyph_substitutions`, `structure`, `rendered_fonts`, each `PASS` or `FAIL` with the owning selector and property for every failure.
+9. Run summary: components planned, components created by tier (reused / extended / new), total duration, and per-stage duration — all copied from `run-state.json`.
 
 ## Mandatory Artifacts
 
@@ -59,7 +62,7 @@ VISUAL PARITY GATE: FAILED after bounded remediation — <N> FAILED-FINAL compon
 VISUAL PARITY GATE: BLOCKED — <external prerequisite and evidence>
 ```
 
-Choose the line matching the Stage 5 status. Do not emit PASSED unless every prerequisite and component is strictly above 90% using valid current-run Playwright screenshots from the exact live site and deployed AEM page. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
+Choose the line matching the Stage 5 status. Do not emit PASSED unless every prerequisite and component is strictly above 90% **and** every structured match gate is `PASS` in the current run's `parity.json`. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
 
 ## Concise Supporting Summary
 

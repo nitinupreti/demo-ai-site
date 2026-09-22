@@ -104,3 +104,8 @@ reports/
 
 # Others
 dispatcher/src/conf.d/variables/default.vars
+
+### AEM migration pipeline ###
+
+# Per-run evidence written by design/site-url/run-migration.mjs
+design/scratch/

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://demo-ai-site/aem-migration/parity.schema.json",
+  "title": "Visual parity artifact",
+  "description": "Produced only by design/site-url/tools/parity.mjs. No agent may author, edit, estimate or round these scores.",
+  "type": "object",
+  "required": ["schema_version", "tool", "threshold", "runner_revision", "source_url", "breakpoints", "results", "components", "summary", "status"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "run_id": { "type": ["string", "null"] },
+    "generated_at": { "type": "string" },
+    "cycle": { "type": ["integer", "null"] },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "dependencies": { "type": "object" },
+        "browser": { "type": "string" }
+      }
+    },
+    "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+    "runner_revision": { "type": "string", "minLength": 1 },
+    "source_url": { "type": "string" },
+    "target_urls": { "type": "object" },
+    "breakpoints": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
+    "preflight": { "type": "object" },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component_id", "breakpoint", "mode", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "component_id": { "type": "string" },
+          "breakpoint": { "type": "integer" },
+          "mode": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "WITHHELD", "SKIPPED"] },
+          "withheld_reason": { "type": ["string", "null"] },
+          "matched_pixels": { "type": ["integer", "null"] },
+          "differing_pixels": { "type": ["integer", "null"] },
+          "total_pixels": { "type": ["integer", "null"] },
+          "visual_match_ratio": { "type": ["number", "null"] },
+          "visual_match_percent": { "type": ["number", "null"] },
+          "source": { "type": "object" },
+          "target": { "type": "object" },
+          "side_by_side": { "type": ["string", "null"] },
+          "diff_mask": { "type": ["string", "null"] },
+          "deltas": { "type": "object" }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component_id", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "component_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "WITHHELD", "SKIPPED"] },
+          "min_ratio": { "type": ["number", "null"] },
+          "owning_layer_hint": { "type": ["string", "null"] },
+          "breakpoints": { "type": "object" }
+        }
+      }
+    },
+    "page_composite": { "type": "object" },
+    "summary": {
+      "type": "object",
+      "required": ["components_total", "components_passed", "components_failed"],
+      "additionalProperties": true,
+      "properties": {
+        "components_total": { "type": "integer" },
+        "components_passed": { "type": "integer" },
+        "components_failed": { "type": "integer" },
+        "components_withheld": { "type": "integer" },
+        "min_ratio": { "type": ["number", "null"] },
+        "duration_seconds": { "type": "number" }
+      }
+    },
+    "status": { "type": "string", "enum": ["PASS", "FAIL"] }
+  }
+}

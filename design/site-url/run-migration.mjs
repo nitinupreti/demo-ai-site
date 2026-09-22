@@ -7,11 +7,29 @@ import readline from 'node:readline';
 import readlinePromises from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+  applyProgress, createRunState, finalizeRunState, ingestStageResults, markRunStarted, readRunState, summarize,
+} from './orchestrator/state.mjs';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
 const canonicalPromptPath = path.join(here, 'prompt_new.md');
-const defaultAemPort = 4502;
-const launcherVersion = '1.6.0';
+const toolsDir = path.join(here, 'tools');
+
+/** AEM_HOST/AEM_PORT let a machine with a non-standard instance configure itself once. */
+function environmentDefault(name, fallback, parse) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = parse ? parse(raw) : raw;
+  return value === null ? fallback : value;
+}
+
+const defaultAemHost = environmentDefault('AEM_HOST', 'localhost');
+const defaultAemPort = environmentDefault('AEM_PORT', 4502, (raw) => {
+  const port = Number.parseInt(raw, 10);
+  return Number.isInteger(port) && port > 0 && port < 65536 ? port : null;
+});
+const launcherVersion = '2.0.0';
 const stageIds = [
   '01-source-discovery',
   '02-component-authoring',
@@ -41,9 +59,10 @@ Usage:
 Options:
   -u, --url <url>              Live source URL; blank uses prompt_new.md
       --target-path <path>     Optional AEM page path
-      --aem-host <host>        Local AEM host (default: localhost)
+      --aem-host <host>        Local AEM host (default: ${defaultAemHost})
       --aem-port <port>        Local AEM port; blank uses ${defaultAemPort}
       --breakpoints <list>     Comma-separated widths (default: 375,768,1440)
+      --visual-pass-ratio <n>  Strict minimum match ratio (default: 0.90)
       --evidence-dir <path>    Override the generated evidence directory
       --model <model>          Model ID; prompted from account models when omitted
       --effort <level>         Thinking effort: high or xhigh, when supported
@@ -56,6 +75,11 @@ Options:
       --dry-run                Validate and create run inputs without invoking AI
       --agent-smoke-test       Invoke Copilot safely without tools or migration work
   -h, --help                   Show this help
+
+Environment:
+  AEM_HOST / AEM_PORT          Default host and port when the flags are omitted,
+                               e.g. set AEM_PORT=4506 once instead of passing it each run.
+  AEM_PASSWORD                 Password used by the parity tool for the deployed AEM page.
 `);
 }
 
@@ -69,10 +93,11 @@ function readValue(argv, index, option) {
 
 function parseArgs(argv) {
   const options = {
-    aemHost: 'localhost',
+    aemHost: defaultAemHost,
     aemPort: defaultAemPort,
     aemPortProvided: false,
     breakpoints: [375, 768, 1440],
+    visualPassRatio: 0.9,
     maxContinues: 20,
     loginMode: 'auto',
     openResult: true,
@@ -111,11 +136,14 @@ function parseArgs(argv) {
           .map((value) => Number.parseInt(value.trim(), 10));
         index += 1;
         break;
+      case '--visual-pass-ratio':
+        options.visualPassRatio = Number.parseFloat(readValue(argv, index, argument));
+        index += 1;
+        break;
       case '--evidence-dir':
         options.evidenceDir = readValue(argv, index, argument);
         index += 1;
-        break;
-      case '--model':
+        break;      case '--model':
         options.model = readValue(argv, index, argument);
         index += 1;
         break;
@@ -166,6 +194,9 @@ function parseArgs(argv) {
   }
   if (!options.breakpoints.length || options.breakpoints.some((width) => !Number.isInteger(width) || width < 240)) {
     throw new Error('--breakpoints must contain comma-separated integer widths of at least 240.');
+  }
+  if (!Number.isFinite(options.visualPassRatio) || options.visualPassRatio <= 0 || options.visualPassRatio >= 1) {
+    throw new Error('--visual-pass-ratio must be a number greater than 0 and less than 1.');
   }
   if (options.effort && !['high', 'xhigh'].includes(options.effort)) {
     throw new Error('--effort must be high or xhigh.');
@@ -279,6 +310,26 @@ function assertProjectConfiguration() {
   if (!/^configured:\s*true\s*$/mi.test(config)) {
     throw new Error('.aem-skills-config.yaml must contain configured: true.');
   }
+}
+
+/** The frozen capture and scoring tools must be installable before a run starts. */
+function ensureToolDependencies() {
+  for (const file of ['discover.mjs', 'parity.mjs', 'package.json']) {
+    if (!fs.existsSync(path.join(toolsDir, file))) {
+      throw new Error(`Missing frozen tool: design/site-url/tools/${file}`);
+    }
+  }
+  if (fs.existsSync(path.join(toolsDir, 'node_modules', 'playwright'))) return 'present';
+  console.log(color.dim('  Installing migration tool dependencies...'));
+  const install = spawnSync('npm', ['install', '--no-fund', '--no-audit'], {
+    cwd: toolsDir,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+  if (install.status !== 0) {
+    throw new Error('npm install failed in design/site-url/tools. Install Playwright, pixelmatch and pngjs manually, then retry.');
+  }
+  return 'installed';
 }
 
 function findCopilot() {
@@ -487,12 +538,6 @@ async function selectModelAndEffort(options, models) {
   console.log(color.green(`  Selected ${selected.name} with ${options.effort} effort.`));
 }
 
-function writeJson(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  fs.writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  fs.renameSync(temporaryPath, filePath);
-}
-
 function relativeToRepo(filePath) {
   return path.relative(repoRoot, filePath).replaceAll('\\', '/');
 }
@@ -514,19 +559,27 @@ function createRuntimePrompt(options, runId, evidenceDir, statePath) {
     `RUN_ID: ${JSON.stringify(runId)}`,
     `EVIDENCE_DIR: ${JSON.stringify(relativeToRepo(evidenceDir))}`,
     `RUN_STATE: ${JSON.stringify(relativeToRepo(statePath))}`,
+    `STAGE_RESULTS_DIR: ${JSON.stringify(relativeToRepo(path.join(evidenceDir, 'stages')))}`,
+    `VISUAL_PASS_RATIO: ${options.visualPassRatio}`,
     '```',
     '',
-    'Read `design/site-url/prompt_new.md` first and execute its Stage Router in exact order. Read each numbered stage file only when that stage becomes active. Follow `AGENTS.md`, `CLAUDE.md`, `.aem-skills-config.yaml`, and every required AEM skill. Use Node.js Playwright/Chromium for browser evidence.',
+    'Read `design/site-url/prompt_new.md` first and execute its Stage Router in exact order. Read each numbered stage file only when that stage becomes active. Follow `AGENTS.md`, `CLAUDE.md`, `.aem-skills-config.yaml`, and every required AEM skill. This project builds AEM as a Cloud Service components (Sling Models, HTL, Coral 3 dialogs, clientlibs) — never Edge Delivery Services blocks.',
+    '',
+    'Frozen tools (do not reimplement, replace, or hand-write their output):',
+    '- Source capture: `node design/site-url/tools/discover.mjs --url <SITE_URL> --out <EVIDENCE_DIR>/discovery --breakpoints <BREAKPOINTS> --run-id <RUN_ID>`',
+    '- Visual parity: `node design/site-url/tools/parity.mjs --config <EVIDENCE_DIR>/parity/parity-config.json --out <EVIDENCE_DIR>/parity`',
+    '- Install their dependencies once with `npm install` inside `design/site-url/tools` if `node_modules` is absent.',
+    '- `discovery.json` and `parity.json` are the only valid sources of discovery evidence and visual scores. Never estimate, round, edit or restate a score that these tools did not produce.',
     '',
     'Standalone execution rules:',
-    '- Do not edit `design/site-url/prompt_new.md` or its numbered stage specifications to inject runtime values.',
+    '- Do not edit `design/site-url/prompt_new.md`, its numbered stage specifications, or anything under `design/site-url/tools/` to inject runtime values or relax a gate.',
     '- Do not commit, switch branches, reset, clean, or revert existing user changes.',
-    '- Do not ask interactive questions. For genuinely required user input or an external blocker, persist a truthful `BLOCKED` result and stop.',
+    '- Do not ask interactive questions. For genuinely required user input or an external blocker, persist a truthful `BLOCKED` stage envelope and stop.',
     '- The user explicitly authorizes autonomous component creation for this run. When a component workflow normally asks for field confirmation, derive the smallest exact field contract from accepted source evidence, persist it in `design-facts`, and proceed without inventing additional fields.',
     '- Before each stage, print one line exactly as `MIGRATION_PROGRESS {"stage":"<stage-id>","status":"STARTED","message":"<short message>"}`.',
-    '- After each stage, print the same format with `PASS`, `FAIL`, or `BLOCKED`, and persist the full stage_result envelope to RUN_STATE before continuing.',
-    '- Keep RUN_STATE current throughout the run. Preserve its `launcher` and `inputs` fields.',
-    '- On terminal completion, set top-level `status` to `COMPLETE`, `FAIL`, or `BLOCKED`, set `current_stage`, and set `target_url` to the final disabled AEM URL when one exists.',
+    '- After each stage, print the same format with `PASS`, `FAIL`, or `BLOCKED`, and write the full stage_result envelope to `STAGE_RESULTS_DIR/<stage-id>.json` before continuing.',
+    '- RUN_STATE is owned by the launcher. Read it when you need run inputs, but never write to it; the launcher records stage status, timing and checks from your progress lines and envelopes.',
+    '- Every stage envelope must carry the RUN_ID above and at least one check. An envelope claiming PASS while any check is FAIL is recorded as FAIL.',
     '- A build success is not completion. Finish only under the completion contract in the canonical prompt.',
   ];
   return `${lines.join('\n')}\n`;
@@ -549,7 +602,7 @@ function appendProgress(filePath, event) {
   fs.appendFileSync(filePath, `${JSON.stringify({ at: new Date().toISOString(), ...event })}\n`, 'utf8');
 }
 
-function displayAgentEvent(event, progressPath) {
+function displayAgentEvent(event, progressPath, statePath) {
   if (event.type === 'session.auto_mode_resolved') {
     console.log(color.green(`Agent ready: ${event.data?.chosenModel || 'GitHub Copilot'}`));
     appendProgress(progressPath, { type: 'AGENT_READY', model: event.data?.chosenModel });
@@ -579,8 +632,9 @@ function displayAgentEvent(event, progressPath) {
         try {
           const progress = JSON.parse(match[1]);
           appendProgress(progressPath, { type: 'STAGE_PROGRESS', ...progress });
-        } catch {
-          appendProgress(progressPath, { type: 'INVALID_PROGRESS_LINE', line });
+          applyProgress(statePath, progress);
+        } catch (error) {
+          appendProgress(progressPath, { type: 'INVALID_PROGRESS_LINE', line, error: error.message });
         }
       }
     }
@@ -619,7 +673,7 @@ function displayAgentEvent(event, progressPath) {
   }
 }
 
-async function runAgent(copilot, options, runtimePrompt, evidenceDir) {
+async function runAgent(copilot, options, runtimePrompt, evidenceDir, statePath) {
   const streamPath = path.join(evidenceDir, 'agent-stream.jsonl');
   const stderrPath = path.join(evidenceDir, 'agent-stderr.log');
   const progressPath = path.join(evidenceDir, 'launcher-progress.jsonl');
@@ -675,7 +729,7 @@ async function runAgent(copilot, options, runtimePrompt, evidenceDir) {
     rawStream.write(`${line}\n`);
     if (!line.trim()) continue;
     try {
-      displayAgentEvent(JSON.parse(line), progressPath);
+      displayAgentEvent(JSON.parse(line), progressPath, statePath);
     } catch {
       console.log(line);
       appendProgress(progressPath, { type: 'UNPARSED_AGENT_OUTPUT', line });
@@ -722,6 +776,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.printDefaults) {
     console.log(`SITE_URL=${readDefaultSiteUrl()}`);
+    console.log(`AEM_HOST=${defaultAemHost}`);
     console.log(`AEM_PORT=${defaultAemPort}`);
     return;
   }
@@ -756,6 +811,8 @@ async function main() {
   console.log(color.green(`  AEM reachable: HTTP ${aemProbe.status}`));
 
   console.log(color.green(`  Agent available: ${copilot.version}`));
+  const toolState = ensureToolDependencies();
+  console.log(color.green(`  Migration tools: ${toolState}`));
   const models = await listAvailableModels(copilot);
   await selectModelAndEffort(options, models);
 
@@ -764,13 +821,11 @@ async function main() {
     ? path.resolve(repoRoot, options.evidenceDir)
     : path.join(repoRoot, 'design', 'scratch', `migration-${runId}`);
   fs.mkdirSync(evidenceDir, { recursive: true });
+  const stagesDir = path.join(evidenceDir, 'stages');
+  fs.mkdirSync(stagesDir, { recursive: true });
   const statePath = path.join(evidenceDir, 'run-state.json');
-  const state = {
-    schema_version: 1,
-    run_id: runId,
-    status: 'INITIALIZED',
-    current_stage: null,
-    created_at: new Date().toISOString(),
+  createRunState(statePath, {
+    runId,
     launcher: {
       name: 'aem-url-migration-launcher',
       version: launcherVersion,
@@ -786,12 +841,11 @@ async function main() {
       AEM_PORT: options.aemPort,
       MODEL: options.model,
       THINKING_EFFORT: options.effort || null,
+      VISUAL_PASS_RATIO: options.visualPassRatio,
       EVIDENCE_DIR: relativeToRepo(evidenceDir),
     },
-    stages: stageIds.map((stage) => ({ stage, status: 'PENDING' })),
-    stage_results: {},
-  };
-  writeJson(statePath, state);
+    stageIds,
+  });
   const runtimePrompt = options.agentSmokeTest
     ? 'Return exactly MIGRATION_LAUNCHER_AGENT_OK. Do not use tools, inspect files, or modify anything.'
     : createRuntimePrompt(options, runId, evidenceDir, statePath);
@@ -800,16 +854,18 @@ async function main() {
   console.log(`Run ID: ${runId}`);
   console.log(`Evidence: ${evidenceDir}`);
   if (options.dryRun) {
+    finalizeRunState(statePath, { status: 'DRY_RUN' });
     console.log(color.green('Dry run passed. Runtime prompt and run-state.json were created; no agent was started.'));
     return;
   }
 
   console.log(color.cyan('\nStarting migration. Press Ctrl+C to stop the agent.\n'));
-  const exitCode = await runAgent(copilot, options, runtimePrompt, evidenceDir);
-  if (exitCode !== 0) {
-    throw new Error(`GitHub Copilot CLI exited with code ${exitCode}. See ${path.join(evidenceDir, 'agent-stderr.log')}`);
-  }
+  markRunStarted(statePath);
+  const exitCode = await runAgent(copilot, options, runtimePrompt, evidenceDir, statePath);
   if (options.agentSmokeTest) {
+    if (exitCode !== 0) {
+      throw new Error(`GitHub Copilot CLI exited with code ${exitCode}. See ${path.join(evidenceDir, 'agent-stderr.log')}`);
+    }
     const stream = fs.readFileSync(path.join(evidenceDir, 'agent-stream.jsonl'), 'utf8');
     if (!stream.includes('MIGRATION_LAUNCHER_AGENT_OK')) {
       throw new Error('Copilot smoke test completed without the expected marker.');
@@ -818,16 +874,32 @@ async function main() {
     return;
   }
 
-  let finalState;
-  try {
-    finalState = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  } catch {
-    finalState = null;
-  }
-  const finalUrl = findTargetUrl(finalState) || targetPathUrl(options);
+  const { ingested } = ingestStageResults(statePath, stagesDir);
+  const interim = readRunState(statePath);
+  const finalUrl = findTargetUrl(interim) || targetPathUrl(options);
+  const finalState = finalizeRunState(statePath, {
+    status: exitCode === 0 ? undefined : 'INTERRUPTED',
+    targetUrl: finalUrl,
+  });
+
+  const summary = summarize(finalState);
   console.log(color.cyan('\nRun complete'));
-  console.log(`Status: ${finalState?.status || 'AGENT_FINISHED'}`);
+  console.log(`Status: ${summary.status}`);
+  if (summary.duration_seconds !== null) {
+    console.log(`Duration: ${(summary.duration_seconds / 60).toFixed(1)} min`);
+  }
+  for (const stage of summary.stages) {
+    const duration = stage.duration_seconds === null ? '' : ` (${stage.duration_seconds}s)`;
+    const failing = stage.failing_checks.length ? ` failing: ${stage.failing_checks.join(', ')}` : '';
+    console.log(`  ${stage.stage.padEnd(24)} ${stage.status}${duration}${failing}`);
+  }
+  if (!ingested.length) {
+    console.log(color.yellow(`  No stage envelopes were written to ${relativeToRepo(stagesDir)}.`));
+  }
   console.log(`Evidence: ${evidenceDir}`);
+  if (exitCode !== 0) {
+    throw new Error(`GitHub Copilot CLI exited with code ${exitCode}. See ${path.join(evidenceDir, 'agent-stderr.log')}`);
+  }
   if (finalUrl) {
     console.log(`AEM page: ${finalUrl}`);
     if (options.openResult) openUrl(finalUrl);
