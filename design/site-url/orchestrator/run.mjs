@@ -15,7 +15,9 @@ import { runAgentRole } from './agent.mjs';
 import { createRenderer } from './console.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets } from './assets.mjs';
-import { focusedTestPlan, planDeployment, runDeployment } from './deploy.mjs';
+import {
+  focusedTestPlan, planDeployment, runDeployment, runValidation, validationPlan,
+} from './deploy.mjs';
 import { planSummary, validatePlan } from './plan.mjs';
 import {
   advanceRound, applyParity, createLedger, ledgerSnapshot, recordAttempt, routeFailures, terminalStatus,
@@ -52,6 +54,51 @@ function damPathFor(targetPath) {
   return String(targetPath).replace(/^\/content\//, '/content/dam/');
 }
 
+function readJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Artefacts from an earlier run that are safe to reuse. Every one is re-verified here rather
+ * than trusted, so a resume can never build on a stale plan or a half-written phase.
+ */
+export function readCheckpoint({ evidenceDir, siteUrl }) {
+  const checkpoint = {
+    discovery: null, plan: null, foundations: false, assets: null, workers: [],
+  };
+
+  const discovery = readJson(path.join(evidenceDir, 'discovery', 'discovery.json'));
+  if (!discovery?.instances?.length || discovery.status !== 'PASS') return checkpoint;
+  // Resuming onto a different source would reuse the wrong evidence and the wrong assets.
+  const recorded = discovery.source?.requested_url || discovery.source?.final_url;
+  if (siteUrl && recorded && recorded !== siteUrl) return checkpoint;
+  checkpoint.discovery = discovery;
+
+  const plan = readJson(path.join(evidenceDir, 'plan.json'));
+  if (!plan?.components?.length || plan.source_fingerprint !== discovery.source_fingerprint) return checkpoint;
+  checkpoint.plan = plan;
+
+  checkpoint.foundations = readJson(path.join(evidenceDir, 'agents', 'foundations', 'result.json'))?.status === 'PASS';
+  if (!checkpoint.foundations) return checkpoint;
+
+  const assets = readJson(path.join(evidenceDir, 'assets.json'));
+  checkpoint.assets = assets?.status === 'PASS' ? assets : null;
+  if (!checkpoint.assets) return checkpoint;
+
+  // A cancelled fan-out banks whatever finished, so a partial set is still worth reusing.
+  const workers = readJson(path.join(evidenceDir, 'workers.json'));
+  const ids = new Set(plan.components.map((component) => component.id));
+  checkpoint.workers = Array.isArray(workers)
+    ? workers.filter((entry) => entry?.status === 'PASS' && ids.has(entry.component_id))
+    : [];
+
+  return checkpoint;
+}
+
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -81,6 +128,7 @@ function parseArgs(argv) {
       case '--component-attempts': options.componentAttempts = Number.parseInt(value, 10); index += 1; break;
       case '--visual-pass-ratio': options.threshold = Number.parseFloat(value); index += 1; break;
       case '--evidence-dir': options.evidenceDir = value; index += 1; break;
+      case '--resume': options.resume = value; index += 1; break;
       case '--model': options.model = value; index += 1; break;
       case '--effort': options.effort = value; index += 1; break;
       case '--dry-run': options.dryRun = true; break;
@@ -141,6 +189,16 @@ export async function orchestrate(rawOptions, services) {
     renderer.stageFinished(entry.name, status, message);
     return entry;
   };
+  const reusePhase = (entry, message) => {
+    entry.reused = true;
+    return endPhase(entry, 'PASS', `reused · ${message}`);
+  };
+
+  const checkpoint = options.resume
+    ? readCheckpoint({ evidenceDir, siteUrl: options.siteUrl })
+    : {
+      discovery: null, plan: null, foundations: false, assets: null, workers: [],
+    };
 
   const state = {
     run_id: runId,
@@ -157,20 +215,25 @@ export async function orchestrate(rawOptions, services) {
   // 1. Discovery — deterministic, no model.
   let phase = startPhase('discover');
   const discoveryDir = path.join(evidenceDir, 'discovery');
-  const discoveryResult = await runTool('discover', [
-    path.join(toolsDir, 'discover.mjs'),
-    '--url', options.siteUrl,
-    '--out', discoveryDir,
-    '--breakpoints', options.breakpoints.join(','),
-    '--run-id', runId,
-  ]);
-  if (discoveryResult.code !== 0) {
-    endPhase(phase, 'FAIL', 'discovery tool failed');
-    return { status: 'FAIL', phases, state };
+  let discovery = checkpoint.discovery;
+  if (!discovery) {
+    const discoveryResult = await runTool('discover', [
+      path.join(toolsDir, 'discover.mjs'),
+      '--url', options.siteUrl,
+      '--out', discoveryDir,
+      '--breakpoints', options.breakpoints.join(','),
+      '--run-id', runId,
+    ]);
+    if (discoveryResult.code !== 0) {
+      endPhase(phase, 'FAIL', 'discovery tool failed');
+      return { status: 'FAIL', phases, state };
+    }
+    discovery = JSON.parse(fs.readFileSync(path.join(discoveryDir, 'discovery.json'), 'utf8'));
   }
-  const discovery = JSON.parse(fs.readFileSync(path.join(discoveryDir, 'discovery.json'), 'utf8'));
   const instanceOrder = new Map(discovery.instances.map((instance) => [instance.id, instance.order]));
-  endPhase(phase, 'PASS', `${discovery.instances.length} instances, fingerprint ${discovery.source_fingerprint.slice(0, 20)}`);
+  const discoverySummary = `${discovery.instances.length} instances, fingerprint ${discovery.source_fingerprint.slice(0, 20)}`;
+  if (checkpoint.discovery) reusePhase(phase, discoverySummary);
+  else endPhase(phase, 'PASS', discoverySummary);
 
   // 2. Planning — one sequential agent, bounded repairs, orchestrator-owned gate.
   phase = startPhase('plan');
@@ -178,6 +241,14 @@ export async function orchestrate(rawOptions, services) {
   let plan = null;
   let gate = null;
   let feedback = '';
+  if (checkpoint.plan) {
+    // The gate is deterministic, so re-running it costs nothing and re-derives the waves.
+    const revalidated = validatePlan(checkpoint.plan, { discovery, runId: checkpoint.plan.run_id });
+    if (revalidated.valid) {
+      plan = checkpoint.plan;
+      gate = revalidated;
+    }
+  }
   for (let attempt = 1; attempt <= options.planRepairs + 1 && !plan; attempt += 1) {
     const agentDir = path.join(evidenceDir, 'agents', `planner-${attempt}`);
     const task = [
@@ -212,48 +283,57 @@ export async function orchestrate(rawOptions, services) {
   }
   const summary = planSummary(plan, gate.waves);
   renderer.setKnownComponents?.(plan.components.map((component) => component.id));
-  endPhase(phase, 'PASS', `${summary.components} components, ${summary.waves.length} waves, chrome via XF: ${summary.chrome.join(', ') || 'none'}`);
+  const planMessage = `${summary.components} components, ${summary.waves.length} waves, chrome via XF: ${summary.chrome.join(', ') || 'none'}`;
+  if (plan === checkpoint.plan) reusePhase(phase, planMessage);
+  else endPhase(phase, 'PASS', planMessage);
 
   // 3. Foundations — serialized; the only writer of shared design files.
   phase = startPhase('foundations');
   const foundationsDir = path.join(evidenceDir, 'agents', 'foundations');
-  const foundations = await runAgentRole({
-    copilot,
-    role: 'foundations',
-    id: 'foundations',
-    prompt: [
-      readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
-      '## Task', '',
-      `- plan: \`${path.relative(repoRoot, planPath)}\``,
-      `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
-      `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
-      `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
-    ].join('\n'),
-    cwd: repoRoot,
-    model: options.model,
-    effort: options.effort,
-    agentDir: foundationsDir,
-    renderer,
-    spawnFn,
-  });
-  track(foundations, { phase: 'foundations' });
-  if (foundations.status !== 'PASS') {
-    endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
-    return { status: 'FAIL', phases, state, plan };
+  if (!checkpoint.foundations) {
+    const foundations = await runAgentRole({
+      copilot,
+      role: 'foundations',
+      id: 'foundations',
+      prompt: [
+        readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
+        '## Task', '',
+        `- plan: \`${path.relative(repoRoot, planPath)}\``,
+        `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
+        `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
+        `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
+      ].join('\n'),
+      cwd: repoRoot,
+      model: options.model,
+      effort: options.effort,
+      agentDir: foundationsDir,
+      renderer,
+      spawnFn,
+    });
+    track(foundations, { phase: 'foundations' });
+    if (foundations.status !== 'PASS') {
+      endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+      return { status: 'FAIL', phases, state, plan };
+    }
   }
   // Compose runs after the fan-out, so its structural preconditions are checked here instead.
+  // A resumed run re-checks too: the tree may have moved on since the skeleton was written.
   const composeProblems = verifyComposeTargets({ repoRoot, plan });
   if (composeProblems.length) {
     endPhase(phase, 'FAIL', `foundations left compose without a target: ${composeProblems.join('; ')}`);
     return { status: 'FAIL', phases, state, plan };
   }
-  endPhase(phase, 'PASS', 'tokens, template and policies ready');
+  if (checkpoint.foundations) reusePhase(phase, 'tokens, template and policies already in the tree');
+  else endPhase(phase, 'PASS', 'tokens, template and policies ready');
 
   // 4. Assets — deterministic; re-acquired every run so a changed source URL cannot leave orphans.
   phase = startPhase('assets');
   const damPath = plan.shared?.dam_path || damPathFor(options.targetPath);
   const damRoot = plan.shared?.dam_root || `ui.content/src/main/content/jcr_root${damPath}`;
-  const assets = await acquireAssets({
+  // Reuse only while every acquired binary is still on disk; a partial DAM must be re-fetched.
+  const assetsIntact = checkpoint.assets?.manifest
+    ?.every((entry) => fs.existsSync(path.join(repoRoot, damRoot, path.basename(entry.dam_path), '_jcr_content', 'renditions', 'original')));
+  const assets = assetsIntact ? checkpoint.assets : await acquireAssets({
     repoRoot, discovery, damRoot, damPath, fetchFn: options.fetchFn,
   });
   writeJson(path.join(evidenceDir, 'assets.json'), assets);
@@ -261,7 +341,9 @@ export async function orchestrate(rawOptions, services) {
     endPhase(phase, 'FAIL', assets.failures.map((entry) => `${entry.url}: ${entry.reason}`).slice(0, 4).join('; '));
     return { status: 'FAIL', phases, state, plan, assets };
   }
-  endPhase(phase, 'PASS', `${assets.manifest.length} assets acquired into ${damPath}`);
+  const assetsMessage = `${assets.manifest.length} assets in ${damPath}`;
+  if (assetsIntact) reusePhase(phase, assetsMessage);
+  else endPhase(phase, 'PASS', assetsMessage);
 
   // 5. Fan-out — parallel component workers, one isolated checkout each.
   phase = startPhase('fanout');
@@ -269,10 +351,33 @@ export async function orchestrate(rawOptions, services) {
   const claimed = new Map();
   const workerResults = [];
   let fanoutFailed = false;
+  const planIndex = new Map(plan.components.map((component, index) => [component.id, index]));
+  const persistWorkers = () => writeJson(
+    path.join(evidenceDir, 'workers.json'),
+    [...workerResults].sort((left, right) => (planIndex.get(left.component_id) ?? 0) - (planIndex.get(right.component_id) ?? 0)),
+  );
 
+  if (checkpoint.workers.length) {
+    workerResults.push(...checkpoint.workers);
+    // Re-claim their files so a rebuilt neighbour cannot overwrite work this run did not redo.
+    for (const entry of checkpoint.workers) {
+      for (const file of entry.applied || []) claimed.set(file, entry.component_id);
+    }
+  }
+  const alreadyBuilt = new Set(workerResults.map((entry) => entry.component_id));
+  // Nothing holds a workspace at this point; anything here is debris from a killed run.
+  fs.rmSync(path.join(evidenceDir, 'workspaces'), { recursive: true, force: true });
+
+  if (alreadyBuilt.size === plan.components.length) {
+    reusePhase(phase, `${alreadyBuilt.size} components already built`);
+  } else {
   for (const [waveIndex, wave] of gate.waves.entries()) {
-    renderer.note(`wave ${waveIndex + 1}/${gate.waves.length}: ${wave.join(', ')}`);
-    const waveResults = await pool(wave, options.maxParallel, async (componentId) => {
+    const pending = wave.filter((componentId) => !alreadyBuilt.has(componentId));
+    if (!pending.length) continue;
+    renderer.note(`wave ${waveIndex + 1}/${gate.waves.length}: ${pending.join(', ')}`);
+    const waveResults = await pool(pending, options.maxParallel, async (componentId) => {
+      // Banked per component, not per wave: a cancellation must not discard finished work.
+      const outcome = await (async () => {
       const component = byId.get(componentId);
       renderer.componentStarted(componentId, `tier ${component.tier}${component.role === 'chrome' ? ' · XF chrome' : ''}`);
       const maxAttempts = options.componentAttempts;
@@ -348,11 +453,22 @@ export async function orchestrate(rawOptions, services) {
               || `Your result reported ${invocation.status}. Failing checks: ${failing.join('; ') || 'none recorded'}.`;
           } else {
             const contributionProblems = validateContribution(component, invocation.result, {
-              instanceOrder, writtenFiles: changes.changed,
+              instanceOrder, writtenFiles: changes.owned,
             });
             if (contributionProblems.length) {
               rejection = `Your \`contributions\` block cannot be composed onto the page:\n`
                 + contributionProblems.map((problem) => `- ${problem}`).join('\n');
+            } else {
+              const validation = await runValidation({
+                workspaceRoot,
+                steps: validationPlan(changes.changed, {
+                  focusedTests: invocation.result?.focused_test?.tests || [],
+                }),
+                execFn,
+              });
+              if (validation.status !== 'PASS') {
+                rejection = `Your code does not build (${validation.label}):\n${validation.detail}`;
+              }
             }
           }
 
@@ -402,8 +518,11 @@ export async function orchestrate(rawOptions, services) {
         }
       }
       return { component_id: componentId, status: 'FAIL', attempts: maxAttempts, history, error: 'no attempt produced a result' };
+      })();
+      workerResults.push(outcome);
+      persistWorkers();
+      return outcome;
     });
-    workerResults.push(...waveResults);
     if (waveResults.some((entry) => entry.status !== 'PASS')) {
       fanoutFailed = true;
       break;
@@ -414,9 +533,11 @@ export async function orchestrate(rawOptions, services) {
     endPhase(phase, 'FAIL', broken.map((entry) => `${entry.component_id}: ${entry.error}`).join('; '));
     return { status: 'FAIL', phases, state, plan, workerResults };
   }
-  endPhase(phase, 'PASS', `${workerResults.length} components built across ${gate.waves.length} waves`);
+  endPhase(phase, 'PASS', `${workerResults.length} components built across ${gate.waves.length} waves`
+    + (alreadyBuilt.size ? `, ${alreadyBuilt.size} reused` : ''));
+  }
 
-  // 5. Compose — the orchestrator writes every shared file.
+  // 6. Compose — the orchestrator writes every shared file.
   phase = startPhase('compose');
   const composed = applyContributions({
     repoRoot,
@@ -636,6 +757,7 @@ orchestrator/run.mjs — multi-agent AEM migration
   --visual-pass-ratio <n>   Strict minimum ratio (default ${DEFAULTS.threshold.toFixed(2)})
   --model <id> --effort <level>
   --evidence-dir <path>
+  --resume <run-id|path>    Continue a previous run, reusing every phase it verifiably finished
   --dry-run                 Validate inputs and exit
 `);
     return;
@@ -657,12 +779,23 @@ orchestrator/run.mjs — multi-agent AEM migration
     console.log(`Using the default local credentials for user "${options.aemUser}". Set AEM_PASSWORD to override.`);
   }
 
-  const runId = crypto.randomUUID();
-  const evidenceDir = options.evidenceDir
-    ? path.resolve(defaultRepoRoot, options.evidenceDir)
-    : path.join(defaultRepoRoot, 'design', 'scratch', `migration-${runId}`);
-  fs.mkdirSync(evidenceDir, { recursive: true });
+  const scratchDir = path.join(defaultRepoRoot, 'design', 'scratch');
+  const resumeDir = options.resume
+    ? [
+      path.resolve(defaultRepoRoot, options.resume),
+      path.join(scratchDir, options.resume),
+      path.join(scratchDir, `migration-${options.resume}`),
+    ].find((candidate) => fs.existsSync(candidate))
+    : null;
+  if (options.resume && !resumeDir) {
+    throw new Error(`--resume ${options.resume}: no such run under design/scratch.`);
+  }
 
+  const runId = resumeDir ? path.basename(resumeDir).replace(/^migration-/, '') : crypto.randomUUID();
+  const evidenceDir = resumeDir || (options.evidenceDir
+    ? path.resolve(defaultRepoRoot, options.evidenceDir)
+    : path.join(scratchDir, `migration-${runId}`));
+  fs.mkdirSync(evidenceDir, { recursive: true });
   const renderer = createRenderer({ stageIds: PHASES });
   renderer.runHeader({
     siteUrl: options.siteUrl,

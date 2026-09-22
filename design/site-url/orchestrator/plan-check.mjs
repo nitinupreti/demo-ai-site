@@ -196,6 +196,16 @@ changes = collectChanges(deleter, owned);
 expect(!changes.valid && changes.violations.includes('ui.apps/components/footer/footer.html'),
   'deleting an unowned file must be a violation');
 
+// A killed attempt leaves its workspace behind; the next one must not inherit it.
+const abandoned = path.join(sandbox, 'w-abandoned');
+fs.mkdirSync(path.join(abandoned, 'ui.apps', 'components', 'hero'), { recursive: true });
+fs.writeFileSync(path.join(abandoned, 'ui.apps', 'components', 'hero', 'half-written.txt'), 'debris');
+const reborn = createWorkspace(repoRoot, abandoned);
+expect(!fs.existsSync(path.join(reborn.root, 'ui.apps', 'components', 'hero', 'half-written.txt')),
+  'a reused workspace path must be cleared, not copied into');
+expect(![...reborn.baseline.keys()].some((entry) => entry.endsWith('half-written.txt')),
+  'debris must not enter the baseline of a fresh attempt');
+
 // Two workers touching the same file must conflict rather than silently overwrite.
 const second = createWorkspace(repoRoot, path.join(sandbox, 'w-second'));
 second.id = 'second';

@@ -64,7 +64,7 @@ export function focusedTestPlan(results) {
   return {
     label: 'focused tests',
     command: 'mvn',
-    args: ['-pl', 'core', 'test', `-Dtest=${[...tests].sort().join('+')}`, '-DfailIfNoTests=false'],
+    args: ['-pl', 'core', 'test', `-Dtest=${[...tests].sort().join(',')}`, '-DfailIfNoTests=false'],
   };
 }
 
@@ -81,6 +81,47 @@ function execute(step, repoRoot, execFn) {
     child.once('error', reject);
     child.once('close', (code) => resolve({ code, output }));
   });
+}
+
+/**
+ * Static correctness for one worker's checkout, scoped to what it actually touched.
+ * These run before the merge so a broken build is a rejection the worker can still fix,
+ * rather than a deploy failure discovered after every component has finished.
+ */
+const VALIDATION_RULES = [
+  // HTL validation is bound to generate-sources, so that phase is what surfaces a syntax error.
+  { test: /^[^/]*ui\.apps\//, label: 'HTL syntax', args: ['-pl', 'ui.apps', 'generate-sources'] },
+  // test-compile, not compile: the worker writes a unit test, and that has to build as well.
+  { test: /^[^/]*core\//, label: 'Java compile', args: ['-pl', 'core', 'test-compile'] },
+];
+
+export function validationPlan(changedFiles, { focusedTests = [] } = {}) {
+  const touched = changedFiles.map((file) => String(file).replaceAll('\\', '/'));
+  const steps = VALIDATION_RULES
+    .filter((rule) => touched.some((file) => rule.test.test(file)))
+    .map((rule) => ({ label: rule.label, module: rule.label, command: 'mvn', args: rule.args }));
+
+  if (focusedTests.length && steps.some((step) => step.label === 'Java compile')) {
+    steps.push({
+      label: 'unit test',
+      module: 'unit test',
+      command: 'mvn',
+      args: ['-pl', 'core', 'test', `-Dtest=${[...focusedTests].sort().join(',')}`, '-DfailIfNoTests=false'],
+    });
+  }
+  return steps;
+}
+
+/** Runs a worker's validation steps in its own workspace; the first failure wins. */
+export async function runValidation({ workspaceRoot, steps, execFn = spawn }) {
+  for (const step of steps) {
+    const { code, output } = await execute(step, workspaceRoot, execFn);
+    if (code !== 0) {
+      const reported = output.split('\n').filter((line) => line.includes('[ERROR]')).slice(0, 12);
+      return { status: 'FAIL', label: step.label, detail: (reported.join('\n') || output.slice(-1500)).trim() };
+    }
+  }
+  return { status: 'PASS' };
 }
 
 export async function runDeployment({

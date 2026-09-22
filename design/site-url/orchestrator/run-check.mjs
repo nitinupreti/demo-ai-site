@@ -10,8 +10,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
-import { DEFAULTS, orchestrate } from './run.mjs';
+import { DEFAULTS, orchestrate, readCheckpoint } from './run.mjs';
 import { createRenderer } from './console.mjs';
+
+const PHASES_FOR_CHECK = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -182,7 +184,7 @@ const execFn = (command, args) => {
   return emitter;
 };
 
-const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
+const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
   fs.mkdirSync(path.dirname(resultPath), { recursive: true });
   if (role === 'planner') {
     fs.writeFileSync(path.join(evidenceDir, 'plan.json'), JSON.stringify(planFor(), null, 2));
@@ -275,9 +277,11 @@ const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
     ],
     notes: 'padding corrected from deltas',
   }, null, 2));
-});
+};
 
-const renderer = createRenderer({ stageIds: ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'] });
+const spawnFn = makeSpawnFn(agentBehaviour);
+
+const renderer = createRenderer({ stageIds: PHASES_FOR_CHECK });
 
 const fetchFn = async () => ({
   ok: true,
@@ -386,6 +390,93 @@ expect(summary.timings.invocations.length >= 5,
 expect(componentIds.every((id) => id in summary.timings.components),
   'summary should carry a build time for every component');
 expect(typeof summary.timings.deploy_seconds === 'number', 'summary should carry deploy time');
+
+// Resume: a second run over the same evidence must reuse every verified phase and spawn no agent.
+const spawnedOnResume = [];
+const resumeOutcome = await orchestrate(
+  {
+    siteUrl: 'https://example.com',
+    aemHost: 'localhost',
+    aemPort: 4506,
+    breakpoints: [1440],
+    maxParallel: 3,
+    targetPath: '/content/demo/us/en/page',
+    fetchFn,
+    resume: true,
+  },
+  {
+    copilot: { executable: 'fake-copilot', version: 'fake' },
+    renderer: createRenderer({ stageIds: PHASES_FOR_CHECK }),
+    runId: 'e2e',
+    evidenceDir,
+    runTool: async (name) => {
+      if (name === 'discover') throw new Error('discovery must not re-run on resume');
+      return runTool(name);
+    },
+    spawnFn: makeSpawnFn((context) => {
+      spawnedOnResume.push(context.role);
+      return agentBehaviour(context);
+    }),
+    execFn,
+    repoRoot,
+  },
+);
+expect(resumeOutcome.status === 'COMPLETE', `resumed run should complete, got ${resumeOutcome.status}`);
+const reused = resumeOutcome.phases.filter((entry) => entry.reused).map((entry) => entry.name);
+expect(reused.join(',') === 'discover,plan,foundations,assets,fanout',
+  `every finished phase should be reused, got ${reused.join(',') || 'none'}`);
+expect(!spawnedOnResume.includes('component') && !spawnedOnResume.includes('planner')
+  && !spawnedOnResume.includes('foundations'),
+`resume must not re-spawn a completed role, got ${spawnedOnResume.join(',') || 'none'}`);
+
+// A resume pointed at a different source must refuse the stale evidence and start over.
+const wrongSource = readCheckpoint({ evidenceDir, siteUrl: 'https://somewhere-else.test' });
+expect(wrongSource.discovery === null, 'a different source URL must invalidate the checkpoint');
+
+// Cancellation: components finished before the kill are banked and must not be rebuilt.
+const banked = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'workers.json'), 'utf8'));
+expect(banked.map((entry) => entry.component_id).join(',') === componentIds.join(','),
+  `workers.json must be plan-ordered, got ${banked.map((entry) => entry.component_id).join(',')}`);
+fs.writeFileSync(path.join(evidenceDir, 'workers.json'),
+  JSON.stringify(banked.filter((entry) => entry.component_id !== CONTENT_B), null, 2));
+
+// Ctrl+C also leaves the in-flight workspace behind; resume must not inherit it.
+const debris = path.join(evidenceDir, 'workspaces', `${CONTENT_B}-attempt-1`);
+fs.mkdirSync(path.join(debris, 'ui.apps', 'components', CONTENT_B), { recursive: true });
+fs.writeFileSync(path.join(debris, 'ui.apps', 'components', CONTENT_B, 'half-written.txt'), 'debris');
+
+const rebuilt = [];
+const partialOutcome = await orchestrate(
+  {
+    siteUrl: 'https://example.com',
+    aemHost: 'localhost',
+    aemPort: 4506,
+    breakpoints: [1440],
+    maxParallel: 3,
+    targetPath: '/content/demo/us/en/page',
+    fetchFn,
+    resume: true,
+  },
+  {
+    copilot: { executable: 'fake-copilot', version: 'fake' },
+    renderer: createRenderer({ stageIds: PHASES_FOR_CHECK }),
+    runId: 'e2e',
+    evidenceDir,
+    runTool,
+    spawnFn: makeSpawnFn((context) => {
+      if (context.role === 'component') rebuilt.push(context.id);
+      return agentBehaviour(context);
+    }),
+    execFn,
+    repoRoot,
+  },
+);
+expect(partialOutcome.status === 'COMPLETE', `a partially banked run should complete, got ${partialOutcome.status}`);
+expect(rebuilt.join(',') === CONTENT_B, `only the missing component should rebuild, got ${rebuilt.join(',') || 'none'}`);
+const fanoutPhase = partialOutcome.phases.find((entry) => entry.name === 'fanout');
+expect(!fanoutPhase.reused, 'a partial fan-out must run rather than claim it was reused');
+expect(!fs.existsSync(path.join(debris, 'ui.apps', 'components', CONTENT_B, 'half-written.txt')),
+  'workspace debris from the cancelled run must be cleared, not carried into the resume');
 
 fs.rmSync(sandbox, { recursive: true, force: true });
 

@@ -79,6 +79,8 @@ export function snapshotTree(root, options = {}) {
 
 export function createWorkspace(repoRoot, workspaceRoot, options = {}) {
   const filter = buildFilter(options);
+  // A killed attempt never runs its cleanup, so never copy into whatever it left behind.
+  fs.rmSync(workspaceRoot, { recursive: true, force: true });
   fs.mkdirSync(workspaceRoot, { recursive: true });
   const copy = (source, destination, relative) => {
     for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
@@ -125,8 +127,10 @@ export function collectChanges(workspace, ownedPaths) {
 
   const changed = [...added, ...modified, ...deleted];
   const violations = changed.filter((relative) => !ownsPath(ownedPaths, relative));
+  // Everything the worker owns that exists now; a rebuild can leave a file byte-identical.
+  const owned = [...current.keys()].filter((relative) => ownsPath(ownedPaths, relative));
   return {
-    added, modified, deleted, changed, violations, valid: violations.length === 0,
+    added, modified, deleted, changed, owned, violations, valid: violations.length === 0,
   };
 }
 

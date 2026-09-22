@@ -106,6 +106,12 @@ function buildArguments({ promptPath, model, effort, maxContinues, name }) {
     '--deny-tool', 'shell(git switch:*)',
     '--deny-tool', 'shell(git commit:*)',
     '--deny-tool', 'shell(git push:*)',
+    // Workers may build their own checkout, but the AEM instance is shared and off limits.
+    '--deny-tool', 'shell(mvn install:*)',
+    '--deny-tool', 'shell(mvn deploy:*)',
+    '--deny-tool', 'shell(mvn clean install:*)',
+    '--deny-tool', 'shell(mvn sling:install:*)',
+    '--deny-tool', 'shell(mvn package:*)',
   ];
   if (model) list.push('--model', model);
   if (effort) list.push('--effort', effort);

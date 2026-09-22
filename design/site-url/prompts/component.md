@@ -42,10 +42,33 @@ CSS will fix. Autoplay only works muted, so carry `muted` and `playsinline` when
 
 ## Build and test
 
-**Never run Maven, npm, Sass or a deploy.** Declare your test instead:
+Check your own work before you finish. You are in a private copy of the repository, and these three
+commands are read-only — run them as often as you need:
+
+```bash
+mvn -pl ui.apps generate-sources                                  # HTL syntax
+mvn -pl core test-compile                                         # Java compiles, your test included
+mvn -pl core test -Dtest=MyComponentModelTest -DfailIfNoTests=false   # your test passes
+```
+
+The orchestrator runs the same commands the moment you exit. Anything they report there is a
+rejected attempt and a fresh start, so it is always cheaper to fix it here.
+
+**Never install or deploy.** No `mvn install`, no `-PautoInstall...` profile, no `npm`, no Sass,
+nothing that talks to an AEM instance — that server is shared, and you would be pushing half-built
+work onto it while other workers are still going.
+
+Declare the test you want run against the merged tree:
 
 ```jsonc
 "focused_test": { "tests": ["MyComponentModelTest"] }
+```
+
+HTL is not JavaScript: it has **no `+` operator and no string concatenation**. To build one string
+from several values use `format`, or add a getter to your model and bind that:
+
+```html
+<div style="${'--bg:{0};--text:{1};' @ format=[model.backgroundColor, model.textColor], context='styleString'}">
 ```
 
 Declare a test class you authored yourself, in the `src/test/java` path listed in your owned paths —
