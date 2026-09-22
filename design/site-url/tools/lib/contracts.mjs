@@ -60,5 +60,6 @@ export const OWNING_LAYER_RULES = [
   { layer: 'color-tokens', when: 'color, background or border colors differ' },
   { layer: 'spacing', when: 'padding, margin or gap differ' },
   { layer: 'media-assets', when: 'media source, intrinsic size or object-fit differ' },
+  { layer: 'media-playback', when: 'video autoplay, loop, muted, controls or running state differ' },
   { layer: 'component-css', when: 'pixels differ with matching geometry and properties' },
 ];

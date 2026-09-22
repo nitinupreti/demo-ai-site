@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { runAgentRole } from './agent.mjs';
 import { createRenderer } from './console.mjs';
 import { applyContributions } from './contributions.mjs';
+import { acquireAssets } from './assets.mjs';
 import { focusedTestPlan, planDeployment, runDeployment } from './deploy.mjs';
 import { planSummary, validatePlan } from './plan.mjs';
 import {
@@ -28,7 +29,7 @@ const defaultRepoRoot = path.resolve(siteUrlDir, '../..');
 const promptsDir = path.join(siteUrlDir, 'prompts');
 const toolsDir = path.join(siteUrlDir, 'tools');
 
-const PHASES = ['discover', 'plan', 'foundations', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
+const PHASES = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
 /** Single source of truth for run defaults, shared by the CLI and direct orchestrate() calls. */
 export const DEFAULTS = Object.freeze({
@@ -44,6 +45,11 @@ export const DEFAULTS = Object.freeze({
 
 function readPrompt(name) {
   return fs.readFileSync(path.join(promptsDir, name), 'utf8');
+}
+
+/** One DAM folder per authored page, so re-running a different source cannot mix two sites' assets. */
+function damPathFor(targetPath) {
+  return String(targetPath).replace(/^\/content\//, '/content/dam/');
 }
 
 function writeJson(filePath, value) {
@@ -236,7 +242,21 @@ export async function orchestrate(rawOptions, services) {
   }
   endPhase(phase, 'PASS', 'tokens, template and policies ready');
 
-  // 4. Fan-out — parallel component workers, one isolated checkout each.
+  // 4. Assets — deterministic; re-acquired every run so a changed source URL cannot leave orphans.
+  phase = startPhase('assets');
+  const damPath = plan.shared?.dam_path || damPathFor(options.targetPath);
+  const damRoot = plan.shared?.dam_root || `ui.content/src/main/content/jcr_root${damPath}`;
+  const assets = await acquireAssets({
+    repoRoot, discovery, damRoot, damPath, fetchFn: options.fetchFn,
+  });
+  writeJson(path.join(evidenceDir, 'assets.json'), assets);
+  if (assets.status !== 'PASS') {
+    endPhase(phase, 'FAIL', assets.failures.map((entry) => `${entry.url}: ${entry.reason}`).slice(0, 4).join('; '));
+    return { status: 'FAIL', phases, state, plan, assets };
+  }
+  endPhase(phase, 'PASS', `${assets.manifest.length} assets acquired into ${damPath}`);
+
+  // 5. Fan-out — parallel component workers, one isolated checkout each.
   phase = startPhase('fanout');
   const byId = new Map(plan.components.map((component) => [component.id, component]));
   const claimed = new Map();
@@ -271,6 +291,11 @@ export async function orchestrate(rawOptions, services) {
               JSON.stringify({
                 component,
                 breakpoints: options.breakpoints,
+                assets: assets.manifest
+                  .filter((entry) => entry.instances.some((id) => component.instances.includes(id)))
+                  .map(({ source_url, dam_path, mime, alt, width, height }) => ({
+                    source_url, dam_path, mime, alt, width, height,
+                  })),
                 evidence_slice: path.relative(repoRoot, path.join(discoveryDir, 'discovery.json')),
                 result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
               }, null, 2),
@@ -376,15 +401,27 @@ export async function orchestrate(rawOptions, services) {
 
   // 5. Compose — the orchestrator writes every shared file.
   phase = startPhase('compose');
-  const composed = applyContributions({ repoRoot, plan, results: workerResults.map((entry) => entry.result) });
+  const composed = applyContributions({
+    repoRoot,
+    plan,
+    results: workerResults.map((entry) => entry.result),
+    instanceOrder: new Map(discovery.instances.map((instance) => [instance.id, instance.order])),
+  });
   if (composed.conflicts.length) {
-    endPhase(phase, 'FAIL', composed.conflicts.map((entry) => `${entry.kind}:${entry.target || entry.property}`).join('; '));
+    const describe = (entry) => [
+      entry.kind,
+      entry.other && entry.other !== entry.component ? `${entry.component} vs ${entry.other}` : entry.component,
+      entry.detail,
+      entry.target || entry.property,
+    ].filter(Boolean).join(' · ');
+    endPhase(phase, 'FAIL', composed.conflicts.map(describe).join('; '));
     return { status: 'FAIL', phases, state, plan, conflicts: composed.conflicts };
   }
   endPhase(phase, 'PASS', `${composed.written.length} shared files composed`);
 
   // 6. Deploy — exclusive, deterministic.
   const changedFiles = workerResults.flatMap((entry) => entry.applied || [])
+    .concat(assets.written)
     .concat(composed.written.map((file) => path.relative(repoRoot, file)));
   phase = startPhase('deploy');
   const steps = [focusedTestPlan(workerResults), ...planDeployment(changedFiles, options.aemPort)].filter(Boolean);

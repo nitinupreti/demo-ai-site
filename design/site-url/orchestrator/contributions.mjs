@@ -32,7 +32,7 @@ function buildNode(declaration) {
  * Collects every worker's declarations, keyed by target, and reports genuine disagreements.
  * Additive list properties merge as an ordered union; conflicting scalars are never resolved.
  */
-export function collectContributions(plan, results) {
+export function collectContributions(plan, results, { instanceOrder } = {}) {
   const order = new Map(plan.components.map((component, index) => [component.id, index]));
   const sorted = [...results].sort((left, right) => (order.get(left.component_id) ?? 0) - (order.get(right.component_id) ?? 0));
 
@@ -40,7 +40,7 @@ export function collectContributions(plan, results) {
   const policies = new Map();
   const additions = new Map();
   const clientlibEntries = [];
-  const scssImports = [];
+  const jsEntries = [];
   const conflicts = [];
 
   for (const result of sorted) {
@@ -51,10 +51,37 @@ export function collectContributions(plan, results) {
     }
     const contributions = result.contributions || {};
 
-    for (const declaration of [contributions.page_node, contributions.experience_fragment_node].filter(Boolean)) {
+    // A component claiming several instances places several nodes, so a declaration may be a list.
+    const declarations = [contributions.page_node, contributions.experience_fragment_node]
+      .filter(Boolean)
+      .flatMap((declaration) => (Array.isArray(declaration) ? declaration : [declaration]));
+
+    for (const [position, declaration] of declarations.entries()) {
       const target = component.contribution.path;
+      if (!declaration?.name) {
+        conflicts.push({
+          kind: 'unnamed-node',
+          target,
+          component: component.id,
+          detail: `declaration ${position + 1} of ${declarations.length} has no "name"`,
+        });
+        continue;
+      }
       if (!nodesByTarget.has(target)) nodesByTarget.set(target, []);
-      const orderIndex = declaration.order_index ?? component.contribution.order_index ?? order.get(component.id);
+      if (declaration.instance && instanceOrder && !instanceOrder.has(declaration.instance)) {
+        conflicts.push({
+          kind: 'unknown-instance',
+          target,
+          component: component.id,
+          detail: `node "${declaration.name}" renders instance ${declaration.instance}, which is not in the frozen evidence`,
+        });
+        continue;
+      }
+      // Page order belongs to the source, not to a number an agent picked.
+      const orderIndex = (declaration.instance ? instanceOrder?.get(declaration.instance) : undefined)
+        ?? declaration.order_index
+        ?? (declarations.length > 1 ? undefined : component.contribution.order_index)
+        ?? order.get(component.id);
       const bucket = nodesByTarget.get(target);
       const clash = bucket.find((entry) => entry.order_index === orderIndex || entry.node.name === declaration.name);
       if (clash) {
@@ -107,8 +134,8 @@ export function collectContributions(plan, results) {
     for (const entry of contributions.clientlib_entries || []) {
       if (!clientlibEntries.includes(entry)) clientlibEntries.push(entry);
     }
-    for (const entry of contributions.scss_imports || []) {
-      if (!scssImports.includes(entry)) scssImports.push(entry);
+    for (const entry of contributions.js_entries || []) {
+      if (!jsEntries.includes(entry)) jsEntries.push(entry);
     }
   }
 
@@ -118,7 +145,7 @@ export function collectContributions(plan, results) {
   }
 
   return {
-    nodesByTarget, policies, additions, clientlibEntries, scssImports, conflicts,
+    nodesByTarget, policies, additions, clientlibEntries, jsEntries, conflicts,
   };
 }
 
@@ -201,8 +228,8 @@ function existingEol(filePath) {
  * Writes every shared artifact from the collected declarations.
  * Returns the files written plus any conflict that stopped a write.
  */
-export function applyContributions({ repoRoot, plan, results }) {
-  const collected = collectContributions(plan, results);
+export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
+  const collected = collectContributions(plan, results, { instanceOrder });
   const shared = plan.shared || {};
   const written = [];
 
@@ -229,15 +256,13 @@ export function applyContributions({ repoRoot, plan, results }) {
     written.push(writeFile(policiesPath, serializeJcrXml(document)));
   }
 
-  if (shared.clientlib_index && collected.clientlibEntries.length) {
-    const header = shared.clientlib_index_header || '#base=css';
-    const contents = `${[header, ...collected.clientlibEntries].join('\n')}\n`;
-    written.push(writeFile(path.join(repoRoot, shared.clientlib_index), contents));
-  }
-
-  if (shared.scss_index && collected.scssImports.length) {
-    const contents = `${collected.scssImports.map((entry) => `@import "${entry}";`).join('\n')}\n`;
-    written.push(writeFile(path.join(repoRoot, shared.scss_index), contents));
+  for (const [indexPath, header, entries] of [
+    [shared.clientlib_index, shared.clientlib_index_header || '#base=css', collected.clientlibEntries],
+    [shared.clientlib_js_index, shared.clientlib_js_index_header || '#base=js', collected.jsEntries],
+  ]) {
+    if (!indexPath || !entries.length) continue;
+    const contents = `${[header, ...entries].join('\n')}\n`;
+    written.push(writeFile(path.join(repoRoot, indexPath), contents));
   }
 
   return { written, conflicts: collected.conflicts, collected };

@@ -44,7 +44,7 @@ const discovery = {
   source_fingerprint: 'sha256:fixture',
   breakpoints: [1440],
   instances: [
-    { id: 'inst-001', label: 'hero' },
+    { id: 'inst-001', label: 'hero', media: { 1440: [{ tag: 'img', src: '/hero.png', alt: 'Hero', intrinsic: { width: 20, height: 10 } }] } },
     { id: 'inst-002', label: 'cta' },
     { id: 'inst-003', label: 'nav' },
   ],
@@ -251,7 +251,14 @@ const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
   }, null, 2));
 });
 
-const renderer = createRenderer({ stageIds: ['discover', 'plan', 'foundations', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'] });
+const renderer = createRenderer({ stageIds: ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'] });
+
+const fetchFn = async () => ({
+  ok: true,
+  status: 200,
+  headers: { get: (name) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+  arrayBuffer: async () => new TextEncoder().encode('png-bytes').buffer,
+});
 
 const outcome = await orchestrate(
   {
@@ -261,6 +268,7 @@ const outcome = await orchestrate(
     breakpoints: [1440],
     maxParallel: 3,
     targetPath: '/content/demo/us/en/page',
+    fetchFn,
   },
   {
     copilot: { executable: 'fake-copilot', version: 'fake' },
@@ -275,13 +283,13 @@ const outcome = await orchestrate(
 );
 
 const phaseNames = outcome.phases.map((phase) => phase.name);
-expect(phaseNames.join(',') === 'discover,plan,foundations,fanout,compose,deploy,parity,remediation,report',
+expect(phaseNames.join(',') === 'discover,plan,foundations,assets,fanout,compose,deploy,parity,remediation,report',
   `all phases should run in order, got ${phaseNames.join(',')}`);
 const phaseStatus = Object.fromEntries(outcome.phases.map((phase) => [phase.name, phase.status]));
 // Parity legitimately fails on the first cycle; remediation is what must recover it.
 expect(phaseStatus.parity === 'FAIL', 'the seeded first parity cycle should fail');
 expect(phaseStatus.remediation === 'PASS', 'remediation should recover the failing components');
-expect(['discover', 'plan', 'foundations', 'fanout', 'compose', 'deploy', 'report']
+expect(['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'report']
   .every((name) => phaseStatus[name] === 'PASS'),
 `every other phase should pass: ${JSON.stringify(phaseStatus)}`);
 expect(outcome.status === 'COMPLETE', `run should complete, got ${outcome.status}`);
@@ -337,7 +345,7 @@ expect(fs.existsSync(path.join(evidenceDir, 'remediation-ledger.json')), 'ledger
 // Timing: every stage, every agent, every deploy step, and the run total.
 expect(/\*\*Total run time: \d/.test(report), 'the report must state the total run time');
 expect(report.includes('| Stage | Status | Duration | Share of run |'), 'the report must carry a per-stage timing table');
-for (const phase of ['discover', 'plan', 'foundations', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report']) {
+for (const phase of ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report']) {
   expect(new RegExp(`\\| ${phase} \\|`).test(report), `stage ${phase} should appear in the timing table`);
 }
 expect(report.includes('Slowest agent invocations'), 'the report should rank agent invocations by duration');
@@ -346,7 +354,7 @@ expect(report.includes('| Component | Tier | Role | Instances | Build time |'), 
 
 const summary = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'completion-summary.json'), 'utf8'));
 expect(typeof summary.timings.total_seconds === 'number', 'summary should carry the run total');
-expect(Object.keys(summary.timings.phases).length === 9, `summary should time all nine phases, got ${Object.keys(summary.timings.phases).length}`);
+expect(Object.keys(summary.timings.phases).length === 10, `summary should time all ten phases, got ${Object.keys(summary.timings.phases).length}`);
 expect(summary.timings.invocations.length >= 5,
   `summary should list every agent invocation, got ${summary.timings.invocations.length}`);
 expect(componentIds.every((id) => id in summary.timings.components),

@@ -51,15 +51,16 @@ Rules the orchestrator enforces on it:
 ## Shared files you must not write
 
 The page `.content.xml`, experience-fragment content, `/conf/**` templates and policies,
-`META-INF/vault/filter.xml`, `clientlib-base`, `clientlib-site`, shared SCSS under
-`webpack/site/`, `components/page/**`, and any `pom.xml`.
+`META-INF/vault/filter.xml`, `clientlib-base`, `clientlib-site`, every `ui.frontend` source
+including the global design tokens, a clientlib's `css.txt` / `js.txt` / `.content.xml`,
+`components/page/**`, and any `pom.xml`.
 
 You **declare** what you need in those files through the `contributions` block of your result, and
 the orchestrator writes them deterministically:
 
 ```jsonc
 "contributions": {
-  "page_node":   { "name": "<node>", "order_index": 0, "resource_type": "<project>/components/<id>",
+  "page_node":   { "name": "<node>", "instance": "inst-001", "resource_type": "<project>/components/<id>",
                    "properties": { "...": "authored values" },
                    "children": [ { "name": "items", "children": [ { "name": "item0", "properties": {} } ] } ] },
   "experience_fragment_node": { "...": "same shape, for chrome only" },
@@ -67,10 +68,16 @@ the orchestrator writes them deterministically:
   "policy_additions": [ { "path": "<project>/components/container/policy_main",
                           "property": "components", "values": ["<project>/components/<id>"] } ],
   "clientlib_entries": ["<id>.css"],
-  "scss_imports": ["components/<id>"]
+  "js_entries": ["<id>.js"]
 }
 ```
 
 Property values are plain JSON. Booleans, numbers and arrays are converted to JCR types for you.
+Tag every page node with the `instance` it renders. Page order is taken from that instance's position
+in the frozen evidence, so you never choose it and cannot collide with another component.
+When your component claims several instances, `page_node` is a **list** — one entry per instance,
+each with its own `name` and `instance`.
+`clientlib_entries` and `js_entries` take file names relative to the clientlib's `css/` and `js/`
+folders; the orchestrator writes the index files in plan order.
 Two roles setting the same policy property to different values is a hard conflict that fails the
 run, so only declare properties your own component owns.

@@ -45,7 +45,7 @@ const plan = {
   shared: {
     policies_file: policiesFile,
     clientlib_index: 'ui.apps/clientlibs/clientlib-story/css.txt',
-    scss_index: 'ui.frontend/src/main/webpack/site/main.scss',
+    clientlib_js_index: 'ui.apps/clientlibs/clientlib-story/js.txt',
     compose_targets: {
       '/content/demo/us/en/page': {
         file: pageFile,
@@ -111,7 +111,7 @@ const heroResult = {
     policies: [{ path: 'demo/components/customer-story-hero/policy_default', properties: { 'jcr:title': 'Hero' } }],
     policy_additions: [{ path: 'demo/components/container/policy_main', property: 'components', values: ['demo/components/customer-story-hero'] }],
     clientlib_entries: ['customer-story-hero.css'],
-    scss_imports: ['components/customer-story-hero'],
+    js_entries: ['customer-story-hero.js'],
   },
 };
 
@@ -128,7 +128,7 @@ const ctaResult = {
     policies: [{ path: 'demo/components/story-cta-band/policy_default', properties: { 'jcr:title': 'CTA band' } }],
     policy_additions: [{ path: 'demo/components/container/policy_main', property: 'components', values: ['demo/components/story-cta-band'] }],
     clientlib_entries: ['story-cta-band.css'],
-    scss_imports: ['components/story-cta-band'],
+    js_entries: ['story-cta-band.js'],
   },
 };
 
@@ -158,6 +158,10 @@ expect(fs.readFileSync(path.join(repoRoot, pageFile), 'utf8') === pageForward,
 expect(fs.readFileSync(path.join(repoRoot, 'ui.apps/clientlibs/clientlib-story/css.txt'), 'utf8') === clientlibForward,
   'clientlib index must follow plan order, not completion order');
 
+const jsIndex = fs.readFileSync(path.join(repoRoot, 'ui.apps/clientlibs/clientlib-story/js.txt'), 'utf8');
+expect(jsIndex === '#base=js\ncustomer-story-hero.js\nstory-cta-band.js\n',
+  `js index must follow plan order under its own header, got ${JSON.stringify(jsIndex)}`);
+
 // Page structure and typed values.
 const pageDocument = parseJcrXml(pageForward);
 const main = pageDocument.root.children[0].children[0].children[0];
@@ -169,6 +173,79 @@ expect(getAttribute(main.children[0], 'columns') === '{Long}2', 'numbers should 
 expect(getAttribute(main.children[0], 'headline').includes('&quot;') === false
   && getAttribute(main.children[0], 'headline').includes("world's"), 'apostrophes should survive escaping');
 expect(main.children[1].children[0].children[0].name === 'item0', 'nested child nodes should be composed');
+
+// A component claiming several instances places several nodes from one result.
+const multiNode = applyContributions({
+  repoRoot,
+  plan,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: {
+      page_node: [
+        { name: 'intro', order_index: 1, resource_type: 'demo/components/customer-story-hero', properties: { headline: 'Intro' } },
+        { name: 'outro', order_index: 3, resource_type: 'demo/components/customer-story-hero', properties: { headline: 'Outro' } },
+      ],
+    },
+  }, ctaResult],
+});
+expect(multiNode.conflicts.length === 0, `a node list should compose cleanly: ${JSON.stringify(multiNode.conflicts)}`);
+const multiMain = parseJcrXml(fs.readFileSync(path.join(repoRoot, pageFile), 'utf8'))
+  .root.children[0].children[0].children[0];
+expect(multiMain.children.map((child) => child.name).join(',') === 'intro,cta,outro',
+  `listed nodes must interleave by order_index, got ${multiMain.children.map((child) => child.name).join(',')}`);
+
+// Every node in a list needs its own name, or the orchestrator cannot place it.
+const unnamed = applyContributions({
+  repoRoot,
+  plan,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: { page_node: [{ order_index: 1, properties: {} }] },
+  }],
+});
+expect(unnamed.conflicts.some((entry) => entry.kind === 'unnamed-node'),
+  'a node declared without a name must be reported, not silently written');
+
+// Source order wins over any number an agent picked, so interleaved components cannot collide.
+const instanceOrder = new Map([['inst-001', 1], ['inst-002', 2], ['inst-003', 3], ['inst-004', 4]]);
+const interleaved = applyContributions({
+  repoRoot,
+  plan,
+  instanceOrder,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: {
+      page_node: [
+        { name: 'article-a', instance: 'inst-001', order_index: 7, properties: {} },
+        { name: 'article-b', instance: 'inst-003', order_index: 7, properties: {} },
+      ],
+    },
+  }, {
+    component_id: 'story-cta-band',
+    contributions: { page_node: [{ name: 'quote', instance: 'inst-002', order_index: 7, properties: {} }] },
+  }],
+});
+expect(interleaved.conflicts.length === 0, `instance order should resolve collisions: ${JSON.stringify(interleaved.conflicts)}`);
+const interleavedMain = parseJcrXml(fs.readFileSync(path.join(repoRoot, pageFile), 'utf8'))
+  .root.children[0].children[0].children[0];
+expect(interleavedMain.children.map((child) => child.name).join(',') === 'article-a,quote,article-b',
+  `nodes must follow source order, got ${interleavedMain.children.map((child) => child.name).join(',')}`);
+
+// An instance that is not in the frozen evidence must be refused, not quietly reordered.
+const invented = applyContributions({
+  repoRoot,
+  plan,
+  instanceOrder,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: { page_node: [{ name: 'ghost', instance: 'inst-999', properties: {} }] },
+  }],
+});
+expect(invented.conflicts.some((entry) => entry.kind === 'unknown-instance'),
+  'an instance id absent from discovery must be reported');
+
+// Restore the canonical page for the remaining assertions.
+applyContributions({ repoRoot, plan, results: [heroResult, ctaResult, headerResult] });
 
 // Chrome lands in the experience fragment, never on the page.
 const xfDocument = parseJcrXml(fs.readFileSync(path.join(repoRoot, xfFile), 'utf8'));

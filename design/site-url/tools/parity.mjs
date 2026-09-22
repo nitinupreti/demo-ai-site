@@ -94,6 +94,12 @@ const GATE_LAYERS = {
   structure: 'component-structure',
 };
 
+// Long enough for a playing video to advance measurably, short enough to run per component.
+const PLAYBACK_SETTLE_MS = 1200;
+
+// `preload` and `ready_state` are captured for diagnosis but not gated: neither changes what a visitor sees.
+const PLAYBACK_PROPERTIES = ['autoplay', 'loop', 'muted', 'controls', 'playsinline', 'has_poster', 'paused', 'advanced'];
+
 function validateConfig(config) {
   const problems = [];
   if (!config.source_url) problems.push('source_url is required');
@@ -317,6 +323,54 @@ function styleDeltas(source, target) {
   return deltas;
 }
 
+/**
+ * Samples every video in a component: the declared attributes plus whether it is actually
+ * running. A poster frame that never advances is otherwise indistinguishable from an image.
+ */
+async function capturePlayback(page, selector) {
+  return page.evaluate(async ({ css, matchIndex, settleMs }) => {
+    const element = document.querySelectorAll(css)[matchIndex || 0];
+    if (!element) return null;
+    const nodes = element.matches('video') ? [element] : Array.from(element.querySelectorAll('video'));
+    if (!nodes.length) return [];
+
+    return Promise.all(nodes.map(async (video) => {
+      video.scrollIntoView({ block: 'center', behavior: 'instant' });
+      const before = video.currentTime;
+      await new Promise((resolve) => { setTimeout(resolve, settleMs); });
+      return {
+        autoplay: video.autoplay,
+        loop: video.loop,
+        muted: video.muted,
+        controls: video.controls,
+        playsinline: video.hasAttribute('playsinline'),
+        preload: video.preload,
+        has_poster: Boolean(video.poster),
+        paused: video.paused,
+        ready_state: video.readyState,
+        advanced: video.currentTime - before > 0.25,
+      };
+    }));
+  }, { css: selector.css, matchIndex: selector.match_index || 0, settleMs: PLAYBACK_SETTLE_MS });
+}
+
+function playbackDeltas(source, target) {
+  if (!source || !target) return [];
+  if (source.length !== target.length) {
+    return [{ property: 'video_count', source: source.length, target: target.length }];
+  }
+  const deltas = [];
+  source.forEach((left, index) => {
+    const right = target[index];
+    for (const property of PLAYBACK_PROPERTIES) {
+      if (left[property] !== right[property]) {
+        deltas.push({ index, property, source: left[property], target: right[property] });
+      }
+    }
+  });
+  return deltas;
+}
+
 function owningLayerHint(result) {
   if (result.status === 'WITHHELD' && /selector|match|signature/i.test(result.withheld_reason || '')) return 'plan-or-selector';
   if (result.deltas?.text && result.deltas.text.similarity < 0.9) return 'authored-content';
@@ -326,6 +380,7 @@ function owningLayerHint(result) {
     return 'geometry-container';
   }
   if (result.deltas?.rendered_fonts?.length) return 'font-delivery';
+  if (result.deltas?.playback?.length) return 'media-playback';
   // The structured gates name their own layer before falling back to raw pixels.
   for (const [category, layer] of Object.entries(GATE_LAYERS)) {
     if (result.deltas?.inventory?.[category]?.length) return layer;
@@ -555,6 +610,11 @@ async function main() {
             ? []
             : [{ source: sourceFamilies, target: targetFamilies }];
 
+          result.deltas.playback = playbackDeltas(
+            await capturePlayback(source.page, component.source),
+            await capturePlayback(deployed.page, component.target),
+          );
+
           const inventory = compareInventories(
             await readInventory(source.page, component.source),
             await readInventory(deployed.page, component.target),
@@ -564,6 +624,7 @@ async function main() {
           result.gates = Object.fromEntries(Object.keys(GATE_LAYERS)
             .map((category) => [category, (inventory[category] || []).length ? 'FAIL' : 'PASS']));
           result.gates.rendered_fonts = result.deltas.rendered_fonts.length ? 'FAIL' : 'PASS';
+          result.gates.playback = result.deltas.playback.length ? 'FAIL' : 'PASS';
           const failedGates = Object.entries(result.gates)
             .filter(([, value]) => value === 'FAIL')
             .map(([category]) => category);

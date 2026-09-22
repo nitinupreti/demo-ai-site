@@ -24,7 +24,11 @@ export const SHARED_PATH_PATTERNS = [
   /^[^/]*ui\.content\/src\/main\/content\/jcr_root\/content\/(?!experience-fragments)/,
   /^[^/]*ui\.content\/src\/main\/content\/META-INF\//,
   /^[^/]*ui\.frontend\/src\/main\/webpack\/site\//,
+  /^[^/]*ui\.frontend\/src\/main\/webpack\/resources\//,
   /^[^/]*ui\.apps\/src\/main\/content\/jcr_root\/apps\/[^/]+\/clientlibs\/clientlib-(base|site)\//,
+  // A clientlib's index and folder definition are composed; only the files inside css/ and js/ are ownable.
+  /\/clientlibs\/[^/]+\/(css|js)\.txt$/,
+  /\/clientlibs\/[^/]+\/\.content\.xml$/,
   /^[^/]*ui\.apps\/src\/main\/content\/jcr_root\/apps\/[^/]+\/components\/page\//,
   /(^|\/)pom\.xml$/,
   /(^|\/)filter\.xml$/,

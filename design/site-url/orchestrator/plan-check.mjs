@@ -130,6 +130,11 @@ expect(hasError(result, 'may not own shared path'), 'regex protected paths must 
 for (const shared of [
   'ui.content/src/main/content/META-INF/vault/filter.xml',
   'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-site/css.txt',
+  'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-story/css.txt',
+  'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-story/js.txt',
+  'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-story/.content.xml',
+  'ui.frontend/src/main/webpack/site/_tokens.scss',
+  'ui.frontend/src/main/webpack/resources/fonts/inter.woff2',
   'ui.apps/src/main/content/jcr_root/apps/anyproject/components/page/customheaderlibs.html',
   'core/pom.xml',
 ]) {
@@ -138,6 +143,15 @@ for (const shared of [
   result = validatePlan(attempt, { discovery, runId: 'r1' });
   expect(hasError(result, 'may not own shared path'), `default protection missing for ${shared}`);
 }
+
+// Protecting the clientlib index must not lock workers out of the files it lists.
+const clientlibOwner = basePlan();
+clientlibOwner.components[0].owned_paths = [
+  'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-story/css/customer-story-hero.css',
+  'ui.apps/src/main/content/jcr_root/apps/anyproject/clientlibs/clientlib-story/js/customer-story-hero.js',
+];
+result = validatePlan(clientlibOwner, { discovery, runId: 'r1' });
+expect(result.valid, `a worker must own its own clientlib files: ${result.errors.join('; ')}`);
 
 // Worker isolation, ownership guard, and merge.
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-check-'));

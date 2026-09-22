@@ -28,6 +28,7 @@ const config = {
     { id: 'hero', source: { css: '#hero' }, target: { css: '#hero' } },
     { id: 'cta', source: { css: '#cta' }, target: { css: '#cta' } },
     { id: 'cards', source: { css: '#cards' }, target: { css: '#cards' } },
+    { id: 'media', source: { css: '#media' }, target: { css: '#media' } },
   ],
 };
 const configPath = path.join(outDir, 'parity-config.json');
@@ -88,6 +89,17 @@ expect(
   cards.deltas.inventory.spacing.some((delta) => String(delta.property).startsWith('padding')),
   'cards spacing delta should name a padding property',
 );
+
+// A video that matches pixel-for-pixel but not in behaviour must still fail.
+const media = rowFor('media');
+expect(byId.media.status === 'FAIL', `media should FAIL on behaviour alone, got ${byId.media.status}`);
+expect(media.gates.playback === 'FAIL', 'media should fail the playback gate');
+expect(byId.media.owning_layer_hint === 'media-playback',
+  `playback failures should route to media-playback, got ${byId.media.owning_layer_hint}`);
+for (const property of ['autoplay', 'loop', 'muted', 'controls', 'playsinline']) {
+  expect(media.deltas.playback.some((delta) => delta.property === property),
+    `playback delta should report ${property}`);
+}
 
 expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
 
