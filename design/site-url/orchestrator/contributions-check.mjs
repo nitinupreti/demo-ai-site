@@ -3,7 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { applyContributions, collectContributions } from './contributions.mjs';
+import {
+  applyContributions, collectContributions, validateContribution, verifyComposeTargets,
+} from './contributions.mjs';
 import { getAttribute, parseJcrList, parseJcrXml, serializeJcrXml } from './jcr-xml.mjs';
 
 const failures = [];
@@ -231,6 +233,32 @@ const interleavedMain = parseJcrXml(fs.readFileSync(path.join(repoRoot, pageFile
 expect(interleavedMain.children.map((child) => child.name).join(',') === 'article-a,quote,article-b',
   `nodes must follow source order, got ${interleavedMain.children.map((child) => child.name).join(',')}`);
 
+// One component may place several nodes for a single instance; declaration order breaks the tie.
+const sameInstance = applyContributions({
+  repoRoot,
+  plan,
+  instanceOrder,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: {
+      page_node: [
+        { name: 'pillar-a', instance: 'inst-002', properties: {} },
+        { name: 'pillar-b', instance: 'inst-002', properties: {} },
+        { name: 'pillar-c', instance: 'inst-002', properties: {} },
+      ],
+    },
+  }, {
+    component_id: 'story-cta-band',
+    contributions: { page_node: [{ name: 'later', instance: 'inst-004', properties: {} }] },
+  }],
+});
+expect(sameInstance.conflicts.length === 0,
+  `a component's own nodes must not collide with each other: ${JSON.stringify(sameInstance.conflicts)}`);
+const sameInstanceMain = parseJcrXml(fs.readFileSync(path.join(repoRoot, pageFile), 'utf8'))
+  .root.children[0].children[0].children[0];
+expect(sameInstanceMain.children.map((child) => child.name).join(',') === 'pillar-a,pillar-b,pillar-c,later',
+  `declaration order must survive, got ${sameInstanceMain.children.map((child) => child.name).join(',')}`);
+
 // An instance that is not in the frozen evidence must be refused, not quietly reordered.
 const invented = applyContributions({
   repoRoot,
@@ -246,6 +274,146 @@ expect(invented.conflicts.some((entry) => entry.kind === 'unknown-instance'),
 
 // Restore the canonical page for the remaining assertions.
 applyContributions({ repoRoot, plan, results: [heroResult, ctaResult, headerResult] });
+
+// Without an explicit compose target, the contribution path names the file and the node inside it.
+const derivedFile = 'ui.content/content/derived/page/.content.xml';
+fs.mkdirSync(path.join(repoRoot, path.dirname(derivedFile)), { recursive: true });
+fs.writeFileSync(path.join(repoRoot, derivedFile), `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="cq:PageContent" jcr:title="Authored by foundations">
+        <root jcr:primaryType="nt:unstructured" sling:resourceType="demo/components/container">
+            <container jcr:primaryType="nt:unstructured" sling:resourceType="demo/components/container"/>
+        </root>
+    </jcr:content>
+</jcr:root>
+`, 'utf8');
+
+const derivedPlan = {
+  ...plan,
+  shared: { ...plan.shared, compose_targets: {}, content_root: 'ui.content' },
+  components: plan.components.map((component) => (component.id === 'customer-story-hero'
+    ? { ...component, contribution: { ...component.contribution, path: '/content/derived/page/jcr:content/root/container' } }
+    : component)),
+};
+const derived = applyContributions({
+  repoRoot,
+  plan: derivedPlan,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: { page_node: [{ name: 'hero', order_index: 1, resource_type: 'demo/components/hero', properties: {} }] },
+  }],
+});
+expect(derived.conflicts.length === 0, `a derivable target should compose: ${JSON.stringify(derived.conflicts)}`);
+const derivedDocument = parseJcrXml(fs.readFileSync(path.join(repoRoot, derivedFile), 'utf8'));
+expect(getAttribute(derivedDocument.root.children[0], 'jcr:title') === 'Authored by foundations',
+  'merging must preserve what foundations authored on the page');
+expect(derivedDocument.root.children[0].children[0].children[0].children[0]?.name === 'hero',
+  'the component node must land inside the named container');
+
+// Re-running must not duplicate the nodes already composed.
+applyContributions({
+  repoRoot,
+  plan: derivedPlan,
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: { page_node: [{ name: 'hero', order_index: 1, resource_type: 'demo/components/hero', properties: {} }] },
+  }],
+});
+const rerunContainer = parseJcrXml(fs.readFileSync(path.join(repoRoot, derivedFile), 'utf8'))
+  .root.children[0].children[0].children[0];
+expect(rerunContainer.children.length === 1,
+  `composing twice must be idempotent, got ${rerunContainer.children.length} children`);
+
+// A missing container is named against the skeleton, not composed into thin air.
+const missingContainer = applyContributions({
+  repoRoot,
+  plan: {
+    ...derivedPlan,
+    components: derivedPlan.components.map((component) => (component.id === 'customer-story-hero'
+      ? { ...component, contribution: { ...component.contribution, path: '/content/derived/page/jcr:content/root/absent' } }
+      : component)),
+  },
+  results: [{
+    component_id: 'customer-story-hero',
+    contributions: { page_node: [{ name: 'hero', properties: {} }] },
+  }],
+});
+expect(missingContainer.conflicts.some((entry) => entry.kind === 'missing-container'),
+  'a missing container must be reported against the skeleton, not composed into thin air');
+
+// The preflight catches every structural problem before a single worker is spawned.
+const preflightPlan = { ...derivedPlan, components: [derivedPlan.components.find((entry) => entry.id === 'customer-story-hero')] };
+expect(verifyComposeTargets({ repoRoot, plan: preflightPlan }).length === 0,
+  `a plan whose skeleton exists must preflight clean: ${verifyComposeTargets({ repoRoot, plan: preflightPlan }).join('; ')}`);
+expect(verifyComposeTargets({
+  repoRoot,
+  plan: { ...preflightPlan, components: [{ ...preflightPlan.components[0], contribution: { kind: 'page-fragment', path: '/content/derived/page/jcr:content/root/absent' } }] },
+}).some((problem) => problem.includes('absent')), 'the preflight must name a container the skeleton lacks');
+expect(verifyComposeTargets({
+  repoRoot,
+  plan: { ...preflightPlan, components: [{ ...preflightPlan.components[0], contribution: { kind: 'page-fragment', path: '/content/never/written/jcr:content/root' } }] },
+}).some((problem) => problem.includes('nowhere to compose into')), 'the preflight must name a missing skeleton file');
+expect(verifyComposeTargets({
+  repoRoot,
+  plan: { ...preflightPlan, shared: { ...preflightPlan.shared, policies_file: 'ui.content/nope/.content.xml' } },
+}).some((problem) => problem.includes('nope')), 'the preflight must catch a policies file that cannot be merged');
+
+// Per-worker problems are caught at attempt time, while the worker still has retries.
+const componentFixture = { id: 'customer-story-hero', instances: ['inst-001', 'inst-002'] };
+expect(validateContribution(componentFixture, { contributions: {} })
+  .some((problem) => problem.includes('never appear on the page')),
+'a worker that declares no node must be told so');
+expect(validateContribution(componentFixture, { contributions: { page_node: [{ instance: 'inst-001' }] } })
+  .some((problem) => problem.includes('has no "name"')), 'an unnamed node must be reported');
+expect(validateContribution(componentFixture, {
+  contributions: { page_node: [{ name: 'a', instance: 'inst-009' }] },
+}, { instanceOrder }).some((problem) => problem.includes('not in the frozen evidence')),
+'an unknown instance must be reported');
+expect(validateContribution(componentFixture, {
+  contributions: { page_node: [{ name: 'a', instance: 'inst-003' }] },
+}, { instanceOrder }).some((problem) => problem.includes('belongs to another component')),
+'claiming another component\'s instance must be reported');
+expect(validateContribution(componentFixture, {
+  contributions: { page_node: [{ name: 'a', instance: 'inst-001' }, { name: 'a', instance: 'inst-002' }] },
+}, { instanceOrder }).some((problem) => problem.includes('both named')), 'duplicate node names must be reported');
+expect(validateContribution(componentFixture, {
+  contributions: { page_node: [{ name: 'a', instance: 'inst-001' }, { name: 'b', instance: 'inst-002' }] },
+}, { instanceOrder }).length === 0, 'a well-formed multi-instance contribution must pass');
+
+// A node pointing at a resource type nobody built renders empty rather than failing loudly.
+const typedFixture = {
+  id: 'customer-story-hero',
+  instances: ['inst-001'],
+  resource_type: 'demo/components/customer-story-hero',
+  owned_paths: ['ui.apps/.../clientlibs/clientlib-story/css/customer-story-hero.css'],
+};
+expect(validateContribution(typedFixture, {
+  contributions: { page_node: [{ name: 'a', instance: 'inst-001', resource_type: 'demo/components/something-else' }] },
+}, { instanceOrder }).some((problem) => problem.includes('but your component is')),
+'a resource type that disagrees with the plan must be reported');
+
+// An index entry with no file behind it breaks the whole clientlib.
+const writtenFiles = ['ui.apps/.../clientlibs/clientlib-story/css/customer-story-hero.css'];
+expect(validateContribution(typedFixture, {
+  contributions: {
+    page_node: [{ name: 'a', instance: 'inst-001', resource_type: 'demo/components/customer-story-hero' }],
+    clientlib_entries: ['customer-story-hero.css'],
+  },
+}, { instanceOrder, writtenFiles }).length === 0, 'an entry backed by a written file must pass');
+expect(validateContribution(typedFixture, {
+  contributions: {
+    page_node: [{ name: 'a', instance: 'inst-001', resource_type: 'demo/components/customer-story-hero' }],
+    clientlib_entries: ['typo.css'],
+  },
+}, { instanceOrder, writtenFiles }).some((problem) => problem.includes('wrote no file with that name')),
+'an entry with no written file must be reported');
+expect(validateContribution(typedFixture, {
+  contributions: {
+    page_node: [{ name: 'a', instance: 'inst-001', resource_type: 'demo/components/customer-story-hero' }],
+    clientlib_entries: ['typo.css'],
+  },
+}, { instanceOrder }).length === 0, 'without a written-file list the entry check stays quiet');
 
 // Chrome lands in the experience fragment, never on the page.
 const xfDocument = parseJcrXml(fs.readFileSync(path.join(repoRoot, xfFile), 'utf8'));
@@ -275,13 +443,18 @@ const conflicted = collectContributions(plan, [heroResult, rogue]);
 expect(conflicted.conflicts.some((entry) => entry.kind === 'policy-conflict' && entry.property === 'jcr:title'),
   'conflicting scalar policy values must be reported');
 
-// Two workers claiming the same page slot is a hard conflict.
+// Two workers picking one node name is resolved, not fatal: a finished run must still compose.
 const collision = collectContributions(plan, [heroResult, {
   component_id: 'story-cta-band',
-  contributions: { page_node: { name: 'other', order_index: 1, resource_type: 'x' } },
+  contributions: { page_node: { name: 'hero', order_index: 1, resource_type: 'x' } },
 }]);
-expect(collision.conflicts.some((entry) => entry.kind === 'node-collision'),
-  'two components claiming one order_index must be reported');
+expect(collision.conflicts.length === 0,
+  `a name clash must not fail compose: ${JSON.stringify(collision.conflicts)}`);
+expect(collision.renames.some((entry) => entry.from === 'hero' && entry.to === 'story-cta-band'),
+  `the loser must be renamed deterministically, got ${JSON.stringify(collision.renames)}`);
+const collisionNames = [...collision.nodesByTarget.values()][0].map((entry) => entry.node.name);
+expect(new Set(collisionNames).size === collisionNames.length,
+  `composed node names must stay unique, got ${collisionNames.join(',')}`);
 
 // Round-trip fidelity of the minimal XML layer.
 const sample = fs.readFileSync(path.join(repoRoot, policiesFile), 'utf8');

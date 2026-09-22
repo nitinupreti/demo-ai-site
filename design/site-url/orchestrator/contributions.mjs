@@ -28,6 +28,16 @@ function buildNode(declaration) {
   return createNode(declaration.name, properties, children);
 }
 
+function uniqueNodeName(bucket, preferred, componentId) {
+  const taken = new Set(bucket.map((entry) => entry.node.name));
+  if (!taken.has(preferred)) return preferred;
+  if (!taken.has(componentId)) return componentId;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${componentId}-${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
 /**
  * Collects every worker's declarations, keyed by target, and reports genuine disagreements.
  * Additive list properties merge as an ordered union; conflicting scalars are never resolved.
@@ -41,6 +51,7 @@ export function collectContributions(plan, results, { instanceOrder } = {}) {
   const additions = new Map();
   const clientlibEntries = [];
   const jsEntries = [];
+  const renames = [];
   const conflicts = [];
 
   for (const result of sorted) {
@@ -83,18 +94,19 @@ export function collectContributions(plan, results, { instanceOrder } = {}) {
         ?? (declarations.length > 1 ? undefined : component.contribution.order_index)
         ?? order.get(component.id);
       const bucket = nodesByTarget.get(target);
-      const clash = bucket.find((entry) => entry.order_index === orderIndex || entry.node.name === declaration.name);
-      if (clash) {
-        conflicts.push({
-          kind: 'node-collision',
-          target,
-          component: component.id,
-          other: clash.component,
-          detail: clash.node.name === declaration.name ? `both declare node "${declaration.name}"` : `both claim order_index ${orderIndex}`,
-        });
-        continue;
+      // Two components can independently pick one node name; the JCR needs a single winner, so this
+      // resolves rather than failing a run that is otherwise complete.
+      const name = uniqueNodeName(bucket, declaration.name, component.id);
+      if (name !== declaration.name) {
+        renames.push({ component: component.id, from: declaration.name, to: name });
       }
-      bucket.push({ component: component.id, order_index: orderIndex, node: buildNode(declaration) });
+      bucket.push({
+        component: component.id,
+        order_index: orderIndex,
+        plan_index: order.get(component.id) ?? 0,
+        sub_index: position,
+        node: buildNode({ ...declaration, name }),
+      });
     }
 
     for (const policy of contributions.policies || []) {
@@ -140,12 +152,15 @@ export function collectContributions(plan, results, { instanceOrder } = {}) {
   }
 
   for (const bucket of nodesByTarget.values()) {
+    // A total order, so two components can never deadlock the page over one slot.
     bucket.sort((left, right) => left.order_index - right.order_index
+      || left.plan_index - right.plan_index
+      || left.sub_index - right.sub_index
       || left.node.name.localeCompare(right.node.name));
   }
 
   return {
-    nodesByTarget, policies, additions, clientlibEntries, jsEntries, conflicts,
+    nodesByTarget, policies, additions, clientlibEntries, jsEntries, renames, conflicts,
   };
 }
 
@@ -224,6 +239,126 @@ function existingEol(filePath) {
   return fs.readFileSync(filePath, 'utf8').includes('\r\n') ? '\r\n' : '\n';
 }
 
+const DEFAULT_CONTENT_ROOT = 'ui.content/src/main/content/jcr_root';
+
+/**
+ * `/content/site/page/jcr:content/root/container` names both the file foundations wrote and the
+ * node inside it, so the planner never has to restate a structure the path already encodes.
+ */
+function deriveComposeTarget(targetPath, contentRoot = DEFAULT_CONTENT_ROOT) {
+  const [documentPath, inner] = String(targetPath).split('/jcr:content');
+  if (!documentPath || inner === undefined) return null;
+  return {
+    file: `${contentRoot}${documentPath}/.content.xml`,
+    node_path: ['jcr:content', ...inner.split('/').filter(Boolean)],
+  };
+}
+
+function findNodePath(root, segments) {
+  let current = root;
+  for (const segment of segments) {
+    current = current?.children.find((child) => child.name === segment);
+    if (!current) return null;
+  }
+  return current;
+}
+
+/**
+ * Everything compose needs that does not depend on worker output. Run straight after foundations
+ * so a structural mistake costs seconds instead of a whole fan-out.
+ */
+export function verifyComposeTargets({ repoRoot, plan }) {
+  const shared = plan.shared || {};
+  const problems = [];
+  const seen = new Set();
+
+  for (const component of plan.components || []) {
+    const targetPath = component.contribution?.path;
+    if (!targetPath || seen.has(targetPath)) continue;
+    seen.add(targetPath);
+    if ((shared.compose_targets || {})[targetPath]?.file) continue;
+
+    const derived = deriveComposeTarget(targetPath, shared.content_root);
+    if (!derived) {
+      problems.push(`${targetPath} has no /jcr:content segment, so no file can be derived for it`);
+      continue;
+    }
+    const absolute = path.join(repoRoot, derived.file);
+    if (!fs.existsSync(absolute)) {
+      problems.push(`${derived.file} is missing, so ${targetPath} has nowhere to compose into`);
+      continue;
+    }
+    let document;
+    try {
+      document = parseJcrXml(fs.readFileSync(absolute, 'utf8'));
+    } catch (error) {
+      problems.push(`${derived.file} could not be parsed: ${error.message}`);
+      continue;
+    }
+    if (!findNodePath(document.root, derived.node_path)) {
+      problems.push(`${derived.node_path.join('/')} is not present in ${derived.file}`);
+    }
+  }
+
+  if (shared.policies_file && !fs.existsSync(path.join(repoRoot, shared.policies_file))) {
+    problems.push(`${shared.policies_file} is missing, so declared policies cannot be merged`);
+  }
+
+  return problems;
+}
+
+/** Per-worker checks, run at attempt time so a rejection still has retries left. */
+export function validateContribution(component, result, { instanceOrder, writtenFiles } = {}) {
+  const contributions = result?.contributions || {};
+  const declarations = [contributions.page_node, contributions.experience_fragment_node]
+    .filter(Boolean)
+    .flatMap((declaration) => (Array.isArray(declaration) ? declaration : [declaration]));
+  const problems = [];
+
+  if (!declarations.length) {
+    problems.push('You declared no `page_node` or `experience_fragment_node`, so your component would '
+      + 'never appear on the page.');
+  }
+
+  const claimed = new Set(component.instances || []);
+  declarations.forEach((declaration, index) => {
+    const label = declaration?.name ? `"${declaration.name}"` : `declaration ${index + 1}`;
+    if (!declaration?.name) problems.push(`${label} has no "name".`);
+    if (!declaration?.instance) return;
+    if (instanceOrder && !instanceOrder.has(declaration.instance)) {
+      problems.push(`${label} names instance ${declaration.instance}, which is not in the frozen evidence.`);
+    } else if (claimed.size && !claimed.has(declaration.instance)) {
+      problems.push(`${label} renders ${declaration.instance}, which belongs to another component. `
+        + `You claim: ${[...claimed].join(', ')}.`);
+    }
+  });
+
+  const names = declarations.map((declaration) => declaration?.name).filter(Boolean);
+  const duplicate = names.find((name, index) => names.indexOf(name) !== index);
+  if (duplicate) problems.push(`Two of your nodes are both named "${duplicate}".`);
+
+  // A node pointing at a resource type nobody built renders as an empty div, not as an error.
+  for (const declaration of declarations) {
+    if (!declaration?.resource_type || !component.resource_type) continue;
+    if (declaration.resource_type !== component.resource_type) {
+      problems.push(`"${declaration.name}" declares resource_type ${declaration.resource_type}, `
+        + `but your component is ${component.resource_type}.`);
+    }
+  }
+
+  // An index entry with no file behind it breaks the whole clientlib, not just this component.
+  if (writtenFiles) {
+    const written = writtenFiles.map((entry) => String(entry).replaceAll('\\', '/'));
+    for (const entry of [...(contributions.clientlib_entries || []), ...(contributions.js_entries || [])]) {
+      if (!written.some((candidate) => candidate.endsWith(`/${entry}`))) {
+        problems.push(`You declared clientlib entry "${entry}", but wrote no file with that name.`);
+      }
+    }
+  }
+
+  return problems;
+}
+
 /**
  * Writes every shared artifact from the collected declarations.
  * Returns the files written plus any conflict that stopped a write.
@@ -238,22 +373,61 @@ export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
   }
 
   for (const [targetPath, nodes] of collected.nodesByTarget) {
-    const target = (shared.compose_targets || {})[targetPath];
-    if (!target?.file) {
-      collected.conflicts.push({ kind: 'missing-compose-target', target: targetPath });
+    const explicit = (shared.compose_targets || {})[targetPath];
+    if (explicit?.file) {
+      const absolute = path.join(repoRoot, explicit.file);
+      const eol = explicit.eol || existingEol(absolute) || shared.eol || '\n';
+      const document = composeDocument({ ...explicit, eol }, nodes);
+      written.push(writeFile(absolute, serializeJcrXml(document)));
       continue;
     }
-    const absolute = path.join(repoRoot, target.file);
-    const eol = target.eol || existingEol(absolute) || shared.eol || '\n';
-    const document = composeDocument({ ...target, eol }, nodes);
+
+    const derived = deriveComposeTarget(targetPath, shared.content_root);
+    if (!derived) {
+      collected.conflicts.push({
+        kind: 'missing-compose-target',
+        target: targetPath,
+        detail: 'no compose_targets entry, and the path has no /jcr:content segment to derive one from',
+      });
+      continue;
+    }
+    const absolute = path.join(repoRoot, derived.file);
+    if (!fs.existsSync(absolute)) {
+      collected.conflicts.push({
+        kind: 'missing-compose-file',
+        target: targetPath,
+        detail: `${derived.file} does not exist; foundations must write the page or fragment skeleton first`,
+      });
+      continue;
+    }
+    const document = parseJcrXml(fs.readFileSync(absolute, 'utf8'));
+    const container = findNodePath(document.root, derived.node_path);
+    if (!container) {
+      collected.conflicts.push({
+        kind: 'missing-container',
+        target: targetPath,
+        detail: `${derived.node_path.join('/')} is not present in ${derived.file}`,
+      });
+      continue;
+    }
+    // The container is authored empty, so replacing its children keeps re-runs byte-identical.
+    container.children = nodes.map((entry) => entry.node);
     written.push(writeFile(absolute, serializeJcrXml(document)));
   }
 
   if (shared.policies_file && (collected.policies.size || collected.additions.size)) {
     const policiesPath = path.join(repoRoot, shared.policies_file);
-    const document = parseJcrXml(fs.readFileSync(policiesPath, 'utf8'));
-    mergePolicies(document, collected.policies, collected.additions);
-    written.push(writeFile(policiesPath, serializeJcrXml(document)));
+    if (!fs.existsSync(policiesPath)) {
+      collected.conflicts.push({
+        kind: 'missing-policies-file',
+        target: shared.policies_file,
+        detail: 'declared policies cannot be merged into a file that does not exist',
+      });
+    } else {
+      const document = parseJcrXml(fs.readFileSync(policiesPath, 'utf8'));
+      mergePolicies(document, collected.policies, collected.additions);
+      written.push(writeFile(policiesPath, serializeJcrXml(document)));
+    }
   }
 
   for (const [indexPath, header, entries] of [

@@ -64,7 +64,7 @@ function planFor() {
         role: 'content',
         instances: ['inst-001'],
         owned_paths: [`ui.apps/components/${CONTENT_A}`],
-        contribution: { kind: 'page-fragment', path: '/content/page', order_index: 1 },
+        contribution: { kind: 'page-fragment', path: '/content/page/jcr:content/root/main', order_index: 1 },
         parity_targets: [{ instance: 'inst-001', source: { css: '.a' }, target: { css: '.cmp-a' } }],
         depends_on: [],
       },
@@ -74,7 +74,7 @@ function planFor() {
         role: 'content',
         instances: ['inst-002'],
         owned_paths: [`ui.apps/components/${CONTENT_B}`],
-        contribution: { kind: 'page-fragment', path: '/content/page', order_index: 2 },
+        contribution: { kind: 'page-fragment', path: '/content/page/jcr:content/root/main', order_index: 2 },
         parity_targets: [{ instance: 'inst-002', source: { css: '.b' }, target: { css: '.cmp-b' } }],
         depends_on: [CONTENT_A],
       },
@@ -84,7 +84,7 @@ function planFor() {
         role: 'chrome',
         instances: ['inst-003'],
         owned_paths: [`ui.apps/components/${CHROME}`],
-        contribution: { kind: 'experience-fragment', path: '/content/experience-fragments/site/masthead/master' },
+        contribution: { kind: 'experience-fragment', path: '/content/experience-fragments/site/masthead/master/jcr:content/root' },
         parity_targets: [{ instance: 'inst-003', source: { css: 'nav' }, target: { css: '.cmp-chrome' } }],
         depends_on: [],
       },
@@ -118,6 +118,7 @@ function makeSpawnFn(behaviour) {
 
 let parityCycle = 0;
 const parityDir = path.join(evidenceDir, 'parity');
+const instanceFor = (id) => ({ [CONTENT_A]: 'inst-001', [CONTENT_B]: 'inst-002', [CHROME]: 'inst-003' }[id]);
 // One component is made to fail its first attempt so the retry path is exercised.
 const attemptsSeen = new Map();
 const retryPrompts = [];
@@ -197,6 +198,22 @@ const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
     return;
   }
   if (role === 'foundations') {
+    // The real foundations agent writes the page and fragment skeletons the composer merges into.
+    for (const [file, container] of [
+      ['ui.content/src/main/content/jcr_root/content/page/.content.xml', 'main'],
+      ['ui.content/src/main/content/jcr_root/content/experience-fragments/site/masthead/master/.content.xml', null],
+    ]) {
+      const absolute = path.join(repoRoot, file);
+      fs.mkdirSync(path.dirname(absolute), { recursive: true });
+      fs.writeFileSync(absolute, `<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content jcr:primaryType="cq:PageContent" jcr:title="Fixture">
+        <root jcr:primaryType="nt:unstructured">${container ? `\n            <${container} jcr:primaryType="nt:unstructured"/>\n        ` : ''}</root>
+    </jcr:content>
+</jcr:root>
+`, 'utf8');
+    }
     fs.writeFileSync(resultPath, JSON.stringify({
       role,
       status: 'PASS',
@@ -221,6 +238,7 @@ const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
     const file = path.join(cwd, 'ui.apps', 'components', id, 'built.txt');
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `built ${id}`);
+    fs.writeFileSync(path.join(path.dirname(file), `${id}.css`), `.cmp-${id} { color: red; }`);
     fs.writeFileSync(resultPath, JSON.stringify({
       role,
       component_id: id,
@@ -232,7 +250,15 @@ const spawnFn = makeSpawnFn(({ role, id, resultPath, prompt, cwd }) => {
         { name: 'contributions_declared', status: 'PASS' },
       ],
       focused_test: { tests: [`${id}Test`] },
-      contributions: { clientlib_entries: [`${id}.css`] },
+      contributions: {
+        clientlib_entries: [`${id}.css`],
+        [id === CHROME ? 'experience_fragment_node' : 'page_node']: {
+          name: id,
+          instance: instanceFor(id),
+          resource_type: `demo/components/${id}`,
+          properties: {},
+        },
+      },
     }, null, 2));
     return;
   }

@@ -164,6 +164,15 @@ export function validatePlan(plan, { discovery, runId, sharedPatterns } = {}) {
     }
   }
 
+  // The composer derives the file to write from the contribution path, so it must name a node in one.
+  for (const component of plan.components) {
+    const target = component.contribution.path;
+    if ((plan.shared?.compose_targets || {})[target]?.file) continue;
+    if (!target.includes('/jcr:content')) {
+      errors.push(`${component.id} contribution path ${target} has no /jcr:content segment, so no file can be derived to compose it into`);
+    }
+  }
+
   // Parity targets must cover every claimed instance at every breakpoint.
   for (const component of plan.components) {
     const covered = new Set(component.parity_targets.map((target) => target.instance));

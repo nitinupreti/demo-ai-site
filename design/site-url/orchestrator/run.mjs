@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runAgentRole } from './agent.mjs';
 import { createRenderer } from './console.mjs';
-import { applyContributions } from './contributions.mjs';
+import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets } from './assets.mjs';
 import { focusedTestPlan, planDeployment, runDeployment } from './deploy.mjs';
 import { planSummary, validatePlan } from './plan.mjs';
@@ -169,6 +169,7 @@ export async function orchestrate(rawOptions, services) {
     return { status: 'FAIL', phases, state };
   }
   const discovery = JSON.parse(fs.readFileSync(path.join(discoveryDir, 'discovery.json'), 'utf8'));
+  const instanceOrder = new Map(discovery.instances.map((instance) => [instance.id, instance.order]));
   endPhase(phase, 'PASS', `${discovery.instances.length} instances, fingerprint ${discovery.source_fingerprint.slice(0, 20)}`);
 
   // 2. Planning — one sequential agent, bounded repairs, orchestrator-owned gate.
@@ -238,6 +239,12 @@ export async function orchestrate(rawOptions, services) {
   track(foundations, { phase: 'foundations' });
   if (foundations.status !== 'PASS') {
     endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+    return { status: 'FAIL', phases, state, plan };
+  }
+  // Compose runs after the fan-out, so its structural preconditions are checked here instead.
+  const composeProblems = verifyComposeTargets({ repoRoot, plan });
+  if (composeProblems.length) {
+    endPhase(phase, 'FAIL', `foundations left compose without a target: ${composeProblems.join('; ')}`);
     return { status: 'FAIL', phases, state, plan };
   }
   endPhase(phase, 'PASS', 'tokens, template and policies ready');
@@ -340,6 +347,16 @@ export async function orchestrate(rawOptions, services) {
             rejection = invocation.error
               || `Your result reported ${invocation.status}. Failing checks: ${failing.join('; ') || 'none recorded'}.`;
           } else {
+            const contributionProblems = validateContribution(component, invocation.result, {
+              instanceOrder, writtenFiles: changes.changed,
+            });
+            if (contributionProblems.length) {
+              rejection = `Your \`contributions\` block cannot be composed onto the page:\n`
+                + contributionProblems.map((problem) => `- ${problem}`).join('\n');
+            }
+          }
+
+          if (!rejection && invocation.status === 'PASS') {
             const merged = mergeChanges(workspace, repoRoot, changes, claimed);
             if (merged.conflicts.length) {
               rejection = `Another component already owns ${merged.conflicts.map((entry) => `${entry.path} (${entry.owner})`).join(', ')}. `
@@ -416,6 +433,9 @@ export async function orchestrate(rawOptions, services) {
     ].filter(Boolean).join(' · ');
     endPhase(phase, 'FAIL', composed.conflicts.map(describe).join('; '));
     return { status: 'FAIL', phases, state, plan, conflicts: composed.conflicts };
+  }
+  for (const rename of composed.collected?.renames || []) {
+    renderer.note(`${rename.component} node "${rename.from}" renamed to "${rename.to}" to keep the page unique`);
   }
   endPhase(phase, 'PASS', `${composed.written.length} shared files composed`);
 

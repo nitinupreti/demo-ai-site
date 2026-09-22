@@ -27,7 +27,7 @@ function basePlan(overrides = {}) {
         role: 'content',
         instances: ['inst-001'],
         owned_paths: ['ui.apps/src/main/content/jcr_root/apps/demo/components/customer-story-hero'],
-        contribution: { kind: 'page-fragment', path: '/content/demo/us/en/page', order_index: 1 },
+        contribution: { kind: 'page-fragment', path: '/content/demo/us/en/page/jcr:content/root/main', order_index: 1 },
         parity_targets: [{ instance: 'inst-001', source: { css: 'section.hero' }, target: { css: '.cmp-hero' } }],
         depends_on: [],
       },
@@ -37,7 +37,7 @@ function basePlan(overrides = {}) {
         role: 'chrome',
         instances: ['inst-002'],
         owned_paths: ['ui.apps/src/main/content/jcr_root/apps/demo/components/site-header'],
-        contribution: { kind: 'experience-fragment', path: '/content/experience-fragments/demo/us/en/site/header/master' },
+        contribution: { kind: 'experience-fragment', path: '/content/experience-fragments/demo/us/en/site/header/master/jcr:content/root' },
         parity_targets: [{ instance: 'inst-002', source: { css: 'nav' }, target: { css: '.cmp-header' } }],
         depends_on: ['customer-story-hero'],
       },
@@ -81,7 +81,7 @@ result = validatePlan(sharedOwner, { discovery, runId: 'r1' });
 expect(hasError(result, 'may not own shared path'), 'shared infrastructure must stay out of worker scopes');
 
 const chromeOnPage = basePlan();
-chromeOnPage.components[1].contribution = { kind: 'page-fragment', path: '/content/demo/us/en/page' };
+chromeOnPage.components[1].contribution = { kind: 'page-fragment', path: '/content/demo/us/en/page/jcr:content/root/main' };
 result = validatePlan(chromeOnPage, { discovery, runId: 'r1' });
 expect(hasError(result, 'must contribute an experience-fragment'), 'chrome authored on a page must be rejected');
 
@@ -107,7 +107,7 @@ expect(result.valid, `arbitrary component names must be accepted: ${result.error
 const renamedChromeOnPage = basePlan();
 renamedChromeOnPage.components[1].id = 'global-masthead';
 renamedChromeOnPage.components[1].depends_on = [];
-renamedChromeOnPage.components[1].contribution = { kind: 'page-fragment', path: '/content/x' };
+renamedChromeOnPage.components[1].contribution = { kind: 'page-fragment', path: '/content/x/jcr:content/root' };
 result = validatePlan(renamedChromeOnPage, { discovery, runId: 'r1' });
 expect(hasError(result, 'must contribute an experience-fragment'),
   'the chrome rule must follow role, not a name like site-header');
