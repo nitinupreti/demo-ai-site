@@ -11,7 +11,8 @@ import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import {
-  DEFAULTS, agentTuning, describeModel, orchestrate, preferredModelIndex, readCheckpoint, selectTuning,
+  AGENT_ROLES, DEFAULTS, agentTuning, describeModel, orchestrate, parseArgs, preferredModelIndex,
+  readCheckpoint, selectTuning, thresholdForEffort,
 } from './run.mjs';
 import { createRenderer } from './console.mjs';
 
@@ -23,7 +24,9 @@ const expect = (condition, message) => { if (!condition) failures.push(message);
 // Out of the box, without any flag, a component gets four attempts.
 expect(DEFAULTS.componentAttempts === 4, `default component attempts should be 4, got ${DEFAULTS.componentAttempts}`);
 expect(DEFAULTS.maxParallel === 4, `default max parallel should be 4, got ${DEFAULTS.maxParallel}`);
-expect(DEFAULTS.threshold === 0.9, `default threshold should be 0.90, got ${DEFAULTS.threshold}`);
+expect(DEFAULTS.threshold === 0.85, `default threshold should be 0.85, got ${DEFAULTS.threshold}`);
+expect(DEFAULTS.maxParityRetries === 2,
+  `default parity retries should be 2, got ${DEFAULTS.maxParityRetries}`);
 expect(DEFAULTS.planRepairs === 2, `default plan repairs should be 2, got ${DEFAULTS.planRepairs}`);
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'orchestrator-e2e-'));
@@ -135,7 +138,13 @@ function writeParity(passing, compositePassing = true, cycle = 0) {
     min_ratio: passing.includes(id) ? 0.97 : 0.88,
     owning_layer_hint: passing.includes(id) ? null : (id === CHROME ? 'color-tokens' : 'spacing'),
     failed_gates: passing.includes(id) ? [] : ['spacing'],
-    breakpoints: {},
+    // Budgets are held per width, so the ledger reads status from here, not from the roll-up.
+    breakpoints: {
+      '1440-disabled': {
+        status: passing.includes(id) ? 'PASS' : 'FAIL',
+        ratio: passing.includes(id) ? 0.97 : 0.88,
+      },
+    },
   }));
   fs.mkdirSync(parityDir, { recursive: true });
   fs.writeFileSync(path.join(parityDir, 'parity.json'), JSON.stringify({
@@ -147,7 +156,12 @@ function writeParity(passing, compositePassing = true, cycle = 0) {
     source_url: 'https://example.com',
     breakpoints: [1440],
     results: componentIds.map((id) => ({
-      component_id: id, breakpoint: 1440, mode: 'disabled', status: passing.includes(id) ? 'PASS' : 'FAIL',
+      component_id: id,
+      breakpoint: 1440,
+      mode: 'disabled',
+      status: passing.includes(id) ? 'PASS' : 'FAIL',
+      // Routing is per width, so the layer that owns the defect is read from the row.
+      owning_layer_hint: passing.includes(id) ? null : (id === CHROME ? 'color-tokens' : 'spacing'),
       side_by_side: `evidence/${id}-1440-disabled-side-by-side.png`,
       diff_mask: `evidence/${id}-1440-disabled-mask.png`,
       source: { selector: '.a', screenshot: `evidence/${id}-1440-disabled-source.png` },
@@ -405,13 +419,17 @@ expect(execCalls.filter((call) => call.includes('autoInstallSinglePackage')).len
 expect(execCalls.some((call) => call.includes('clean') && call.includes('install')),
   'the deploy must clean, so stale generated sources cannot survive a rename');
 
-// Remediation routed the failures, recorded attempts, and terminated.
+// Remediation routed the failures, recorded attempts, and terminated. One budget covers a
+// component at every breakpoint.
 const ledger = outcome.ledger.components;
 const passingFirst = ledger.find((entry) => entry.id === CONTENT_A);
 const failingFirst = ledger.find((entry) => entry.id === CONTENT_B);
-expect(passingFirst.status === 'PASS' && passingFirst.history.length === 0, 'a passing component must not consume an attempt');
-expect(failingFirst.status === 'PASS' && failingFirst.history.length === 1, `failing component should record one attempt, got ${failingFirst.history.length}`);
-expect(failingFirst.history[0].layer === 'spacing', `attempt should record the owning layer, got ${failingFirst.history[0].layer}`);
+expect(passingFirst.status === 'PASS' && passingFirst.history.length === 0,
+  'a passing component must not consume an attempt');
+expect(failingFirst.status === 'PASS' && failingFirst.history.length === 1,
+  `failing component should record one attempt, got ${failingFirst.history.length}`);
+expect(failingFirst.history[0].layer === 'spacing',
+  `attempt should record the owning layer, got ${failingFirst.history[0].layer}`);
 
 // A page that fails while every component passes must still be worked, and charged to the page.
 const pageEntry = outcome.ledger.page;
@@ -543,19 +561,18 @@ expect(!fanoutPhase.reused, 'a partial fan-out must run rather than claim it was
 expect(!fs.existsSync(path.join(debris, 'ui.apps', 'components', CONTENT_B, 'half-written.txt')),
   'workspace debris from the cancelled run must be cleared, not carried into the resume');
 
-// Remediation agents outnumber and outlast every other role, so each must be tunable alone.
-const tuned = {
-  model: 'run-wide',
-  effort: 'high',
-  modelByRole: { remediation: 'cheaper' },
-  effortByRole: { remediation: 'medium' },
-};
-expect(agentTuning(tuned, 'remediation').model === 'cheaper'
-  && agentTuning(tuned, 'remediation').effort === 'medium',
-  'a role override must win over the run-wide value');
-expect(agentTuning(tuned, 'component').model === 'run-wide'
-  && agentTuning(tuned, 'component').effort === 'high',
-  'an untuned role must fall back to the run-wide value');
+// One model and one effort govern every agent, or their work is not comparable.
+const tuned = { model: 'run-wide', effort: 'high' };
+expect(AGENT_ROLES.every((role) => agentTuning(tuned, role).model === 'run-wide'
+  && agentTuning(tuned, role).effort === 'high'),
+  'every role must run at the same model and effort');
+let refusedOverride = false;
+try {
+  parseArgs(['--url', 'https://x.test', '--effort:remediation', 'low']);
+} catch {
+  refusedOverride = true;
+}
+expect(refusedOverride, 'a per-role override must be refused, not silently accepted');
 
 // The run banks what it started with so a resume cannot silently change model or effort.
 const bankedTuning = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'run-tuning.json'), 'utf8'));
@@ -614,6 +631,18 @@ expect(describeModel(catalogue[1], 1).includes('2. Claude Opus 4.8 (claude-opus-
   `the picker line must name the model and its efforts, got ${describeModel(catalogue[1], 1)}`);
 expect(describeModel(catalogue[0], 0).includes('managed by model'),
   'a model with no configurable effort must say so');
+
+// Cheap reasoning is for iterating, not certifying, so what a run may call a pass moves with it.
+expect(thresholdForEffort('xhigh') === 0.9 && thresholdForEffort('high') === 0.85
+  && thresholdForEffort('medium') === 0.75 && thresholdForEffort('low') === 0.55,
+  'the gate must follow the effort it was earned at');
+expect(thresholdForEffort('max') >= thresholdForEffort('xhigh'),
+  'the most expensive effort may never be the most forgiving');
+expect(thresholdForEffort(null, 0.85) === 0.85,
+  'a model that manages its own reasoning must keep the default bar');
+const ordered = ['low', 'medium', 'high', 'xhigh'].map((level) => thresholdForEffort(level));
+expect(ordered.every((value, index) => index === 0 || value > ordered[index - 1]),
+  `the bar must rise with effort, got ${ordered.join(' < ')}`);
 
 fs.rmSync(sandbox, { recursive: true, force: true });
 

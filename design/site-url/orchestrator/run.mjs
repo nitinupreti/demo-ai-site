@@ -22,8 +22,8 @@ import {
 } from './deploy.mjs';
 import { parityComponents, planSummary, validatePlan } from './plan.mjs';
 import {
-  advanceRound, applyParity, createLedger, environmentBlocked, ledgerSnapshot, PAGE_SCOPE_ID,
-  recordAttempt, routeFailures, terminalStatus,
+  advanceRound, applyParity, createLedger, environmentBlocked, finalizeLedger, ledgerSnapshot,
+  PAGE_SCOPE_ID, recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
 import { collectChanges, createWorkspace, mergeChanges, removeWorkspace } from './workspaces.mjs';
@@ -36,8 +36,29 @@ const toolsDir = path.join(siteUrlDir, 'tools');
 
 const PHASES = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
-/** Roles that spawn an agent, so each can be tuned without paying for the rest. */
+/** Roles that spawn an agent. One model and one effort govern every one of them. */
 export const AGENT_ROLES = ['planner', 'foundations', 'component', 'remediation'];
+
+/**
+ * What a run is allowed to call a pass, scaled to how hard it was asked to think. Cheap reasoning
+ * is for iterating on structure, not for certifying fidelity, so the bar moves with the effort
+ * rather than letting a low-effort run claim the same result as a full one. The structured gates
+ * — typography, colour, spacing, geometry — are unaffected and stay exact at every level.
+ */
+export const EFFORT_THRESHOLDS = Object.freeze({
+  max: 0.9,
+  xhigh: 0.9,
+  high: 0.85,
+  medium: 0.75,
+  low: 0.55,
+  minimal: 0.55,
+  none: 0.55,
+});
+
+/** A model that manages its own reasoning gets the same bar as an explicit high-effort run. */
+export function thresholdForEffort(effort, fallback = DEFAULTS.threshold) {
+  return EFFORT_THRESHOLDS[effort] ?? fallback;
+}
 
 const TUNING_FILE = 'run-tuning.json';
 
@@ -49,7 +70,8 @@ export const DEFAULTS = Object.freeze({
   breakpoints: [375, 768, 1440],
   maxParallel: 4,
   componentAttempts: 4,
-  threshold: 0.9,
+  threshold: 0.85,
+  maxParityRetries: 2,
   planRepairs: 2,
 });
 
@@ -57,12 +79,9 @@ function readPrompt(name) {
   return fs.readFileSync(path.join(promptsDir, name), 'utf8');
 }
 
-/** Resolves model and effort for one role: its own override first, then the run-wide value. */
-export function agentTuning(options, role) {
-  return {
-    model: options.modelByRole?.[role] || options.model,
-    effort: options.effortByRole?.[role] || options.effort,
-  };
+/** One model and one effort for the whole run, so every agent's work is comparable. */
+export function agentTuning(options) {
+  return { model: options.model, effort: options.effort };
 }
 
 /** Matches a model by id or display name, so either form may be typed or passed as a flag. */
@@ -209,7 +228,7 @@ function writeJson(filePath, value) {
   return filePath;
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     ...DEFAULTS,
     breakpoints: [...DEFAULTS.breakpoints],
@@ -230,7 +249,8 @@ function parseArgs(argv) {
       case '--breakpoints': options.breakpoints = value.split(',').map((entry) => Number.parseInt(entry.trim(), 10)); index += 1; break;
       case '--max-parallel': options.maxParallel = Number.parseInt(value, 10); index += 1; break;
       case '--component-attempts': options.componentAttempts = Number.parseInt(value, 10); index += 1; break;
-      case '--visual-pass-ratio': options.threshold = Number.parseFloat(value); index += 1; break;
+      case '--visual-pass-ratio': options.threshold = Number.parseFloat(value); options.thresholdPinned = true; index += 1; break;
+      case '--max-parity-retries': options.maxParityRetries = Number.parseInt(value, 10); index += 1; break;
       case '--evidence-dir': options.evidenceDir = value; index += 1; break;
       case '--resume': options.resume = value; index += 1; break;
       case '--model': options.model = value; index += 1; break;
@@ -239,16 +259,9 @@ function parseArgs(argv) {
       case '--dry-run': options.dryRun = true; break;
       case '--help': options.help = true; break;
       default:
-        // `--effort:remediation medium` tunes the costliest role without touching the rest.
+        // One run, one setting: a per-role override would make agents' work incomparable.
         if (flag.startsWith('--model:') || flag.startsWith('--effort:')) {
-          const [name, role] = flag.slice(2).split(':');
-          if (!AGENT_ROLES.includes(role)) {
-            throw new Error(`Unknown agent role '${role}' in ${flag}. Roles: ${AGENT_ROLES.join(', ')}`);
-          }
-          const bucket = name === 'model' ? 'modelByRole' : 'effortByRole';
-          options[bucket] = { ...options[bucket], [role]: value };
-          index += 1;
-          break;
+          throw new Error(`${flag} is not supported: one model and one effort govern the whole run.`);
         }
         if (!flag.startsWith('--') && !options.siteUrl) options.siteUrl = flag;
         else throw new Error(`Unknown argument: ${flag}`);
@@ -316,13 +329,19 @@ export async function orchestrate(rawOptions, services) {
       discovery: null, plan: null, foundations: false, assets: null, workers: [],
     };
 
+  // Cheap reasoning is for iterating, not for certifying, so the bar it may claim moves with it.
+  // An explicit --visual-pass-ratio still wins: a stated number is never overridden.
+  if (!options.thresholdPinned) {
+    options.threshold = thresholdForEffort(options.effort, options.threshold);
+  }
+
   // One run, one setting: banked so a resume cannot silently compare work made under one
   // model against work made under another.
   writeJson(path.join(evidenceDir, TUNING_FILE), {
     model: options.model ?? null,
     effort: options.effort ?? null,
-    modelByRole: options.modelByRole ?? {},
-    effortByRole: options.effortByRole ?? {},
+    threshold: options.threshold,
+    maxParityRetries: options.maxParityRetries,
     updated_at: new Date().toISOString(),
   });
 
@@ -395,7 +414,7 @@ export async function orchestrate(rawOptions, services) {
 
     const invocation = await runAgentRole({
       copilot, role: 'planner', id: `planner-${attempt}`, prompt: task, cwd: repoRoot,
-      ...agentTuning(options, 'planner'), agentDir, renderer, spawnFn,
+      ...agentTuning(options), agentDir, renderer, spawnFn,
     });
     track(invocation, { phase: 'plan', attempt });
     if (invocation.status !== 'PASS' || !fs.existsSync(planPath)) {
@@ -436,7 +455,7 @@ export async function orchestrate(rawOptions, services) {
         `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
       ].join('\n'),
       cwd: repoRoot,
-      ...agentTuning(options, 'foundations'),
+      ...agentTuning(options),
       agentDir: foundationsDir,
       renderer,
       spawnFn,
@@ -559,7 +578,7 @@ export async function orchestrate(rawOptions, services) {
               feedback,
             ].join('\n'),
             cwd: workspaceRoot,
-            ...agentTuning(options, 'component'),
+            ...agentTuning(options),
             agentDir,
             renderer,
             spawnFn,
@@ -775,7 +794,9 @@ export async function orchestrate(rawOptions, services) {
     return { status: 'FAIL', phases, state, plan };
   }
   let parity = first.artefact;
-  const ledger = createLedger(plan.components.map((component) => component.id));
+  const ledger = createLedger(plan.components.map((component) => component.id), {
+    retries: options.maxParityRetries,
+  });
   applyParity(ledger, parity);
   endPhase(phase, parity.status, `${parity.summary.components_passed}/${parity.summary.components_total} components, min ${(parity.summary.min_ratio * 100 || 0).toFixed(2)}%`);
 
@@ -788,7 +809,7 @@ export async function orchestrate(rawOptions, services) {
     return { status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger) };
   }
   let rounds = 0;
-  while (parity.status !== 'PASS' && rounds < 8) {
+  while (parity.status !== 'PASS' && rounds < options.maxParityRetries) {
     const progress = advanceRound(ledger);
     if (progress.done) break;
     const routed = routeFailures(parity, plan, ledger);
@@ -822,6 +843,8 @@ export async function orchestrate(rawOptions, services) {
               JSON.stringify({
                 round: ledger.round, batch: batch.batch_id, owning_layer: batch.layer,
                 components: ids, owned_paths: scopePaths,
+                // The widths this component is failing at; one edit has to hold at all of them.
+                breakpoints: batch.breakpoints,
                 result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
                 // Per-component crops cannot show a missing or reordered section; the page can.
                 page_composite: compositeWithEvidence(parity.page_composite),
@@ -830,7 +853,8 @@ export async function orchestrate(rawOptions, services) {
               '```',
             ].join('\n'),
             cwd: workspaceRoot,
-            ...agentTuning(options, 'remediation'),
+            model: options.model,
+            effort: options.effort,
             agentDir,
             renderer,
             spawnFn,
@@ -851,7 +875,12 @@ export async function orchestrate(rawOptions, services) {
             }
           } else {
             for (const id of ledgerIds) {
-              recordAttempt(ledger, { componentId: id, batchId: batch.batch_id, layer: batch.layer, hypothesis: invocation.error });
+              recordAttempt(ledger, {
+                componentId: id,
+                batchId: batch.batch_id,
+                layer: batch.layer,
+                hypothesis: invocation.error,
+              });
             }
           }
           return invocation;
@@ -880,6 +909,8 @@ export async function orchestrate(rawOptions, services) {
     parity = next.artefact;
     applyParity(ledger, parity);
   }
+  // The loop can stop on its own bound, leaving entries merely FAILING; unresolved is final.
+  if (parity.status !== 'PASS') finalizeLedger(ledger);
   const terminal = terminalStatus(ledger);
   writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
   endPhase(phase, terminal.status, `${terminal.passed.length} passed, ${terminal.failed_final.length} failed-final, ${rounds} round(s)`);
@@ -941,11 +972,12 @@ orchestrator/run.mjs — multi-agent AEM migration
   --breakpoints <list>      Default 375,768,1440
   --max-parallel <n>        Component workers in flight (default ${DEFAULTS.maxParallel})
   --component-attempts <n>  Attempts per component before the run fails (default ${DEFAULTS.componentAttempts})
-  --visual-pass-ratio <n>   Strict minimum ratio (default ${DEFAULTS.threshold.toFixed(2)})
+  --visual-pass-ratio <n>   Pin the minimum ratio; otherwise derived from effort
+                            (${Object.entries(EFFORT_THRESHOLDS).map(([k, v]) => `${k} ${v}`).join(', ')})
+  --max-parity-retries <n>  Attempts per component before it is failed-final (default ${DEFAULTS.maxParityRetries})
   --model <id>              Model id or name; chosen from the account's list when omitted
   --effort <level>          Limited to what the chosen model advertises; asked for when omitted
-  --model:<role> <id>       Override one role: ${AGENT_ROLES.join(', ')}
-  --effort:<role> <level>   Override one role, e.g. --effort:remediation medium
+                            One model and one effort govern every agent in the run
   --list-models             List the models this GitHub account can use, then exit
   --evidence-dir <path>
   --resume <run-id|path>    Continue a previous run, reusing every phase it verifiably finished
@@ -995,8 +1027,6 @@ orchestrator/run.mjs — multi-agent AEM migration
   const banked = options.resume ? readJson(path.join(evidenceDir, TUNING_FILE)) : null;
   options.model = options.model ?? banked?.model ?? null;
   options.effort = options.effort ?? banked?.effort ?? null;
-  options.modelByRole = { ...banked?.modelByRole, ...options.modelByRole };
-  options.effortByRole = { ...banked?.effortByRole, ...options.effortByRole };
 
   const models = await listAvailableModels(copilot);
 
@@ -1012,14 +1042,6 @@ orchestrator/run.mjs — multi-agent AEM migration
   options.model = settled.model;
   options.effort = settled.effort;
 
-  // An override is a real invocation too, so it is held to the same pairing rules.
-  for (const role of AGENT_ROLES) {
-    const wanted = agentTuning(options, role);
-    const resolved = selectTuning(models, wanted);
-    if (options.modelByRole?.[role]) options.modelByRole[role] = resolved.model;
-    if (options.effortByRole?.[role]) options.effortByRole[role] = resolved.effort;
-  }
-
   const renderer = createRenderer({ stageIds: PHASES });
   renderer.runHeader({
     siteUrl: options.siteUrl,
@@ -1029,6 +1051,11 @@ orchestrator/run.mjs — multi-agent AEM migration
     model: options.model || 'auto',
     effort: options.effort,
   });
+
+  const gate = options.thresholdPinned ? options.threshold : thresholdForEffort(options.effort, options.threshold);
+  console.log(`  parity gate > ${(gate * 100).toFixed(0)}%`
+    + `${options.thresholdPinned ? ' (pinned)' : ` (from ${options.effort || 'model-managed'} effort)`}`
+    + `, ${options.maxParityRetries} remediation round(s) max\n`);
 
   if (options.dryRun) {
     console.log('Dry run: inputs valid, evidence directory created, no agents started.');
