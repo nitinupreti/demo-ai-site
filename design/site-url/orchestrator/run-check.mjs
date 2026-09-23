@@ -10,7 +10,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
-import { DEFAULTS, orchestrate, readCheckpoint } from './run.mjs';
+import {
+  DEFAULTS, agentTuning, describeModel, orchestrate, preferredModelIndex, readCheckpoint, selectTuning,
+} from './run.mjs';
 import { createRenderer } from './console.mjs';
 
 const PHASES_FOR_CHECK = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
@@ -540,6 +542,78 @@ const fanoutPhase = partialOutcome.phases.find((entry) => entry.name === 'fanout
 expect(!fanoutPhase.reused, 'a partial fan-out must run rather than claim it was reused');
 expect(!fs.existsSync(path.join(debris, 'ui.apps', 'components', CONTENT_B, 'half-written.txt')),
   'workspace debris from the cancelled run must be cleared, not carried into the resume');
+
+// Remediation agents outnumber and outlast every other role, so each must be tunable alone.
+const tuned = {
+  model: 'run-wide',
+  effort: 'high',
+  modelByRole: { remediation: 'cheaper' },
+  effortByRole: { remediation: 'medium' },
+};
+expect(agentTuning(tuned, 'remediation').model === 'cheaper'
+  && agentTuning(tuned, 'remediation').effort === 'medium',
+  'a role override must win over the run-wide value');
+expect(agentTuning(tuned, 'component').model === 'run-wide'
+  && agentTuning(tuned, 'component').effort === 'high',
+  'an untuned role must fall back to the run-wide value');
+
+// The run banks what it started with so a resume cannot silently change model or effort.
+const bankedTuning = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'run-tuning.json'), 'utf8'));
+expect(Object.hasOwn(bankedTuning, 'model') && Object.hasOwn(bankedTuning, 'effort'),
+  'the run must bank its model and effort');
+
+// Model and effort are settled against what the account actually exposes, never guessed.
+const catalogue = [
+  { id: 'auto', name: 'Auto', capabilities: { supports: {} } },
+  {
+    id: 'claude-opus-4.8',
+    name: 'Claude Opus 4.8',
+    capabilities: { supports: { reasoningEffort: true } },
+    supportedReasoningEfforts: ['high', 'xhigh'],
+  },
+  {
+    id: 'claude-opus-5',
+    name: 'Claude Opus 5',
+    capabilities: { supports: { reasoningEffort: true } },
+    supportedReasoningEfforts: ['high', 'xhigh'],
+  },
+  {
+    id: 'mai-code-1.1-flash',
+    name: 'MAI-Code-1.1-Flash',
+    capabilities: { supports: { reasoningEffort: true } },
+    supportedReasoningEfforts: ['high'],
+  },
+];
+
+expect(selectTuning(catalogue, { model: 'claude-opus-4.8', effort: 'xhigh' }).effort === 'xhigh',
+  'an advertised effort must be accepted');
+expect(selectTuning(catalogue, { model: 'Claude Opus 4.8' }).model === 'claude-opus-4.8',
+  'a model may be named as well as identified');
+expect(selectTuning(catalogue, { model: 'claude-opus-4.8' }).effort === 'high',
+  'an unspecified effort must default to high when the model advertises it');
+
+const refuses = (wanted, why) => {
+  let threw = false;
+  try { selectTuning(catalogue, wanted); } catch { threw = true; }
+  expect(threw, why);
+};
+refuses({ model: 'gpt-5.4' }, 'a model outside the account catalogue must be refused');
+refuses({ model: 'mai-code-1.1-flash', effort: 'xhigh' },
+  'an effort the chosen model does not advertise must be refused');
+refuses({ model: 'auto', effort: 'high' },
+  'a model that manages its own reasoning must refuse an effort flag');
+expect(selectTuning(catalogue, { model: 'auto' }).effort === null,
+  'a model that manages its own reasoning must carry no effort');
+
+// Reasoning is the costly part, so the newest Opus is what the picker offers first.
+expect(catalogue[preferredModelIndex(catalogue)].id === 'claude-opus-5',
+  `the newest Opus must be preferred, got ${catalogue[preferredModelIndex(catalogue)].id}`);
+expect(preferredModelIndex([{ id: 'auto', name: 'Auto' }]) === 0,
+  'auto must be preferred when no Opus is available');
+expect(describeModel(catalogue[1], 1).includes('2. Claude Opus 4.8 (claude-opus-4.8); effort: high/xhigh'),
+  `the picker line must name the model and its efforts, got ${describeModel(catalogue[1], 1)}`);
+expect(describeModel(catalogue[0], 0).includes('managed by model'),
+  'a model with no configurable effort must say so');
 
 fs.rmSync(sandbox, { recursive: true, force: true });
 

@@ -9,10 +9,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 import { runAgentRole } from './agent.mjs';
 import { createRenderer } from './console.mjs';
+import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
 import {
@@ -34,6 +36,11 @@ const toolsDir = path.join(siteUrlDir, 'tools');
 
 const PHASES = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
+/** Roles that spawn an agent, so each can be tuned without paying for the rest. */
+export const AGENT_ROLES = ['planner', 'foundations', 'component', 'remediation'];
+
+const TUNING_FILE = 'run-tuning.json';
+
 /** Single source of truth for run defaults, shared by the CLI and direct orchestrate() calls. */
 export const DEFAULTS = Object.freeze({
   aemHost: 'localhost',
@@ -48,6 +55,99 @@ export const DEFAULTS = Object.freeze({
 
 function readPrompt(name) {
   return fs.readFileSync(path.join(promptsDir, name), 'utf8');
+}
+
+/** Resolves model and effort for one role: its own override first, then the run-wide value. */
+export function agentTuning(options, role) {
+  return {
+    model: options.modelByRole?.[role] || options.model,
+    effort: options.effortByRole?.[role] || options.effort,
+  };
+}
+
+/** Matches a model by id or display name, so either form may be typed or passed as a flag. */
+export function findModel(models, wanted) {
+  const needle = String(wanted).toLowerCase();
+  return models.find((model) => model.id.toLowerCase() === needle || model.name?.toLowerCase() === needle);
+}
+
+/** Reasoning is the expensive part, so the newest Opus is offered first when the account has it. */
+export function preferredModelIndex(models) {
+  const opus = models
+    .map((model, index) => ({ model, index }))
+    .filter(({ model }) => /opus/i.test(`${model.name} ${model.id}`))
+    .sort((left, right) => right.model.name.localeCompare(left.model.name, undefined, { numeric: true }));
+  if (opus.length) return opus[0].index;
+  const auto = models.findIndex((model) => model.id === 'auto');
+  return auto >= 0 ? auto : 0;
+}
+
+export function describeModel(model, index) {
+  const efforts = modelEfforts(model);
+  const effort = efforts.length ? `effort: ${efforts.join('/')}` : 'effort: managed by model';
+  const billing = model.billing?.multiplier === undefined ? '' : `; billing: ${model.billing.multiplier}x`;
+  return `  ${index + 1}. ${model.name} (${model.id}); ${effort}${billing}`;
+}
+
+/**
+ * Settles the model and the effort together against what the account actually has. A model that
+ * manages its own reasoning takes no effort flag at all, and one that does advertises exactly
+ * which levels it accepts, so an impossible pairing is refused here rather than mid-run.
+ */
+export function selectTuning(models, wanted) {
+  if (!models.length) {
+    throw new Error('The authenticated GitHub account returned no enabled Copilot models.');
+  }
+  const model = findModel(models, wanted.model);
+  if (!model) {
+    throw new Error(`Model "${wanted.model}" is not available to this account.`
+      + ` Available: ${models.map((entry) => entry.id).join(', ')}`);
+  }
+
+  const efforts = modelEfforts(model);
+  if (!efforts.length) {
+    if (wanted.effort) {
+      throw new Error(`Model "${model.name}" manages its own reasoning and accepts no effort setting.`);
+    }
+    return { model: model.id, effort: null, efforts };
+  }
+  const effort = wanted.effort || (efforts.includes('high') ? 'high' : efforts[0]);
+  if (!efforts.includes(effort)) {
+    throw new Error(`Model "${model.name}" supports effort ${efforts.join('/')}, not "${effort}".`);
+  }
+  return { model: model.id, effort, efforts };
+}
+
+/** Asks for whatever was not supplied, offering the account's real models by number. */
+export async function promptForTuning(models, wanted, { input = process.stdin, output = process.stdout } = {}) {
+  const rl = readline.createInterface({ input, output });
+  try {
+    let chosenModel = wanted.model;
+    if (!chosenModel) {
+      output.write('\nModels available to the authenticated GitHub account:\n');
+      models.forEach((model, index) => output.write(`${describeModel(model, index)}\n`));
+      const fallback = preferredModelIndex(models);
+      const answer = (await rl.question(`Select model [${fallback + 1}]: `)).trim();
+      const index = answer ? Number.parseInt(answer, 10) - 1 : fallback;
+      if (!Number.isInteger(index) || index < 0 || index >= models.length) {
+        throw new Error(`Model selection must be a number between 1 and ${models.length}.`);
+      }
+      chosenModel = models[index].id;
+    }
+
+    const efforts = modelEfforts(findModel(models, chosenModel) || {});
+    let chosenEffort = wanted.effort;
+    if (!chosenEffort && efforts.length) {
+      const fallback = efforts.includes('high') ? 'high' : efforts[0];
+      output.write('\nReasoning effort:\n');
+      efforts.forEach((level, index) => output.write(`  ${index + 1}. ${level}\n`));
+      const answer = (await rl.question(`Select effort [${efforts.indexOf(fallback) + 1}]: `)).trim();
+      chosenEffort = efforts[Number.parseInt(answer, 10) - 1] || answer || fallback;
+    }
+    return selectTuning(models, { model: chosenModel, effort: chosenEffort });
+  } finally {
+    rl.close();
+  }
 }
 
 /** One DAM folder per authored page, so re-running a different source cannot mix two sites' assets. */
@@ -135,9 +235,21 @@ function parseArgs(argv) {
       case '--resume': options.resume = value; index += 1; break;
       case '--model': options.model = value; index += 1; break;
       case '--effort': options.effort = value; index += 1; break;
+      case '--list-models': options.listModels = true; break;
       case '--dry-run': options.dryRun = true; break;
       case '--help': options.help = true; break;
       default:
+        // `--effort:remediation medium` tunes the costliest role without touching the rest.
+        if (flag.startsWith('--model:') || flag.startsWith('--effort:')) {
+          const [name, role] = flag.slice(2).split(':');
+          if (!AGENT_ROLES.includes(role)) {
+            throw new Error(`Unknown agent role '${role}' in ${flag}. Roles: ${AGENT_ROLES.join(', ')}`);
+          }
+          const bucket = name === 'model' ? 'modelByRole' : 'effortByRole';
+          options[bucket] = { ...options[bucket], [role]: value };
+          index += 1;
+          break;
+        }
         if (!flag.startsWith('--') && !options.siteUrl) options.siteUrl = flag;
         else throw new Error(`Unknown argument: ${flag}`);
     }
@@ -204,6 +316,16 @@ export async function orchestrate(rawOptions, services) {
       discovery: null, plan: null, foundations: false, assets: null, workers: [],
     };
 
+  // One run, one setting: banked so a resume cannot silently compare work made under one
+  // model against work made under another.
+  writeJson(path.join(evidenceDir, TUNING_FILE), {
+    model: options.model ?? null,
+    effort: options.effort ?? null,
+    modelByRole: options.modelByRole ?? {},
+    effortByRole: options.effortByRole ?? {},
+    updated_at: new Date().toISOString(),
+  });
+
   const state = {
     run_id: runId,
     inputs: {
@@ -212,6 +334,8 @@ export async function orchestrate(rawOptions, services) {
       AEM_PORT: options.aemPort,
       BREAKPOINTS: options.breakpoints,
       VISUAL_PASS_RATIO: options.threshold,
+      MODEL: options.model || 'auto',
+      EFFORT: options.effort || 'default',
     },
     started_at: Date.now(),
   };
@@ -271,7 +395,7 @@ export async function orchestrate(rawOptions, services) {
 
     const invocation = await runAgentRole({
       copilot, role: 'planner', id: `planner-${attempt}`, prompt: task, cwd: repoRoot,
-      model: options.model, effort: options.effort, agentDir, renderer, spawnFn,
+      ...agentTuning(options, 'planner'), agentDir, renderer, spawnFn,
     });
     track(invocation, { phase: 'plan', attempt });
     if (invocation.status !== 'PASS' || !fs.existsSync(planPath)) {
@@ -312,8 +436,7 @@ export async function orchestrate(rawOptions, services) {
         `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
       ].join('\n'),
       cwd: repoRoot,
-      model: options.model,
-      effort: options.effort,
+      ...agentTuning(options, 'foundations'),
       agentDir: foundationsDir,
       renderer,
       spawnFn,
@@ -436,8 +559,7 @@ export async function orchestrate(rawOptions, services) {
               feedback,
             ].join('\n'),
             cwd: workspaceRoot,
-            model: options.model,
-            effort: options.effort,
+            ...agentTuning(options, 'component'),
             agentDir,
             renderer,
             spawnFn,
@@ -708,8 +830,7 @@ export async function orchestrate(rawOptions, services) {
               '```',
             ].join('\n'),
             cwd: workspaceRoot,
-            model: options.model,
-            effort: options.effort,
+            ...agentTuning(options, 'remediation'),
             agentDir,
             renderer,
             spawnFn,
@@ -797,11 +918,17 @@ export async function orchestrate(rawOptions, services) {
   };
 }
 
-function primaryUnused() {}
-const primaryPlaceholder = null;
-
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+
+  // Listing what the account can use is a question about the account, not about a migration.
+  if (options.listModels) {
+    const models = await listAvailableModels(findCopilot());
+    console.log('\nModels available to the authenticated GitHub account:');
+    models.forEach((model, index) => console.log(describeModel(model, index)));
+    return;
+  }
+
   if (options.help || !options.siteUrl) {
     console.log(`
 orchestrator/run.mjs — multi-agent AEM migration
@@ -815,9 +942,14 @@ orchestrator/run.mjs — multi-agent AEM migration
   --max-parallel <n>        Component workers in flight (default ${DEFAULTS.maxParallel})
   --component-attempts <n>  Attempts per component before the run fails (default ${DEFAULTS.componentAttempts})
   --visual-pass-ratio <n>   Strict minimum ratio (default ${DEFAULTS.threshold.toFixed(2)})
-  --model <id> --effort <level>
+  --model <id>              Model id or name; chosen from the account's list when omitted
+  --effort <level>          Limited to what the chosen model advertises; asked for when omitted
+  --model:<role> <id>       Override one role: ${AGENT_ROLES.join(', ')}
+  --effort:<role> <level>   Override one role, e.g. --effort:remediation medium
+  --list-models             List the models this GitHub account can use, then exit
   --evidence-dir <path>
   --resume <run-id|path>    Continue a previous run, reusing every phase it verifiably finished
+                            and the model and effort it started with
   --dry-run                 Validate inputs and exit
 `);
     return;
@@ -856,6 +988,38 @@ orchestrator/run.mjs — multi-agent AEM migration
     ? path.resolve(defaultRepoRoot, options.evidenceDir)
     : path.join(scratchDir, `migration-${runId}`));
   fs.mkdirSync(evidenceDir, { recursive: true });
+
+  const copilot = findCopilot();
+
+  // A resume inherits what the run began with, so only what is still unanswered is asked for.
+  const banked = options.resume ? readJson(path.join(evidenceDir, TUNING_FILE)) : null;
+  options.model = options.model ?? banked?.model ?? null;
+  options.effort = options.effort ?? banked?.effort ?? null;
+  options.modelByRole = { ...banked?.modelByRole, ...options.modelByRole };
+  options.effortByRole = { ...banked?.effortByRole, ...options.effortByRole };
+
+  const models = await listAvailableModels(copilot);
+
+  if (!options.model || !options.effort) {
+    if (!process.stdin.isTTY) {
+      throw new Error('--model and --effort are required when stdin is not a terminal.'
+        + ' Run with --list-models to see what this account can use.');
+    }
+  }
+  const settled = process.stdin.isTTY && (!options.model || !options.effort)
+    ? await promptForTuning(models, { model: options.model, effort: options.effort })
+    : selectTuning(models, { model: options.model, effort: options.effort });
+  options.model = settled.model;
+  options.effort = settled.effort;
+
+  // An override is a real invocation too, so it is held to the same pairing rules.
+  for (const role of AGENT_ROLES) {
+    const wanted = agentTuning(options, role);
+    const resolved = selectTuning(models, wanted);
+    if (options.modelByRole?.[role]) options.modelByRole[role] = resolved.model;
+    if (options.effortByRole?.[role]) options.effortByRole[role] = resolved.effort;
+  }
+
   const renderer = createRenderer({ stageIds: PHASES });
   renderer.runHeader({
     siteUrl: options.siteUrl,
@@ -871,9 +1035,7 @@ orchestrator/run.mjs — multi-agent AEM migration
     return;
   }
 
-  const { findCopilot } = await import('./copilot.mjs');
   const { spawn } = await import('node:child_process');
-  const copilot = findCopilot();
   const runTool = (name, args) => new Promise((resolve) => {
     const child = spawn(process.execPath, args, { cwd: defaultRepoRoot, stdio: ['ignore', 'inherit', 'inherit'] });
     child.once('close', (code) => resolve({ name, code }));
