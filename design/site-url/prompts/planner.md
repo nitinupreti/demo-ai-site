@@ -29,7 +29,11 @@ who owns what. Everything downstream is a function of your plan, so a wrong plan
    never grant a clientlib's `css.txt`, `js.txt` or `.content.xml`, which the orchestrator composes.
 5. **Dependencies.** `depends_on` for anything that must exist first, such as shared tokens.
 6. **Parity targets.** For every instance: the Stage 1 source selector plus the target selector the
-   deployed component will render.
+   deployed component will render. `discovery.json` resolves `selector` as a map keyed by
+   breakpoint and omits the breakpoints where the instance was not observed. Copy one of those
+   entries verbatim — never invent a selector, a `match_index` or a `bp` pin, and never substitute
+   a selector from a breakpoint the instance was absent at. The orchestrator re-expands every
+   target from that map, so a responsive variant is scored only where it was actually seen.
 
 ## Output
 
@@ -50,6 +54,8 @@ The orchestrator validates it before any worker starts and will reject a plan th
 - marks a component `role: "chrome"` without `contribution.kind: "experience-fragment"` under
   `/content/experience-fragments/`;
 - omits a parity target for a claimed instance;
+- gives a parity target a source selector or `bp` pin that `discovery.json` never resolved for that
+  instance;
 - contains a dependency cycle;
 - sets `shared.page_path` to anything other than the page path given in the task, or roots a content
   component's `contribution.path` outside that page;

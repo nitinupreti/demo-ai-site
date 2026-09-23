@@ -13,7 +13,14 @@ The task block appended to this prompt contains, straight from `parity.json`:
   `glyph_substitutions`, `structure`, each naming the selector, the property and both values;
 - `deltas.hot_regions` — the target elements sitting under the differing pixels;
 - `deltas.rendered_fonts` — the font faces actually rasterised on each side;
-- the side-by-side image, diff mask and current ratio.
+- `page_composite` — per breakpoint, the whole-page ratio, width and height delta against the
+  source. A cropped component can score well while the page around it is short, reordered or
+  missing a section, and that only shows here;
+- absolute paths to the side-by-side image, the diff mask and both crops, plus the current ratio.
+
+The images are **context, never evidence**. The numbers above are the measurement; an image only
+helps you guess *which* declaration produced them. Never cite an image as a value, never estimate a
+ratio from one, and never let it talk you out of a delta the tool recorded.
 
 ## How to work
 
@@ -26,6 +33,20 @@ The task block appended to this prompt contains, straight from `parity.json`:
    pixel comparison below it meaningless.
 4. A gate failure with a *passing* pixel ratio is still a failure. A 95% match with the wrong brand
    colour must be fixed, not argued away.
+
+## When `owning_layer` is `page-composition`
+
+Every component scored acceptably and the page still does not match, so the defect is something no
+crop can show: a section missing, duplicated, out of order, or the wrong height. You own every
+component's paths for this batch.
+
+Open the `page_composite` side-by-side for **each breakpoint** and read the pair top to bottom.
+Name which section differs and at which breakpoints before you edit. Then fix it inside the owning
+component's paths.
+
+If the page is short by roughly one section's height, look for a section present on the live page
+and absent from AEM — that is a missing or unauthored instance, not a CSS bug, and it belongs to
+the plan. Report it in your result and change nothing rather than faking the section in CSS.
 
 ## Scope
 

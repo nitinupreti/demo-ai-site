@@ -20,11 +20,13 @@ const config = {
   run_id: 'fixture-check',
   source_url: pathToFileURL(path.join(here, 'fixture-live.html')).href,
   targets: [{ mode: 'fixture', url: pathToFileURL(path.join(here, 'fixture-aem.html')).href }],
-  breakpoints: [1024],
+  breakpoints: [1024, 600],
   threshold: 0.9,
   dpr: 1,
   components: [
     { id: 'site-header', source: { css: '#site-header' }, target: { css: '#site-header' } },
+    // Same component, a second target pinned to one breakpoint: it must score there and nowhere else.
+    { id: 'site-header', source: { css: '#site-header', bp: 1024 }, target: { css: '#site-header' } },
     { id: 'hero', source: { css: '#hero' }, target: { css: '#hero' } },
     { id: 'cta', source: { css: '#cta' }, target: { css: '#cta' } },
     { id: 'cards', source: { css: '#cards' }, target: { css: '#cards' } },
@@ -102,6 +104,54 @@ for (const property of ['autoplay', 'loop', 'muted', 'controls', 'playsinline'])
 }
 
 expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
+
+// One component, several parity targets: it must be summarised once or remediation spends its
+// attempt budget once per target instead of once per component.
+const summarisedIds = artifact.components.map((entry) => entry.component_id);
+expect(summarisedIds.length === new Set(summarisedIds).size,
+  `each component must be summarised once, got ${summarisedIds.join(',')}`);
+expect(summarisedIds.length === 5, `expected 5 components, got ${summarisedIds.length}`);
+
+// A target pinned to a breakpoint is scored there and skipped everywhere else.
+const headerRows = artifact.results.filter((row) => row.component_id === 'site-header');
+expect(headerRows.filter((row) => row.breakpoint === 1024).length === 2,
+  `site-header should score twice at its pinned breakpoint, got ${headerRows.filter((row) => row.breakpoint === 1024).length}`);
+expect(headerRows.filter((row) => row.breakpoint === 600).length === 1,
+  `site-header should score once where the pin does not apply, got ${headerRows.filter((row) => row.breakpoint === 600).length}`);
+
+// Every breakpoint gets its own scored page and its own whole-page pair for remediation to read.
+for (const breakpoint of config.breakpoints) {
+  const composite = artifact.page_composite[`${breakpoint}-fixture`];
+  expect(Boolean(composite), `page composite missing for ${breakpoint}`);
+  expect(typeof composite?.side_by_side === 'string' && fs.existsSync(path.join(outDir, composite.side_by_side)),
+    `a whole-page side-by-side must exist for ${breakpoint}, got ${composite?.side_by_side}`);
+  expect(artifact.results.some((row) => row.breakpoint === breakpoint),
+    `no component was scored at ${breakpoint}`);
+
+  // Space between components falls outside every component crop, so only the page can gate it.
+  const gaps = composite?.inter_component_gaps;
+  expect(Array.isArray(gaps) && gaps.length > 0, `inter-component gaps must be measured at ${breakpoint}`);
+  expect(gaps.every((gap) => typeof gap.source_gap === 'number' && typeof gap.target_gap === 'number'),
+    `every gap at ${breakpoint} must carry both measurements`);
+  expect(gaps.every((gap) => gap.status === (Math.abs(gap.delta) <= composite.gap_tolerance_px ? 'PASS' : 'FAIL')),
+    `gap status at ${breakpoint} must follow the tolerance it reports`);
+  expect(!gaps.some((gap) => gap.status === 'FAIL') || composite.status === 'FAIL',
+    `a failing gap at ${breakpoint} must fail the page composite`);
+}
+
+// A withheld score may never be substituted by a diagnostic: progress moves remediation, not the gate.
+const withheld = artifact.results.filter((row) => row.visual_status === 'WITHHELD' && row.deltas.dimension_mismatch);
+expect(withheld.length > 0, 'the fixture should withhold at least one unequal-crop score');
+expect(withheld.every((row) => row.visual_match_ratio === null && row.status === 'FAIL'),
+  'an unequal crop must never carry an authoritative ratio, and must fail');
+expect(withheld.every((row) => typeof row.progress_ratio === 'number'),
+  'a withheld row must still report progress for remediation to steer by');
+expect(artifact.components.every((entry) => entry.status !== 'PASS' || entry.min_ratio !== null),
+  'no component may pass without an authoritative score');
+
+// A local fixture is reached directly, so nothing may be reported as an environment block.
+expect(artifact.preflight.environment_blocked === false,
+  'a reachable target must not be flagged as redirected');
 
 console.log('\nFixture assertions');
 if (failures.length) {

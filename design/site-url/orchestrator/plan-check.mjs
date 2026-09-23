@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { planSummary, validatePlan } from './plan.mjs';
+import { parityComponents, planSummary, validatePlan } from './plan.mjs';
 import { collectChanges, createWorkspace, mergeChanges, snapshotTree } from './workspaces.mjs';
 
 const failures = [];
@@ -93,6 +93,74 @@ expect(hasError(result, 'dependency cycle'), 'cycles must be rejected');
 const staleFingerprint = basePlan({ source_fingerprint: 'sha256:other' });
 result = validatePlan(staleFingerprint, { discovery, runId: 'r1' });
 expect(hasError(result, 'stale evidence'), 'a plan built from stale discovery must be rejected');
+
+// Discovery resolves a selector per breakpoint. A planner that invents one, or pins a target to a
+// width the instance was never seen at, scores a crop of whatever happens to match there.
+const resolved = {
+  source_fingerprint: 'sha256:abc',
+  instances: [
+    {
+      id: 'inst-001',
+      label: 'hero',
+      signature: { text: 'Elevating the love' },
+      visibility_by_bp: { 375: true, 768: true, 1440: true },
+      selector: {
+        375: { css: 'section.hero', match_index: 0 },
+        768: { css: 'section.hero', match_index: 0 },
+        1440: { css: 'div.hero-wide', match_index: 2 },
+      },
+      class_chain: ['section.hero', 'div.aem-Grid', 'div.cmp-container'],
+      rect: { 375: { h: 640 }, 768: { h: 643 }, 1440: { h: 600 } },
+    },
+    {
+      id: 'inst-002',
+      label: 'nav',
+      visibility_by_bp: { 375: false, 768: true, 1440: false },
+      selector: { 768: { css: 'nav', match_index: 0 } },
+      class_chain: ['nav'],
+      rect: { 768: { h: 169 } },
+    },
+  ],
+};
+
+const invented = basePlan();
+invented.components[0].parity_targets = [{ instance: 'inst-001', source: { css: 'div.made-up' }, target: { css: '.cmp-hero' } }];
+result = validatePlan(invented, { discovery: resolved, runId: 'r1' });
+expect(hasError(result, 'discovery never resolved'), 'an invented source selector must be rejected');
+
+const misPinned = basePlan();
+misPinned.components[1].parity_targets = [{ instance: 'inst-002', source: { css: 'nav', bp: 375 }, target: { css: '.cmp-header' } }];
+result = validatePlan(misPinned, { discovery: resolved, runId: 'r1' });
+expect(hasError(result, 'did not observe it'), 'a target pinned to an unobserved breakpoint must be rejected');
+
+result = validatePlan(basePlan(), { discovery: resolved, runId: 'r1' });
+expect(result.valid, `selectors discovery resolved must be accepted: ${result.errors.join('; ')}`);
+
+// The expansion is what parity actually scores, so it must prefer evidence without losing coverage.
+const expanded = parityComponents(basePlan(), resolved, [375, 768, 1440]);
+const hero = expanded.filter((entry) => entry.instance === 'inst-001');
+expect(hero.length === 3, `every breakpoint must stay covered, got ${hero.length}`);
+expect(hero.find((entry) => entry.source.bp === 1440)?.source.css === 'div.hero-wide',
+  'a responsive variant must be scored with the selector discovery resolved at that breakpoint');
+expect(hero.every((entry) => entry.signature_text === 'Elevating the love'),
+  'the signature must come from what discovery read off the element');
+expect(hero.every((entry) => entry.visibility_by_bp[entry.source.bp] === true),
+  'a pinned entry must not be vetoed by a visibility map');
+
+// Discovery going quiet at a breakpoint is as often its own gap as an absent element, so the
+// plan's selector still covers it rather than the gate going blind there.
+const nav = expanded.filter((entry) => entry.instance === 'inst-002');
+expect(nav.length === 3, `a gap in discovery must not drop coverage, got ${nav.length}`);
+expect(nav.filter((entry) => entry.source_of_truth === 'discovery').length === 1,
+  'only the observed breakpoint may claim discovery as its source of truth');
+
+// An ancestor container discovery latched onto holds the instance; it is not the instance.
+const latched = JSON.parse(JSON.stringify(resolved));
+latched.instances[0].selector[1440] = { css: 'div.cmp-container', match_index: 8 };
+const guarded = parityComponents(basePlan(), latched, [375, 768, 1440])
+  .find((entry) => entry.instance === 'inst-001' && entry.source.bp === 1440);
+expect(guarded.source.css === 'section.hero' && guarded.source_of_truth === 'plan',
+  `a selector from the instance's own ancestor chain must fall back to the plan, got ${guarded.source.css}`);
 
 // Parity scores --target-path, so the plan may not author anywhere else.
 const wrongPage = basePlan();

@@ -22,6 +22,32 @@ export async function launchBrowser({ headless = true } = {}) {
   });
 }
 
+/**
+ * AEM answers an unauthenticated HTML request with a 302 to login.html instead of a 401, and
+ * Chromium only attaches `httpCredentials` in response to a challenge — so they never fire, at any
+ * `send` setting. Attaching the header ourselves is the only thing that works; scoping it to the
+ * target origin keeps the credentials off any third-party asset the page happens to reference.
+ */
+async function attachBasicAuth(context, { username, password, origin }) {
+  const header = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+  await context.route('**/*', async (route) => {
+    const request = route.request();
+    let sameOrigin = !origin;
+    if (origin) {
+      try {
+        sameOrigin = new URL(request.url()).origin === origin;
+      } catch {
+        sameOrigin = false;
+      }
+    }
+    if (!sameOrigin) {
+      await route.continue();
+      return;
+    }
+    await route.continue({ headers: { ...request.headers(), authorization: header } });
+  });
+}
+
 /** Both sides must render under identical conditions or the pixel score is meaningless. */
 export async function createPage(browser, {
   width, height = 900, dpr = 1, httpCredentials, userAgent,
@@ -30,9 +56,6 @@ export async function createPage(browser, {
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: dpr,
-    // AEM answers an unauthenticated HTML request with a 302 to login.html instead of a 401,
-    // so Playwright's default 'unauthorized' send mode would never attach the header.
-    httpCredentials: httpCredentials ? { ...httpCredentials, send: 'always' } : undefined,
     userAgent,
     locale,
     timezoneId,
@@ -41,6 +64,7 @@ export async function createPage(browser, {
     forcedColors: 'none',
     extraHTTPHeaders: httpCredentials ? { Referer: 'http://localhost/' } : undefined,
   });
+  if (httpCredentials?.username) await attachBasicAuth(context, httpCredentials);
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
   await page.emulateMedia({ media: 'screen', colorScheme, reducedMotion: 'no-preference', forcedColors: 'none' });

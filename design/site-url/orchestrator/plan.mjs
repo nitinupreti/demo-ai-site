@@ -185,6 +185,30 @@ export function validatePlan(plan, { discovery, runId, sharedPatterns, pagePath 
     }
   }
 
+  // A source selector is evidence, not authorship. Discovery resolved one per breakpoint and
+  // recorded none where the instance was absent, so anything else scores a crop of whatever
+  // happens to match at a breakpoint the element was never observed at.
+  if (discovery?.instances) {
+    const byInstance = new Map(discovery.instances.map((instance) => [instance.id, instance]));
+    for (const component of plan.components) {
+      for (const target of component.parity_targets) {
+        const observed = Object.entries(byInstance.get(target.instance)?.selector || {});
+        if (!observed.length) continue;
+        const css = target.source?.css;
+        const seen = observed.map(([bp, selector]) => `${bp}px "${selector.css}"`).join(', ');
+        if (!observed.some(([, selector]) => selector.css === css)) {
+          errors.push(`${component.id} parity target ${target.instance} declares source selector "${css}", `
+            + `which discovery never resolved; it observed ${seen}`);
+        }
+        const pinned = target.source?.bp;
+        if (pinned !== undefined && pinned !== null && !observed.some(([bp]) => Number(bp) === Number(pinned))) {
+          errors.push(`${component.id} parity target ${target.instance} is pinned to ${pinned}px, `
+            + `where discovery did not observe it; it observed ${seen}`);
+        }
+      }
+    }
+  }
+
   // Dependencies must resolve and must not cycle.
   const known = new Set(ids);
   for (const component of plan.components) {
@@ -197,6 +221,55 @@ export function validatePlan(plan, { discovery, runId, sharedPatterns, pagePath 
   if (unresolved.length) errors.push(`dependency cycle between: ${unresolved.join(', ')}`);
 
   return { valid: errors.length === 0, errors, waves };
+}
+
+/**
+ * Discovery records each instance's own element first in `class_chain`, then its ancestors. A
+ * per-breakpoint selector naming anything further up that chain resolved to a container holding
+ * the instance rather than the instance, so it would score the wrong element.
+ */
+function resolvesToAncestor(discovered, selector) {
+  const chain = discovered?.class_chain || [];
+  const depth = chain.findIndex((entry) => selector.css === entry || selector.css.startsWith(entry));
+  return depth > 0;
+}
+
+/**
+ * Expands the plan's parity targets into one scored entry per breakpoint, preferring the source
+ * selector discovery resolved there. Discovery keys `selector` by breakpoint and omits the ones
+ * it never observed, which is what stops a responsive variant being scored at a width the element
+ * was never seen at. Where discovery has no usable selector the plan's own is kept, so a gap in
+ * discovery narrows what parity trusts rather than what it covers.
+ */
+export function parityComponents(plan, discovery, breakpoints) {
+  const byInstance = new Map((discovery?.instances || []).map((instance) => [instance.id, instance]));
+  const entries = [];
+  for (const component of plan.components) {
+    for (const target of component.parity_targets) {
+      const discovered = byInstance.get(target.instance);
+      const planned = target.source?.bp === undefined || target.source?.bp === null
+        ? breakpoints
+        : breakpoints.filter((breakpoint) => Number(breakpoint) === Number(target.source.bp));
+
+      for (const breakpoint of breakpoints) {
+        const resolved = discovered?.selector?.[breakpoint];
+        const source = resolved?.css && !resolvesToAncestor(discovered, resolved) ? resolved : null;
+        if (!source && !(planned.includes(breakpoint) && target.source?.css)) continue;
+        entries.push({
+          id: component.id,
+          instance: target.instance,
+          source: { ...(source || target.source), bp: breakpoint },
+          target: target.target,
+          // Discovery read the real text off the element; a planner-authored signature cannot.
+          signature_text: (source ? discovered.signature?.text?.trim() : target.signature_text) || null,
+          // Each entry is pinned to one breakpoint, so the pin alone decides where it is scored.
+          visibility_by_bp: { [breakpoint]: true },
+          source_of_truth: source ? 'discovery' : 'plan',
+        });
+      }
+    }
+  }
+  return entries;
 }
 
 export function planSummary(plan, waves) {

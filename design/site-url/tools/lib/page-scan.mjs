@@ -188,6 +188,72 @@ export function scanPage(options) {
 
   let blocks = reduceToOutermost(candidates);
 
+  // `isWrapper` only discards elements above 80% of the page, so a container sitting just under it
+  // is kept and `reduceToOutermost` then deletes every real section inside it. Size cannot tell a
+  // container from a section; how its children fill it can. Descend when the inner candidates stack
+  // as full-width bands accounting for most of the block's height.
+  const CONTAINER_MIN_SHARE = 0.5;
+  const PART_MIN_WIDTH_SHARE = 0.9;
+  const PART_MIN_COVERAGE = 0.7;
+
+  function innerSections(block) {
+    const inside = candidates.filter((element) => element !== block && block.contains(element));
+    return inside
+      .filter((element) => !inside.some((other) => other !== element && other.contains(element)))
+      .sort((a, b) => absRect(a).top - absRect(b).top);
+  }
+
+  // Grids nest several same-size wrappers before the sections start, and each one looks like a
+  // single child rather than a partition. Walk past them to the element that actually holds them.
+  function contentHost(block) {
+    const rect = absRect(block);
+    let current = block;
+    for (let depth = 0; depth < 8; depth += 1) {
+      const children = Array.from(current.children).filter(isVisible);
+      if (children.length !== 1) break;
+      const childRect = absRect(children[0]);
+      if (childRect.h < rect.h * 0.95 || childRect.w < rect.w * 0.95) break;
+      current = children[0];
+    }
+    return current;
+  }
+
+  function partitionsBlock(block, parts) {
+    if (parts.length < 2) return false;
+    const rect = absRect(block);
+    if (rect.h <= 0) return false;
+    let covered = 0;
+    let cursor = rect.top;
+    for (const part of parts) {
+      const partRect = absRect(part);
+      if (partRect.w < rect.w * PART_MIN_WIDTH_SHARE) return false;
+      covered += Math.max(0, partRect.bottom - Math.max(partRect.top, cursor));
+      cursor = Math.max(cursor, partRect.bottom);
+    }
+    return covered >= rect.h * PART_MIN_COVERAGE;
+  }
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    let changed = false;
+    const next = [];
+    for (const block of blocks) {
+      if (absRect(block).h < pageHeight * CONTAINER_MIN_SHARE) {
+        next.push(block);
+        continue;
+      }
+      const host = contentHost(block);
+      const parts = innerSections(host);
+      if (partitionsBlock(host, parts)) {
+        next.push(...parts);
+        changed = true;
+      } else {
+        next.push(block);
+      }
+    }
+    if (!changed) break;
+    blocks = reduceToOutermost(next);
+  }
+
   function classTokens(element) {
     const raw = typeof element.className === 'string' ? element.className : '';
     return raw.trim().split(/\s+/).filter(Boolean);

@@ -13,7 +13,13 @@ export function planDeployment(aemPort) {
     label: 'full build and deploy',
     module: 'all',
     command: 'mvn',
-    args: ['clean', 'install', '-PautoInstallSinglePackage', `-Daem.port=${aemPort}`, '-DskipTests'],
+    // An editor's language server keeps handles on target/generated-sources, so on Windows clean
+    // routinely cannot remove an empty directory. Clean must still run — stale generated sources
+    // outlive a renamed component — but an undeletable leftover must not abort the deploy.
+    args: [
+      'clean', 'install', '-PautoInstallSinglePackage', `-Daem.port=${aemPort}`, '-DskipTests',
+      '-Dmaven.clean.failOnError=false',
+    ],
   }];
 }
 

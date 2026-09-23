@@ -177,6 +177,72 @@ function overlapDiagnostic(sourceAnalysis, targetAnalysis) {
   };
 }
 
+// Only ever drawn into the union mask; the score itself is counted arithmetically.
+const UNION_PAD_SOURCE = [255, 0, 255, 255];
+const UNION_PAD_TARGET = [0, 255, 0, 255];
+
+function padTo(analysis, width, height, fill) {
+  const output = new PNG({ width, height });
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      if (x < analysis.width && y < analysis.height) {
+        const start = (y * analysis.width + x) * 4;
+        analysis.png.data.copy(output.data, offset, start, start + 4);
+      } else {
+        output.data.set(fill, offset);
+      }
+    }
+  }
+  return output;
+}
+
+/**
+ * Scores a pair of crops over their union: only the overlapping region can earn matched pixels,
+ * so a size difference costs exactly the area it adds or removes. Equal crops take the same path
+ * with union === overlap, so every comparable instance gets one authoritative ratio on one scale.
+ */
+function unionCompare(sourceAnalysis, targetAnalysis) {
+  const overlapWidth = Math.min(sourceAnalysis.width, targetAnalysis.width);
+  const overlapHeight = Math.min(sourceAnalysis.height, targetAnalysis.height);
+  if (overlapWidth < 2 || overlapHeight < 2) return null;
+  const width = Math.max(sourceAnalysis.width, targetAnalysis.width);
+  const height = Math.max(sourceAnalysis.height, targetAnalysis.height);
+
+  const left = cropTo(sourceAnalysis, overlapWidth, overlapHeight);
+  const right = cropTo(targetAnalysis, overlapWidth, overlapHeight);
+  const overlapDiffering = pixelmatch(left.data, right.data, null, overlapWidth, overlapHeight,
+    { threshold: 0.1, includeAA: false });
+  const overlapStrict = pixelmatch(left.data, right.data, null, overlapWidth, overlapHeight,
+    { threshold: 0, includeAA: true });
+
+  const diff = new PNG({ width, height });
+  pixelmatch(
+    padTo(sourceAnalysis, width, height, UNION_PAD_SOURCE).data,
+    padTo(targetAnalysis, width, height, UNION_PAD_TARGET).data,
+    diff.data, width, height, { threshold: 0.1, includeAA: false },
+  );
+
+  const overlapTotal = overlapWidth * overlapHeight;
+  const total = width * height;
+  // Every pixel outside the overlap exists on one side only, so it can never be a match.
+  const unmatchedArea = total - overlapTotal;
+  return {
+    width,
+    height,
+    total,
+    differing: overlapDiffering + unmatchedArea,
+    strict_differing: overlapStrict + unmatchedArea,
+    diff,
+    overlap: {
+      region: { w: overlapWidth, h: overlapHeight },
+      differing_pixels: overlapDiffering,
+      total_pixels: overlapTotal,
+      ratio: round((overlapTotal - overlapDiffering) / overlapTotal, 6),
+    },
+  };
+}
+
 /** Comparable form for text captured by different APIs (innerText vs textContent). */
 function normalizeText(value) {
   return String(value || '')
@@ -393,7 +459,38 @@ function owningLayerHint(result) {
   return 'component-css';
 }
 
-async function composeSideBySide(page, { sourcePath, targetPath, outPath, caption }) {
+/**
+ * Measures the vertical gap between consecutive instances on both sides. Every crop can score
+ * green while the rhythm between them is wrong, and no per-component crop can see it: a component
+ * is cropped to its own box, so the space before and after it falls outside every crop taken.
+ * Nesting cancels because both sides are measured the same way; only the delta is gated.
+ */
+function interComponentGaps(results, breakpoint, mode, tolerancePx) {
+  const ordered = results
+    .filter((row) => row.breakpoint === breakpoint && row.mode === mode
+      && row.source?.rect && row.target?.rect)
+    .sort((left, right) => left.source.rect.y - right.source.rect.y);
+
+  const gaps = [];
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    const sourceGap = round(current.source.rect.y - (previous.source.rect.y + previous.source.rect.h), 2);
+    const targetGap = round(current.target.rect.y - (previous.target.rect.y + previous.target.rect.h), 2);
+    const delta = round(targetGap - sourceGap, 2);
+    gaps.push({
+      after: previous.component_id,
+      before: current.component_id,
+      source_gap: sourceGap,
+      target_gap: targetGap,
+      delta,
+      status: Math.abs(delta) <= tolerancePx ? 'PASS' : 'FAIL',
+    });
+  }
+  return gaps;
+}
+
+async function composeSideBySide(page, { sourcePath, targetPath, outPath, caption, maxWidth }) {
   const encode = (filePath) => `data:image/png;base64,${fs.readFileSync(filePath).toString('base64')}`;
   await page.setContent(`<!doctype html><html><head><style>
     body { margin:0; background:#101114; font:12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; color:#fff; }
@@ -401,7 +498,7 @@ async function composeSideBySide(page, { sourcePath, targetPath, outPath, captio
     figure { margin:0; flex:0 0 auto; }
     figcaption { padding:6px 8px; font-weight:700; letter-spacing:.08em; }
     .live figcaption { background:#1f6feb; } .aem figcaption { background:#8957e5; }
-    img { display:block; background:#fff; }
+    img { display:block; background:#fff;${maxWidth ? ` max-width:${maxWidth}px;` : ''} }
     .meta { padding:0 12px 12px; color:#9aa4b2; }
   </style></head><body>
     <div class="wrap">
@@ -414,10 +511,34 @@ async function composeSideBySide(page, { sourcePath, targetPath, outPath, captio
 }
 
 async function openPrepared(browser, { url, width, dpr, httpCredentials, stableSelectors }) {
-  const page = await createPage(browser, { width, dpr, httpCredentials });
+  // Credentials are scoped to the page under test, never to a third-party asset it pulls in.
+  const scoped = httpCredentials
+    ? { ...httpCredentials, origin: httpCredentials.origin ?? originOf(url) }
+    : undefined;
+  const page = await createPage(browser, { width, dpr, httpCredentials: scoped });
   const navigation = await navigate(page, url);
   const readiness = await prepareForCapture(page, { width, stableSelectors });
   return { page, navigation, readiness };
+}
+
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Query strings differ legitimately (wcmmode); a different path means we scored the wrong page. */
+function landedElsewhere(requestedUrl, finalUrl) {
+  try {
+    const requested = new URL(requestedUrl);
+    const landed = new URL(finalUrl);
+    if (requested.origin === landed.origin && requested.pathname === landed.pathname) return null;
+    return landed.href;
+  } catch {
+    return null;
+  }
 }
 
 async function main() {
@@ -452,12 +573,17 @@ async function main() {
   const browser = await launchBrowser({ headless: !options.headed });
   const results = [];
   const pageComposite = {};
-  const preflight = { status: 'PASS', checks: [] };
+  const preflight = { status: 'PASS', environment_blocked: false, checks: [] };
   const composePage = await createPage(browser, { width: 1200, height: 800, dpr: 1 });
 
   try {
     for (const width of config.breakpoints) {
-      const visible = components.filter((component) => component.visibility_by_bp?.[width] !== false);
+      // A target may be pinned to one breakpoint (a responsive variant); it is not comparable elsewhere.
+      const visible = components.filter((component) => {
+        if (component.visibility_by_bp?.[width] === false) return false;
+        const pinned = component.bp ?? component.source?.bp;
+        return pinned === undefined || pinned === null || Number(pinned) === width;
+      });
       const sourceSelectors = visible.map((component) => ({
         key: `src-${component.id}`, css: component.source.css, matchIndex: component.source.match_index || 0,
       }));
@@ -480,22 +606,28 @@ async function main() {
 
         const scrollbarDelta = deployed.readiness.scrollbar_width - source.readiness.scrollbar_width;
         const readinessBlocked = source.readiness.status !== 'PASS' || deployed.readiness.status !== 'PASS';
+        // Landing on another path means an AEM login bounce or a sling:redirect, not a bad component.
+        const redirectedTo = landedElsewhere(target.url, deployed.navigation.final_url);
         preflight.checks.push({
           breakpoint: width,
           mode: target.mode,
           source_url: source.navigation.final_url,
           target_url: deployed.navigation.final_url,
+          target_redirected_to: redirectedTo,
           source_readiness: source.readiness.status,
           target_readiness: deployed.readiness.status,
           source_failures: source.readiness.failures,
-          target_failures: deployed.readiness.failures,
+          target_failures: redirectedTo
+            ? [`target navigated away from ${target.url} to ${redirectedTo}`, ...deployed.readiness.failures]
+            : deployed.readiness.failures,
           source_warnings: source.readiness.warnings,
           target_warnings: deployed.readiness.warnings,
           scrollbar_width_delta: scrollbarDelta,
           viewport: { requested: width, source: source.readiness.inner_width, target: deployed.readiness.inner_width },
           dpr: { source: source.readiness.dpr, target: deployed.readiness.dpr },
         });
-        if (readinessBlocked) preflight.status = 'FAIL';
+        if (readinessBlocked || redirectedTo) preflight.status = 'FAIL';
+        if (redirectedTo) preflight.environment_blocked = true;
 
         for (const component of visible) {
           process.stdout.write(`  ${width}px ${target.mode} ${component.id} ... `);
@@ -512,6 +644,10 @@ async function main() {
             total_pixels: null,
             visual_match_ratio: null,
             visual_match_percent: null,
+            scored_over: null,
+            // Movement for remediation to steer by when no score may be issued. Never a score.
+            progress_ratio: null,
+            progress_percent: null,
             source: { url: source.navigation.final_url, selector: component.source.css, match_index: component.source.match_index || 0 },
             target: { url: deployed.navigation.final_url, selector: component.target.css, match_index: component.target.match_index || 0 },
             viewport: { requested: width, dpr, scrollbar_width_delta: scrollbarDelta },
@@ -637,76 +773,25 @@ async function main() {
             console.log(`WITHHELD (${cropProblem})`);
             continue;
           }
-          if (sourceAnalysis.width !== targetAnalysis.width || sourceAnalysis.height !== targetAnalysis.height) {
-            const overlap = overlapDiagnostic(sourceAnalysis, targetAnalysis);
-            result.status = 'FAIL';
-            result.geometry_status = 'FAIL';
-            result.visual_status = 'WITHHELD';
-            result.withheld_reason = `crop dimensions differ: source ${sourceAnalysis.width}x${sourceAnalysis.height}, target ${targetAnalysis.width}x${targetAnalysis.height}`;
-            result.deltas.dimension_mismatch = {
-              source: { w: sourceAnalysis.width, h: sourceAnalysis.height },
-              target: { w: targetAnalysis.width, h: targetAnalysis.height },
-            };
-            if (overlap) {
-              const maskPath = path.join(shotDir, `${base}-overlap-mask.png`);
-              fs.writeFileSync(maskPath, PNG.sync.write(overlap.diff));
-              result.diff_mask = relativePath(outDir, maskPath);
-              result.deltas.overlap_diagnostic = {
-                region: overlap.region,
-                ratio: overlap.ratio,
-                percent: round(overlap.ratio * 100, 2),
-                differing_pixels: overlap.differing_pixels,
-                total_pixels: overlap.total_pixels,
-                note: 'diagnostic over the common region only; not an authoritative score',
-              };
-              const cells = diffHotCells(overlap.diff, {
-                width: overlap.region.w,
-                height: overlap.region.h,
-                cellSize: Math.max(24, Math.round(Math.min(overlap.region.w, overlap.region.h) / 12)),
-              });
-              result.deltas.hot_regions = cells.length
-                ? await elementsAtPoints(deployed.page, targetInstance.rect, cells)
-                : [];
-            }
-            const sideBySidePath = path.join(shotDir, `${base}-side-by-side.png`);
-            await composeSideBySide(composePage, {
-              sourcePath: sourceShot,
-              targetPath: targetShot,
-              outPath: sideBySidePath,
-              caption: `${component.id} @ ${width}px (${target.mode}) — SCORE WITHHELD, crop sizes differ — `
-                + `source ${sourceAnalysis.width}x${sourceAnalysis.height} vs AEM ${targetAnalysis.width}x${targetAnalysis.height}`,
-            });
-            result.side_by_side = relativePath(outDir, sideBySidePath);
+          const comparison = unionCompare(sourceAnalysis, targetAnalysis);
+          if (!comparison) {
+            result.withheld_reason = `crops share no comparable region: source ${sourceAnalysis.width}x${sourceAnalysis.height}, `
+              + `target ${targetAnalysis.width}x${targetAnalysis.height}`;
             result.owning_layer_hint = 'geometry-container';
             results.push(result);
-            console.log(`FAIL (unequal crops${result.deltas.overlap_diagnostic ? `, overlap ${result.deltas.overlap_diagnostic.percent}%` : ''}`
-              + `${failedGates.length ? `, gates: ${failedGates.join('/')}` : ''})`);
+            console.log(`WITHHELD (${result.withheld_reason})`);
             continue;
           }
 
-          const { width: cropWidth, height: cropHeight } = sourceAnalysis;
-          const diff = new PNG({ width: cropWidth, height: cropHeight });
-          const differing = pixelmatch(
-            sourceAnalysis.png.data, targetAnalysis.png.data, diff.data, cropWidth, cropHeight,
-            { threshold: 0.1, includeAA: false },
-          );
-          const strictDiffering = pixelmatch(
-            sourceAnalysis.png.data, targetAnalysis.png.data, null, cropWidth, cropHeight,
-            { threshold: 0, includeAA: true },
-          );
+          const sameSize = comparison.total === comparison.overlap.total_pixels;
+          const { width: cropWidth, height: cropHeight, diff } = comparison;
           const maskPath = path.join(shotDir, `${base}-mask.png`);
           fs.writeFileSync(maskPath, PNG.sync.write(diff));
-
-          const totalPixels = cropWidth * cropHeight;
-          const ratio = (totalPixels - differing) / totalPixels;
-          result.total_pixels = totalPixels;
-          result.differing_pixels = differing;
-          result.strict_differing_pixels = strictDiffering;
-          result.matched_pixels = totalPixels - differing;
-          result.visual_match_ratio = ratio;
-          result.visual_match_percent = round(ratio * 100, 2);
-          result.exact_match = differing === 0;
           result.diff_mask = relativePath(outDir, maskPath);
+
+          const differing = comparison.differing;
+          const totalPixels = comparison.total;
+          const ratio = (totalPixels - differing) / totalPixels;
 
           if (differing > 0) {
             const cells = diffHotCells(diff, {
@@ -720,6 +805,55 @@ async function main() {
           } else {
             result.deltas.hot_regions = [];
           }
+
+          // Unequal crops are never resized, stretched or padded into a passing score. The union
+          // ratio is still recorded, but as progress only: it can move remediation, never the gate.
+          if (!sameSize) {
+            result.status = 'FAIL';
+            result.geometry_status = 'FAIL';
+            result.visual_status = 'WITHHELD';
+            result.withheld_reason = `crop dimensions differ: source ${sourceAnalysis.width}x${sourceAnalysis.height}, `
+              + `target ${targetAnalysis.width}x${targetAnalysis.height}`;
+            result.deltas.dimension_mismatch = {
+              source: { w: sourceAnalysis.width, h: sourceAnalysis.height },
+              target: { w: targetAnalysis.width, h: targetAnalysis.height },
+            };
+            // Separates "the box is the wrong size" from "the content inside the box is wrong".
+            result.deltas.overlap_diagnostic = {
+              region: comparison.overlap.region,
+              ratio: comparison.overlap.ratio,
+              percent: round(comparison.overlap.ratio * 100, 2),
+              differing_pixels: comparison.overlap.differing_pixels,
+              total_pixels: comparison.overlap.total_pixels,
+              note: 'common region only; never an authoritative score',
+            };
+            result.progress_ratio = ratio;
+            result.progress_percent = round(ratio * 100, 2);
+            const withheldPair = path.join(shotDir, `${base}-side-by-side.png`);
+            await composeSideBySide(composePage, {
+              sourcePath: sourceShot,
+              targetPath: targetShot,
+              outPath: withheldPair,
+              caption: `${component.id} @ ${width}px (${target.mode}) — SCORE WITHHELD, crop sizes differ — `
+                + `source ${sourceAnalysis.width}x${sourceAnalysis.height} vs AEM ${targetAnalysis.width}x${targetAnalysis.height} — `
+                + `union progress ${round(ratio * 100, 2)}%, overlap ${round(comparison.overlap.ratio * 100, 2)}% (neither is a score)`,
+            });
+            result.side_by_side = relativePath(outDir, withheldPair);
+            result.owning_layer_hint = owningLayerHint(result);
+            results.push(result);
+            console.log(`FAIL (unequal crops, progress ${round(ratio * 100, 2)}%, overlap ${round(comparison.overlap.ratio * 100, 2)}%`
+              + `${failedGates.length ? `, gates: ${failedGates.join('/')}` : ''})`);
+            continue;
+          }
+
+          result.scored_over = 'exact-crop';
+          result.total_pixels = totalPixels;
+          result.differing_pixels = differing;
+          result.strict_differing_pixels = comparison.strict_differing;
+          result.matched_pixels = totalPixels - differing;
+          result.visual_match_ratio = ratio;
+          result.visual_match_percent = round(ratio * 100, 2);
+          result.exact_match = differing === 0;
 
           const sideBySidePath = path.join(shotDir, `${base}-side-by-side.png`);
           await composeSideBySide(composePage, {
@@ -750,12 +884,16 @@ async function main() {
         const heightDelta = targetFullAnalysis.height - sourceFullAnalysis.height;
         const widthDelta = targetFullAnalysis.width - sourceFullAnalysis.width;
         const overlap = overlapDiagnostic(sourceFullAnalysis, targetFullAnalysis);
+        const gaps = interComponentGaps(results, width, target.mode, pxTolerance);
+        const failedGaps = gaps.filter((gap) => gap.status === 'FAIL');
         const composite = {
           source_dimensions: { w: sourceFullAnalysis.width, h: sourceFullAnalysis.height },
           target_dimensions: { w: targetFullAnalysis.width, h: targetFullAnalysis.height },
           width_delta: widthDelta,
           height_delta: heightDelta,
           height_tolerance_px: pageHeightTolerance,
+          inter_component_gaps: gaps,
+          gap_tolerance_px: pxTolerance,
           source: relativePath(outDir, sourceFull),
           target: relativePath(outDir, targetFull),
         };
@@ -770,16 +908,38 @@ async function main() {
           composite.total_pixels = overlap.total_pixels;
           composite.exact_match = overlap.differing_pixels === 0 && heightDelta === 0 && widthDelta === 0;
           const withinTolerance = widthDelta === 0 && Math.abs(heightDelta) <= pageHeightTolerance;
-          composite.status = overlap.ratio > threshold && withinTolerance ? 'PASS' : 'FAIL';
+          composite.status = overlap.ratio > threshold && withinTolerance && !failedGaps.length ? 'PASS' : 'FAIL';
           if (!withinTolerance) {
             composite.failure_reason = `page dimensions differ by ${widthDelta}x${heightDelta}px `
               + `(height tolerance ${pageHeightTolerance}px)`;
+          }
+          if (failedGaps.length) {
+            composite.gap_failure_reason = failedGaps
+              .map((gap) => `${gap.after}->${gap.before} ${gap.source_gap}px vs ${gap.target_gap}px (${gap.delta > 0 ? '+' : ''}${gap.delta})`)
+              .join('; ');
           }
         } else {
           composite.ratio = null;
           composite.status = 'WITHHELD';
           composite.withheld_reason = `page screenshots are not comparable: source ${sourceFullAnalysis.width}x${sourceFullAnalysis.height}, `
             + `target ${targetFullAnalysis.width}x${targetFullAnalysis.height}`;
+        }
+
+        // A diagnostic aid must never be able to fail a measurement run.
+        try {
+          const compositePair = path.join(shotDir, `full-${compositeKey}-side-by-side.png`);
+          await composeSideBySide(composePage, {
+            sourcePath: sourceFull,
+            targetPath: targetFull,
+            outPath: compositePair,
+            maxWidth: 520,
+            caption: `whole page @ ${width}px (${target.mode}) \u2014 source ${sourceFullAnalysis.width}x${sourceFullAnalysis.height} `
+              + `vs AEM ${targetFullAnalysis.width}x${targetFullAnalysis.height} \u2014 height delta ${heightDelta}px`,
+          });
+          composite.side_by_side = relativePath(outDir, compositePair);
+        } catch (error) {
+          composite.side_by_side = null;
+          composite.side_by_side_error = error.message;
         }
         pageComposite[compositeKey] = composite;
 
@@ -792,9 +952,16 @@ async function main() {
     await browser.close();
   }
 
-  const perComponent = components.map((component) => {
-    const rows = results.filter((result) => result.component_id === component.id);
+  // One component can own several parity targets across breakpoints. It is still one component
+  // with one attempt budget, so it must appear once or remediation spends its budget twice over.
+  const scoredIds = [...new Set(components.map((component) => component.id))];
+  const perComponent = scoredIds.map((componentId) => {
+    const rows = results.filter((result) => result.component_id === componentId);
     const ratios = rows.map((row) => row.visual_match_ratio).filter((value) => typeof value === 'number');
+    // Withheld rows issue no score, so progress is the only thing remediation can steer by.
+    const progress = rows
+      .map((row) => (typeof row.visual_match_ratio === 'number' ? row.visual_match_ratio : row.progress_ratio))
+      .filter((value) => typeof value === 'number');
     const failing = rows.filter((row) => row.status !== 'PASS');
     const failedGates = new Set();
     for (const row of rows) {
@@ -803,9 +970,10 @@ async function main() {
       }
     }
     return {
-      component_id: component.id,
+      component_id: componentId,
       status: rows.length === 0 ? 'SKIPPED' : failing.length ? (failing.every((row) => row.status === 'WITHHELD') ? 'WITHHELD' : 'FAIL') : 'PASS',
       min_ratio: ratios.length ? Math.min(...ratios) : null,
+      min_progress_ratio: progress.length ? Math.min(...progress) : null,
       owning_layer_hint: failing.find((row) => row.owning_layer_hint)?.owning_layer_hint || null,
       failed_gates: Array.from(failedGates),
       breakpoints: Object.fromEntries(rows.map((row) => [`${row.breakpoint}-${row.mode}`, {
@@ -870,7 +1038,8 @@ async function main() {
   for (const [key, entry] of Object.entries(pageComposite)) {
     const value = entry.ratio === null ? `withheld (${entry.withheld_reason})` : `${entry.percent}%`;
     const size = entry.height_delta === undefined ? '' : ` [Δh ${entry.height_delta}px]`;
-    console.log(`page composite ${key.padEnd(17)} ${value}${size}   ${entry.status}`);
+    const gaps = (entry.inter_component_gaps || []).filter((gap) => gap.status === 'FAIL').length;
+    console.log(`page composite ${key.padEnd(17)} ${value}${size}${gaps ? ` [${gaps} gap(s)]` : ''}   ${entry.status}`);
   }
   console.log(`\nThreshold: > ${threshold} | components ${passed.length}/${perComponent.length} | `
     + `exact crops ${artifact.summary.instances_exact_match}/${artifact.summary.instances_scored} | status ${artifact.status}`);

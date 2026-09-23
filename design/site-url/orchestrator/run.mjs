@@ -18,9 +18,10 @@ import { acquireAssets, ensureFilterRoot } from './assets.mjs';
 import {
   focusedTestPlan, planDeployment, runDeployment, runValidation, validationPlan,
 } from './deploy.mjs';
-import { planSummary, validatePlan } from './plan.mjs';
+import { parityComponents, planSummary, validatePlan } from './plan.mjs';
 import {
-  advanceRound, applyParity, createLedger, ledgerSnapshot, recordAttempt, routeFailures, terminalStatus,
+  advanceRound, applyParity, createLedger, environmentBlocked, ledgerSnapshot, PAGE_SCOPE_ID,
+  recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
 import { collectChanges, createWorkspace, mergeChanges, removeWorkspace } from './workspaces.mjs';
@@ -606,32 +607,64 @@ export async function orchestrate(rawOptions, services) {
     breakpoints: options.breakpoints,
     threshold: options.threshold,
     auth: { username: options.aemUser || 'admin', password_env: 'AEM_PASSWORD' },
-    components: plan.components.flatMap((component) => component.parity_targets.map((target) => ({
-      id: component.id,
-      source: target.source,
-      target: target.target,
-      signature_text: target.signature_text || null,
-      visibility_by_bp: component.visibility_by_bp || {},
-    }))),
+    components: parityComponents(plan, discovery, options.breakpoints),
   });
+
+  // Evidence paths are recorded relative to the parity directory, and agents run in a workspace
+  // copy that excludes it, so only an absolute path is openable from where they stand.
+  const evidenceFile = (value) => (value ? path.resolve(parityDir, value) : null);
+  const withEvidence = (row) => ({
+    ...row,
+    side_by_side: evidenceFile(row.side_by_side),
+    diff_mask: evidenceFile(row.diff_mask),
+    source: { ...row.source, screenshot: evidenceFile(row.source?.screenshot) },
+    target: { ...row.target, screenshot: evidenceFile(row.target?.screenshot) },
+  });
+  const compositeWithEvidence = (composite) => Object.fromEntries(
+    Object.entries(composite || {}).map(([key, entry]) => [key, {
+      ...entry,
+      source: evidenceFile(entry.source),
+      target: evidenceFile(entry.target),
+      mask: evidenceFile(entry.mask),
+      side_by_side: evidenceFile(entry.side_by_side),
+    }]),
+  );
 
   const runParity = async (cycle) => {
     const outcome = await runTool('parity', [
       path.join(toolsDir, 'parity.mjs'), '--config', parityConfigPath, '--out', parityDir, '--cycle', String(cycle),
     ]);
-    const artefact = JSON.parse(fs.readFileSync(path.join(parityDir, 'parity.json'), 'utf8'));
-    fs.copyFileSync(path.join(parityDir, 'parity.json'), path.join(parityDir, `parity-cycle-${cycle}.json`));
+    const artefactPath = path.join(parityDir, 'parity.json');
+    const artefact = fs.existsSync(artefactPath) ? JSON.parse(fs.readFileSync(artefactPath, 'utf8')) : null;
+    // A crashed runner leaves the previous cycle's artefact in place, and reading it back would
+    // report a stale measurement as a fresh one and spend an attempt on nothing.
+    if (!artefact || artefact.cycle !== cycle) {
+      return { artefact: null, code: outcome.code, error: `parity produced no artefact for cycle ${cycle}` };
+    }
+    fs.copyFileSync(artefactPath, path.join(parityDir, `parity-cycle-${cycle}.json`));
     return { artefact, code: outcome.code };
   };
 
   phase = startPhase('parity');
   let cycle = 0;
-  let parity = (await runParity(cycle)).artefact;
+  const first = await runParity(cycle);
+  if (!first.artefact) {
+    endPhase(phase, 'FAIL', first.error);
+    return { status: 'FAIL', phases, state, plan };
+  }
+  let parity = first.artefact;
   const ledger = createLedger(plan.components.map((component) => component.id));
   applyParity(ledger, parity);
   endPhase(phase, parity.status, `${parity.summary.components_passed}/${parity.summary.components_total} components, min ${(parity.summary.min_ratio * 100 || 0).toFixed(2)}%`);
 
   phase = startPhase('remediation');
+  // Nothing an agent edits can move a score that was never taken against the right page.
+  const blocked = environmentBlocked(parity);
+  if (blocked) {
+    writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
+    endPhase(phase, 'FAIL', `${blocked}; fix the target or its credentials, then rerun`);
+    return { status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger) };
+  }
   let rounds = 0;
   while (parity.status !== 'PASS' && rounds < 8) {
     const progress = advanceRound(ledger);
@@ -645,18 +678,21 @@ export async function orchestrate(rawOptions, services) {
       const members = batch.scope === 'component' ? batch.components : [batch.components.join('+')];
       await pool(members, batch.scope === 'component' ? options.maxParallel : 1, async (member) => {
         const ids = member.split('+');
+        // A page batch owns every component, so name it for the scope instead of concatenating ids.
+        const label = batch.scope === 'page' ? 'page' : ids.join('-');
+        const ledgerIds = batch.scope === 'page' ? [PAGE_SCOPE_ID] : ids;
         const scopePaths = ids.flatMap((id) => byId.get(id)?.owned_paths || []);
-        const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-${ids.join('-')}`);
+        const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-${label}`);
         const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
-        workspace.id = `fix-${ids.join('-')}`;
-        const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-${ids.join('-')}`);
-        const deltas = ids.map((id) => parity.results.filter((row) => row.component_id === id));
+        workspace.id = `fix-${label}`;
+        const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-${label}`);
+        const deltas = ids.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence));
 
         try {
           const invocation = await runAgentRole({
             copilot,
             role: 'remediation',
-            id: `fix-${ids.join('-')}`,
+            id: `fix-${label}`,
             prompt: [
               readPrompt('_contract.md'), '', readPrompt('remediation.md'), '',
               '## Task', '',
@@ -665,6 +701,8 @@ export async function orchestrate(rawOptions, services) {
                 round: ledger.round, batch: batch.batch_id, owning_layer: batch.layer,
                 components: ids, owned_paths: scopePaths,
                 result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+                // Per-component crops cannot show a missing or reordered section; the page can.
+                page_composite: compositeWithEvidence(parity.page_composite),
                 deltas,
               }, null, 2),
               '```',
@@ -681,7 +719,7 @@ export async function orchestrate(rawOptions, services) {
           const changes = collectChanges(workspace, scopePaths);
           if (changes.valid && invocation.status === 'PASS') {
             mergeChanges(workspace, repoRoot, changes, new Map());
-            for (const id of ids) {
+            for (const id of ledgerIds) {
               recordAttempt(ledger, {
                 componentId: id,
                 batchId: batch.batch_id,
@@ -691,7 +729,7 @@ export async function orchestrate(rawOptions, services) {
               });
             }
           } else {
-            for (const id of ids) {
+            for (const id of ledgerIds) {
               recordAttempt(ledger, { componentId: id, batchId: batch.batch_id, layer: batch.layer, hypothesis: invocation.error });
             }
           }
@@ -713,7 +751,12 @@ export async function orchestrate(rawOptions, services) {
     if (redeploy.status !== 'PASS') break;
 
     cycle += 1;
-    parity = (await runParity(cycle)).artefact;
+    const next = await runParity(cycle);
+    if (!next.artefact) {
+      renderer.note(`${next.error}; keeping the last measured cycle and stopping remediation`);
+      break;
+    }
+    parity = next.artefact;
     applyParity(ledger, parity);
   }
   const terminal = terminalStatus(ledger);

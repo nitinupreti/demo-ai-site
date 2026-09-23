@@ -124,8 +124,9 @@ const instanceFor = (id) => ({ [CONTENT_A]: 'inst-001', [CONTENT_B]: 'inst-002',
 // One component is made to fail its first attempt so the retry path is exercised.
 const attemptsSeen = new Map();
 const retryPrompts = [];
+const remediationPrompts = [];
 
-function writeParity(passing) {
+function writeParity(passing, compositePassing = true, cycle = 0) {
   const components = componentIds.map((id) => ({
     component_id: id,
     status: passing.includes(id) ? 'PASS' : 'FAIL',
@@ -137,6 +138,7 @@ function writeParity(passing) {
   fs.mkdirSync(parityDir, { recursive: true });
   fs.writeFileSync(path.join(parityDir, 'parity.json'), JSON.stringify({
     schema_version: 1,
+    cycle,
     tool: { name: 'parity.mjs', version: 'fake' },
     threshold: 0.9,
     runner_revision: 'sha256:fake',
@@ -144,20 +146,33 @@ function writeParity(passing) {
     breakpoints: [1440],
     results: componentIds.map((id) => ({
       component_id: id, breakpoint: 1440, mode: 'disabled', status: passing.includes(id) ? 'PASS' : 'FAIL',
+      side_by_side: `evidence/${id}-1440-disabled-side-by-side.png`,
+      diff_mask: `evidence/${id}-1440-disabled-mask.png`,
+      source: { selector: '.a', screenshot: `evidence/${id}-1440-disabled-source.png` },
+      target: { selector: '.cmp-a', screenshot: `evidence/${id}-1440-disabled-target.png` },
     })),
     components,
-    page_composite: { '1440-disabled': { ratio: 0.99, status: 'PASS', height_delta: 0 } },
+    page_composite: {
+      '1440-disabled': {
+        ratio: compositePassing ? 0.99 : 0.71,
+        status: compositePassing ? 'PASS' : 'FAIL',
+        height_delta: compositePassing ? 0 : -820,
+        source: 'evidence/full-1440-source.png',
+        target: 'evidence/full-1440-disabled-target.png',
+        side_by_side: 'evidence/full-1440-disabled-side-by-side.png',
+      },
+    },
     summary: {
       components_total: componentIds.length,
       components_passed: passing.length,
       components_failed: componentIds.length - passing.length,
       min_ratio: passing.length === componentIds.length ? 0.97 : 0.88,
     },
-    status: passing.length === componentIds.length ? 'PASS' : 'FAIL',
+    status: passing.length === componentIds.length && compositePassing ? 'PASS' : 'FAIL',
   }, null, 2));
 }
 
-const runTool = async (name) => {
+const runTool = async (name, args = []) => {
   if (name === 'discover') {
     const target = path.join(evidenceDir, 'discovery');
     fs.mkdirSync(target, { recursive: true });
@@ -165,7 +180,9 @@ const runTool = async (name) => {
     return { name, code: 0 };
   }
   // First run fails two components; after one remediation round everything passes.
-  writeParity(parityCycle === 0 ? [CONTENT_A] : componentIds);
+  // Cycle 1 then passes every component while the page is still wrong — the dead end a page batch owns.
+  const requested = Number(args[args.indexOf('--cycle') + 1] ?? parityCycle);
+  writeParity(parityCycle === 0 ? [CONTENT_A] : componentIds, parityCycle >= 2, requested);
   parityCycle += 1;
   return { name, code: 0 };
 };
@@ -275,6 +292,7 @@ const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
     return;
   }
   const ids = id.replace('fix-', '');
+  remediationPrompts.push(prompt);
   const file = path.join(cwd, 'ui.apps', 'components', ids, 'fixed.txt');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, 'fixed');
@@ -342,6 +360,16 @@ expect(deployedFilter.includes('<filter root="/content/page"/>'),
 expect(deployedFilter.indexOf('/content/page"') < deployedFilter.indexOf('"/content" mode="merge"'),
   'the page root must precede the ancestor merge root');
 
+// Remediation only ever sees cropped components, so the page-level view must be handed to it too,
+// and every evidence image must be openable from a workspace that excludes the evidence directory.
+expect(remediationPrompts.length > 0, 'remediation should have been invoked');
+const fixPrompt = remediationPrompts[0];
+expect(fixPrompt.includes('"page_composite"'), 'the remediation prompt must carry the page composite');
+expect(fixPrompt.includes(JSON.stringify(path.join(parityDir, 'evidence', 'full-1440-disabled-side-by-side.png')).slice(1, -1)),
+  'the page composite image must be given as an absolute path');
+expect(!/"side_by_side": "evidence\//.test(fixPrompt),
+  'no evidence path may stay relative to the parity directory');
+
 // Fan-out honoured the dependency wave ordering.
 const fanout = outcome.phases.find((phase) => phase.name === 'fanout');
 expect(fanout.status === 'PASS', 'fan-out should succeed');
@@ -382,6 +410,17 @@ const failingFirst = ledger.find((entry) => entry.id === CONTENT_B);
 expect(passingFirst.status === 'PASS' && passingFirst.history.length === 0, 'a passing component must not consume an attempt');
 expect(failingFirst.status === 'PASS' && failingFirst.history.length === 1, `failing component should record one attempt, got ${failingFirst.history.length}`);
 expect(failingFirst.history[0].layer === 'spacing', `attempt should record the owning layer, got ${failingFirst.history[0].layer}`);
+
+// A page that fails while every component passes must still be worked, and charged to the page.
+const pageEntry = outcome.ledger.page;
+expect(pageEntry && pageEntry.status === 'PASS', `the page should recover, got ${pageEntry && pageEntry.status}`);
+expect(pageEntry.history.length === 1, `the page should record exactly one attempt, got ${pageEntry.history.length}`);
+expect(pageEntry.history[0].layer === 'page-composition',
+  `the page attempt must record its layer, got ${pageEntry.history[0].layer}`);
+expect(fs.existsSync(path.join(evidenceDir, 'agents', 'remediation-1-page')),
+  'a page batch must use the page scope label, not every component id concatenated');
+expect(remediationPrompts.some((entry) => entry.includes('"owning_layer": "page-composition"')),
+  'a page batch must tell the agent which layer it owns');
 
 // The report is generated from artefacts.
 const reportPath = path.join(evidenceDir, 'completion-report.md');
@@ -428,9 +467,9 @@ const resumeOutcome = await orchestrate(
     renderer: createRenderer({ stageIds: PHASES_FOR_CHECK }),
     runId: 'e2e',
     evidenceDir,
-    runTool: async (name) => {
+    runTool: async (name, args) => {
       if (name === 'discover') throw new Error('discovery must not re-run on resume');
-      return runTool(name);
+      return runTool(name, args);
     },
     spawnFn: makeSpawnFn((context) => {
       spawnedOnResume.push(context.role);

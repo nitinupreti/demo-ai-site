@@ -9,12 +9,46 @@ export const ROUND_2_ATTEMPTS = 1;
 const SHARED_LAYERS = new Set(['typography-tokens', 'color-tokens', 'font-delivery', 'capture-readiness']);
 const PLAN_LAYERS = new Set(['plan-or-selector']);
 
+/** The whole page is an owner in its own right: no single component owns a missing section. */
+export const PAGE_SCOPE_ID = '__page__';
+export const PAGE_LAYER = 'page-composition';
+
+function allEntries(ledger) {
+  const entries = [...ledger.components.values()];
+  if (ledger.page) entries.push(ledger.page);
+  return entries;
+}
+
+/** A run with no composite measurements has nothing to fix, so it must not block the gate. */
+export function compositeStatus(parity) {
+  const entries = Object.values(parity.page_composite || {});
+  if (!entries.length) return { measured: false, passing: true, ratios: [] };
+  return {
+    measured: true,
+    passing: entries.every((entry) => entry.status === 'PASS'),
+    ratios: entries.map((entry) => entry.ratio).filter((value) => typeof value === 'number'),
+  };
+}
+
+/** A capture that never reached the page is an environment fault; no code edit can fix it. */
+export function environmentBlocked(parity) {
+  const preflight = parity?.preflight;
+  if (!preflight || preflight.environment_blocked !== true) return null;
+  const landed = (preflight.checks || [])
+    .map((check) => check.target_redirected_to)
+    .filter(Boolean);
+  return `the target navigated away from the page under test (${[...new Set(landed)].join(', ') || 'unknown destination'})`;
+}
+
 export function createLedger(componentIds) {
   return {
     round: 1,
     components: new Map(componentIds.map((id) => [id, {
-      id, round: 1, attempts: 0, status: 'PENDING', best_ratio: null, history: [],
+      id, round: 1, attempts: 0, status: 'PENDING', best_ratio: null, best_progress_ratio: null, history: [],
     }])),
+    page: {
+      id: PAGE_SCOPE_ID, round: 1, attempts: 0, status: 'PENDING', best_ratio: null, best_progress_ratio: null, history: [],
+    },
     batches: [],
   };
 }
@@ -23,6 +57,7 @@ export function ledgerSnapshot(ledger) {
   return {
     round: ledger.round,
     components: [...ledger.components.values()].map((entry) => ({ ...entry })),
+    page: ledger.page ? { ...ledger.page } : null,
     batches: ledger.batches,
   };
 }
@@ -32,7 +67,7 @@ function attemptCap(round) {
 }
 
 export function eligible(ledger) {
-  return [...ledger.components.values()].filter((entry) => entry.status !== 'PASS'
+  return allEntries(ledger).filter((entry) => entry.status !== 'PASS'
     && entry.status !== 'FAILED-FINAL'
     && entry.round === ledger.round
     && entry.attempts < attemptCap(entry.round));
@@ -61,9 +96,25 @@ export function routeFailures(parity, plan, ledger) {
       batch_id: `${ledger.round}-${layer}`,
       layer,
       scope: PLAN_LAYERS.has(layer) ? 'plan' : SHARED_LAYERS.has(layer) ? 'shared' : 'component',
-      components: components.sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0)),
+      // One component with several parity targets must still cost one attempt, not one per target.
+      components: [...new Set(components)].sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0)),
     }))
     .sort((left, right) => left.layer.localeCompare(right.layer));
+
+  // Only once no component is still fixable: a component fix usually moves the page with it, and
+  // every crop can score green while the page is short, reordered or missing a section entirely.
+  const page = ledger.page;
+  if (!batches.length && page
+    && !compositeStatus(parity).passing
+    && page.status !== 'PASS' && page.status !== 'FAILED-FINAL'
+    && page.round === ledger.round && page.attempts < attemptCap(page.round)) {
+    batches.push({
+      batch_id: `${ledger.round}-${PAGE_LAYER}`,
+      layer: PAGE_LAYER,
+      scope: 'page',
+      components: plan.components.map((component) => component.id),
+    });
+  }
 
   return {
     batches,
@@ -73,8 +124,9 @@ export function routeFailures(parity, plan, ledger) {
 }
 
 export function recordAttempt(ledger, { componentId, batchId, layer, hypothesis, changedFiles }) {
-  const entry = ledger.components.get(componentId);
+  const entry = componentId === PAGE_SCOPE_ID ? ledger.page : ledger.components.get(componentId);
   if (!entry) return null;
+  if (entry.attempts >= attemptCap(entry.round)) return entry;
   entry.attempts += 1;
   entry.history.push({
     round: entry.round,
@@ -96,6 +148,12 @@ export function applyParity(ledger, parity) {
     if (typeof component.min_ratio === 'number') {
       entry.best_ratio = entry.best_ratio === null ? component.min_ratio : Math.max(entry.best_ratio, component.min_ratio);
     }
+    // A withheld row issues no score, so without this the ledger cannot tell a fix from a regression.
+    if (typeof component.min_progress_ratio === 'number') {
+      entry.best_progress_ratio = entry.best_progress_ratio === null || entry.best_progress_ratio === undefined
+        ? component.min_progress_ratio
+        : Math.max(entry.best_progress_ratio, component.min_progress_ratio);
+    }
     if (component.status === 'PASS') {
       entry.status = 'PASS';
       continue;
@@ -111,11 +169,32 @@ export function applyParity(ledger, parity) {
       }
     }
   }
+
+  const composite = compositeStatus(parity);
+  const page = ledger.page;
+  if (page && page.status !== 'FAILED-FINAL') {
+    if (!composite.measured || composite.passing) {
+      page.status = 'PASS';
+    } else {
+      const worst = composite.ratios.length ? Math.min(...composite.ratios) : null;
+      if (worst !== null) page.best_ratio = page.best_ratio === null ? worst : Math.max(page.best_ratio, worst);
+      page.status = 'FAILING';
+      if (page.attempts >= attemptCap(page.round)) {
+        if (page.round === 1) {
+          page.round = 2;
+          page.attempts = 0;
+          page.status = 'FAILED-ROUND-1';
+        } else {
+          page.status = 'FAILED-FINAL';
+        }
+      }
+    }
+  }
   return ledger;
 }
 
 export function advanceRound(ledger) {
-  const remaining = [...ledger.components.values()]
+  const remaining = allEntries(ledger)
     .filter((entry) => entry.status !== 'PASS' && entry.status !== 'FAILED-FINAL');
   if (!remaining.length) return { done: true, round: ledger.round };
   if (remaining.every((entry) => entry.round === 2)) ledger.round = 2;
@@ -128,7 +207,7 @@ export function advanceRound(ledger) {
 }
 
 export function terminalStatus(ledger) {
-  const entries = [...ledger.components.values()];
+  const entries = allEntries(ledger);
   const failed = entries.filter((entry) => entry.status === 'FAILED-FINAL');
   return {
     status: failed.length ? 'FAIL' : 'PASS',

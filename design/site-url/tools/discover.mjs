@@ -58,6 +58,10 @@ function identityKey(block) {
   return [signature.tag, text.slice(0, 40), media, signature.aria_label || ''].join('|');
 }
 
+function normalizeProbe(text) {
+  return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 async function captureBreakpoint(browser, { url, width, dpr, settleMs }) {
   const page = await createPage(browser, { width, dpr });
   try {
@@ -151,6 +155,15 @@ async function main() {
   }
 
   const pageHeights = Object.fromEntries(breakpoints.map((width) => [width, perBreakpoint[width].scan.page.height]));
+  // `identityKey` keys on tag and text, both of which legitimately change shape across breakpoints,
+  // so a missing key means "not separately identified" — never "not on the page". Asserting absence
+  // from a failed match is what teaches a component to hide itself at a breakpoint it belongs on.
+  const textByBreakpoint = Object.fromEntries(breakpoints.map((width) => [
+    width,
+    perBreakpoint[width].scan.blocks
+      .map((block) => normalizeProbe(block.signature?.text))
+      .join('\u0001'),
+  ]));
   const ordered = Array.from(merged.values())
     .map((entry) => {
       const positions = Object.entries(entry.byBreakpoint)
@@ -188,6 +201,13 @@ async function main() {
       instance.signature = instance.signature || block.signature;
       instance.class_chain = instance.class_chain.length ? instance.class_chain : block.class_chain;
       instance.label = instance.label || block.signature.text.slice(0, 40) || block.tag;
+    }
+    // Where no key matched, the section is often still on the page under a different shape. Only
+    // its own text can settle that, and a section wrongly marked absent gets hidden in CSS later.
+    const probe = normalizeProbe(instance.signature?.text).slice(0, 40);
+    for (const width of breakpoints) {
+      if (instance.visibility_by_bp[width]) continue;
+      instance.visibility_by_bp[width] = probe.length >= 12 && textByBreakpoint[width].includes(probe);
     }
     return instance;
   });
