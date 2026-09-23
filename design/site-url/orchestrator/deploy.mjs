@@ -1,55 +1,20 @@
 /**
- * Deterministic build and deploy. The scope-to-command mapping comes from
- * 03-assets-runtime.md; no model decides what to build or install. Installs are awaited in
- * dependency order so two packages never contend on one AEM instance.
+ * Deterministic build and deploy. No model decides what to build or install.
+ *
+ * The whole reactor is built and installed as the single `all` package. Scoped per-module
+ * installs were faster, but they left stale generated sources and half-updated modules behind
+ * whenever a component was renamed or removed — which a fan-out does on every new source.
  */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
-const MODULE_RULES = [
-  { test: /^ui\.frontend\//, module: 'ui.frontend', order: 0 },
-  { test: /^core\/src\/main\/java\//, module: 'core', order: 1 },
-  { test: /^ui\.apps\//, module: 'ui.apps', order: 2 },
-  { test: /^ui\.config\//, module: 'ui.config', order: 3 },
-  { test: /^ui\.content\//, module: 'ui.content', order: 4 },
-];
-
-const MODULE_COMMANDS = {
-  'ui.frontend': (port) => [
-    { label: 'frontend build', command: 'npm', args: ['run', 'build'], cwd: 'ui.frontend' },
-    { label: 'ui.apps package', command: 'mvn', args: ['install', '-pl', 'ui.apps', '-PautoInstallPackage', `-Daem.port=${port}`, '-DskipTests'] },
-  ],
-  core: (port) => [
-    { label: 'core bundle', command: 'mvn', args: ['install', '-pl', 'core', '-PautoInstallBundle', `-Daem.port=${port}`, '-DskipTests'] },
-  ],
-  'ui.apps': (port) => [
-    { label: 'ui.apps package', command: 'mvn', args: ['install', '-pl', 'ui.apps', '-PautoInstallPackage', `-Daem.port=${port}`, '-DskipTests'] },
-  ],
-  'ui.config': (port) => [
-    { label: 'ui.config package', command: 'mvn', args: ['install', '-pl', 'ui.config', '-PautoInstallPackage', `-Daem.port=${port}`, '-DskipTests'] },
-  ],
-  'ui.content': (port) => [
-    { label: 'ui.content package', command: 'mvn', args: ['install', '-pl', 'ui.content', '-PautoInstallPackage', `-Daem.port=${port}`, '-DskipTests'] },
-  ],
-};
-
-export function modulesFor(changedFiles) {
-  const modules = new Map();
-  for (const file of changedFiles) {
-    const normalized = String(file).replaceAll('\\', '/');
-    const rule = MODULE_RULES.find((entry) => entry.test.test(normalized));
-    if (rule) modules.set(rule.module, rule.order);
-  }
-  return [...modules.entries()].sort((left, right) => left[1] - right[1]).map(([module]) => module);
-}
-
-/** Frontend output is copied into ui.apps, so a frontend change absorbs the ui.apps install. */
-export function planDeployment(changedFiles, aemPort) {
-  const modules = modulesFor(changedFiles);
-  const effective = modules.includes('ui.frontend')
-    ? modules.filter((module) => module !== 'ui.apps')
-    : modules;
-  return effective.flatMap((module) => MODULE_COMMANDS[module](aemPort).map((step) => ({ ...step, module })));
+export function planDeployment(aemPort) {
+  return [{
+    label: 'full build and deploy',
+    module: 'all',
+    command: 'mvn',
+    args: ['clean', 'install', '-PautoInstallSinglePackage', `-Daem.port=${aemPort}`, '-DskipTests'],
+  }];
 }
 
 /** Focused tests are declared by workers and executed once here, in the warm tree. */

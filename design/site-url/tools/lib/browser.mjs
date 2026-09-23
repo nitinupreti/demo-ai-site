@@ -30,7 +30,9 @@ export async function createPage(browser, {
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: dpr,
-    httpCredentials,
+    // AEM answers an unauthenticated HTML request with a 302 to login.html instead of a 401,
+    // so Playwright's default 'unauthorized' send mode would never attach the header.
+    httpCredentials: httpCredentials ? { ...httpCredentials, send: 'always' } : undefined,
     userAgent,
     locale,
     timezoneId,

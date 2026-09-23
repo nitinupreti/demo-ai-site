@@ -66,7 +66,7 @@ function readJson(filePath) {
  * Artefacts from an earlier run that are safe to reuse. Every one is re-verified here rather
  * than trusted, so a resume can never build on a stale plan or a half-written phase.
  */
-export function readCheckpoint({ evidenceDir, siteUrl }) {
+export function readCheckpoint({ evidenceDir, siteUrl, targetPath }) {
   const checkpoint = {
     discovery: null, plan: null, foundations: false, assets: null, workers: [],
   };
@@ -80,6 +80,9 @@ export function readCheckpoint({ evidenceDir, siteUrl }) {
 
   const plan = readJson(path.join(evidenceDir, 'plan.json'));
   if (!plan?.components?.length || plan.source_fingerprint !== discovery.source_fingerprint) return checkpoint;
+  // A plan that authors a different page cannot be reused: its contribution paths, its page
+  // skeleton and the foundations work behind it all belong to the old target.
+  if (targetPath && plan.shared?.page_path !== targetPath) return checkpoint;
   checkpoint.plan = plan;
 
   checkpoint.foundations = readJson(path.join(evidenceDir, 'agents', 'foundations', 'result.json'))?.status === 'PASS';
@@ -195,7 +198,7 @@ export async function orchestrate(rawOptions, services) {
   };
 
   const checkpoint = options.resume
-    ? readCheckpoint({ evidenceDir, siteUrl: options.siteUrl })
+    ? readCheckpoint({ evidenceDir, siteUrl: options.siteUrl, targetPath: options.targetPath })
     : {
       discovery: null, plan: null, foundations: false, assets: null, workers: [],
     };
@@ -243,7 +246,7 @@ export async function orchestrate(rawOptions, services) {
   let feedback = '';
   if (checkpoint.plan) {
     // The gate is deterministic, so re-running it costs nothing and re-derives the waves.
-    const revalidated = validatePlan(checkpoint.plan, { discovery, runId: checkpoint.plan.run_id });
+    const revalidated = validatePlan(checkpoint.plan, { discovery, runId: checkpoint.plan.run_id, pagePath: options.targetPath });
     if (revalidated.valid) {
       plan = checkpoint.plan;
       gate = revalidated;
@@ -258,6 +261,8 @@ export async function orchestrate(rawOptions, services) {
       `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
       `- source_fingerprint: \`${discovery.source_fingerprint}\``,
       `- breakpoints: ${options.breakpoints.join(', ')}`,
+      `- page path: \`${options.targetPath}\` — set \`shared.page_path\` to exactly this, and root every`,
+      '  content component\'s `contribution.path` in its `jcr:content`. Parity scores this page and no other.',
       `- write plan to: \`${path.relative(repoRoot, planPath)}\``,
       `- write result to: \`${path.relative(repoRoot, path.join(agentDir, 'result.json'))}\``,
       feedback,
@@ -273,7 +278,7 @@ export async function orchestrate(rawOptions, services) {
       continue;
     }
     const candidate = JSON.parse(fs.readFileSync(planPath, 'utf8'));
-    gate = validatePlan(candidate, { discovery, runId });
+    gate = validatePlan(candidate, { discovery, runId, pagePath: options.targetPath });
     if (gate.valid) plan = candidate;
     else feedback = `\n## Previous plan rejected by the gate\n\n- ${gate.errors.join('\n- ')}\n`;
   }
@@ -300,6 +305,8 @@ export async function orchestrate(rawOptions, services) {
         '## Task', '',
         `- plan: \`${path.relative(repoRoot, planPath)}\``,
         `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
+        `- page path: \`${options.targetPath}\` — build its skeleton and give it its own`,
+        '  replace-mode filter root, not a `mode="merge"` one.',
         `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
         `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
       ].join('\n'),
@@ -318,6 +325,12 @@ export async function orchestrate(rawOptions, services) {
   }
   // Compose runs after the fan-out, so its structural preconditions are checked here instead.
   // A resumed run re-checks too: the tree may have moved on since the skeleton was written.
+  const contentFilter = plan.shared?.content_filter || 'ui.content/src/main/content/META-INF/vault/filter.xml';
+  // Before the check, not after: the page root is computed from --target-path, so the orchestrator
+  // owns it rather than failing the run because an agent forgot to write it.
+  if (ensureFilterRoot({ repoRoot, filterPath: contentFilter, jcrPath: options.targetPath })) {
+    renderer.note(`filter.xml now covers ${options.targetPath}`);
+  }
   const composeProblems = verifyComposeTargets({ repoRoot, plan });
   if (composeProblems.length) {
     endPhase(phase, 'FAIL', `foundations left compose without a target: ${composeProblems.join('; ')}`);
@@ -345,8 +358,8 @@ export async function orchestrate(rawOptions, services) {
   // Done here rather than in foundations: a resumed run skips that agent but still needs the root.
   const filterWritten = ensureFilterRoot({
     repoRoot,
-    filterPath: plan.shared?.content_filter || 'ui.content/src/main/content/META-INF/vault/filter.xml',
-    damPath,
+    filterPath: contentFilter,
+    jcrPath: damPath,
   });
   if (filterWritten) renderer.note(`filter.xml now covers ${damPath}`);
   if (assetsIntact) reusePhase(phase, assetsMessage);
@@ -567,13 +580,9 @@ export async function orchestrate(rawOptions, services) {
   }
   endPhase(phase, 'PASS', `${composed.written.length} shared files composed`);
 
-  // 6. Deploy — exclusive, deterministic.
-  const changedFiles = workerResults.flatMap((entry) => entry.applied || [])
-    .concat(assets.written)
-    .concat(filterWritten ? [filterWritten] : [])
-    .concat(composed.written.map((file) => path.relative(repoRoot, file)));
+  // 7. Deploy — exclusive, deterministic, whole reactor.
   phase = startPhase('deploy');
-  const steps = [focusedTestPlan(workerResults), ...planDeployment(changedFiles, options.aemPort)].filter(Boolean);
+  const steps = [focusedTestPlan(workerResults), ...planDeployment(options.aemPort)].filter(Boolean);
   const deployment = await runDeployment({
     repoRoot, steps, renderer, execFn, logPath: path.join(evidenceDir, 'deploy.log'), writeLog: fs.appendFileSync,
   });
@@ -695,7 +704,7 @@ export async function orchestrate(rawOptions, services) {
 
     const redeploy = await runDeployment({
       repoRoot,
-      steps: planDeployment(plan.components.flatMap((component) => component.owned_paths), options.aemPort),
+      steps: planDeployment(options.aemPort),
       renderer,
       execFn,
       logPath: path.join(evidenceDir, 'deploy.log'),

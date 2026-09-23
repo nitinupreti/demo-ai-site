@@ -58,7 +58,7 @@ function planFor() {
     run_id: 'e2e',
     source_fingerprint: 'sha256:fixture',
     breakpoints: [1440],
-    shared: { compose_targets: {}, policies_file: null },
+    shared: { compose_targets: {}, policies_file: null, page_path: '/content/page' },
     components: [
       {
         id: CONTENT_A,
@@ -200,7 +200,17 @@ const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
     return;
   }
   if (role === 'foundations') {
-    // The real foundations agent writes the page and fragment skeletons the composer merges into.
+    // The real foundations agent writes the page and fragment skeletons the composer merges into,
+    // plus the filter roots that let them deploy at all.
+    const filterFile = path.join(repoRoot, 'ui.content/src/main/content/META-INF/vault/filter.xml');
+    fs.mkdirSync(path.dirname(filterFile), { recursive: true });
+    // Deliberately omits the page root: the orchestrator must add that itself.
+    fs.writeFileSync(filterFile, `<?xml version="1.0" encoding="UTF-8"?>
+<workspaceFilter version="1.0">
+    <filter root="/content/experience-fragments/site/masthead/master"/>
+    <filter root="/content" mode="merge"/>
+</workspaceFilter>
+`, 'utf8');
     for (const [file, container] of [
       ['ui.content/src/main/content/jcr_root/content/page/.content.xml', 'main'],
       ['ui.content/src/main/content/jcr_root/content/experience-fragments/site/masthead/master/.content.xml', null],
@@ -297,7 +307,7 @@ const outcome = await orchestrate(
     aemPort: 4506,
     breakpoints: [1440],
     maxParallel: 3,
-    targetPath: '/content/demo/us/en/page',
+    targetPath: '/content/page',
     fetchFn,
   },
   {
@@ -324,6 +334,13 @@ expect(['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deplo
 `every other phase should pass: ${JSON.stringify(phaseStatus)}`);
 expect(outcome.status === 'COMPLETE', `run should complete, got ${outcome.status}`);
 expect(outcome.plan.components.length === 3, 'plan should carry three components');
+
+// The page must get its own replace-mode root, ahead of the merge root that would swallow it.
+const deployedFilter = fs.readFileSync(path.join(repoRoot, 'ui.content/src/main/content/META-INF/vault/filter.xml'), 'utf8');
+expect(deployedFilter.includes('<filter root="/content/page"/>'),
+  `the orchestrator must add a replace-mode root for the target page, got:\n${deployedFilter}`);
+expect(deployedFilter.indexOf('/content/page"') < deployedFilter.indexOf('"/content" mode="merge"'),
+  'the page root must precede the ancestor merge root');
 
 // Fan-out honoured the dependency wave ordering.
 const fanout = outcome.phases.find((phase) => phase.name === 'fanout');
@@ -353,8 +370,10 @@ expect(!fs.existsSync(path.join(repoRoot, 'ui.apps', 'components', CONTENT_A, 's
 // Focused tests were declared by workers and executed once by the orchestrator.
 expect(execCalls.some((call) => call.includes('-Dtest=') && call.includes(`${CONTENT_A}Test`)),
   `focused tests should be deduplicated into one command, got ${execCalls[0]}`);
-expect(execCalls.filter((call) => call.includes('autoInstallPackage') || call.includes('autoInstallBundle')).length > 0,
-  'a scoped deploy should have run');
+expect(execCalls.filter((call) => call.includes('autoInstallSinglePackage')).length > 0,
+  'the full reactor build should be installed as one package');
+expect(execCalls.some((call) => call.includes('clean') && call.includes('install')),
+  'the deploy must clean, so stale generated sources cannot survive a rename');
 
 // Remediation routed the failures, recorded attempts, and terminated.
 const ledger = outcome.ledger.components;
@@ -400,7 +419,7 @@ const resumeOutcome = await orchestrate(
     aemPort: 4506,
     breakpoints: [1440],
     maxParallel: 3,
-    targetPath: '/content/demo/us/en/page',
+    targetPath: '/content/page',
     fetchFn,
     resume: true,
   },
@@ -433,6 +452,11 @@ expect(!spawnedOnResume.includes('component') && !spawnedOnResume.includes('plan
 const wrongSource = readCheckpoint({ evidenceDir, siteUrl: 'https://somewhere-else.test' });
 expect(wrongSource.discovery === null, 'a different source URL must invalidate the checkpoint');
 
+// The plan encodes the page it authors, so retargeting the run must not reuse it.
+const wrongTarget = readCheckpoint({ evidenceDir, siteUrl: 'https://example.com', targetPath: '/content/somewhere/else' });
+expect(wrongTarget.discovery !== null && wrongTarget.plan === null,
+  'a different target page must invalidate the cached plan but keep the discovery');
+
 // Cancellation: components finished before the kill are banked and must not be rebuilt.
 const banked = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'workers.json'), 'utf8'));
 expect(banked.map((entry) => entry.component_id).join(',') === componentIds.join(','),
@@ -453,7 +477,7 @@ const partialOutcome = await orchestrate(
     aemPort: 4506,
     breakpoints: [1440],
     maxParallel: 3,
-    targetPath: '/content/demo/us/en/page',
+    targetPath: '/content/page',
     fetchFn,
     resume: true,
   },

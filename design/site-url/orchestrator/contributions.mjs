@@ -254,6 +254,29 @@ function deriveComposeTarget(targetPath, contentRoot = DEFAULT_CONTENT_ROOT) {
   };
 }
 
+/**
+ * FileVault applies the deepest matching filter root, and `mode="merge"` on it skips any subtree
+ * that already exists in the repository. A composed page under a merge root therefore installs
+ * without error and without content, so the mode is worth knowing before a deploy, not after.
+ */
+function coveringFilter(repoRoot, contentRoot, jcrPath) {
+  const packageRoot = String(contentRoot || DEFAULT_CONTENT_ROOT).replace(/\/jcr_root\/?$/, '');
+  const file = `${packageRoot}/META-INF/vault/filter.xml`;
+  const absolute = path.join(repoRoot, file);
+  if (!fs.existsSync(absolute)) return { file, missing: true };
+
+  const xml = fs.readFileSync(absolute, 'utf8');
+  let best = null;
+  for (const [, attributes] of xml.matchAll(/<filter\b([^>]*)>/g)) {
+    const root = /\broot\s*=\s*"([^"]*)"/.exec(attributes)?.[1];
+    if (!root) continue;
+    if (jcrPath !== root && !jcrPath.startsWith(`${root}/`)) continue;
+    if (best && best.root.length >= root.length) continue;
+    best = { root, mode: /\bmode\s*=\s*"([^"]*)"/.exec(attributes)?.[1] || 'replace' };
+  }
+  return { file, ...best };
+}
+
 function findNodePath(root, segments) {
   let current = root;
   for (const segment of segments) {
@@ -271,11 +294,28 @@ export function verifyComposeTargets({ repoRoot, plan }) {
   const shared = plan.shared || {};
   const problems = [];
   const seen = new Set();
+  const filtered = new Set();
 
   for (const component of plan.components || []) {
     const targetPath = component.contribution?.path;
     if (!targetPath || seen.has(targetPath)) continue;
     seen.add(targetPath);
+
+    const documentPath = String(targetPath).split('/jcr:content')[0];
+    if (documentPath && !filtered.has(documentPath)) {
+      filtered.add(documentPath);
+      const coverage = coveringFilter(repoRoot, shared.content_root, documentPath);
+      if (coverage.missing) {
+        problems.push(`${coverage.file} is missing, so nothing under ${documentPath} would deploy`);
+      } else if (!coverage.root) {
+        problems.push(`no filter root in ${coverage.file} covers ${documentPath}, so its nodes would never deploy`);
+      } else if (coverage.mode === 'merge') {
+        problems.push(`${documentPath} is only covered by <filter root="${coverage.root}" mode="merge">, which skips`
+          + ' subtrees that already exist; give it its own replace-mode root or composed nodes will install silently'
+          + ' and never render');
+      }
+    }
+
     if ((shared.compose_targets || {})[targetPath]?.file) continue;
 
     const derived = deriveComposeTarget(targetPath, shared.content_root);

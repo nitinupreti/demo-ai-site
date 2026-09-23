@@ -94,6 +94,17 @@ const staleFingerprint = basePlan({ source_fingerprint: 'sha256:other' });
 result = validatePlan(staleFingerprint, { discovery, runId: 'r1' });
 expect(hasError(result, 'stale evidence'), 'a plan built from stale discovery must be rejected');
 
+// Parity scores --target-path, so the plan may not author anywhere else.
+const wrongPage = basePlan();
+wrongPage.shared = { ...(wrongPage.shared || {}), page_path: '/content/site/other' };
+result = validatePlan(wrongPage, { discovery, runId: 'r1', pagePath: '/content/site/wanted' });
+expect(hasError(result, '/content/site/wanted'), 'a plan targeting another page must be rejected');
+
+const rightPage = basePlan();
+rightPage.shared = { ...(rightPage.shared || {}), page_path: '/content/site/wanted' };
+result = validatePlan(rightPage, { discovery, runId: 'r1', pagePath: '/content/site/wanted' });
+expect(result.valid, `a plan on the requested page must pass: ${result.errors.join('; ')}`);
+
 // Genericity: the gates must key off plan data, never off a component's name.
 const renamed = basePlan();
 renamed.components[0].id = 'zzz-arbitrary-block';

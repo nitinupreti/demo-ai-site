@@ -78,7 +78,7 @@ function computeWaves(components) {
   return { waves, unresolved: [] };
 }
 
-export function validatePlan(plan, { discovery, runId, sharedPatterns } = {}) {
+export function validatePlan(plan, { discovery, runId, sharedPatterns, pagePath } = {}) {
   const errors = [];
   const schemaErrors = validate(plan, planSchema);
   if (schemaErrors.length) {
@@ -95,6 +95,10 @@ export function validatePlan(plan, { discovery, runId, sharedPatterns } = {}) {
   }
   if (discovery?.source_fingerprint && plan.source_fingerprint !== discovery.source_fingerprint) {
     errors.push('plan.source_fingerprint does not match discovery.json; the plan was built from stale evidence');
+  }
+  // The run is scored against --target-path, so a plan that authors anywhere else is unscoreable.
+  if (pagePath && plan.shared?.page_path !== pagePath) {
+    errors.push(`plan.shared.page_path must be exactly ${pagePath}, the --target-path parity compares against, not ${plan.shared?.page_path ?? 'null'}`);
   }
 
   const ids = plan.components.map((component) => component.id);

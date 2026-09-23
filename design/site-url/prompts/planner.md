@@ -51,6 +51,8 @@ The orchestrator validates it before any worker starts and will reject a plan th
   `/content/experience-fragments/`;
 - omits a parity target for a claimed instance;
 - contains a dependency cycle;
+- sets `shared.page_path` to anything other than the page path given in the task, or roots a content
+  component's `contribution.path` outside that page;
 - carries a `source_fingerprint` that does not match `discovery.json`.
 
 You get at most two repair attempts, and the rejection lists the exact errors. Fix them literally.

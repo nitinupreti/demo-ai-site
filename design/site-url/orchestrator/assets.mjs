@@ -163,22 +163,23 @@ function mimeFor(response, url) {
 }
 
 /**
- * FileVault refuses to package a node no filter root covers, so the DAM folder this run writes
- * must be declared. The path is computed, never authored, so the filter entry is too.
- * Inserted before any ancestor root, which may carry excludes that would otherwise win.
+ * FileVault refuses to package a node no filter root covers, and `mode="merge"` on an ancestor
+ * root skips any subtree that already exists. Both the page and the DAM folder this run writes are
+ * computed from `--target-path`, so their filter entries are computed too, never authored.
+ * Inserted before any ancestor root, which may carry excludes or a merge mode that would win.
  */
-export function ensureFilterRoot({ repoRoot, filterPath, damPath }) {
+export function ensureFilterRoot({ repoRoot, filterPath, jcrPath }) {
   const absolute = path.join(repoRoot, filterPath);
   if (!fs.existsSync(absolute)) return null;
   const contents = fs.readFileSync(absolute, 'utf8');
-  if (contents.includes(`<filter root="${damPath}"`)) return null;
+  if (contents.includes(`<filter root="${jcrPath}"`)) return null;
 
-  const entry = `    <filter root="${damPath}"/>`;
+  const entry = `    <filter root="${jcrPath}"/>`;
   const eol = contents.includes('\r\n') ? '\r\n' : '\n';
   const lines = contents.split(/\r?\n/);
   const ancestor = lines.findIndex((line) => {
     const match = line.match(/<filter\s+root="([^"]+)"/);
-    return match && damPath.startsWith(`${match[1]}/`);
+    return match && jcrPath.startsWith(`${match[1]}/`);
   });
   const at = ancestor >= 0 ? ancestor : lines.findIndex((line) => line.includes('</workspaceFilter>'));
   if (at < 0) return null;

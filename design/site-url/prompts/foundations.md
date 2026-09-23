@@ -23,6 +23,11 @@ you are the only role permitted to write these files.
   Fragment path **before** any broad `mode="merge"` root, so a redeploy cannot leave stale nodes,
   and an owned root for the page's DAM folder (`/content/dam/...` mirroring the page path) so
   re-running a different source URL replaces its assets instead of accumulating them.
+- An owned filter root for the page path itself, with **no `mode` attribute**. `mode="merge"` skips
+  any subtree that already exists, so a page sitting under a broad merge root silently keeps its old
+  nodes: the package installs, the component XML never reaches the repository, and the page renders
+  empty while every build reports success. A dedicated replace-mode root for the page is the only
+  thing that makes composed component nodes actually deploy.
 - The page skeleton: `jcr:content` properties and the empty editable container that component nodes
   will be composed into.
 

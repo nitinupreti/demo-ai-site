@@ -278,6 +278,13 @@ applyContributions({ repoRoot, plan, results: [heroResult, ctaResult, headerResu
 // Without an explicit compose target, the contribution path names the file and the node inside it.
 const derivedFile = 'ui.content/content/derived/page/.content.xml';
 fs.mkdirSync(path.join(repoRoot, path.dirname(derivedFile)), { recursive: true });
+fs.mkdirSync(path.join(repoRoot, 'ui.content', 'META-INF', 'vault'), { recursive: true });
+fs.writeFileSync(path.join(repoRoot, 'ui.content', 'META-INF', 'vault', 'filter.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<workspaceFilter version="1.0">
+    <filter root="/content/derived/page"/>
+    <filter root="/content" mode="merge"/>
+</workspaceFilter>
+`, 'utf8');
 fs.writeFileSync(path.join(repoRoot, derivedFile), `<?xml version="1.0" encoding="UTF-8"?>
 <jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
     jcr:primaryType="cq:Page">
@@ -358,6 +365,25 @@ expect(verifyComposeTargets({
   repoRoot,
   plan: { ...preflightPlan, shared: { ...preflightPlan.shared, policies_file: 'ui.content/nope/.content.xml' } },
 }).some((problem) => problem.includes('nope')), 'the preflight must catch a policies file that cannot be merged');
+
+// A page reachable only through a merge root installs without error and without content.
+fs.mkdirSync(path.join(repoRoot, 'ui.merged', 'META-INF', 'vault'), { recursive: true });
+fs.writeFileSync(path.join(repoRoot, 'ui.merged', 'META-INF', 'vault', 'filter.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<workspaceFilter version="1.0">
+    <filter root="/content" mode="merge"/>
+</workspaceFilter>
+`, 'utf8');
+fs.mkdirSync(path.join(repoRoot, 'ui.merged', 'content', 'derived', 'page'), { recursive: true });
+fs.copyFileSync(path.join(repoRoot, derivedFile), path.join(repoRoot, 'ui.merged', 'content', 'derived', 'page', '.content.xml'));
+expect(verifyComposeTargets({
+  repoRoot,
+  plan: { ...preflightPlan, shared: { ...preflightPlan.shared, content_root: 'ui.merged' } },
+}).some((problem) => problem.includes('mode="merge"')),
+'the preflight must refuse a compose target that only a merge root covers');
+expect(verifyComposeTargets({
+  repoRoot,
+  plan: { ...preflightPlan, shared: { ...preflightPlan.shared, content_root: 'ui.unfiltered' } },
+}).some((problem) => problem.includes('is missing')), 'the preflight must catch a package with no filter.xml at all');
 
 // Per-worker problems are caught at attempt time, while the worker still has retries.
 const componentFixture = { id: 'customer-story-hero', instances: ['inst-001', 'inst-002'] };
