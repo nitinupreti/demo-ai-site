@@ -18,7 +18,8 @@ import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
 import {
-  focusedTestPlan, planDeployment, runDeployment, runValidation, validationPlan,
+  describeBrokenBundles, focusedTestPlan, planDeployment, runDeployment, runValidation,
+  validationPlan, verifyBundles,
 } from './deploy.mjs';
 import { parityComponents, planSummary, validatePlan } from './plan.mjs';
 import {
@@ -724,6 +725,12 @@ export async function orchestrate(rawOptions, services) {
 
   // 7. Deploy — exclusive, deterministic, whole reactor.
   phase = startPhase('deploy');
+  const checkBundles = () => verifyBundles({
+    aemUrl: `http://${options.aemHost}:${options.aemPort}`,
+    username: options.aemUser,
+    password: process.env.AEM_PASSWORD,
+    fetchFn: services.fetchFn || fetch,
+  });
   const steps = [focusedTestPlan(workerResults), ...planDeployment(options.aemPort)].filter(Boolean);
   const deployment = await runDeployment({
     repoRoot, steps, renderer, execFn, logPath: path.join(evidenceDir, 'deploy.log'), writeLog: fs.appendFileSync,
@@ -733,7 +740,20 @@ export async function orchestrate(rawOptions, services) {
     endPhase(phase, 'FAIL', `${deployment.failure.step} exited ${deployment.failure.exit_code}`);
     return { status: 'FAIL', phases, state, plan, deployment };
   }
-  endPhase(phase, 'PASS', `${deployment.executed.length} steps`);
+
+  // A green build only proves the artefact was uploaded, not that the instance could start it.
+  const bundles = await checkBundles();
+  if (bundles.status === 'FAIL') {
+    deployment.bundles = bundles;
+    writeJson(path.join(evidenceDir, 'deployment.json'), deployment);
+    renderer.note(`unresolved bundles:\n${describeBrokenBundles(bundles.broken)}`);
+    endPhase(phase, 'FAIL', `${bundles.broken.length} bundle(s) did not start: `
+      + bundles.broken.map((entry) => entry.symbolicName).join(', '));
+    return { status: 'FAIL', phases, state, plan, deployment };
+  }
+  if (bundles.status === 'UNKNOWN') renderer.note(`bundle check skipped: ${bundles.reason}`);
+  endPhase(phase, 'PASS', `${deployment.executed.length} steps`
+    + (bundles.status === 'PASS' ? `, ${bundles.total} bundles active` : ''));
 
   // 7. Parity + 8. bounded remediation.
   const targetUrl = options.targetPath
@@ -899,6 +919,12 @@ export async function orchestrate(rawOptions, services) {
       writeLog: fs.appendFileSync,
     });
     if (redeploy.status !== 'PASS') break;
+    // A fix that leaves the bundle unresolved would be measured as if it had deployed.
+    const redeployBundles = await checkBundles();
+    if (redeployBundles.status === 'FAIL') {
+      renderer.note(`remediation left bundles unresolved:\n${describeBrokenBundles(redeployBundles.broken)}`);
+      break;
+    }
 
     cycle += 1;
     const next = await runParity(cycle);

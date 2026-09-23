@@ -15,6 +15,7 @@ import {
   readCheckpoint, selectTuning, thresholdForEffort,
 } from './run.mjs';
 import { createRenderer } from './console.mjs';
+import { describeBrokenBundles, verifyBundles } from './deploy.mjs';
 
 const PHASES_FOR_CHECK = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
@@ -327,12 +328,27 @@ const spawnFn = makeSpawnFn(agentBehaviour);
 
 const renderer = createRenderer({ stageIds: PHASES_FOR_CHECK });
 
-const fetchFn = async () => ({
-  ok: true,
-  status: 200,
-  headers: { get: (name) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
-  arrayBuffer: async () => new TextEncoder().encode('png-bytes').buffer,
-});
+const fetchFn = async (url) => {
+  // The deploy gate asks the instance what actually started; everything else is an asset fetch.
+  if (String(url).includes('/system/console/bundles')) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { id: 1, symbolicName: 'com.adobe.granite.core', version: '1.0.0', state: 'Active' },
+          { id: 2, symbolicName: 'demo.core', version: '1.0.0.SNAPSHOT', state: 'Active' },
+        ],
+      }),
+    };
+  }
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (name) => (name.toLowerCase() === 'content-type' ? 'image/png' : null) },
+    arrayBuffer: async () => new TextEncoder().encode('png-bytes').buffer,
+  };
+};
 
 const outcome = await orchestrate(
   {
@@ -643,6 +659,64 @@ expect(thresholdForEffort(null, 0.85) === 0.85,
 const ordered = ['low', 'medium', 'high', 'xhigh'].map((level) => thresholdForEffort(level));
 expect(ordered.every((value, index) => index === 0 || value > ordered[index - 1]),
   `the bar must rise with effort, got ${ordered.join(' < ')}`);
+
+// A green `mvn install` only proves the artefact was uploaded. A bundle the instance could not
+// resolve holds no classes at all, which surfaces much later as an HTL use-class that cannot be
+// resolved to a type, so the deploy phase asks what actually started.
+const bundleFetch = (bundles, detail = {}) => async (url) => {
+  if (String(url).includes('/system/console/bundles.json')) {
+    return { ok: true, status: 200, json: async () => ({ data: bundles }) };
+  }
+  return { ok: true, status: 200, json: async () => detail };
+};
+
+const healthy = await verifyBundles({
+  aemUrl: 'http://localhost:4502',
+  password: 'x',
+  fetchFn: bundleFetch([
+    { id: 1, symbolicName: 'a', version: '1', state: 'Active' },
+    { id: 2, symbolicName: 'b', version: '1', state: 'Fragment' },
+  ]),
+});
+expect(healthy.status === 'PASS', `an instance with nothing unresolved must pass, got ${healthy.status}`);
+
+const unresolved = await verifyBundles({
+  aemUrl: 'http://localhost:4502',
+  password: 'x',
+  fetchFn: bundleFetch(
+    [
+      { id: 1, symbolicName: 'a', version: '1', state: 'Active' },
+      { id: 610, symbolicName: 'demo.core', version: '1.0.0.SNAPSHOT', state: 'Installed' },
+    ],
+    {
+      data: [{
+        props: [{
+          key: 'Imported Packages',
+          value: [
+            'org.apache.sling.api,version=2.0 from <a>sling</a>',
+            'ERROR: com.adobe.cq.wcm.core.components.models,version=[12.30,13) -- Cannot be resolved',
+          ],
+        }],
+      }],
+    },
+  ),
+});
+expect(unresolved.status === 'FAIL', 'an unresolved bundle must fail the deploy');
+expect(unresolved.broken[0].symbolicName === 'demo.core',
+  `the failure must name the bundle, got ${unresolved.broken[0]?.symbolicName}`);
+expect(unresolved.broken[0].unresolved.some((line) => line.includes('12.30')),
+  `the failure must name the requirement that could not be met, got ${unresolved.broken[0]?.unresolved}`);
+expect(describeBrokenBundles(unresolved.broken).includes('is Installed'),
+  'the summary must say what state the bundle is stuck in');
+
+// An unreachable console must not be reported as a healthy instance.
+const offline = await verifyBundles({
+  aemUrl: 'http://localhost:4502',
+  password: 'x',
+  fetchFn: async () => { throw new Error('ECONNREFUSED'); },
+});
+expect(offline.status === 'UNKNOWN' && offline.broken.length === 0,
+  `an unreachable console must be UNKNOWN, not PASS or FAIL, got ${offline.status}`);
 
 fs.rmSync(sandbox, { recursive: true, force: true });
 

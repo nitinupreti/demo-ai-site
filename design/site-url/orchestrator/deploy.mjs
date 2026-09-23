@@ -114,3 +114,63 @@ export async function runDeployment({
   }
   return { status: 'PASS', executed };
 }
+
+/** Unambiguous failures. `Resolved` and `Starting` are legitimate for lazily activated bundles. */
+const BROKEN_STATES = new Set(['Installed', 'Uninstalled']);
+
+function unresolvedRequirements(detail) {
+  const props = detail?.data?.[0]?.props || [];
+  const imports = props.find((entry) => /^Imported Packages$/i.test(entry.key))?.value || [];
+  return (Array.isArray(imports) ? imports : [imports])
+    .map((line) => String(line).replace(/<[^>]+>/g, '').trim())
+    .filter((line) => /ERROR|cannot be resolved/i.test(line));
+}
+
+/**
+ * A green `mvn install` only proves the artefact was uploaded. A bundle whose imports the
+ * instance cannot satisfy installs quietly and stays unresolved, so every class it holds is
+ * simply absent — which surfaces much later as an HTL use-class that "cannot be resolved to a
+ * type". Asking the instance what actually started is the only way to catch that at deploy time.
+ */
+export async function verifyBundles({
+  aemUrl, username = 'admin', password, fetchFn = fetch,
+}) {
+  const headers = {
+    authorization: `Basic ${Buffer.from(`${username}:${password ?? ''}`).toString('base64')}`,
+  };
+  let listing;
+  try {
+    const response = await fetchFn(`${aemUrl}/system/console/bundles.json`, { headers });
+    if (!response.ok) {
+      return { status: 'UNKNOWN', reason: `bundle listing returned HTTP ${response.status}`, broken: [] };
+    }
+    listing = await response.json();
+  } catch (error) {
+    return { status: 'UNKNOWN', reason: `bundle listing unreachable: ${error.message}`, broken: [] };
+  }
+
+  const broken = (listing.data || []).filter((bundle) => BROKEN_STATES.has(bundle.state));
+  if (!broken.length) return { status: 'PASS', broken: [], total: (listing.data || []).length };
+
+  const detailed = [];
+  for (const bundle of broken) {
+    let unresolved = [];
+    try {
+      const response = await fetchFn(`${aemUrl}/system/console/bundles/${bundle.id}.json`, { headers });
+      if (response.ok) unresolved = unresolvedRequirements(await response.json());
+    } catch {
+      // The state alone is already enough to fail on; the detail is a convenience.
+    }
+    detailed.push({
+      id: bundle.id, symbolicName: bundle.symbolicName, version: bundle.version, state: bundle.state, unresolved,
+    });
+  }
+  return { status: 'FAIL', broken: detailed, total: (listing.data || []).length };
+}
+
+export function describeBrokenBundles(broken) {
+  return broken.map((bundle) => {
+    const why = bundle.unresolved.length ? `\n    ${bundle.unresolved.join('\n    ')}` : '';
+    return `  ${bundle.symbolicName} ${bundle.version} is ${bundle.state}${why}`;
+  }).join('\n');
+}
