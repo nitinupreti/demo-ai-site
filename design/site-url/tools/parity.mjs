@@ -587,6 +587,13 @@ async function main() {
   const browser = await launchBrowser({ headless: !options.headed });
   const results = [];
   const pageComposite = {};
+  // One component can own several rows at a breakpoint; each needs evidence nothing else overwrites.
+  const evidenceBases = new Map();
+  const evidenceBase = (name) => {
+    const seen = evidenceBases.get(name) || 0;
+    evidenceBases.set(name, seen + 1);
+    return seen ? `${name}-${seen + 1}` : name;
+  };
   const preflight = { status: 'PASS', environment_blocked: false, checks: [] };
   const composePage = await createPage(browser, { width: 1200, height: 800, dpr: 1 });
 
@@ -647,6 +654,7 @@ async function main() {
           process.stdout.write(`  ${width}px ${target.mode} ${component.id} ... `);
           const result = {
             component_id: component.id,
+            instance: component.instance || null,
             breakpoint: width,
             mode: target.mode,
             status: 'WITHHELD',
@@ -724,7 +732,7 @@ async function main() {
             }
           }
 
-          const base = `${component.id}-${width}-${target.mode}`;
+          const base = evidenceBase([component.id, component.instance, width, target.mode].filter(Boolean).join('-'));
           const sourceShot = path.join(shotDir, `${base}-source.png`);
           const targetShot = path.join(shotDir, `${base}-target.png`);
           await source.page.locator(component.source.css).nth(component.source.match_index || 0)

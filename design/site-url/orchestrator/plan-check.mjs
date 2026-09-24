@@ -162,6 +162,78 @@ const guarded = parityComponents(basePlan(), latched, [375, 768, 1440])
 expect(guarded.source.css === 'section.hero' && guarded.source_of_truth === 'plan',
   `a selector from the instance's own ancestor chain must fall back to the plan, got ${guarded.source.css}`);
 
+// A fragment of a component scored on its own reaches past the component into whatever the page
+// paints around it, failing the component for pixels it never drew.
+const headerBar = { x: 0, y: 0, w: 768, h: 117 };
+const fragments = {
+  source_fingerprint: 'sha256:abc',
+  instances: [
+    {
+      id: 'inst-001',
+      selector: Object.fromEntries([375, 768, 1440].map((bp) => [bp, { css: 'div.header', match_index: 0 }])),
+      class_chain: ['div.header'],
+      rect: { 375: { x: 0, y: 0, w: 375, h: 117 }, 768: headerBar, 1440: { x: 0, y: 0, w: 1440, h: 146 } },
+    },
+    {
+      // Hangs 80px below the bar it belongs to: 53% of it lies inside the bar.
+      id: 'inst-002',
+      selector: { 768: { css: 'div.logo', match_index: 0 } },
+      class_chain: ['div.logo'],
+      rect: { 768: { x: 16, y: 28, w: 712, h: 168.5 } },
+    },
+    {
+      // Beside the bar rather than in it: mostly outside, so it is its own region.
+      id: 'inst-003',
+      selector: { 768: { css: 'div.badge', match_index: 0 } },
+      class_chain: ['div.badge'],
+      rect: { 768: { x: 700, y: 60, w: 60, h: 200 } },
+    },
+    {
+      id: 'inst-004',
+      selector: Object.fromEntries([375, 768, 1440].map((bp) => [bp, { css: 'div.hero', match_index: 0 }])),
+      class_chain: ['div.hero'],
+      rect: { 375: { x: 0, y: 117, w: 375, h: 600 }, 768: { x: 0, y: 30, w: 768, h: 600 }, 1440: { x: 0, y: 146, w: 1440, h: 600 } },
+    },
+  ],
+};
+const fragmentPlan = basePlan();
+fragmentPlan.components[1].instances = ['inst-001', 'inst-002', 'inst-003'];
+fragmentPlan.components[1].parity_targets = [
+  { instance: 'inst-001', source: { css: 'div.header' }, target: { css: '.cmp-header' } },
+  { instance: 'inst-002', source: { css: 'div.logo', bp: 768 }, target: { css: '.cmp-header__logo' } },
+  { instance: 'inst-003', source: { css: 'div.badge', bp: 768 }, target: { css: '.cmp-header__badge' } },
+];
+fragmentPlan.components[0].instances = ['inst-004'];
+fragmentPlan.components[0].parity_targets = [{ instance: 'inst-004', source: { css: 'div.hero' }, target: { css: '.cmp-hero' } }];
+const reported = [];
+const scored = parityComponents(fragmentPlan, fragments, [375, 768, 1440], {
+  onNested: (entry, host, share) => reported.push(`${entry.instance}@${entry.source.bp} in ${host.instance} ${share.toFixed(2)}`),
+});
+const rowsAt = (instance, bp) => scored.filter((entry) => entry.instance === instance && entry.source.bp === bp).length;
+expect(rowsAt('inst-002', 768) === 0, 'a fragment lying mostly inside a larger row of its own component must not be scored alone');
+expect(reported.length === 1 && reported[0] === 'inst-002@768 in inst-001 0.53',
+  `a skipped fragment must be reported with what holds it, got ${JSON.stringify(reported)}`);
+expect([375, 768, 1440].every((bp) => rowsAt('inst-001', bp) === 1), 'the row holding a fragment must stay scored everywhere');
+expect(rowsAt('inst-003', 768) === 1, 'an instance mostly outside its sibling is its own region and stays scored');
+expect(rowsAt('inst-004', 768) === 1,
+  'overlap with another component never removes a row: only fragments of the same component are skipped');
+expect(scored.length === 7, `every other row must survive unchanged, got ${scored.length}`);
+
+// Two instances seen at the same breakpoints are peers, not a fragment and its whole, even overlapping.
+const peers = JSON.parse(JSON.stringify(fragments));
+peers.instances[1].selector = Object.fromEntries([375, 768, 1440].map((bp) => [bp, { css: 'div.logo', match_index: 0 }]));
+peers.instances[1].rect = Object.fromEntries([375, 768, 1440].map((bp) => [bp, { x: 16, y: 28, w: 712, h: 168.5 }]));
+const peerPlan = JSON.parse(JSON.stringify(fragmentPlan));
+delete peerPlan.components[1].parity_targets[1].source.bp;
+expect(parityComponents(peerPlan, peers, [375, 768, 1440]).filter((entry) => entry.instance === 'inst-002').length === 3,
+  'an instance scored at as many breakpoints as the one it overlaps must never be skipped');
+
+// Without a measured box there is no evidence of nesting, so nothing is skipped.
+const unmeasured = JSON.parse(JSON.stringify(fragments));
+delete unmeasured.instances[1].rect;
+expect(parityComponents(fragmentPlan, unmeasured, [375, 768, 1440]).filter((entry) => entry.instance === 'inst-002').length === 1,
+  'a row without a measured box must never be skipped');
+
 // Parity scores --target-path, so the plan may not author anywhere else.
 const wrongPage = basePlan();
 wrongPage.shared = { ...(wrongPage.shared || {}), page_path: '/content/site/other' };

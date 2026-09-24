@@ -128,6 +128,12 @@ expect(headerRows.filter((row) => row.breakpoint === 1024).length === 2,
 expect(headerRows.filter((row) => row.breakpoint === 600).length === 1,
   `site-header should score once where the pin does not apply, got ${headerRows.filter((row) => row.breakpoint === 600).length}`);
 
+// Two rows of one component at one breakpoint must not overwrite each other's evidence.
+const evidenceFiles = artifact.results.flatMap((row) => [row.side_by_side, row.diff_mask, row.source?.screenshot])
+  .filter(Boolean);
+const shared = evidenceFiles.filter((file, index) => evidenceFiles.indexOf(file) !== index);
+expect(!shared.length, `every scored row needs its own evidence files, shared: ${[...new Set(shared)].join(', ')}`);
+
 // Every breakpoint gets its own scored page and its own whole-page pair for remediation to read.
 for (const breakpoint of config.breakpoints) {
   const composite = artifact.page_composite[`${breakpoint}-fixture`];

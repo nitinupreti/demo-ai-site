@@ -772,7 +772,10 @@ export async function orchestrate(rawOptions, services) {
     breakpoints: options.breakpoints,
     threshold: options.threshold,
     auth: { username: options.aemUser || 'admin', password_env: 'AEM_PASSWORD' },
-    components: parityComponents(plan, discovery, options.breakpoints),
+    components: parityComponents(plan, discovery, options.breakpoints, {
+      onNested: (entry, host, share) => renderer.note(`${entry.id} ${entry.instance} @${entry.source.bp} is not scored on its own: `
+        + `${Math.round(share * 100)}% of it lies inside ${host.instance}, which is scored there`),
+    }),
   });
 
   // Evidence paths are recorded relative to the parity directory, and agents run in a workspace

@@ -43,10 +43,12 @@ For every breakpoint publish:
 
 For every component instance and breakpoint publish:
 
-- `evidence/<instance>-<bp>-source.png`
-- `evidence/<instance>-<bp>-target.png`
-- `evidence/<instance>-<bp>-side-by-side.png`
-- `evidence/<instance>-<bp>-mask.png`
+- `evidence/<component>-<instance>-<bp>-<mode>-source.png`
+- `evidence/<component>-<instance>-<bp>-<mode>-target.png`
+- `evidence/<component>-<instance>-<bp>-<mode>-side-by-side.png`
+- `evidence/<component>-<instance>-<bp>-<mode>-mask.png`
+
+Read each row's paths from `parity.json` rather than building them. An instance that discovery saw at fewer breakpoints than another instance of the same component, and that overlaps it by at least half of the smaller box, is scored as part of that instance rather than on its own.
 
 Report pixel counts and `visualMatchPercent`. Missing, blank, wrong-viewport, stale, or non-homologous artifacts invalidate the associated score.
 

@@ -241,7 +241,7 @@ function resolvesToAncestor(discovered, selector) {
  * was never seen at. Where discovery has no usable selector the plan's own is kept, so a gap in
  * discovery narrows what parity trusts rather than what it covers.
  */
-export function parityComponents(plan, discovery, breakpoints) {
+export function parityComponents(plan, discovery, breakpoints, { onNested } = {}) {
   const byInstance = new Map((discovery?.instances || []).map((instance) => [instance.id, instance]));
   const entries = [];
   for (const component of plan.components) {
@@ -269,7 +269,51 @@ export function parityComponents(plan, discovery, breakpoints) {
       }
     }
   }
-  return entries;
+  return withoutNestedTargets(entries, byInstance, onNested);
+}
+
+/** At least this share of a row's box inside a larger row of its own component makes it a fragment. */
+/** Overlap, as a share of the smaller box, at which two rows of one component are one region. */
+const NESTED_SHARE = 0.5;
+
+/**
+ * A component's instance that discovery saw at fewer breakpoints than another instance it largely
+ * overlaps is a fragment of that instance: the wider-reaching row already scores those pixels, while
+ * the fragment's crop can reach past the component into whatever the page paints around it, failing
+ * the component for pixels it never drew. Size cannot decide it, since a fragment that hangs out of
+ * its component can be the larger box. Only boxes discovery measured are compared.
+ */
+function withoutNestedTargets(entries, byInstance, onNested) {
+  const rectOf = (entry) => {
+    const rect = entry.source_of_truth === 'discovery'
+      ? byInstance.get(entry.instance)?.rect?.[entry.source.bp]
+      : null;
+    return rect && ['x', 'y', 'w', 'h'].every((axis) => Number.isFinite(rect[axis])) && rect.w * rect.h > 0
+      ? rect
+      : null;
+  };
+  const area = (rect) => rect.w * rect.h;
+  const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
+    * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  const reach = new Map();
+  const reachKey = (entry) => `${entry.id}\u0000${entry.instance}`;
+  for (const entry of entries) reach.set(reachKey(entry), (reach.get(reachKey(entry)) || 0) + 1);
+
+  const nested = new Set();
+  entries.forEach((entry, index) => {
+    const rect = rectOf(entry);
+    if (!rect) return;
+    const host = entries.find((other) => other.id === entry.id
+      && other.instance !== entry.instance
+      && other.source.bp === entry.source.bp
+      && reach.get(reachKey(other)) > reach.get(reachKey(entry))
+      && rectOf(other)
+      && overlap(rect, rectOf(other)) >= Math.min(area(rect), area(rectOf(other))) * NESTED_SHARE);
+    if (!host) return;
+    nested.add(index);
+    onNested?.(entry, host, overlap(rect, rectOf(host)) / area(rect));
+  });
+  return entries.filter((_, index) => !nested.has(index));
 }
 
 export function planSummary(plan, waves) {
