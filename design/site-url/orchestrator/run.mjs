@@ -74,6 +74,8 @@ export const DEFAULTS = Object.freeze({
   threshold: 0.85,
   maxParityRetries: 2,
   planRepairs: 2,
+  // How long discovery waits for scripts to finish mutating the layout before it scans.
+  settleMs: 3000,
 });
 
 function readPrompt(name) {
@@ -248,6 +250,7 @@ export function parseArgs(argv) {
       case '--aem-port': options.aemPort = Number.parseInt(value, 10); index += 1; break;
       case '--aem-user': options.aemUser = value; index += 1; break;
       case '--breakpoints': options.breakpoints = value.split(',').map((entry) => Number.parseInt(entry.trim(), 10)); index += 1; break;
+      case '--settle-ms': options.settleMs = Number.parseInt(value, 10); index += 1; break;
       case '--max-parallel': options.maxParallel = Number.parseInt(value, 10); index += 1; break;
       case '--component-attempts': options.componentAttempts = Number.parseInt(value, 10); index += 1; break;
       case '--visual-pass-ratio': options.threshold = Number.parseFloat(value); options.thresholdPinned = true; index += 1; break;
@@ -370,6 +373,7 @@ export async function orchestrate(rawOptions, services) {
       '--url', options.siteUrl,
       '--out', discoveryDir,
       '--breakpoints', options.breakpoints.join(','),
+      '--settle-ms', String(options.settleMs),
       '--run-id', runId,
     ]);
     if (discoveryResult.code !== 0) {
@@ -997,6 +1001,8 @@ orchestrator/run.mjs — multi-agent AEM migration
   --aem-port <port>         Default from AEM_PORT or 4502
   --aem-user <name>         Default from AEM_USER or admin; password from AEM_PASSWORD
   --breakpoints <list>      Default 375,768,1440
+  --settle-ms <n>           Discovery settle before scanning (default ${DEFAULTS.settleMs});
+                            raised automatically on one retry if the layout is still moving
   --max-parallel <n>        Component workers in flight (default ${DEFAULTS.maxParallel})
   --component-attempts <n>  Attempts per component before the run fails (default ${DEFAULTS.componentAttempts})
   --visual-pass-ratio <n>   Pin the minimum ratio; otherwise derived from effort

@@ -42,7 +42,8 @@ discover.mjs - deterministic source discovery
   --breakpoints <list>     Comma-separated widths (default: ${DEFAULT_BREAKPOINTS.join(',')})
   --dpr <number>           Device pixel ratio (default: 1)
   --run-id <id>            Run identifier recorded in the artifact
-  --settle-ms <number>     Dynamic-injection settle time (default: 3000)
+  --settle-ms <number>     Dynamic-injection settle time (default: 3000); a breakpoint whose
+                           geometry is still moving is recaptured once at 3x this value
   --headed                 Run Chromium headed
   --help
 `);
@@ -94,6 +95,18 @@ async function captureBreakpoint(browser, { url, width, dpr, settleMs }) {
   }
 }
 
+/**
+ * Geometry that is still moving means a script reflowed the page after the settle expired. The
+ * scan taken alongside it is just as invalid as the readiness reading: block boundaries measured
+ * mid-reflow collapse into whichever ancestor still spans them, so the breakpoint is recaptured
+ * rather than reported as unstable.
+ */
+const RESCAN_SETTLE_MULTIPLIER = 3;
+
+function geometryStillMoving(readiness) {
+  return (readiness.failures || []).some((failure) => failure.startsWith('unstable geometry'));
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2), {
     values: ['url', 'out', 'breakpoints', 'dpr', 'run-id', 'settle-ms'],
@@ -120,9 +133,19 @@ async function main() {
   try {
     for (const width of breakpoints) {
       process.stdout.write(`  capturing ${width}px ... `);
-      const { page, navigation, readiness, scan } = await captureBreakpoint(browser, {
+      let capture = await captureBreakpoint(browser, {
         url: options.url, width, dpr, settleMs,
       });
+      if (geometryStillMoving(capture.readiness)) {
+        await capture.page.context().close();
+        const retrySettleMs = settleMs * RESCAN_SETTLE_MULTIPLIER;
+        process.stdout.write(`still moving, recapturing at ${retrySettleMs}ms ... `);
+        capture = await captureBreakpoint(browser, {
+          url: options.url, width, dpr, settleMs: retrySettleMs,
+        });
+        capture.readiness.recaptured_with_settle_ms = retrySettleMs;
+      }
+      const { page, navigation, readiness, scan } = capture;
       const screenshotName = `full-${width}-source.png`;
       await page.screenshot({ path: path.join(outDir, screenshotName), fullPage: true });
       await page.context().close();
@@ -154,6 +177,29 @@ async function main() {
     }
   }
 
+  // The descendant carrying a section's signal can change with the viewport, so one section can
+  // arrive under a different key at each width. A slot that section occupied alone does not change,
+  // so entries that never coexist at a breakpoint but held the same sole slot are one section.
+  const slotKey = (block) => (block.section_slot
+    ? `${block.section_slot.css}#${block.section_slot.match_index}`
+    : null);
+  const entries = Array.from(merged.values());
+  for (const entry of entries) {
+    if (entry.absorbed) continue;
+    const slots = new Set(Object.values(entry.byBreakpoint).map(slotKey).filter(Boolean));
+    if (!slots.size) continue;
+    for (const other of entries) {
+      if (other === entry || other.absorbed) continue;
+      if (Object.keys(other.byBreakpoint).some((width) => entry.byBreakpoint[width])) continue;
+      if (!Object.values(other.byBreakpoint).some((block) => slots.has(slotKey(block)))) continue;
+      Object.assign(entry.byBreakpoint, other.byBreakpoint);
+      for (const block of Object.values(other.byBreakpoint)) {
+        if (slotKey(block)) slots.add(slotKey(block));
+      }
+      other.absorbed = true;
+    }
+  }
+
   const pageHeights = Object.fromEntries(breakpoints.map((width) => [width, perBreakpoint[width].scan.page.height]));
   // `identityKey` keys on tag and text, both of which legitimately change shape across breakpoints,
   // so a missing key means "not separately identified" — never "not on the page". Asserting absence
@@ -164,7 +210,8 @@ async function main() {
       .map((block) => normalizeProbe(block.signature?.text))
       .join('\u0001'),
   ]));
-  const ordered = Array.from(merged.values())
+  const ordered = entries
+    .filter((entry) => !entry.absorbed)
     .map((entry) => {
       const positions = Object.entries(entry.byBreakpoint)
         .map(([width, block]) => block.rect.top / Math.max(pageHeights[width], 1));

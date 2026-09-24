@@ -8,7 +8,8 @@
        #site-header  identical            -> expect PASS / exact
        #hero         h1 font-size 48px    -> typography, changes height -> unequal crops
        #cta          brand colour changed -> colour token, geometry unchanged
-       #cards        card padding 22px    -> spacing, geometry unchanged (fixed row height) */
+       #cards        card padding 22px    -> spacing, geometry unchanged (fixed row height)
+       #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance */
     :root { --brand: #d9480f; --ink: #14161a; --paper: #ffffff; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink);
@@ -27,6 +28,10 @@
     .cards article { padding: 22px; border: 1px solid #e1e4e8; border-radius: 8px; background: #fff; }
     .cards h2 { margin: 0 0 8px; font-size: 16px; }
     .cards p { margin: 0; font-size: 14px; color: #5b6472; }
+    .banner { width: 200px; height: 120px; margin: 24px; padding: 16px;
+              border: 2px solid var(--brand); border-radius: 8px; background: #f7f9ff; }
+    .banner h2 { margin: 0 0 8px; font-size: 15px; }
+    .banner p { margin: 0; font-size: 13px; color: #5b6472; }
   </style>
 </head>
 <body>
@@ -44,6 +49,10 @@
   <section class="media" id="media">
     <div style="width:320px;height:180px;background:#333"></div>
     <video controls style="width:0;height:0"></video>
+  </section>
+  <section class="banner" id="banner">
+    <h2>Seasonal offer</h2>
+    <p>A box resized far beyond the tolerance is never scored.</p>
   </section>
 </body>
 </html>

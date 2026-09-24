@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Discovery fixture - section layouts</title>
+  <style>
+    /* One layout per case; the URL fragment picks the case, so each scan sees exactly one. Every
+       content container sits between 50% and 80% of its page height at 375, 768 and 1440, so the
+       partition step alone decides whether it splits into its sections. */
+    .case { display: none; }
+    .case:target { display: block; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { background: #fff; color: #14161a; font-family: Arial, Helvetica, sans-serif; }
+    h1, h2, p { margin: 0; }
+    .site-header { display: flex; align-items: center; height: 120px; padding: 0 24px; background: #f4f5f7; }
+    .site-footer { height: 520px; padding: 32px 24px; background: #14161a; color: #fff; }
+    .hero { height: 400px; padding: 48px 24px; background: #eef2ff; }
+    .hero h1 { margin-bottom: 16px; font-size: 44px; line-height: 1.1; }
+    .feature, .banner { height: 300px; padding: 32px 24px; background: #fff8e6; }
+    .banner { background: #e6f7ef; }
+    .feature h2, .banner h2 { margin-bottom: 12px; font-size: 28px; }
+    .image { display: flex; justify-content: center; }
+    .picture { display: block; width: 100%; height: auto; }
+
+    #capped-image .picture { max-width: 1100px; }
+
+    #capped-sections .grid { position: relative; }
+    #capped-sections .grid > div:not(.decor) { max-width: 1100px; margin: 0 auto; }
+    #capped-sections .decor { position: absolute; top: 420px; left: 0; width: 120px; height: 200px; background: #d9e2ec; }
+
+    #card-row .row { display: flex; height: 300px; }
+    #card-row .promo { flex: 0 0 66%; padding: 24px; background: #eef2ff; }
+    #card-row .panel { flex: 1; padding: 24px; background: #fff8e6; }
+
+    #columns .grid { display: flex; height: 800px; }
+    #columns .panel { flex: 0 0 30%; padding: 24px; background: #f4f5f7; }
+    #columns .section { flex: 1; padding: 24px; }
+
+    #caption-beside .caption { height: 120px; padding: 16px 24px; }
+
+    @media (max-width: 599px) {
+      #card-row .row { flex-direction: column; height: auto; }
+      #card-row .promo { flex: none; height: 300px; }
+      #card-row .panel { flex: none; height: 200px; }
+      #columns .grid { display: block; height: auto; }
+      #columns .panel { height: 300px; }
+      #columns .section { height: 800px; }
+    }
+
+    @media (min-width: 1024px) {
+      #caption-beside .media-row { display: flex; align-items: flex-start; }
+      #caption-beside .picture { width: 70%; }
+      #caption-beside .caption { width: 30%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Full-width sections: the baseline the scanner already split. -->
+  <div class="case" id="stacked">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Stacked sections stay separate</h1><p>Every section is laid out at full width.</p></div>
+        <div class="image"><img class="picture" alt="Fixture artwork" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='600'><rect width='1000' height='600' fill='%23d9e2ec'/><circle cx='500' cy='300' r='180' fill='%231f6feb'/></svg>"></div>
+        <div class="feature"><h2>Full-width sections split</h2><p>Nothing here is narrower than the container.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- The image is capped inside a full-width section: narrower than its section on wide screens,
+       where the image rather than its wrapper carries the section. -->
+  <div class="case" id="capped-image">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>A capped image is still a section</h1><p>Its section spans the page at every width.</p></div>
+        <div class="image"><img class="picture" alt="Fixture artwork" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='600'><rect width='1000' height='600' fill='%23d9e2ec'/><circle cx='500' cy='300' r='180' fill='%231f6feb'/></svg>"></div>
+        <div class="feature"><h2>Centred content must not merge the page</h2><p>One narrow image cannot hold the container together.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- Every section is capped and centred, with an out-of-flow decoration beside one of them. -->
+  <div class="case" id="capped-sections">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Capped sections still stack</h1><p>Each section is centred in a narrower column.</p></div>
+        <div class="banner"><h2>A decoration is not a column</h2><p>Absolutely positioned art never shares a row.</p></div>
+        <div class="feature"><h2>Max-width layouts split</h2><p>The column is narrower than the page on desktop.</p></div>
+        <div class="decor"></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- A full-width row holds two unequal cards side by side, stacked on narrow screens. -->
+  <div class="case" id="card-row">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Cards in a row stay cards</h1><p>The row itself spans the page at every width.</p></div>
+        <div class="row">
+          <div class="promo"><h2>The wide card leads the row</h2><p>It takes two thirds of the width on desktop.</p></div>
+          <div class="panel"><p>The narrow card completes the row beside it on desktop.</p></div>
+        </div>
+        <div class="feature"><h2>The row splits the same at every width</h2><p>Stacked on mobile, side by side on desktop.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- The container's own children sit side by side on wider screens: a column layout, kept whole. -->
+  <div class="case" id="columns">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="panel"><p>A sidebar that sits beside the main column on wide screens.</p></div>
+        <div class="section"><h2>Columns are not a stack</h2><p>Side-by-side children keep their container whole.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- On wide screens a capped image shares its row with a caption no section claims; on narrow
+       screens the caption sits below the image. -->
+  <div class="case" id="caption-beside">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Unclaimed content is never dropped</h1><p>A caption beside the image stays in a block.</p></div>
+        <div class="media-row">
+          <img class="picture" alt="Fixture artwork" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='600'><rect width='1000' height='600' fill='%23d9e2ec'/><circle cx='500' cy='300' r='180' fill='%231f6feb'/></svg>">
+          <p class="caption">A caption that sits beside the image on desktop and below it on mobile.</p>
+        </div>
+        <div class="feature"><h2>The caption belongs somewhere</h2><p>Every painted region must stay inside a block.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+</body>
+</html>

@@ -190,8 +190,8 @@ export function scanPage(options) {
 
   // `isWrapper` only discards elements above 80% of the page, so a container sitting just under it
   // is kept and `reduceToOutermost` then deletes every real section inside it. Size cannot tell a
-  // container from a section; how its children fill it can. Descend when the inner candidates stack
-  // as full-width bands accounting for most of the block's height.
+  // container from a section; how its children fill it can. Descend when the inner sections stack as
+  // bands accounting for most of the block's height: each spans the host, or shares its row with nothing.
   const CONTAINER_MIN_SHARE = 0.5;
   const PART_MIN_WIDTH_SHARE = 0.9;
   const PART_MIN_COVERAGE = 0.7;
@@ -218,6 +218,61 @@ export function scanPage(options) {
     return current;
   }
 
+  /** The host's direct child holding `element`: the box a section is laid out in. */
+  function slotOf(element, host) {
+    let node = element;
+    while (node.parentElement && node.parentElement !== host) node = node.parentElement;
+    return node;
+  }
+
+  /** `other` shares `rect`'s row: level with it vertically while clear of it horizontally. */
+  function beside(rect, other) {
+    const vertical = Math.min(rect.bottom, other.bottom) - Math.max(rect.top, other.top);
+    const horizontal = Math.min(rect.right, other.right) - Math.max(rect.left, other.left);
+    return vertical > 1 && horizontal <= 1;
+  }
+
+  /** Overlays and decorations positioned out of flow never form a column of their own. */
+  function outOfFlow(element, within) {
+    for (let node = element; node && node !== within; node = node.parentElement) {
+      if (['absolute', 'fixed'].includes(getComputedStyle(node).position)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * A section narrower than its host still stacks as a band when no sibling of its slot shares its
+   * row. Side-by-side siblings mean the host is laid out in columns, which stay one block.
+   */
+  function ownsRow(part, host) {
+    const slot = slotOf(part, host);
+    const rect = absRect(slot);
+    return !Array.from(host.children).some((sibling) => sibling !== slot && isVisible(sibling)
+      && !outOfFlow(sibling, host) && beside(rect, absRect(sibling)));
+  }
+
+  /**
+   * Painted content beside a narrow part inside its slot that no part claims would fall outside every
+   * block. As coverage repair does for vertical gaps, each such region becomes a block of its own.
+   */
+  function unclaimedBeside(part, host, parts) {
+    const slot = slotOf(part, host);
+    if (slot === part || absRect(part).w >= absRect(host).w * PART_MIN_WIDTH_SHARE) return [];
+    const rect = absRect(part);
+    const owners = [];
+    for (const element of Array.from(slot.querySelectorAll('*'))) {
+      if (parts.some((other) => other.contains(element) || element.contains(other))) continue;
+      if (!isVisible(element) || !isPainted(element) || outOfFlow(element, slot)) continue;
+      if (!beside(rect, absRect(element))) continue;
+      let owner = element;
+      while (owner.parentElement !== slot && !parts.some((other) => owner.parentElement.contains(other))) {
+        owner = owner.parentElement;
+      }
+      if (!owners.includes(owner)) owners.push(owner);
+    }
+    return owners;
+  }
+
   function partitionsBlock(block, parts) {
     if (parts.length < 2) return false;
     const rect = absRect(block);
@@ -226,12 +281,16 @@ export function scanPage(options) {
     let cursor = rect.top;
     for (const part of parts) {
       const partRect = absRect(part);
-      if (partRect.w < rect.w * PART_MIN_WIDTH_SHARE) return false;
+      if (partRect.w < rect.w * PART_MIN_WIDTH_SHARE && !ownsRow(part, block)) return false;
       covered += Math.max(0, partRect.bottom - Math.max(partRect.top, cursor));
       cursor = Math.max(cursor, partRect.bottom);
     }
     return covered >= rect.h * PART_MIN_COVERAGE;
   }
+
+  // Which descendant carries a section's signal can change with the viewport; a slot holding only
+  // that section cannot, so discovery uses it to reunite the section across breakpoints.
+  const soleSlots = new Map();
 
   for (let pass = 0; pass < 4; pass += 1) {
     let changed = false;
@@ -244,7 +303,17 @@ export function scanPage(options) {
       const host = contentHost(block);
       const parts = innerSections(host);
       if (partitionsBlock(host, parts)) {
-        next.push(...parts);
+        const claimed = [...new Set(parts.flatMap((part) => unclaimedBeside(part, host, parts)))];
+        for (const region of claimed) {
+          if (!signals.has(region)) signals.set(region, new Set());
+          signals.get(region).add(4);
+        }
+        const sections = [...parts, ...claimed];
+        const slots = sections.map((section) => slotOf(section, host));
+        sections.forEach((section, index) => {
+          if (slots.indexOf(slots[index]) === slots.lastIndexOf(slots[index])) soleSlots.set(section, slots[index]);
+        });
+        next.push(...sections);
         changed = true;
       } else {
         next.push(block);
@@ -492,6 +561,7 @@ export function scanPage(options) {
         aria_label: element.getAttribute('aria-label'),
       },
       repeated_children: info.repeated_children || 0,
+      section_slot: soleSlots.has(element) ? stableSelector(soleSlots.get(element)) : null,
       styles: { root: styleSnapshot(element), roles: roleSnapshots(element) },
       media: mediaSnapshot(element),
     };
