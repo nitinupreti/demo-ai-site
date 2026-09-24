@@ -64,7 +64,7 @@ Options:
       --aem-host <host>        Local AEM host (default: ${defaultAemHost})
       --aem-port <port>        Local AEM port; blank uses ${defaultAemPort}
       --breakpoints <list>     Comma-separated widths (default: 375,768,1440)
-      --visual-pass-ratio <n>  Strict minimum match ratio (default: 0.90)
+      --visual-pass-ratio <n>  Pin the match ratio; otherwise derived from --effort
       --evidence-dir <path>    Override the generated evidence directory
       --model <model>          Model ID; prompted from account models when omitted
       --effort <level>         Thinking effort: high or xhigh, when supported

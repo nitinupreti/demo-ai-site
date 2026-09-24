@@ -865,6 +865,7 @@ export async function orchestrate(rawOptions, services) {
                 components: ids, owned_paths: scopePaths,
                 // The widths this component is failing at; one edit has to hold at all of them.
                 breakpoints: batch.breakpoints,
+                threshold: parity.threshold,
                 result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
                 // Per-component crops cannot show a missing or reordered section; the page can.
                 page_composite: compositeWithEvidence(parity.page_composite),

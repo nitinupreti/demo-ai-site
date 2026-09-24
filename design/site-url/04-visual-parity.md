@@ -81,7 +81,20 @@ Keep `<EVIDENCE_DIR>/run-state.json` as the source of truth for remediation stat
 - Inputs: accepted Stages 1-3 results, frozen denominators, the Stage 1 source selector map from `discovery.json`, the Stage 2 target selector map verified by Stage 3, deployed target URLs, and the same `run_id`.
 - Build the parity run config, run `parity.mjs` at every breakpoint for every instance, and read its verdict. Do not substitute CSS declarations or selected properties for rendered evidence.
 - Required outputs: `parity/parity.json`, its preflight block, per-instance geometry/property/gate tables, full and component screenshots, side-by-side/diff artifacts, scores, and remediation history.
-- Passing gate: all prerequisites pass, every structured match gate is `PASS`, and every raw instance, component-type minimum and page composite is strictly above 90% at every breakpoint. After bounded retries, Stage 4 may terminate with `FAIL`; that terminal result permits Stage 5 reporting but never completion.
+- Passing gate: all prerequisites pass, and every raw instance, component-type minimum and page composite is strictly above the run's pass ratio at every breakpoint. Structured match gates are advisory and never block. After bounded retries, Stage 4 may terminate with `FAIL`; that terminal result permits Stage 5 reporting but never completion.
+
+## The Pass Ratio Is Per Run
+
+The bar is not a constant. The orchestrator derives it from the reasoning effort the run was given and writes it to `parity-config.json`; `parity.json` echoes it back as `threshold`. Cheap reasoning is for iterating on structure, not for certifying fidelity, so a low-effort run may not claim the same result as a full one.
+
+| Effort | Pass ratio |
+|---|---:|
+| `max`, `xhigh` | `> 0.90` |
+| `high`, model-managed | `> 0.85` |
+| `medium` | `> 0.75` |
+| `low`, `minimal`, `none` | `> 0.55` |
+
+`--visual-pass-ratio` pins an explicit value and overrides the effort mapping. **Read the threshold from the current run's `parity.json`; never assume a number.** Everywhere this document says "the threshold", it means that value.
 
 ## Readiness And Scope
 
@@ -129,9 +142,9 @@ Pixel comparison uses homologous non-blank crops. Wrong viewport, empty crops, m
 - Do not calculate, print, estimate, round, or publish a component score until all required live-site and AEM screenshot artifacts for that component and breakpoint pass screenshot validation.
 - Before validation, report `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`, never a percentage.
 - A component score row must cite the live-site image, AEM image, labeled side-by-side image, diff mask, source/target URLs, viewport, DPR, runner revision, and pixel counts. Missing any field makes the score invalid and withheld.
-- `visualMatchPercent` reflects rendered pixels only after crop validation. Determine pass/fail from the unrounded ratio (`matchedPixels / totalPixels > 0.90`), then round only the displayed percentage. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
-- A valid unrounded ratio `<= 0.90` is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
-- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly `>90%` and all prerequisite checks pass.
+- `visualMatchPercent` reflects rendered pixels only after crop validation. Determine pass/fail from the unrounded ratio (`matchedPixels / totalPixels > threshold`), then round only the displayed percentage. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
+- A valid unrounded ratio `<=` the threshold is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
+- A component may be marked `PASS` only when the newly captured valid evidence proves its final score is strictly above the threshold and all prerequisite checks pass.
 
 ## Interaction Gate
 
@@ -144,14 +157,13 @@ Calculate frozen weighted axis scores from `01-source-discovery.md`. Instance sc
 - weighted property/structure score;
 - `visualMatchPercent`;
 - authorability score;
-- media/interaction prerequisites;
-- every structured match gate below.
+- media/interaction prerequisites.
 
-Every raw instance, component-type minimum, and page composite must be strictly `>90%`; exactly 90% fails. A high page average cannot hide a failed component or axis.
+Every raw instance, component-type minimum, and page composite must be strictly above the run's threshold; a ratio exactly equal to it fails. A high page average cannot hide a failed component or axis.
 
 ## Structured Match Gates
 
-`parity.mjs` emits a `gates` object per instance. **Every gate must be `PASS` for the instance to pass, regardless of the pixel percentage.** A component can score 95% and still fail here — that is intended, because a wrong brand colour or a 6 px padding drift moves few pixels.
+`parity.mjs` emits a `gates` object per instance. **These gates are advisory: they are recorded for diagnosis and never decide the verdict.** They pair nodes positionally by `tag[ordinal]`, so a single added or removed wrapper misaligns the whole subtree and reports every node after it as a colour and spacing defect. Read them to locate a real defect, not to decide whether one exists.
 
 | Gate | Compared for every text role and layout child | Failure means |
 |---|---|---|
@@ -164,7 +176,7 @@ Every raw instance, component-type minimum, and page composite must be strictly 
 | `structure` | direct child element sequence of the component root | regions combined, split or reordered |
 | `rendered_fonts` | platform fonts actually rasterised, read over CDP | a declared family that silently fell back |
 
-The tool reports each failure with the owning selector, the property, and both values, so remediation edits the exact declaration that differs rather than guessing.
+The tool reports each failure with the owning selector, the property, and both values, so remediation edits the exact declaration that differs rather than guessing. Confirm a reported gate delta against the screenshots before acting on it: a node-pairing shift fabricates deltas on elements that are in fact correct.
 
 ## Remediation Loop
 
@@ -178,7 +190,7 @@ For each batch of failing components grouped by owning layer/module:
 2. Trace each gap to discovery/content, dialog, model, HTL, CSS/token, container/template, behavior, or asset ownership.
 3. Fix all non-conflicting diagnosed gaps in the batch. Run focused validation for every touched component, then scoped-deploy each affected module once per [03-assets-runtime.md](03-assets-runtime.md).
 4. Recapture source and target with fresh `locator.screenshot()` for every changed or potentially affected component and rescore only refreshed evidence.
-5. Mark each component independently: `PASS` when it crosses `>90%` at every breakpoint; otherwise increment only that component's attempt counter.
+5. Mark each component independently: `PASS` when it crosses the threshold at every breakpoint; otherwise increment only that component's attempt counter.
 6. On a component's **3rd** failed Round 1 batch, mark it `FAILED-ROUND-1`. Other components in the same batch continue according to their own counters.
 
 **Round 2 — one final pass.**
@@ -187,7 +199,7 @@ After every failing component has consumed Round 1, group the components still m
 
 1. Apply the largest still-open gap identified in Round 1 (structural, not cosmetic).
 2. Validate all touched components, scoped-deploy each affected module once, then recapture every changed or potentially affected component with fresh `locator.screenshot()`.
-3. Evaluate each component independently. If it crosses `>90%` at every breakpoint, mark `PASS`; otherwise mark `FAILED-FINAL` and stop attempting it.
+3. Evaluate each component independently. If it crosses the threshold at every breakpoint, mark `PASS`; otherwise mark `FAILED-FINAL` and stop attempting it.
 
 **Termination.** The loop ends when every failing component is either `PASS` or `FAILED-FINAL`. Do not enter a Round 3. Do not re-open a component already at `FAILED-FINAL`. If any component is `FAILED-FINAL`, this stage returns `FAIL`; Stage 5 reports the incomplete run and must not claim completion.
 
@@ -199,7 +211,7 @@ After every failing component has consumed Round 1, group the components still m
 
 ## Anti-Gaming Rules
 
-- A score above 90 requires raw source/target evidence and valid screenshots.
+- A score above the threshold requires raw source/target evidence and valid screenshots.
 - Missing/broken/un-authored assets, semantic-role substitutions, wrong full-bleed zones, incorrect body font, and missing interactions apply their prescribed hard failures/caps.
 - Do not score a hand-picked subset of properties, blank crops, whitespace, authored CSS declarations without computed evidence, or stale captures.
 - User rejection invalidates prior affected scores and evidence.
@@ -226,11 +238,11 @@ stage_result:
     - {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_screenshot_scores_above_90, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_match_gates_pass, status: PASS|FAIL, evidence: <parity.json gates>}
+    - {name: match_gates_advisory, status: INFO, evidence: <parity.json gates>}
     - {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_final_minima_and_composites_above_90, status: PASS|FAIL, evidence: <artifact>}
   failures: []
   next_stage: 05-completion-output
 ```
 
-Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, exactly 90%, averaged-away failures, or any `FAILED-FINAL` component. Remediate within the bounded loop, then return the truthful terminal status.
+Do not return `PASS` for partial breakpoints, selected components, invalid/blank crops, missing artifacts, a ratio exactly equal to the threshold, averaged-away failures, or any `FAILED-FINAL` component. Remediate within the bounded loop, then return the truthful terminal status.

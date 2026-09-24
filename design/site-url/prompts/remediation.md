@@ -8,9 +8,14 @@ measured deltas — you do not re-measure, and you never produce a score.
 The task block appended to this prompt contains, straight from `parity.json`:
 
 - `owning_layer_hint` — the layer the tool attributes the failure to;
+- `threshold` — the ratio this run must clear. It is set from the run's reasoning effort, not a
+  fixed 90%; treat this value as the bar and never assume a different one;
 - `deltas.rect` — geometry difference against the source;
-- `deltas.inventory` — the failing gates: `typography`, `color`, `spacing`, `images`, `svg`,
-  `glyph_substitutions`, `structure`, each naming the selector, the property and both values;
+- `deltas.inventory` — advisory gate findings: `typography`, `color`, `spacing`, `images`, `svg`,
+  `glyph_substitutions`, `structure`, each naming the selector, the property and both values.
+  Boxes here are paired positionally by `tag[ordinal]`, so one added or removed wrapper shifts the
+  pairing and reports correct elements as defects. `text-position` and `text-color` entries are
+  matched by text content and are reliable; `box-*` entries are not, on their own;
 - `deltas.hot_regions` — the target elements sitting under the differing pixels;
 - `deltas.rendered_fonts` — the font faces actually rasterised on each side;
 - `page_composite` — per breakpoint, the whole-page ratio, width and height delta against the
@@ -19,8 +24,10 @@ The task block appended to this prompt contains, straight from `parity.json`:
 - absolute paths to the side-by-side image, the diff mask and both crops, plus the current ratio.
 
 The images are **context, never evidence**. The numbers above are the measurement; an image only
-helps you guess *which* declaration produced them. Never cite an image as a value, never estimate a
-ratio from one, and never let it talk you out of a delta the tool recorded.
+helps you guess *which* declaration produced them. Never cite an image as a value and never
+estimate a ratio from one. The one thing an image is authoritative about is whether a `box-*`
+inventory delta is real: if the mask is clean where a delta claims a wrong colour, the pairing
+shifted and the declaration is correct — leave it alone.
 
 ## How to work
 
@@ -31,8 +38,9 @@ ratio from one, and never let it talk you out of a delta the tool recorded.
 3. **Order matters.** If `deltas.rect` is non-zero or a `dimension_mismatch` is reported, fix the
    geometry (container, grid, full-bleed) before typography or colour. A size mismatch makes every
    pixel comparison below it meaningless.
-4. A gate failure with a *passing* pixel ratio is still a failure. A 95% match with the wrong brand
-   colour must be fixed, not argued away.
+4. An inventory gate delta with a *passing* pixel ratio is a lead, not a verdict. Corroborate it
+   against the diff mask before editing; if the mask is clean there, the node pairing shifted and
+   the declaration is already correct. A `rendered_fonts` or `playback` failure is never advisory.
 
 ## When `owning_layer` is `page-composition`
 

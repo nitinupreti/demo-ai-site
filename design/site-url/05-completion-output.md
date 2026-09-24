@@ -6,7 +6,7 @@ Prepare this report after Stage 4 reaches a terminal `PASS`, `FAIL`, or `BLOCKED
 
 Stage 5 is authorized after the Stage 4 Remediation Loop reaches a terminal result. The following are non-negotiable:
 
-- MUST emit `status: COMPLETE` only when every upstream stage passed and every visual minimum is strictly `>90%`. If Stage 4 exhausted its bounded retries or an external prerequisite remains unavailable, emit the corresponding `FAIL` or `BLOCKED` result without claiming completion.
+- MUST emit `status: COMPLETE` only when every upstream stage passed and every visual minimum is strictly above the run's pass ratio, read from `parity.json.threshold`. If Stage 4 exhausted its bounded retries or an external prerequisite remains unavailable, emit the corresponding `FAIL` or `BLOCKED` result without claiming completion.
 - MUST validate every upstream `stage_result` envelope (Stages 1–4) belongs to the same `run_id` and current run. Return to the earliest missing or stale owning stage; restart Stage 1 only when source discovery or frozen denominators are invalid.
 - MUST NOT recreate, infer, or synthesize a missing upstream result. The only source of Stage 5 content is the frozen artifacts published by Stages 1–4.
 - For `COMPLETE`, MUST emit every mandatory table and artifact listed below. For `FAIL` or `BLOCKED`, emit every available table and explicitly list missing artifacts and their owning blocker.
@@ -57,12 +57,12 @@ Every score row must additionally include `Live URL`, `AEM URL`, `Viewport`, `DP
 Emit exactly one status line based only on current-run evidence:
 
 ```text
-VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required >90%)
+VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required > <threshold>%)
 VISUAL PARITY GATE: FAILED after bounded remediation — <N> FAILED-FINAL components — see residual_gaps
 VISUAL PARITY GATE: BLOCKED — <external prerequisite and evidence>
 ```
 
-Choose the line matching the Stage 5 status. Do not emit PASSED unless every prerequisite and component is strictly above 90% **and** every structured match gate is `PASS` in the current run's `parity.json`. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
+Choose the line matching the Stage 5 status. Report `<threshold>` as the run's own `parity.json.threshold`, never a remembered constant. Do not emit PASSED unless every prerequisite and component is strictly above it in the current run's `parity.json`. Structured match gates are advisory and do not affect this line. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
 
 ## Concise Supporting Summary
 

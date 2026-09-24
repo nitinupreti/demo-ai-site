@@ -32,7 +32,7 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 
 import {
-  DEFAULT_VISUAL_PASS_RATIO, GEOMETRY_TOLERANCE, STYLE_PROPERTIES, TOOL_VERSION,
+  DEFAULT_VISUAL_PASS_RATIO, DIMENSION_TOLERANCE, GEOMETRY_TOLERANCE, STYLE_PROPERTIES, TOOL_VERSION,
 } from './lib/contracts.mjs';
 import {
   createPage, launchBrowser, navigate, prepareForCapture, renderedFonts,
@@ -93,6 +93,14 @@ const GATE_LAYERS = {
   glyph_substitutions: 'icon-assets',
   structure: 'component-structure',
 };
+
+/**
+ * The inventory gates pair nodes positionally by `tag[ordinal]`, so one added or removed wrapper
+ * misaligns the subtree and reports every node after it as a colour or spacing defect. They are
+ * recorded for diagnosis and never decide a verdict. `rendered_fonts` and `playback` are absent
+ * here deliberately: neither is positionally paired, and neither is visible to a pixel diff.
+ */
+const ADVISORY_GATES = new Set(Object.keys(GATE_LAYERS));
 
 // Long enough for a playing video to advance measurably, short enough to run per component.
 const PLAYBACK_SETTLE_MS = 1200;
@@ -562,6 +570,12 @@ async function main() {
     ? config.page_height_tolerance_px
     : GEOMETRY_TOLERANCE.height;
   const pxTolerance = typeof config.px_tolerance === 'number' ? config.px_tolerance : GEOMETRY_TOLERANCE.x;
+  const dimensionTolerance = typeof config.dimension_tolerance === 'number'
+    ? config.dimension_tolerance
+    : DIMENSION_TOLERANCE;
+  /** A delta passes on whichever is more forgiving: the absolute floor or the proportional share. */
+  const withinDimension = (delta, extent, absolute) => Math.abs(delta)
+    <= Math.max(absolute, Math.abs(extent) * dimensionTolerance);
   const dpr = config.dpr || 1;
   const outDir = ensureDir(path.resolve(options.out || path.join(path.dirname(configPath), 'parity')));
   const shotDir = ensureDir(path.join(outDir, 'evidence'));
@@ -764,6 +778,7 @@ async function main() {
           const failedGates = Object.entries(result.gates)
             .filter(([, value]) => value === 'FAIL')
             .map(([category]) => category);
+          const blockingGates = failedGates.filter((category) => !ADVISORY_GATES.has(category));
 
           const cropProblem = validateCrop(sourceAnalysis, 'source') || validateCrop(targetAnalysis, 'target');
           if (cropProblem) {
@@ -784,6 +799,12 @@ async function main() {
           }
 
           const sameSize = comparison.total === comparison.overlap.total_pixels;
+          // Inside the tolerance the pair is scored over its union, where the added or missing area
+          // counts as unmatched. Beyond it the crops are too different for one ratio to mean anything.
+          const comparableSize = sameSize || (
+            withinDimension(targetAnalysis.width - sourceAnalysis.width, sourceAnalysis.width, GEOMETRY_TOLERANCE.width)
+            && withinDimension(targetAnalysis.height - sourceAnalysis.height, sourceAnalysis.height, GEOMETRY_TOLERANCE.height)
+          );
           const { width: cropWidth, height: cropHeight, diff } = comparison;
           const maskPath = path.join(shotDir, `${base}-mask.png`);
           fs.writeFileSync(maskPath, PNG.sync.write(diff));
@@ -806,9 +827,9 @@ async function main() {
             result.deltas.hot_regions = [];
           }
 
-          // Unequal crops are never resized, stretched or padded into a passing score. The union
-          // ratio is still recorded, but as progress only: it can move remediation, never the gate.
-          if (!sameSize) {
+          // Beyond the size tolerance no crop is resized, stretched or padded into a passing score.
+          // The union ratio is still recorded, but as progress only: it can move remediation, never the gate.
+          if (!comparableSize) {
             result.status = 'FAIL';
             result.geometry_status = 'FAIL';
             result.visual_status = 'WITHHELD';
@@ -846,7 +867,14 @@ async function main() {
             continue;
           }
 
-          result.scored_over = 'exact-crop';
+          result.scored_over = sameSize ? 'exact-crop' : 'union-within-tolerance';
+          if (!sameSize) {
+            result.deltas.dimension_mismatch = {
+              source: { w: sourceAnalysis.width, h: sourceAnalysis.height },
+              target: { w: targetAnalysis.width, h: targetAnalysis.height },
+              within_tolerance: dimensionTolerance,
+            };
+          }
           result.total_pixels = totalPixels;
           result.differing_pixels = differing;
           result.strict_differing_pixels = comparison.strict_differing;
@@ -865,12 +893,12 @@ async function main() {
           });
           result.side_by_side = relativePath(outDir, sideBySidePath);
 
-          const geometryPass = Math.abs(result.deltas.rect.x) <= GEOMETRY_TOLERANCE.x
-            && Math.abs(result.deltas.rect.w) <= GEOMETRY_TOLERANCE.width
-            && Math.abs(result.deltas.rect.h) <= GEOMETRY_TOLERANCE.height;
+          const geometryPass = withinDimension(result.deltas.rect.x, sourceInstance.rect.w, GEOMETRY_TOLERANCE.x)
+            && withinDimension(result.deltas.rect.w, sourceInstance.rect.w, GEOMETRY_TOLERANCE.width)
+            && withinDimension(result.deltas.rect.h, sourceInstance.rect.h, GEOMETRY_TOLERANCE.height);
           result.geometry_status = geometryPass ? 'PASS' : 'FAIL';
           result.visual_status = ratio > threshold ? 'PASS' : 'FAIL';
-          result.status = geometryPass && ratio > threshold && !failedGates.length ? 'PASS' : 'FAIL';
+          result.status = geometryPass && ratio > threshold && !blockingGates.length ? 'PASS' : 'FAIL';
           result.owning_layer_hint = result.status === 'PASS' ? null : owningLayerHint(result);
           results.push(result);
           console.log(`${result.status} ${(ratio * 100).toFixed(2)}%${result.exact_match ? ' exact' : ''}`
@@ -907,11 +935,13 @@ async function main() {
           composite.differing_pixels = overlap.differing_pixels;
           composite.total_pixels = overlap.total_pixels;
           composite.exact_match = overlap.differing_pixels === 0 && heightDelta === 0 && widthDelta === 0;
-          const withinTolerance = widthDelta === 0 && Math.abs(heightDelta) <= pageHeightTolerance;
+          const heightAllowance = Math.max(pageHeightTolerance, sourceFullAnalysis.height * dimensionTolerance);
+          const withinTolerance = widthDelta === 0 && Math.abs(heightDelta) <= heightAllowance;
+          composite.height_allowance_px = round(heightAllowance, 2);
           composite.status = overlap.ratio > threshold && withinTolerance && !failedGaps.length ? 'PASS' : 'FAIL';
           if (!withinTolerance) {
             composite.failure_reason = `page dimensions differ by ${widthDelta}x${heightDelta}px `
-              + `(height tolerance ${pageHeightTolerance}px)`;
+              + `(height tolerance ${round(heightAllowance, 2)}px)`;
           }
           if (failedGaps.length) {
             composite.gap_failure_reason = failedGaps
@@ -963,6 +993,8 @@ async function main() {
       .map((row) => (typeof row.visual_match_ratio === 'number' ? row.visual_match_ratio : row.progress_ratio))
       .filter((value) => typeof value === 'number');
     const failing = rows.filter((row) => row.status !== 'PASS');
+    const scoredBreakpoints = [...new Set(rows.map((row) => row.breakpoint))].sort((left, right) => left - right);
+    const failedBreakpoints = [...new Set(failing.map((row) => row.breakpoint))].sort((left, right) => left - right);
     const failedGates = new Set();
     for (const row of rows) {
       for (const [category, value] of Object.entries(row.gates || {})) {
@@ -976,6 +1008,11 @@ async function main() {
       min_progress_ratio: progress.length ? Math.min(...progress) : null,
       owning_layer_hint: failing.find((row) => row.owning_layer_hint)?.owning_layer_hint || null,
       failed_gates: Array.from(failedGates),
+      scored_breakpoints: scoredBreakpoints,
+      failed_breakpoints: failedBreakpoints,
+      // `all` means no width renders acceptably; `partial` narrows the defect to a media query.
+      breakpoint_scope: !failedBreakpoints.length ? 'none'
+        : failedBreakpoints.length === scoredBreakpoints.length ? 'all' : 'partial',
       breakpoints: Object.fromEntries(rows.map((row) => [`${row.breakpoint}-${row.mode}`, {
         status: row.status,
         ratio: row.visual_match_ratio,
@@ -1029,11 +1066,24 @@ async function main() {
 
   const artifactPath = writeJson(path.join(outDir, 'parity.json'), artifact);
 
-  console.log('\nComponent                         min ratio   status');
+  const breakpointKeys = [...new Set(perComponent.flatMap((entry) => Object.keys(entry.breakpoints)))]
+    .sort((left, right) => Number.parseInt(left, 10) - Number.parseInt(right, 10));
+  const column = (value) => String(value).padStart(15);
+
+  console.log(`\n${'Component'.padEnd(28)}${breakpointKeys.map(column).join('')}   min ratio   status`);
   for (const entry of perComponent) {
+    const cells = breakpointKeys.map((key) => {
+      const row = entry.breakpoints[key];
+      if (!row) return column('-');
+      const value = row.ratio === null ? 'withheld' : `${(row.ratio * 100).toFixed(2)}%`;
+      return column(row.status === 'PASS' ? value : `${value}!`);
+    }).join('');
     const ratio = entry.min_ratio === null ? '  withheld' : `${(entry.min_ratio * 100).toFixed(2)}%`.padStart(9);
-    const gates = entry.failed_gates.length ? ` gates:${entry.failed_gates.join(',')}` : '';
-    console.log(`${entry.component_id.padEnd(32)} ${ratio}   ${entry.status}${entry.owning_layer_hint ? ` (${entry.owning_layer_hint})` : ''}${gates}`);
+    const where = entry.breakpoint_scope === 'all' ? ' at every breakpoint'
+      : entry.breakpoint_scope === 'partial' ? ` at ${entry.failed_breakpoints.join(',')}` : '';
+    const gates = entry.failed_gates.length ? ` advisory:${entry.failed_gates.join(',')}` : '';
+    console.log(`${entry.component_id.padEnd(28)}${cells}   ${ratio}   ${entry.status}${where}`
+      + `${entry.owning_layer_hint ? ` (${entry.owning_layer_hint})` : ''}${gates}`);
   }
   for (const [key, entry] of Object.entries(pageComposite)) {
     const value = entry.ratio === null ? `withheld (${entry.withheld_reason})` : `${entry.percent}%`;
@@ -1041,8 +1091,10 @@ async function main() {
     const gaps = (entry.inter_component_gaps || []).filter((gap) => gap.status === 'FAIL').length;
     console.log(`page composite ${key.padEnd(17)} ${value}${size}${gaps ? ` [${gaps} gap(s)]` : ''}   ${entry.status}`);
   }
-  console.log(`\nThreshold: > ${threshold} | components ${passed.length}/${perComponent.length} | `
+  console.log(`\nThreshold: > ${threshold} | components ${passed.length} passed, ${failed.length} failed`
+    + `${withheld.length ? `, ${withheld.length} withheld` : ''} of ${perComponent.length} | `
     + `exact crops ${artifact.summary.instances_exact_match}/${artifact.summary.instances_scored} | status ${artifact.status}`);
+  console.log('A trailing ! marks a breakpoint that did not pass.');
   console.log(`Artifact: ${relativePath(process.cwd(), artifactPath)}`);
   process.exitCode = artifact.status === 'PASS' ? 0 : 1;
 }

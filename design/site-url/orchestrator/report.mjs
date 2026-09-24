@@ -15,6 +15,13 @@ function tierLabel(tier) {
   return { 1: 'reused', 2: 'extended project', 3: 'extended core', 4: 'new' }[tier] || `tier ${tier}`;
 }
 
+/** Empty when the component passed everywhere, so a reader can scan the column for defects. */
+function failedAt(row) {
+  if (!row.failed_breakpoints.length) return '—';
+  if (row.breakpoint_scope === 'all') return `all (${row.failed_breakpoints.join(', ')})`;
+  return row.failed_breakpoints.join(', ');
+}
+
 export function buildReport({
   state, plan, parity, ledger, phases, invocations = [], workers = [], deployment,
 }) {
@@ -38,6 +45,9 @@ export function buildReport({
       min_ratio: score?.min_ratio ?? null,
       status: attempt?.status || score?.status || 'NOT SCORED',
       failed_gates: score?.failed_gates || [],
+      breakpoints: score?.breakpoints || {},
+      failed_breakpoints: score?.failed_breakpoints || [],
+      breakpoint_scope: score?.breakpoint_scope || 'none',
       owning_layer: score?.owning_layer_hint || null,
       attempts: attempt?.history?.length || 0,
       build_seconds: workerById.get(component.id)?.duration_seconds ?? null,
@@ -47,6 +57,8 @@ export function buildReport({
 
   const residual = rows.filter((row) => row.status === 'FAILED-FINAL' || row.status === 'FAIL');
   const status = !parity ? 'FAIL' : residual.length ? 'FAIL' : parity.status === 'PASS' ? 'COMPLETE' : 'FAIL';
+  const breakpointKeys = [...new Set(rows.flatMap((row) => Object.keys(row.breakpoints)))]
+    .sort((left, right) => Number.parseInt(left, 10) - Number.parseInt(right, 10));
 
   const lines = [];
   lines.push('# AEM migration report', '');
@@ -56,6 +68,12 @@ export function buildReport({
   lines.push(`- Run: ${state?.run_id}`);
   lines.push(`- Total time: ${formatDuration(state?.duration_seconds)}`);
   lines.push(`- Components created: **${rows.length}** for ${rows.reduce((total, row) => total + row.instances, 0)} source instances`);
+  lines.push(`- Visual parity: **${rows.length - residual.length} passed, ${residual.length} failed**`
+    + `${typeof parity?.threshold === 'number' ? ` against a > ${percent(parity.threshold)} threshold` : ''}`);
+  if (rows.length) {
+    const worst = Math.min(...rows.map((row) => row.min_ratio ?? 0));
+    lines.push(`- Lowest component match: **${percent(worst)}**`);
+  }
   lines.push('');
 
   const modelSeconds = invocations.reduce((sum, entry) => sum + (entry.duration_seconds || 0), 0);
@@ -99,13 +117,30 @@ export function buildReport({
   }
 
   lines.push('## Components', '');
-  lines.push('| Component | Tier | Role | Instances | Build time | Build tries | Min ratio | Status | Failed gates | Fix attempts |');
-  lines.push('|---|---|---|---:|---:|---:|---:|---|---|---:|');
+  lines.push('| Component | Tier | Role | Instances | Build time | Build tries | Min ratio | Status | Failed at | Advisory gates | Fix attempts |');
+  lines.push('|---|---|---|---:|---:|---:|---:|---|---|---|---:|');
   for (const row of rows) {
     lines.push(`| ${row.id} | ${tierLabel(row.tier)} | ${row.role} | ${row.instances} | ${formatDuration(row.build_seconds)} `
-      + `| ${row.build_attempts ?? '—'} | ${percent(row.min_ratio)} | ${row.status} | ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
+      + `| ${row.build_attempts ?? '—'} | ${percent(row.min_ratio)} | ${row.status} | ${failedAt(row)} `
+      + `| ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
   }
   lines.push('');
+
+  if (breakpointKeys.length) {
+    lines.push('### Visual parity by breakpoint', '');
+    lines.push(`| Component | ${breakpointKeys.join(' | ')} | Min | Status |`);
+    lines.push(`|---|${breakpointKeys.map(() => '---:').join('|')}|---:|---|`);
+    for (const row of rows) {
+      const cells = breakpointKeys.map((key) => {
+        const entry = row.breakpoints[key];
+        if (!entry) return '—';
+        const value = entry.ratio === null ? 'withheld' : percent(entry.ratio);
+        return entry.status === 'PASS' ? value : `**${value}**`;
+      });
+      lines.push(`| ${row.id} | ${cells.join(' | ')} | ${percent(row.min_ratio)} | ${row.status} |`);
+    }
+    lines.push('', 'Bold marks a breakpoint that did not pass.', '');
+  }
 
   const retried = workers.filter((worker) => (worker.attempts || 0) > 1);
   if (retried.length) {
@@ -135,10 +170,13 @@ export function buildReport({
   lines.push('```text');
   if (status === 'COMPLETE') {
     const minimum = Math.min(...rows.map((row) => row.min_ratio ?? 1));
+    const required = typeof parity?.threshold === 'number' ? percent(parity.threshold) : 'the run threshold';
     lines.push(`VISUAL PARITY GATE: PASSED at ${(state?.inputs?.BREAKPOINTS || []).join('/')} `
-      + `— minimum component ${percent(minimum)} (required >90%) — every match gate PASS`);
+      + `— minimum component ${percent(minimum)} (required > ${required})`);
   } else if (residual.length) {
-    lines.push(`VISUAL PARITY GATE: FAILED after bounded remediation — ${residual.length} component(s) unresolved — see residual gaps`);
+    const everywhere = residual.filter((row) => row.breakpoint_scope === 'all').length;
+    lines.push(`VISUAL PARITY GATE: FAILED after bounded remediation — ${residual.length} component(s) unresolved `
+      + `(${everywhere} at every breakpoint, ${residual.length - everywhere} at specific breakpoints) — see residual gaps`);
   } else {
     lines.push('VISUAL PARITY GATE: BLOCKED — parity was not produced in this run');
   }
@@ -146,10 +184,11 @@ export function buildReport({
 
   if (residual.length) {
     lines.push('## Residual gaps', '');
-    lines.push('| Component | Min ratio | Owning layer | Failed gates | Attempts |');
-    lines.push('|---|---:|---|---|---:|');
+    lines.push('| Component | Min ratio | Failed at | Owning layer | Advisory gates | Attempts |');
+    lines.push('|---|---:|---|---|---|---:|');
     for (const row of residual) {
-      lines.push(`| ${row.id} | ${percent(row.min_ratio)} | ${row.owning_layer || '—'} | ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
+      lines.push(`| ${row.id} | ${percent(row.min_ratio)} | ${failedAt(row)} | ${row.owning_layer || '—'} `
+        + `| ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
     }
     lines.push('');
   }
@@ -170,8 +209,23 @@ export function buildReport({
       }, {}),
       component_build_attempts: Object.fromEntries(rows.map((row) => [row.id, row.build_attempts])),
       min_ratio: rows.length ? Math.min(...rows.map((row) => row.min_ratio ?? 0)) : null,
+      threshold: parity?.threshold ?? null,
+      breakpoints_scored: breakpointKeys,
+      parity_by_component: Object.fromEntries(rows.map((row) => [row.id, {
+        status: row.status,
+        min_ratio: row.min_ratio,
+        failed_breakpoints: row.failed_breakpoints,
+        breakpoint_scope: row.breakpoint_scope,
+        ratios: Object.fromEntries(Object.entries(row.breakpoints)
+          .map(([key, entry]) => [key, { ratio: entry.ratio ?? null, status: entry.status }])),
+      }])),
       residual_gaps: residual.map((row) => ({
-        component: row.id, min_ratio: row.min_ratio, owning_layer: row.owning_layer, failed_gates: row.failed_gates,
+        component: row.id,
+        min_ratio: row.min_ratio,
+        failed_breakpoints: row.failed_breakpoints,
+        breakpoint_scope: row.breakpoint_scope,
+        owning_layer: row.owning_layer,
+        failed_gates: row.failed_gates,
       })),
       timings: {
         total_seconds: totalSeconds,

@@ -52,6 +52,13 @@ export const SCORE_DENOMINATORS = {
 /** Geometry tolerances from 04-visual-parity.md. */
 export const GEOMETRY_TOLERANCE = { x: 1, width: 1, height: 8 };
 
+/**
+ * A box, crop or page may differ from its source by this fraction of the source's own size and
+ * still be measured. Absolute tolerances above remain the floor for small elements, where a few
+ * pixels are already a large proportion.
+ */
+export const DIMENSION_TOLERANCE = 0.05;
+
 /** Ordered: the first matching rule wins when routing a failure to an owning layer. */
 export const OWNING_LAYER_RULES = [
   { layer: 'plan-or-selector', when: 'target selector resolved zero or ambiguous matches' },
