@@ -1,6 +1,7 @@
 /** Locates the installed GitHub Copilot CLI. Shared by the launcher and the orchestrator. */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -32,23 +33,44 @@ export function findCopilot() {
   throw new Error('GitHub Copilot CLI was not found. Run `npm install -g @github/copilot` and `copilot login`, then retry.');
 }
 
-/** The SDK ships beside the CLI binary, so it is found from wherever the CLI was resolved. */
-export function findCopilotSdk(copilot) {
-  const candidates = [];
-  if (process.env.COPILOT_SDK_PATH) candidates.push(process.env.COPILOT_SDK_PATH);
-  if (copilot?.executable && path.isAbsolute(copilot.executable)) {
-    candidates.push(path.join(path.dirname(copilot.executable), 'copilot-sdk', 'index.js'));
+/**
+ * The SDK now ships as the standalone `@github/copilot-sdk` npm package; the CLI no longer
+ * bundles it beside the binary. Resolve its ESM entry from a local or global install.
+ */
+export function findCopilotSdk() {
+  const require = createRequire(import.meta.url);
+  const files = [];
+  const dirs = [];
+
+  if (process.env.COPILOT_SDK_PATH) {
+    const configured = process.env.COPILOT_SDK_PATH;
+    if (fs.existsSync(configured) && fs.statSync(configured).isFile()) files.push(configured);
+    else dirs.push(configured);
   }
+  try {
+    dirs.push(path.dirname(require.resolve('@github/copilot-sdk/package.json')));
+  } catch { /* not resolvable from here; fall through to the global locations below */ }
   if (process.platform === 'win32' && process.env.APPDATA) {
-    const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
-    candidates.push(path.join(
-      process.env.APPDATA, 'npm', 'node_modules', '@github', 'copilot', 'node_modules',
-      '@github', `copilot-win32-${architecture}`, 'copilot-sdk', 'index.js',
-    ));
+    dirs.push(path.join(process.env.APPDATA, 'npm', 'node_modules', '@github', 'copilot-sdk'));
   }
-  const sdkPath = [...new Set(candidates)].find((candidate) => fs.existsSync(candidate));
+
+  const entryFor = (candidateDirs) => [...files, ...candidateDirs.map((dir) => path.join(dir, 'dist', 'index.js'))]
+    .find((candidate) => fs.existsSync(candidate));
+
+  // The global npm root is only consulted when the cheaper lookups above all miss.
+  let sdkPath = entryFor(dirs);
   if (!sdkPath) {
-    throw new Error('Copilot SDK was not found beside the installed CLI. Reinstall `@github/copilot` or set COPILOT_SDK_PATH.');
+    const globalRoot = spawnSync('npm', ['root', '-g'], {
+      encoding: 'utf8', shell: process.platform === 'win32', windowsHide: true,
+    });
+    if (globalRoot.status === 0 && globalRoot.stdout) {
+      sdkPath = entryFor([path.join(globalRoot.stdout.trim(), '@github', 'copilot-sdk')]);
+    }
+  }
+  if (!sdkPath) {
+    throw new Error('The Copilot SDK (`@github/copilot-sdk`) was not found. Run'
+      + ' `npm install -g @github/copilot-sdk`, or set COPILOT_SDK_PATH to its install'
+      + ' directory, then retry.');
   }
   return sdkPath;
 }
@@ -57,8 +79,8 @@ export function findCopilotSdk(copilot) {
  * The models this account may actually use, with the reasoning efforts each one advertises.
  * Asked of the SDK that ships with the CLI, so no list is ever hardcoded or guessed at.
  */
-export async function listAvailableModels(copilot) {
-  const { CopilotClient } = await import(pathToFileURL(findCopilotSdk(copilot)).href);
+export async function listAvailableModels() {
+  const { CopilotClient } = await import(pathToFileURL(findCopilotSdk()).href);
   const client = new CopilotClient();
   try {
     await client.start();

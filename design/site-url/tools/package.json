@@ -8,7 +8,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "browsers": "playwright install chromium"
+    "browsers": "node -e \"console.log('Using system Chrome (channel: chrome); no browser download needed. Set PLAYWRIGHT_CHANNEL=\\\"\\\" to use bundled Chromium via: npx playwright install chromium')\""
   },
   "dependencies": {
     "pixelmatch": "^7.1.0",

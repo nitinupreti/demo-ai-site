@@ -16,8 +16,12 @@ html, body { scroll-behavior: auto !important; }
 `;
 
 export async function launchBrowser({ headless = true } = {}) {
+  // Use the system Chrome by default so no browser binary download is needed (blocked behind the
+  // corporate TLS-inspecting proxy). Set PLAYWRIGHT_CHANNEL="" to fall back to Playwright's bundled Chromium.
+  const channel = process.env.PLAYWRIGHT_CHANNEL ?? 'chrome';
   return chromium.launch({
     headless,
+    channel: channel || undefined,
     args: ['--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none'],
   });
 }

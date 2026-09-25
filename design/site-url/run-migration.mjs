@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
@@ -371,36 +372,46 @@ function findCopilot() {
   throw new Error('GitHub Copilot CLI was not found. Run `npm install -g @github/copilot` and `copilot login`, then retry.');
 }
 
-function findCopilotSdk(copilot) {
-  const candidates = [];
-  if (process.env.COPILOT_SDK_PATH) candidates.push(process.env.COPILOT_SDK_PATH);
-  if (path.isAbsolute(copilot.executable)) {
-    candidates.push(path.join(path.dirname(copilot.executable), 'copilot-sdk', 'index.js'));
+function findCopilotSdk() {
+  const require = createRequire(import.meta.url);
+  const files = [];
+  const dirs = [];
+
+  if (process.env.COPILOT_SDK_PATH) {
+    const configured = process.env.COPILOT_SDK_PATH;
+    if (fs.existsSync(configured) && fs.statSync(configured).isFile()) files.push(configured);
+    else dirs.push(configured);
   }
+  try {
+    dirs.push(path.dirname(require.resolve('@github/copilot-sdk/package.json')));
+  } catch { /* not resolvable from here; fall through to the global locations below */ }
   if (process.platform === 'win32' && process.env.APPDATA) {
-    const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
-    candidates.push(path.join(
-      process.env.APPDATA,
-      'npm',
-      'node_modules',
-      '@github',
-      'copilot',
-      'node_modules',
-      '@github',
-      `copilot-win32-${architecture}`,
-      'copilot-sdk',
-      'index.js',
-    ));
+    dirs.push(path.join(process.env.APPDATA, 'npm', 'node_modules', '@github', 'copilot-sdk'));
   }
-  const sdkPath = [...new Set(candidates)].find((candidate) => fs.existsSync(candidate));
+
+  const entryFor = (candidateDirs) => [...files, ...candidateDirs.map((dir) => path.join(dir, 'dist', 'index.js'))]
+    .find((candidate) => fs.existsSync(candidate));
+
+  // The global npm root is only consulted when the cheaper lookups above all miss.
+  let sdkPath = entryFor(dirs);
   if (!sdkPath) {
-    throw new Error('Copilot SDK was not found beside the installed CLI. Reinstall `@github/copilot` or set COPILOT_SDK_PATH.');
+    const globalRoot = spawnSync('npm', ['root', '-g'], {
+      encoding: 'utf8', shell: process.platform === 'win32', windowsHide: true,
+    });
+    if (globalRoot.status === 0 && globalRoot.stdout) {
+      sdkPath = entryFor([path.join(globalRoot.stdout.trim(), '@github', 'copilot-sdk')]);
+    }
+  }
+  if (!sdkPath) {
+    throw new Error('The Copilot SDK (`@github/copilot-sdk`) was not found. Run'
+      + ' `npm install -g @github/copilot-sdk`, or set COPILOT_SDK_PATH to its install'
+      + ' directory, then retry.');
   }
   return sdkPath;
 }
 
-async function listAvailableModels(copilot) {
-  const sdkPath = findCopilotSdk(copilot);
+async function listAvailableModels() {
+  const sdkPath = findCopilotSdk();
   const { CopilotClient } = await import(pathToFileURL(sdkPath).href);
   const client = new CopilotClient();
   try {
@@ -416,8 +427,8 @@ async function listAvailableModels(copilot) {
   }
 }
 
-async function getCopilotAuthStatus(copilot) {
-  const sdkPath = findCopilotSdk(copilot);
+async function getCopilotAuthStatus() {
+  const sdkPath = findCopilotSdk();
   const { CopilotClient } = await import(pathToFileURL(sdkPath).href);
   const client = new CopilotClient();
   try {
@@ -429,7 +440,7 @@ async function getCopilotAuthStatus(copilot) {
 }
 
 async function ensureCopilotAuthenticated(copilot, loginMode) {
-  let auth = await getCopilotAuthStatus(copilot);
+  let auth = await getCopilotAuthStatus();
   if (loginMode === 'force' || !auth.isAuthenticated) {
     if (loginMode === 'existing') {
       throw new Error('GitHub Copilot CLI is not authenticated. Rerun without --no-login or run `copilot login --web-flow`.');
@@ -443,7 +454,7 @@ async function ensureCopilotAuthenticated(copilot, loginMode) {
     if (login.error || login.status !== 0) {
       throw new Error(`GitHub Copilot browser login failed${login.error ? `: ${login.error.message}` : ` with exit code ${login.status}`}.`);
     }
-    auth = await getCopilotAuthStatus(copilot);
+    auth = await getCopilotAuthStatus();
   }
   if (!auth.isAuthenticated) {
     throw new Error('GitHub Copilot authentication did not complete. Run `copilot login --web-flow`, then retry.');
@@ -825,7 +836,7 @@ async function main() {
   const copilot = findCopilot();
   await ensureCopilotAuthenticated(copilot, options.loginMode);
   if (options.listModels) {
-    printModels(await listAvailableModels(copilot));
+    printModels(await listAvailableModels());
     return;
   }
 
@@ -850,7 +861,7 @@ async function main() {
   console.log(color.green(`  Agent available: ${copilot.version}`));
   const toolState = ensureToolDependencies();
   console.log(color.green(`  Migration tools: ${toolState}`));
-  const models = await listAvailableModels(copilot);
+  const models = await listAvailableModels();
   await selectModelAndEffort(options, models);
 
   const runId = crypto.randomUUID();

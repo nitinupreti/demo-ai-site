@@ -988,7 +988,8 @@ async function main() {
 
   // Listing what the account can use is a question about the account, not about a migration.
   if (options.listModels) {
-    const models = await listAvailableModels(findCopilot());
+    findCopilot();
+    const models = await listAvailableModels();
     console.log('\nModels available to the authenticated GitHub account:');
     models.forEach((model, index) => console.log(describeModel(model, index)));
     return;
@@ -1064,7 +1065,7 @@ orchestrator/run.mjs — multi-agent AEM migration
   options.model = options.model ?? banked?.model ?? null;
   options.effort = options.effort ?? banked?.effort ?? null;
 
-  const models = await listAvailableModels(copilot);
+  const models = await listAvailableModels();
 
   if (!options.model || !options.effort) {
     if (!process.stdin.isTTY) {
