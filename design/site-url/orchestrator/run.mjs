@@ -13,7 +13,7 @@ import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 import { runAgentRole } from './agent.mjs';
-import { createRenderer } from './console.mjs';
+import { createRenderer, formatDuration } from './console.mjs';
 import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
@@ -27,6 +27,7 @@ import {
   PAGE_SCOPE_ID, recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
+import { openTimings } from './timings.mjs';
 import {
   collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
 } from './workspaces.mjs';
@@ -309,7 +310,21 @@ function describeEdits(files, during, runId) {
     + ' edits made between runs are kept and deployed';
 }
 
+/** One launch of a run is one timing session; every way out of it, failure included, closes it. */
 export async function orchestrate(rawOptions, services) {
+  const timings = openTimings(services.evidenceDir, { runId: services.runId, resumed: Boolean(rawOptions.resume) });
+  try {
+    const outcome = await runStages(rawOptions, services, timings);
+    const sessionSeconds = timings.finish(outcome.status);
+    if (outcome.state && outcome.state.duration_seconds === undefined) outcome.state.duration_seconds = sessionSeconds;
+    return { ...outcome, timings: timings.summary() };
+  } catch (error) {
+    timings.finish('ERROR');
+    throw error;
+  }
+}
+
+async function runStages(rawOptions, services, timings) {
   const {
     copilot, renderer, runId, evidenceDir, runTool, spawnFn, execFn,
   } = services;
@@ -334,12 +349,14 @@ export async function orchestrate(rawOptions, services) {
     const entry = { name, status: 'RUNNING', started_at: Date.now() };
     phases.push(entry);
     renderer.stageStarted(name);
+    timings.stageStarted(name);
     return entry;
   };
   const endPhase = (entry, status, message) => {
     entry.status = status;
     entry.duration_seconds = Number(((Date.now() - entry.started_at) / 1000).toFixed(2));
     renderer.stageFinished(entry.name, status, message);
+    timings.stageFinished(entry.name, status, { reused: Boolean(entry.reused) });
     return entry;
   };
   const reusePhase = (entry, message) => {
@@ -382,6 +399,10 @@ export async function orchestrate(rawOptions, services) {
     },
     started_at: Date.now(),
   };
+  if (timings.previous.sessions) {
+    renderer.note(`resumed: ${timings.previous.sessions} earlier session(s) already spent `
+      + `${formatDuration(timings.previous.total_seconds)} (timings.json)`);
+  }
 
   // 1. Discovery — deterministic, no model.
   let phase = startPhase('discover');
@@ -1127,6 +1148,7 @@ export async function orchestrate(rawOptions, services) {
       history: entry.history || [],
     })),
     deployment,
+    timings: timings.summary(),
   });
   const written = writeReport(evidenceDir, report);
   endPhase(phase, report.status === 'COMPLETE' ? 'PASS' : 'FAIL', written.markdownPath);
@@ -1287,6 +1309,7 @@ orchestrator/run.mjs — multi-agent AEM migration
       components: (outcome.ledger?.components || []).map((entry) => ({
         id: entry.id, status: entry.status, duration_seconds: null,
       })),
+      timings: outcome.timings,
     },
   );
   process.exitCode = outcome.status === 'COMPLETE' ? 0 : 1;

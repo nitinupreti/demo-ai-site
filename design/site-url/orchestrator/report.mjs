@@ -23,7 +23,7 @@ function failedAt(row) {
 }
 
 export function buildReport({
-  state, plan, parity, ledger, phases, invocations = [], workers = [], deployment,
+  state, plan, parity, ledger, phases, invocations = [], workers = [], deployment, timings = null,
 }) {
   const components = plan?.components || [];
   const byId = new Map((parity?.components || []).map((entry) => [entry.component_id, entry]));
@@ -66,7 +66,8 @@ export function buildReport({
   lines.push(`- Source: ${state?.inputs?.SITE_URL || 'n/a'}`);
   lines.push(`- Target: http://${state?.inputs?.AEM_HOST}:${state?.inputs?.AEM_PORT}`);
   lines.push(`- Run: ${state?.run_id}`);
-  lines.push(`- Total time: ${formatDuration(state?.duration_seconds)}`);
+  lines.push(`- Total time: ${formatDuration(state?.duration_seconds)}`
+    + `${timings?.sessions > 1 ? ` this session, ${formatDuration(timings.total_seconds)} across ${timings.sessions} sessions` : ''}`);
   lines.push(`- Components created: **${rows.length}** for ${rows.reduce((total, row) => total + row.instances, 0)} source instances`);
   lines.push(`- Visual parity: **${rows.length - residual.length} passed, ${residual.length} failed**`
     + `${typeof parity?.threshold === 'number' ? ` against a > ${percent(parity.threshold)} threshold` : ''}`);
@@ -93,6 +94,30 @@ export function buildReport({
   const measured = (phases || []).reduce((sum, phase) => sum + (phase.duration_seconds || 0), 0);
   lines.push(`| **total** | ${state?.status || ''} | **${formatDuration(totalSeconds)}** | ${share(measured)} measured |`);
   lines.push('');
+
+  // The table above is this session only; a resume restarts its clock, so earlier sessions show here.
+  if (timings?.sessions > 1) {
+    lines.push(`## Time across ${timings.sessions} sessions`, '');
+    lines.push('Every launch of this run, from `timings.json`. A reused stage only re-checked earlier work.', '');
+    lines.push('| Stage | Total time | Runs | Notes |');
+    lines.push('|---|---:|---:|---|');
+    for (const stage of timings.stages) {
+      const notes = [
+        stage.interrupted ? `${stage.interrupted} interrupted` : null,
+        stage.reused ? `${stage.reused} reused` : null,
+        `last ${stage.status}`,
+      ].filter(Boolean).join(', ');
+      lines.push(`| ${stage.name} | ${formatDuration(stage.seconds)} | ${stage.runs} | ${notes} |`);
+    }
+    lines.push(`| **total** | **${formatDuration(timings.total_seconds)}** | | |`);
+    lines.push('');
+    lines.push('| Session | Started | Duration | Status |');
+    lines.push('|---|---|---:|---|');
+    for (const entry of timings.history) {
+      lines.push(`| ${entry.session}${entry.resumed ? ' (resumed)' : ''} | ${entry.started_at} | ${formatDuration(entry.seconds)} | ${entry.status} |`);
+    }
+    lines.push('');
+  }
 
   if (invocations.length) {
     lines.push('### Slowest agent invocations', '');
@@ -236,6 +261,7 @@ export function buildReport({
         invocations: invocations.map((entry) => ({
           id: entry.id, phase: entry.phase || entry.role, duration_seconds: entry.duration_seconds, status: entry.status,
         })),
+        across_sessions: timings,
       },
       phases: phases || [],
     },

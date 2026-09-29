@@ -190,7 +190,9 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
       heartbeatTimer = null;
     },
 
-    summary(runSummary, { evidenceDir, targetUrl, components }) {
+    summary(runSummary, {
+      evidenceDir, targetUrl, components, timings,
+    }) {
       line('');
       line(cyan(SYMBOL.rule.repeat(78)));
       const status = runSummary.status;
@@ -203,6 +205,18 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
             : stage.status === 'BLOCKED' ? yellow(stage.status.padEnd(8)) : red(stage.status.padEnd(8));
         const failing = stage.failing_checks.length ? red(`  failing: ${stage.failing_checks.join(', ')}`) : '';
         line(`  ${stage.stage.padEnd(24)} ${statusMark} ${formatDuration(stage.duration_seconds).padStart(8)}${failing}`);
+      }
+      if (timings?.sessions > 1) {
+        line('');
+        line(`  ${bold(`Time across ${timings.sessions} sessions`)}   ${dim(`total ${formatDuration(timings.total_seconds)}`)}`);
+        for (const stage of timings.stages) {
+          const notes = [
+            stage.runs > 1 ? `${stage.runs} runs` : null,
+            stage.interrupted ? `${stage.interrupted} interrupted` : null,
+            stage.reused ? `${stage.reused} reused` : null,
+          ].filter(Boolean).join(', ');
+          line(`  ${stage.name.padEnd(24)} ${formatDuration(stage.seconds).padStart(17)}${notes ? dim(`  ${notes}`) : ''}`);
+        }
       }
       if (components?.length) {
         line('');

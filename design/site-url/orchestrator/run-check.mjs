@@ -598,6 +598,20 @@ const partialOutcome = await orchestrate(
   },
 );
 expect(partialOutcome.status === 'COMPLETE', `a partially banked run should complete, got ${partialOutcome.status}`);
+
+// Each resume adds a session to the same timing record instead of restarting the clock.
+const timingRecord = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'timings.json'), 'utf8'));
+const sessionCount = timingRecord.sessions.length;
+expect(sessionCount >= 2 && timingRecord.sessions[0].status === 'COMPLETE' && !timingRecord.sessions[0].resumed
+  && timingRecord.sessions[0].stages.map((stage) => stage.name).join(',') === PHASES_FOR_CHECK.join(','),
+`the first session must be kept whole, got ${JSON.stringify(timingRecord.sessions.map((session) => session.status))}`);
+expect(timingRecord.sessions.slice(1).every((session) => session.resumed === true)
+  && partialOutcome.timings?.sessions === sessionCount,
+`every resume must be its own session, got ${JSON.stringify(partialOutcome.timings?.history)}`);
+expect(partialOutcome.timings.stages.find((stage) => stage.name === 'discover')?.reused === sessionCount - 1,
+  'a stage a resume reused must be counted as reused, not as another run');
+expect(fs.readFileSync(path.join(evidenceDir, 'completion-report.md'), 'utf8').includes(`## Time across ${sessionCount} sessions`),
+  'the report must show the time spent across every session');
 expect(rebuilt.join(',') === CONTENT_B, `only the missing component should rebuild, got ${rebuilt.join(',') || 'none'}`);
 const fanoutPhase = partialOutcome.phases.find((entry) => entry.name === 'fanout');
 expect(!fanoutPhase.reused, 'a partial fan-out must run rather than claim it was reused');
