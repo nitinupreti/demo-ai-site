@@ -16,6 +16,56 @@ The main parts of the template are:
 * all: a single content package that embeds all of the compiled modules (bundles and content packages) including any vendor dependencies
 * analyse: this module runs analysis on the project which provides additional validation for deploying into AEMaaCS
 
+## Local setup on a company laptop
+
+Do these once per machine, before the first build. They cover what a company laptop gets in the way of: OneDrive, the firewall's SSL inspection and the company certificate.
+
+### Keep the project outside OneDrive
+
+Clone and build the project in a folder that OneDrive does not sync, for example `C:\projects\demo-ai-site`. On company laptops Desktop and Documents are usually synced by OneDrive, so don't use them.
+
+Inside a OneDrive folder the build and deploy fail: OneDrive syncs and locks files while Maven and npm create and delete thousands of them (`target/`, `node_modules/`, migration evidence under `design/scratch/`). Typical errors are `Failed to delete ...\target`, `The process cannot access the file because it is being used by another process`, `EPERM: operation not permitted` and `Filename too long`.
+
+### npm: turn off strict SSL (company firewall policy)
+
+The company firewall re-signs HTTPS traffic with its own certificate, so npm rejects registry downloads with `SELF_SIGNED_CERT_IN_CHAIN` or `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Company policy is to turn off npm's certificate check:
+
+    npm config set strict-ssl false
+
+* The setting is saved in your user `.npmrc` (`%USERPROFILE%\.npmrc`), so it applies to every npm command you run. That includes the npm the Maven build runs for `ui.frontend`, the migration tools' `npm ci` and global installs such as the Copilot CLI.
+* To check it, run `npm config get strict-ssl`; it prints `false`.
+* To undo it, run `npm config delete strict-ssl`.
+* Never commit an `.npmrc` with this setting to the repository.
+
+The setting only affects npm. Maven, Git and Node.js tools make their own HTTPS connections, so they need the company certificate below.
+
+### Create and trust the company certificate
+
+Create the certificate file once:
+
+1. Run `certmgr.msc` and open **Trusted Root Certification Authorities > Certificates**.
+2. Find the company's inspection certificate. It is usually named after the firewall vendor (for example Netskope or Zscaler) or `<Company> Root CA`.
+3. Right-click it, choose **All Tasks > Export**, pick **Base-64 encoded X.509 (.CER)** and save it as `C:\certs\corp-root.pem`.
+4. If the firewall also uses an issuing certificate (under **Intermediate Certification Authorities**), export it the same way and paste its contents at the end of the same file.
+
+Keep the file outside the repository and never commit it.
+
+Then point each tool at the certificate. `setx` only reaches programs started afterwards, so close and reopen your terminals and VS Code when you are done.
+
+| Tool | Command | Error it fixes |
+|------|---------|----------------|
+| Node.js tools: the migration scripts and Playwright's browser download | `setx NODE_EXTRA_CA_CERTS C:\certs\corp-root.pem` | `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, `self signed certificate in certificate chain` |
+| Maven and Java: dependency downloads and the Node.js download for `ui.frontend` | `setx MAVEN_OPTS "-Djavax.net.ssl.trustStoreType=Windows-ROOT"` | `PKIX path building failed` |
+| Git | `git config --global http.sslBackend schannel` | `SSL certificate problem` |
+
+* The Maven and Git settings read the Windows certificate store, where IT has already installed the company certificate, so they don't need the file.
+* If `MAVEN_OPTS` already has a value, add the flag to it instead of replacing it.
+* On Node.js 22.19+ or 24.6+, `setx NODE_USE_SYSTEM_CA 1` can replace `NODE_EXTRA_CA_CERTS`: Node then reads the Windows certificate store directly and needs no file.
+
+To check Node.js, run this in a new terminal; it prints `200`:
+
+    node -e "fetch('https://registry.npmjs.org/').then((response) => console.log(response.status))"
+
 ## How to build
 
 To build all the modules run in the project root directory the following command with Maven 3:
