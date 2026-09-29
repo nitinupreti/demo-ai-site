@@ -9,6 +9,9 @@
        #hero         h1 font-size 48px    -> typography, changes height -> unequal crops
        #cta          brand colour changed -> colour token, geometry unchanged
        #cards        card padding 22px    -> spacing, geometry unchanged (fixed row height)
+       #frame        escaped "/" in ratio -> aspect-ratio falls back to auto, the box collapses to 0px
+       #menu         whitespace between items (the live page has none) -> same words, same pixels
+       #tagline      "Helloworld" where the live page says "Hello world" -> a real text difference
        #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance */
     :root { --brand: #d9480f; --ink: #14161a; --paper: #ffffff; }
     * { box-sizing: border-box; }
@@ -28,6 +31,11 @@
     .cards article { padding: 22px; border: 1px solid #e1e4e8; border-radius: 8px; background: #fff; }
     .cards h2 { margin: 0 0 8px; font-size: 16px; }
     .cards p { margin: 0; font-size: 14px; color: #5b6472; }
+    .frame { position: relative; width: 320px; margin: 24px; aspect-ratio: var(--frame-ratio, 4 / 3); }
+    .frame__media { position: absolute; inset: 0; background: linear-gradient(90deg, #333 50%, var(--brand) 50%); }
+    .menu { display: block; margin: 24px; font-size: 0; }
+    .menu span { margin-right: 12px; font-size: 16px; }
+    .tagline { margin: 24px; font-size: 16px; }
     .banner { width: 200px; height: 120px; margin: 24px; padding: 16px;
               border: 2px solid var(--brand); border-radius: 8px; background: #f7f9ff; }
     .banner h2 { margin: 0 0 8px; font-size: 15px; }
@@ -50,6 +58,13 @@
     <div style="width:320px;height:180px;background:#333"></div>
     <video controls style="width:0;height:0"></video>
   </section>
+  <section class="frame" id="frame" style="--frame-ratio:16 \2f  9"><div class="frame__media"></div></section>
+  <nav class="menu" id="menu">
+    <span>Contact</span>
+    <span>Search</span>
+    <span>India</span>
+  </nav>
+  <p class="tagline" id="tagline">Helloworld</p>
   <section class="banner" id="banner">
     <h2>Seasonal offer</h2>
     <p>A box resized far beyond the tolerance is never scored.</p>

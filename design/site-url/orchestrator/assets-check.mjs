@@ -60,6 +60,12 @@ expect(assetNameFor('https://images.test/Hero Shot.JPG', 'image/jpeg', new Set()
 const taken = new Set(['hero.jpg']);
 expect(assetNameFor('https://images.test/hero.jpg', 'image/jpeg', taken).startsWith('hero-'),
   'a name collision must be disambiguated, not overwritten');
+// A data: URL's path is its whole encoded payload, far past what a file system accepts as one name.
+const inlineSvg = `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${'M0 0L1 1'.repeat(400)}"/></svg>`).toString('base64')}`;
+const inlineName = assetNameFor(inlineSvg, 'image/svg+xml', new Set());
+expect(/^inline-[0-9a-f]{8}\.svg$/.test(inlineName), `a data: URL must get a short hashed name, got ${inlineName.slice(0, 60)}`);
+expect(assetNameFor(`https://images.test/${'long-name-'.repeat(40)}.jpg`, 'image/jpeg', new Set()).length <= 104,
+  'an over-long file name must be capped');
 
 const bodies = {
   'https://example.com/logo.svg': { type: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"/>' },

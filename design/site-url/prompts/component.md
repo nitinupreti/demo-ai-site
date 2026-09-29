@@ -46,7 +46,7 @@ Check your own work before you finish. You are in a private copy of the reposito
 commands are read-only — run them as often as you need:
 
 ```bash
-mvn -pl ui.apps generate-sources                                  # HTL syntax
+mvn -pl ui.apps generate-sources filevault-package:generate-metadata filevault-package:validate-files   # HTL syntax + JCR XML
 mvn -pl core test-compile                                         # Java compiles, your test included
 mvn -pl core test -Dtest=MyComponentModelTest -DfailIfNoTests=false   # your test passes
 ```
@@ -70,6 +70,20 @@ from several values use `format`, or add a getter to your model and bind that:
 ```html
 <div style="${'--bg:{0};--text:{1};' @ format=[model.backgroundColor, model.textColor], context='styleString'}">
 ```
+
+Your `.content.xml` and `_cq_*.xml` files are FileVault Document View, not plain XML, and the deploy
+build rejects anything its parser cannot read. `[xml]` casts and `minidom` accept most of these
+mistakes, so check with the first command above, not with them:
+
+- declare every prefix you use (`granite`, `cq`, `sling`, `jcr`, `nt`) as an `xmlns:` on `jcr:root`;
+- type hints are exact and case-sensitive: `{Boolean}true`, `{Long}3`, `{Double}1.5`,
+  `{Date}2026-01-01T00:00:00.000Z`. A multi-value is `[a,b]` or `{Long}[1,2]`, never `{String[]}[a,b]`;
+- a literal value starting with `{` or `[` is written `\{` or `\[`, a backslash `\\`, and a comma
+  inside a multi-value `\,`;
+- `&`, `<` and `"` inside a value are `&amp;`, `&lt;` and `&quot;`;
+- a node name is a valid XML name: no leading digit and no spaces, so `item0`, not `0`.
+
+Values in `contributions` are plain JSON: the orchestrator escapes them, so never pre-escape them.
 
 Declare a test class you authored yourself, in the `src/test/java` path listed in your owned paths —
 it is granted to you for exactly this purpose. Never extend a shared test class you do not own: it

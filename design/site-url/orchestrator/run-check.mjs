@@ -101,7 +101,7 @@ function planFor() {
 }
 
 /** Fake agent: writes its result envelope and a file inside its own scope. */
-function makeSpawnFn(behaviour) {
+function makeSpawnFn(behaviour, lifecycle = []) {
   return (executable, args, spawnOptions) => {
     const emitter = new EventEmitter();
     emitter.stdout = new PassThrough();
@@ -112,10 +112,12 @@ function makeSpawnFn(behaviour) {
     const resultPath = spawnOptions.env.MIGRATION_RESULT_PATH;
     const promptPath = path.join(path.dirname(resultPath), 'prompt.md');
     const prompt = fs.existsSync(promptPath) ? fs.readFileSync(promptPath, 'utf8') : '';
+    lifecycle.push({ event: 'start', role, id });
     setImmediate(() => {
       behaviour({
         role, id, resultPath, prompt, cwd: spawnOptions.cwd,
       });
+      lifecycle.push({ event: 'end', role, id });
       emitter.stdout.end();
       emitter.stderr.end();
       emitter.emit('close', 0);
@@ -308,9 +310,11 @@ const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
     }, null, 2));
     return;
   }
-  const ids = id.replace('fix-', '');
   remediationPrompts.push(prompt);
-  const file = path.join(cwd, 'ui.apps', 'components', ids, 'fixed.txt');
+  // The shared repair owns the design layer, not a component.
+  const file = id === 'fix-shared'
+    ? path.join(cwd, 'ui.frontend', 'src', 'main', 'webpack', 'site', '_tokens.scss')
+    : path.join(cwd, 'ui.apps', 'components', id.replace('fix-', ''), 'fixed.txt');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, 'fixed');
   fs.writeFileSync(resultPath, JSON.stringify({
@@ -324,7 +328,8 @@ const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
   }, null, 2));
 };
 
-const spawnFn = makeSpawnFn(agentBehaviour);
+const agentLifecycle = [];
+const spawnFn = makeSpawnFn(agentBehaviour, agentLifecycle);
 
 const renderer = createRenderer({ stageIds: PHASES_FOR_CHECK });
 
@@ -458,6 +463,28 @@ expect(fs.existsSync(path.join(evidenceDir, 'agents', 'remediation-1-page')),
 expect(remediationPrompts.some((entry) => entry.includes('"owning_layer": "page-composition"')),
   'a page batch must tell the agent which layer it owns');
 
+// A shared layer was blamed, so its repair ran first and alone; then each failing component got its
+// own agent, side by side, told what the repair changed and charged nothing for it.
+const fixes = agentLifecycle.filter((entry) => entry.role === 'remediation');
+expect(fixes.slice(0, 2).map((entry) => `${entry.event} ${entry.id}`).join(',') === 'start fix-shared,end fix-shared',
+  `the shared repair must run first and alone, got ${fixes.slice(0, 2).map((entry) => `${entry.event} ${entry.id}`).join(', ')}`);
+const componentFixes = fixes.filter((entry) => entry.id !== 'fix-shared');
+const startedTogether = componentFixes.slice(0, componentFixes.findIndex((entry) => entry.event === 'end'))
+  .map((entry) => entry.id).sort().join(',');
+expect(startedTogether === [`fix-${CONTENT_B}`, `fix-${CHROME}`].sort().join(','),
+  `every failing component must have started its own agent before any finished, got ${startedTogether || 'none'}`);
+expect(fs.existsSync(path.join(repoRoot, 'ui.frontend', 'src', 'main', 'webpack', 'site', '_tokens.scss')),
+  'the shared repair must be merged into the tree');
+const sharedPrompt = remediationPrompts.find((entry) => entry.includes('"mode": "repair"'));
+expect(Boolean(sharedPrompt) && sharedPrompt.includes('# Role: Foundations')
+  && sharedPrompt.includes('"ui.frontend/src/main/webpack/site"'),
+'the shared repair must follow the foundations instructions and own the shared design layer');
+expect(remediationPrompts.filter((entry) => entry.includes('"shared_repair"')
+  && entry.includes('ui.frontend/src/main/webpack/site/_tokens.scss')).length === 2,
+'each component agent must be told what the shared repair changed');
+expect(ledger.find((entry) => entry.id === CHROME).history.length === 1,
+  'the shared repair must not spend a component attempt');
+
 // The report is generated from artefacts.
 const reportPath = path.join(evidenceDir, 'completion-report.md');
 expect(fs.existsSync(reportPath), 'completion report should be written');
@@ -576,6 +603,128 @@ const fanoutPhase = partialOutcome.phases.find((entry) => entry.name === 'fanout
 expect(!fanoutPhase.reused, 'a partial fan-out must run rather than claim it was reused');
 expect(!fs.existsSync(path.join(debris, 'ui.apps', 'components', CONTENT_B, 'half-written.txt')),
   'workspace debris from the cancelled run must be cleared, not carried into the resume');
+
+// A deploy that fails is fixed by hand and resumed: compose keeps the fix and deploy builds it.
+const execWith = (exitCode) => (command, args) => {
+  const emitter = new EventEmitter();
+  emitter.stdout = new PassThrough();
+  emitter.stderr = new PassThrough();
+  setImmediate(() => {
+    emitter.stdout.end();
+    emitter.stderr.end();
+    emitter.emit('close', exitCode(args));
+  });
+  return emitter;
+};
+const resumeOptions = {
+  siteUrl: 'https://example.com',
+  aemHost: 'localhost',
+  aemPort: 4506,
+  breakpoints: [1440],
+  maxParallel: 3,
+  targetPath: '/content/page',
+  fetchFn,
+  resume: true,
+};
+const resumeServices = (overrides) => ({
+  copilot: { executable: 'fake-copilot', version: 'fake' },
+  renderer: createRenderer({ stageIds: PHASES_FOR_CHECK }),
+  runId: 'e2e',
+  evidenceDir,
+  runTool,
+  spawnFn,
+  execFn,
+  fetchFn,
+  repoRoot,
+  ...overrides,
+});
+const composedPage = path.join(repoRoot, 'ui.content/src/main/content/jcr_root/content/page/.content.xml');
+const ownedFile = path.join(repoRoot, 'ui.apps', 'components', CONTENT_A, 'built.txt');
+
+const brokenDeploy = await orchestrate(resumeOptions, resumeServices({
+  execFn: execWith((args) => (args.includes('install') ? 1 : 0)),
+}));
+expect(brokenDeploy.status === 'FAIL'
+  && brokenDeploy.phases.find((entry) => entry.name === 'deploy')?.status === 'FAIL',
+`the seeded deploy failure should stop the run at deploy, got ${brokenDeploy.status}`);
+
+const pageFix = fs.readFileSync(composedPage, 'utf8').replace('jcr:title="Fixture"', 'jcr:title="Fixed by hand"');
+expect(pageFix.includes('Fixed by hand'), 'the composed page must carry the title the hand fix replaces');
+fs.writeFileSync(composedPage, pageFix, 'utf8');
+fs.writeFileSync(ownedFile, 'fixed by hand');
+
+let shipped = null;
+const spawnedAfterFix = [];
+const fixedDeploy = await orchestrate(resumeOptions, resumeServices({
+  execFn: execWith((args) => {
+    if (args.includes('install')) {
+      shipped = { page: fs.readFileSync(composedPage, 'utf8'), owned: fs.readFileSync(ownedFile, 'utf8') };
+    }
+    return 0;
+  }),
+  spawnFn: makeSpawnFn((context) => {
+    spawnedAfterFix.push(context.role);
+    return agentBehaviour(context);
+  }),
+}));
+expect(fixedDeploy.status === 'COMPLETE', `the resumed run should complete after the hand fix, got ${fixedDeploy.status}`);
+expect(shipped?.page === pageFix, 'deploy must build the composed page exactly as it was fixed by hand');
+expect(shipped?.owned === 'fixed by hand', 'deploy must build a component file exactly as it was fixed by hand');
+expect(!spawnedAfterFix.length, `nothing needed rebuilding, got ${spawnedAfterFix.join(',')}`);
+
+// Foundations running again rewrites the skeletons, so compose must fill them again, not keep them.
+fs.writeFileSync(path.join(evidenceDir, 'foundations.json'), JSON.stringify({ status: 'FAIL' }));
+const refounded = await orchestrate(resumeOptions, resumeServices({}));
+const refoundedPage = fs.readFileSync(composedPage, 'utf8');
+expect(refounded.status === 'COMPLETE', `a resume that reruns foundations should complete, got ${refounded.status}`);
+expect(refoundedPage.includes(`<${CONTENT_A}`) && !refoundedPage.includes('Fixed by hand'),
+  'a skeleton foundations rewrote must be composed into, not kept as an edit');
+
+// An edit made while a worker is building is refused, never merged over, and stops the run.
+fs.writeFileSync(path.join(evidenceDir, 'workers.json'), JSON.stringify(
+  JSON.parse(fs.readFileSync(path.join(evidenceDir, 'workers.json'), 'utf8'))
+    .filter((entry) => entry.component_id !== CONTENT_B),
+  null,
+  2,
+));
+const racedFile = path.join(repoRoot, 'ui.apps', 'components', CONTENT_B, `${CONTENT_B}.css`);
+const raced = await orchestrate(resumeOptions, resumeServices({
+  spawnFn: makeSpawnFn((context) => {
+    agentBehaviour(context);
+    if (context.role !== 'component' || context.id !== CONTENT_B) return;
+    fs.writeFileSync(path.join(context.cwd, 'ui.apps', 'components', CONTENT_B, `${CONTENT_B}.css`), '.cmp-b { color: blue; }');
+    fs.writeFileSync(racedFile, '/* edited by hand */');
+    fs.writeFileSync(ownedFile, 'edited alongside');
+  }),
+}));
+expect(raced.status === 'FAIL' && raced.phases.find((entry) => entry.name === 'fanout')?.status === 'FAIL',
+  `an edit during fan-out must fail the fan-out, got ${raced.status}`);
+expect(fs.readFileSync(racedFile, 'utf8') === '/* edited by hand */', 'a worker must never be merged over an edit');
+expect([`ui.apps/components/${CONTENT_B}/${CONTENT_B}.css`, `ui.apps/components/${CONTENT_A}/built.txt`]
+  .every((file) => raced.edited?.includes(file)),
+`every file edited during the fan-out must be named, got ${raced.edited?.join(', ')}`);
+expect(!raced.phases.some((entry) => entry.name === 'compose'), 'nothing may be composed or deployed from a moving tree');
+
+// The same holds while remediation agents work, and the round stops before anything is redeployed.
+parityCycle = 0;
+const fixFile = path.join(repoRoot, 'ui.apps', 'components', CONTENT_B, 'fixed.txt');
+const installs = () => execCalls.filter((call) => call.includes('autoInstallSinglePackage')).length;
+const installsBefore = installs();
+const racedFix = await orchestrate(resumeOptions, resumeServices({
+  spawnFn: makeSpawnFn((context) => {
+    agentBehaviour(context);
+    if (context.role !== 'remediation' || context.id !== `fix-${CONTENT_B}`) return;
+    fs.writeFileSync(path.join(context.cwd, 'ui.apps', 'components', CONTENT_B, 'fixed.txt'), 'fixed again');
+    fs.writeFileSync(fixFile, 'fixed by hand');
+  }),
+}));
+expect(racedFix.status === 'FAIL'
+  && racedFix.phases.find((entry) => entry.name === 'remediation')?.status === 'FAIL',
+`an edit during remediation must fail the phase, got ${racedFix.status}`);
+expect(fs.readFileSync(fixFile, 'utf8') === 'fixed by hand', 'a remediation fix must never be merged over an edit');
+expect(racedFix.edited?.includes(`ui.apps/components/${CONTENT_B}/fixed.txt`),
+  `the file edited during remediation must be named, got ${racedFix.edited?.join(', ')}`);
+expect(installs() === installsBefore + 1, 'the interrupted round must not redeploy');
 
 // One model and one effort govern every agent, or their work is not comparable.
 const tuned = { model: 'run-wide', effort: 'high' };

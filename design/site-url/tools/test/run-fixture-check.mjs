@@ -2,8 +2,9 @@
 /**
  * Preflight proof for the frozen parity runner: scores a fixture pair with known
  * seeded defects and asserts the gate that owns each defect fires, that advisory
- * gates never decide a verdict, and that only a size difference beyond the
- * tolerance withholds a score.
+ * gates never decide a verdict, that only a size difference beyond the
+ * tolerance withholds a score, and that a target with no box is withheld
+ * instead of aborting the run.
  *
  *   node design/site-url/tools/test/run-fixture-check.mjs
  */
@@ -13,6 +14,10 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { PNG } from 'pngjs';
+
+import { analysePng, textSimilarity } from '../parity.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.dirname(here);
@@ -33,6 +38,9 @@ const config = {
     { id: 'cta', source: { css: '#cta' }, target: { css: '#cta' } },
     { id: 'cards', source: { css: '#cards' }, target: { css: '#cards' } },
     { id: 'media', source: { css: '#media' }, target: { css: '#media' } },
+    { id: 'frame', source: { css: '#frame' }, target: { css: '#frame' } },
+    { id: 'menu', source: { css: '#menu' }, target: { css: '#menu' }, signature_text: 'Contact Search India' },
+    { id: 'tagline', source: { css: '#tagline' }, target: { css: '#tagline' }, signature_text: 'Hello world' },
     { id: 'banner', source: { css: '#banner' }, target: { css: '#banner' } },
   ],
 };
@@ -112,6 +120,28 @@ for (const property of ['autoplay', 'loop', 'muted', 'controls', 'playsinline'])
     `playback delta should report ${property}`);
 }
 
+// Playwright never sees an element without a box as visible, so its crop would wait out the timeout.
+const frameRows = artifact.results.filter((row) => row.component_id === 'frame');
+expect(frameRows.length === config.breakpoints.length && frameRows.every((row) => row.status === 'WITHHELD'
+  && String(row.withheld_reason).startsWith('target element renders no box')),
+`a collapsed target must be withheld at every breakpoint, got ${frameRows.map((row) => `${row.status}: ${row.withheld_reason}`).join('; ')}`);
+expect(byId.frame?.owning_layer_hint === 'geometry-container',
+  `a collapsed target should route to geometry-container, got ${byId.frame?.owning_layer_hint}`);
+
+// Whitespace between tags is markup, not text: live markup without it still reads as separate words.
+const menuRows = artifact.results.filter((row) => row.component_id === 'menu');
+expect(menuRows.length === config.breakpoints.length
+  && menuRows.every((row) => row.status === 'PASS' && row.deltas.signature?.matches_target === true),
+`a signature split only by tags must match and be scored, got ${menuRows.map((row) => `${row.status}: ${row.withheld_reason}`).join('; ')}`);
+expect(menuRows.every((row) => row.deltas.text?.similarity === 1),
+  `whitespace between tags must not lower text similarity, got ${menuRows.map((row) => row.deltas.text?.similarity).join(', ')}`);
+
+// Words that really run together inside the text are a difference, and the signature must say so.
+const taglineRows = artifact.results.filter((row) => row.component_id === 'tagline');
+expect(taglineRows.length === config.breakpoints.length && taglineRows.every((row) => row.status === 'WITHHELD'
+  && row.deltas.signature?.matches_source === true && row.deltas.signature?.matches_target === false),
+`run-together words must fail the signature, got ${taglineRows.map((row) => `${row.status} ${JSON.stringify(row.deltas.signature)}`).join('; ')}`);
+
 expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
 
 // One component, several parity targets: it must be summarised once or remediation spends its
@@ -119,7 +149,7 @@ expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
 const summarisedIds = artifact.components.map((entry) => entry.component_id);
 expect(summarisedIds.length === new Set(summarisedIds).size,
   `each component must be summarised once, got ${summarisedIds.join(',')}`);
-expect(summarisedIds.length === 6, `expected 6 components, got ${summarisedIds.length}`);
+expect(summarisedIds.length === 9, `expected 9 components, got ${summarisedIds.length}`);
 
 // A target pinned to a breakpoint is scored there and skipped everywhere else.
 const headerRows = artifact.results.filter((row) => row.component_id === 'site-header');
@@ -170,6 +200,29 @@ expect(artifact.components.every((entry) => entry.status !== 'PASS' || entry.min
 // A local fixture is reached directly, so nothing may be reported as an environment block.
 expect(artifact.preflight.environment_blocked === false,
   'a reachable target must not be flagged as redirected');
+
+// A photographic full page samples far more distinct colours than one call can take as arguments.
+const photo = new PNG({ width: 1500, height: 1400 });
+for (let pixel = 0; pixel < photo.width * photo.height; pixel += 1) {
+  photo.data.writeUIntBE(pixel, pixel * 4, 3);
+  photo.data[pixel * 4 + 3] = 255;
+}
+let photoAnalysis;
+try {
+  photoAnalysis = analysePng(PNG.sync.write(photo));
+} catch (error) {
+  photoAnalysis = { error: error.message };
+}
+expect(photoAnalysis.distinct_colors === 300000,
+  `a page with 300000 distinct sampled colours must be analysed, got ${JSON.stringify(photoAnalysis)}`);
+
+// Case, punctuation and runs of whitespace never count; a missing space between words does.
+expect(textSimilarity('Contact  Search\nIndia', 'contact search india') === 1,
+  `case and whitespace runs must not lower text similarity, got ${textSimilarity('Contact  Search\nIndia', 'contact search india')}`);
+expect(textSimilarity('Contact Search India', 'ContactSearchIndia') < 1,
+  `words run together must lower text similarity, got ${textSimilarity('Contact Search India', 'ContactSearchIndia')}`);
+expect(textSimilarity('Contact Search India', 'Careers About us') < 0.5,
+  `different words must still read as different text, got ${textSimilarity('Contact Search India', 'Careers About us')}`);
 
 console.log('\nFixture assertions');
 if (failures.length) {

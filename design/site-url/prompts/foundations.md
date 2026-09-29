@@ -60,6 +60,51 @@ is a literal they are forced to invent.
 
 Record the token mapping in your result so the report can cite it.
 
+## Build check
+
+The moment you finish, the orchestrator builds every content package in the tree: HTL, plus
+FileVault's own validators over all its folders. A failure is a rejected attempt that comes back to
+you with the exact errors, and the tree is not reset between attempts. Nothing runs in parallel with
+you, so check first; these are read-only:
+
+```bash
+mvn -pl ui.apps generate-sources filevault-package:generate-metadata filevault-package:validate-files
+mvn -pl ui.content filevault-package:generate-metadata filevault-package:validate-files
+```
+
+Your XML is FileVault Document View, not plain XML. `[xml]` casts and `minidom` accept most of what
+it rejects, so do not rely on them:
+
+- declare every prefix you use (`granite`, `cq`, `sling`, `jcr`, `nt`) as an `xmlns:` on `jcr:root`;
+- type hints are exact and case-sensitive: `{Boolean}true`, `{Long}3`, `{Double}1.5`. A multi-value
+  is `[a,b]` or `{Long}[1,2]`, never `{String[]}[a,b]`;
+- a literal value starting with `{` or `[` is written `\{` or `\[`, a backslash `\\`, and a comma
+  inside a multi-value `\,`;
+- `&`, `<` and `"` inside a value are `&amp;`, `&lt;` and `&quot;`;
+- a node name is a valid XML name: no leading digit and no spaces.
+
+## Repair mode
+
+Remediation calls you back when parity blames a failing component on the shared layer
+(`typography-tokens`, `color-tokens` or `font-delivery`). The task block then says
+`"mode": "repair"` and carries those components' measured `deltas` and the `page_composite`. You
+run first in the round and alone; one agent per failing component follows, on top of your change.
+
+Your scope narrows to the task block's `owned_paths`: tokens and base styles, font binaries and
+`clientlib-base`. The template, policies, `filter.xml`, the page skeleton and every component file
+are not yours in this mode, and a change to any of them rejects your whole repair.
+
+Record one falsifiable hypothesis before editing: the token, `@font-face` rule or font file you
+believe is wrong, and the deltas that show it. Then fix that shared cause once. A face rendering
+from a fallback is a delivery defect: a `src` that does not resolve against the deployed clientlib,
+or a binary that never ships. It is not a reason to change the family. If the deltas point at one
+component's own CSS rather than at the shared layer, change nothing and say so; that component's
+agent runs right after you.
+
+The orchestrator redeploys after the round, not after you. If you touch XML, the build check above
+still applies. In this mode your required checks are `diagnosis_recorded` (the deltas you acted on)
+and `hypothesis_applied` (what you changed, and what you expect it to move), not the two below.
+
 ## Required checks
 
 `tokens_defined` and `template_and_policy_ready`, each with evidence: the token file path and the

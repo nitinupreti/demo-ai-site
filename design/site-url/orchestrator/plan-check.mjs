@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { parityComponents, planSummary, validatePlan } from './plan.mjs';
-import { collectChanges, createWorkspace, mergeChanges, snapshotTree } from './workspaces.mjs';
+import { collectChanges, createWorkspace, mergeChanges, snapshotTree, watchTree } from './workspaces.mjs';
 
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -398,6 +398,34 @@ expect(!fs.existsSync(path.join(capped.root, 'ui.apps', 'components', 'hero', 'l
   'an explicitly configured size cap must apply');
 expect(collectChanges(capped, owned).changed.length === 0,
   'a configured cap must not create phantom deletions either');
+
+// Someone editing the shared tree while a worker runs: the merge is refused and the edit survives.
+const guard = watchTree(repoRoot);
+const racing = createWorkspace(repoRoot, path.join(sandbox, 'w-racing'));
+racing.id = 'hero';
+fs.writeFileSync(path.join(racing.root, 'ui.apps', 'components', 'hero', 'hero.html'), 'from the worker');
+fs.writeFileSync(path.join(repoRoot, 'ui.apps', 'components', 'hero', 'hero.html'), 'by hand');
+const raced = mergeChanges(racing, repoRoot, collectChanges(racing, owned), claimed, guard);
+expect(raced.applied.length === 0 && raced.edited.join() === 'ui.apps/components/hero/hero.html',
+  `a merge over a file edited during the run must be refused, got ${JSON.stringify(raced)}`);
+expect(fs.readFileSync(path.join(repoRoot, 'ui.apps', 'components', 'hero', 'hero.html'), 'utf8') === 'by hand',
+  'the edit must survive the refused merge');
+
+// The run's own merges are expected; any other change to a file a deploy builds is drift.
+const watched = watchTree(repoRoot);
+const tidy = createWorkspace(repoRoot, path.join(sandbox, 'w-tidy'));
+tidy.id = 'hero';
+fs.writeFileSync(path.join(tidy.root, 'ui.apps', 'components', 'hero', 'hero.css'), 'tidied');
+const tidyMerge = mergeChanges(tidy, repoRoot, collectChanges(tidy, owned), claimed, watched);
+expect(tidyMerge.applied.length === 1 && watched.drift().length === 0,
+  `a merge must not count as drift, got ${watched.drift().join(', ')}`);
+fs.writeFileSync(path.join(repoRoot, 'pom.xml'), '<project><modules><module>ui.apps</module></modules></project>\n');
+const scoped = watchTree(repoRoot);
+fs.writeFileSync(path.join(repoRoot, 'NOTES.md'), 'never built');
+fs.writeFileSync(path.join(repoRoot, 'ui.apps', 'components', 'footer', 'footer.html'), 'edited alongside');
+fs.rmSync(path.join(repoRoot, 'ui.apps', 'components', 'hero', 'hero.css'));
+expect(scoped.drift().join() === 'ui.apps/components/footer/footer.html,ui.apps/components/hero/hero.css',
+  `only files a deploy builds are drift, deletions included, got ${scoped.drift().join(', ')}`);
 
 // A component that owns Java sources must be given somewhere to write its unit test.
 const javaNoTest = basePlan();

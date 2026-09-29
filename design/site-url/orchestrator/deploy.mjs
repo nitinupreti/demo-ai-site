@@ -61,16 +61,38 @@ function execute(step, repoRoot, execFn) {
  */
 const VALIDATION_RULES = [
   // HTL validation is bound to generate-sources, so that phase is what surfaces a syntax error.
-  { test: /^[^/]*ui\.apps\//, label: 'HTL syntax', args: ['-pl', 'ui.apps', 'generate-sources'] },
+  { module: 'ui.apps', test: /^[^/]*ui\.apps\//, label: 'HTL syntax', args: ['-pl', 'ui.apps', 'generate-sources'] },
   // test-compile, not compile: the worker writes a unit test, and that has to build as well.
-  { test: /^[^/]*core\//, label: 'Java compile', args: ['-pl', 'core', 'test-compile'] },
+  { module: 'core', test: /^[^/]*core\//, label: 'Java compile', args: ['-pl', 'core', 'test-compile'] },
 ];
+
+// `.content.xml`, dialogs, `_cq_*.xml` and `META-INF/vault/*.xml` of any content-package module.
+const CONTENT_PACKAGE_XML = /^([^/]+)\/src\/main\/content\/(?:jcr_root|META-INF)\/.+\.xml$/i;
+
+// FileVault's validators (docview parser, node types, filter) without packaging: what deploy fails on.
+const JCR_XML_GOALS = ['filevault-package:generate-metadata', 'filevault-package:validate-files'];
+
+function jcrXmlModules(files) {
+  const modules = new Set();
+  for (const file of files) {
+    const match = CONTENT_PACKAGE_XML.exec(file);
+    if (match) modules.add(match[1]);
+  }
+  return new Set([...modules].sort());
+}
 
 export function validationPlan(changedFiles, { focusedTests = [] } = {}) {
   const touched = changedFiles.map((file) => String(file).replaceAll('\\', '/'));
+  const xmlModules = jcrXmlModules(touched);
   const steps = VALIDATION_RULES
     .filter((rule) => touched.some((file) => rule.test.test(file)))
-    .map((rule) => ({ label: rule.label, module: rule.label, command: 'mvn', args: rule.args }));
+    .map((rule) => (xmlModules.delete(rule.module)
+      // A module that is already being built validates its XML in the same Maven run.
+      ? { label: `${rule.label} + JCR XML`, module: rule.label, command: 'mvn', args: [...rule.args, ...JCR_XML_GOALS] }
+      : { label: rule.label, module: rule.label, command: 'mvn', args: rule.args }));
+  for (const module of xmlModules) {
+    steps.push({ label: `JCR XML (${module})`, module, command: 'mvn', args: ['-pl', module, ...JCR_XML_GOALS] });
+  }
 
   if (focusedTests.length && steps.some((step) => step.label === 'Java compile')) {
     steps.push({

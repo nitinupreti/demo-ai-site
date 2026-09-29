@@ -13,6 +13,7 @@ import {
   summarize, touchComponent,
 } from './orchestrator/state.mjs';
 import { createRenderer, detectComponent } from './orchestrator/console.mjs';
+import { ensureCopilot, ensureTools } from './tools/setup.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -316,23 +317,13 @@ function assertProjectConfiguration() {
 }
 
 /** The frozen capture and scoring tools must be installable before a run starts. */
-function ensureToolDependencies() {
+async function ensureToolDependencies() {
   for (const file of ['discover.mjs', 'parity.mjs', 'package.json']) {
     if (!fs.existsSync(path.join(toolsDir, file))) {
       throw new Error(`Missing frozen tool: design/site-url/tools/${file}`);
     }
   }
-  if (fs.existsSync(path.join(toolsDir, 'node_modules', 'playwright'))) return 'present';
-  console.log(color.dim('  Installing migration tool dependencies...'));
-  const install = spawnSync('npm', ['install', '--no-fund', '--no-audit'], {
-    cwd: toolsDir,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  });
-  if (install.status !== 0) {
-    throw new Error('npm install failed in design/site-url/tools. Install Playwright, pixelmatch and pngjs manually, then retry.');
-  }
-  return 'installed';
+  return ensureTools({ log: (text) => console.log(color.dim(`  ${text}`)) });
 }
 
 function findCopilot() {
@@ -381,6 +372,13 @@ function findCopilotSdk() {
     const configured = process.env.COPILOT_SDK_PATH;
     if (fs.existsSync(configured) && fs.statSync(configured).isFile()) files.push(configured);
     else dirs.push(configured);
+  } else if (process.platform === 'win32' && process.env.APPDATA) {
+    // Older CLI installs ship the SDK beside the binary.
+    const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
+    files.push(path.join(
+      process.env.APPDATA, 'npm', 'node_modules', '@github', 'copilot', 'node_modules',
+      '@github', `copilot-win32-${architecture}`, 'copilot-sdk', 'index.js',
+    ));
   }
   try {
     dirs.push(path.dirname(require.resolve('@github/copilot-sdk/package.json')));
@@ -833,6 +831,7 @@ async function main() {
     return;
   }
 
+  ensureCopilot({ log: (text) => console.log(color.dim(`  ${text}`)) });
   const copilot = findCopilot();
   await ensureCopilotAuthenticated(copilot, options.loginMode);
   if (options.listModels) {
@@ -847,6 +846,14 @@ async function main() {
   if (!Number.isInteger(options.aemPort) || options.aemPort < 1 || options.aemPort > 65535) {
     throw new Error('AEM port must be an integer between 1 and 65535.');
   }
+  // A local SDK ships with admin/admin; never guess credentials for a remote instance.
+  if (!process.env.AEM_PASSWORD) {
+    if (!['localhost', '127.0.0.1', '::1'].includes(options.aemHost)) {
+      throw new Error(`AEM_PASSWORD must be set for ${options.aemHost}; the default is only assumed for a local instance.`);
+    }
+    process.env.AEM_PASSWORD = 'admin';
+    console.log(color.dim('Using the default local AEM credentials (admin). Set AEM_PASSWORD to override.'));
+  }
   assertProjectConfiguration();
 
   console.log(`Checking source: ${options.siteUrl}`);
@@ -859,7 +866,7 @@ async function main() {
   console.log(color.green(`  AEM reachable: HTTP ${aemProbe.status}`));
 
   console.log(color.green(`  Agent available: ${copilot.version}`));
-  const toolState = ensureToolDependencies();
+  const toolState = await ensureToolDependencies();
   console.log(color.green(`  Migration tools: ${toolState}`));
   const models = await listAvailableModels();
   await selectModelAndEffort(options, models);

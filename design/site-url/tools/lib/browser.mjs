@@ -90,22 +90,26 @@ export async function navigate(page, url, { timeoutMs = 60000 } = {}) {
   };
 }
 
-export async function triggerLazyLoad(page, { stepPx = 600, settleMs = 120 } = {}) {
-  await page.evaluate(async ({ stepPx: step, settleMs: settle }) => {
+export async function triggerLazyLoad(page, { stepPx = 600, settleMs = 120, maxScrollPx = 50000 } = {}) {
+  return page.evaluate(async ({ stepPx: step, settleMs: settle, maxScrollPx: limit }) => {
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const maxY = () => Math.max(
       document.documentElement.scrollHeight,
       document.body ? document.body.scrollHeight : 0,
     );
-    for (let y = 0; y < maxY(); y += step) {
+    // An infinite feed grows as fast as it is scrolled, so the pass has to stop somewhere.
+    let y = 0;
+    for (; y < maxY() && y <= limit; y += step) {
       window.scrollTo(0, y);
       await wait(settle);
     }
-    window.scrollTo(0, maxY());
+    const truncated = y < maxY();
+    window.scrollTo(0, Math.min(maxY(), limit));
     await wait(settle * 4);
     window.scrollTo(0, 0);
     await wait(settle * 2);
-  }, { stepPx, settleMs });
+    return { scrolled_to: Math.min(y, limit), height: maxY(), truncated };
+  }, { stepPx, settleMs, maxScrollPx });
 }
 
 export async function freezeMotion(page) {
@@ -122,8 +126,8 @@ export async function restoreMotion(page) {
   await page.evaluate((styleId) => document.getElementById(styleId)?.remove(), MOTION_FREEZE_STYLE_ID);
 }
 
-export async function settleFonts(page) {
-  return page.evaluate(async () => {
+export async function settleFonts(page, { timeoutMs = 30000 } = {}) {
+  return page.evaluate(async (limit) => {
     const families = new Set();
     const nodes = Array.from(document.querySelectorAll('body *')).slice(0, 4000);
     for (const node of nodes) {
@@ -134,13 +138,11 @@ export async function settleFonts(page) {
       const first = style.fontFamily.split(',')[0].replace(/["']/g, '').trim();
       if (first) families.add(`${style.fontWeight}|${style.fontStyle}|${first}`);
     }
-    let ready = false;
-    try {
-      await document.fonts.ready;
-      ready = true;
-    } catch {
-      ready = false;
-    }
+    // A font load that never finishes keeps fonts.ready pending; report it as not ready instead.
+    const ready = await Promise.race([
+      document.fonts.ready.then(() => true, () => false),
+      new Promise((resolve) => { setTimeout(() => resolve(false), limit); }),
+    ]);
     const checked = Array.from(families).slice(0, 60).map((entry) => {
       const [weight, style, family] = entry.split('|');
       let loaded = false;
@@ -152,19 +154,30 @@ export async function settleFonts(page) {
       return { family, weight, style, loaded };
     });
     return { ready, checked, status: document.fonts.status };
-  });
+  }, timeoutMs);
 }
 
-export async function settleImages(page) {
-  return page.evaluate(async () => {
+export async function settleImages(page, { decodeTimeoutMs = 30000 } = {}) {
+  return page.evaluate(async (timeoutMs) => {
     const images = Array.from(document.images).filter((image) => {
       const rect = image.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
+    // A lazy image the viewport never reaches (clipped ticker/carousel) is never fetched, so decode() never settles.
+    let promoted = 0;
+    for (const image of images) {
+      if (image.loading === 'lazy' && !image.complete) {
+        image.loading = 'eager';
+        promoted += 1;
+      }
+    }
     const failed = [];
     await Promise.all(images.map(async (image) => {
       try {
-        if (typeof image.decode === 'function') await image.decode();
+        if (typeof image.decode === 'function') {
+          // Bounded so one image that never settles is reported as undecoded instead of stalling the capture.
+          await Promise.race([image.decode(), new Promise((resolve) => { setTimeout(resolve, timeoutMs); })]);
+        }
       } catch {
         // Fall through to the attribute assertions below.
       }
@@ -172,8 +185,10 @@ export async function settleImages(page) {
         failed.push(image.currentSrc || image.src || '(no src)');
       }
     }));
-    return { total: images.length, decoded: images.length - failed.length, failed };
-  });
+    return {
+      total: images.length, decoded: images.length - failed.length, promoted, failed,
+    };
+  }, decodeTimeoutMs);
 }
 
 export async function settleMedia(page, { comparableTime = 0.01 } = {}) {
@@ -310,7 +325,10 @@ export async function viewportState(page, expectedWidth) {
 export async function prepareForCapture(page, { width, dynamicSettleMs = 3000, stableSelectors = [] } = {}) {
   const failures = [];
   const warnings = [];
-  await triggerLazyLoad(page);
+  const lazyLoad = await triggerLazyLoad(page);
+  if (lazyLoad.truncated) {
+    warnings.push(`lazy-load scroll stopped at ${lazyLoad.scrolled_to}px while the page kept growing (${lazyLoad.height}px)`);
+  }
   await page.waitForTimeout(dynamicSettleMs);
 
   const viewport = await viewportState(page, width);

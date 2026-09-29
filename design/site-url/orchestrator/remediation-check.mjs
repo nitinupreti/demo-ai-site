@@ -39,8 +39,6 @@ let routed = routeFailures(parity, plan, ledger);
 expect(routed.batches.length === 1, `exactly one page batch expected, got ${routed.batches.length}`);
 expect(routed.batches[0].layer === PAGE_LAYER && routed.batches[0].scope === 'page',
   `the batch must be page-scoped, got ${JSON.stringify(routed.batches[0])}`);
-expect(routed.serialized.length === 1 && routed.parallel.length === 0,
-  'a page batch runs serialized, never in parallel');
 expect(routed.batches[0].components.join(',') === 'hero,cards',
   `the page batch owns every component in plan order, got ${routed.batches[0].components}`);
 
@@ -134,8 +132,55 @@ const duplicated = parityFor({
 const dupLedger = createLedger(['hero', 'cards']);
 applyParity(dupLedger, duplicated);
 const dupRouted = routeFailures(duplicated, plan, dupLedger);
-expect(dupRouted.batches[0].components.join(',') === 'hero,cards',
-  `a duplicated component must be routed once, got ${dupRouted.batches[0].components}`);
+const dupIds = dupRouted.batches.map((batch) => batch.components.join('+')).join(',');
+expect(dupIds === 'hero,cards', `a duplicated component must be routed once, got ${dupIds}`);
+
+// Every failing component is its own batch, and so its own agent, whichever layer is blamed.
+const layeredPlan = { components: [{ id: 'hero' }, { id: 'cards' }, { id: 'footer' }] };
+const layered = parityFor({
+  components: [
+    { component_id: 'footer', status: 'WITHHELD', owning_layer_hint: 'plan-or-selector' },
+    { component_id: 'hero', status: 'FAIL', min_ratio: 0.8, owning_layer_hint: 'font-delivery' },
+    { component_id: 'cards', status: 'WITHHELD', owning_layer_hint: 'plan-or-selector' },
+  ],
+  composite: { '1440-disabled': { status: 'PASS', ratio: 0.99 } },
+});
+const layeredLedger = createLedger(['hero', 'cards', 'footer']);
+applyParity(layeredLedger, layered);
+const layeredRouted = routeFailures(layered, layeredPlan, layeredLedger);
+const layeredIds = layeredRouted.batches.map((batch) => batch.components.join('+')).join(',');
+expect(layeredIds === 'hero,cards,footer',
+  `each failing component must get its own batch, in plan order, got ${layeredIds}`);
+expect(layeredRouted.batches.every((batch) => batch.scope === 'component'),
+  'a shared or plan layer must not fold several components into one agent');
+expect(layeredRouted.batches.map((batch) => batch.layer).join(',') === 'font-delivery,plan-or-selector,plan-or-selector',
+  `each batch must carry its own component's layer, got ${layeredRouted.batches.map((batch) => batch.layer).join(',')}`);
+
+// A shared cause is also repaired once, first; the components it blames keep their own agents.
+expect(layeredRouted.shared?.components.join(',') === 'hero' && layeredRouted.shared.layer === 'shared-design',
+  `a component blamed on a shared layer must reach the shared repair, got ${JSON.stringify(layeredRouted.shared)}`);
+expect(mixedRouted.shared === null,
+  `no shared layer blamed must mean no shared repair, got ${JSON.stringify(mixedRouted.shared)}`);
+
+// One width blamed on a shared layer is enough, whatever the component's own hint says.
+const rowBlamed = parityFor({
+  components: [
+    { component_id: 'hero', status: 'FAIL', min_ratio: 0.8, owning_layer_hint: 'spacing' },
+    { component_id: 'cards', status: 'FAIL', min_ratio: 0.8, owning_layer_hint: 'component-css' },
+  ],
+  composite: { '1440-disabled': { status: 'PASS', ratio: 0.99 } },
+  results: [
+    { component_id: 'hero', breakpoint: 375, status: 'FAIL', owning_layer_hint: 'spacing' },
+    { component_id: 'hero', breakpoint: 1440, status: 'FAIL', owning_layer_hint: 'color-tokens' },
+    { component_id: 'cards', breakpoint: 375, status: 'FAIL', owning_layer_hint: 'component-css' },
+  ],
+});
+const rowLedger = createLedger(['hero', 'cards']);
+applyParity(rowLedger, rowBlamed);
+const rowRouted = routeFailures(rowBlamed, plan, rowLedger);
+expect(rowRouted.shared?.components.join(',') === 'hero',
+  `a width blamed on a shared layer must reach the shared repair, got ${JSON.stringify(rowRouted.shared)}`);
+expect(rowRouted.batches.length === 2, 'the shared repair must not take away any component\'s own agent');
 
 // The cap is enforced at the ledger, so no caller can overspend a budget.
 const capped = createLedger(['hero', 'cards']);

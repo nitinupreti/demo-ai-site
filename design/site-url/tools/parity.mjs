@@ -131,16 +131,19 @@ function credentials(config) {
   return { username: auth.username, password };
 }
 
-function analysePng(buffer) {
+export function analysePng(buffer) {
   const png = PNG.sync.read(buffer);
   const counts = new Map();
   let sampled = 0;
+  // Tracked while counting: spreading every distinct colour into Math.max overflows the stack.
+  let modal = 0;
   for (let index = 0; index < png.data.length; index += 4 * 7) {
     const key = `${png.data[index]},${png.data[index + 1]},${png.data[index + 2]}`;
-    counts.set(key, (counts.get(key) || 0) + 1);
+    const count = (counts.get(key) || 0) + 1;
+    counts.set(key, count);
+    if (count > modal) modal = count;
     sampled += 1;
   }
-  const modal = Math.max(...counts.values(), 0);
   return {
     png,
     width: png.width,
@@ -251,7 +254,7 @@ function unionCompare(sourceAnalysis, targetAnalysis) {
   };
 }
 
-/** Comparable form for text captured by different APIs (innerText vs textContent). */
+/** Comparable form for text: case, punctuation and runs of whitespace never count; word breaks do. */
 function normalizeText(value) {
   return String(value || '')
     .normalize('NFKC')
@@ -260,7 +263,7 @@ function normalizeText(value) {
     .trim();
 }
 
-function textSimilarity(left, right) {
+export function textSimilarity(left, right) {
   const leftTokens = normalizeText(left).split(' ').filter(Boolean);
   const rightTokens = new Set(normalizeText(right).split(' ').filter(Boolean));
   if (!leftTokens.length && !rightTokens.size) return 1;
@@ -336,16 +339,35 @@ async function resolveInstance(page, selector) {
     const element = matches[matchIndex || 0];
     if (!element) return { matches: matches.length, found: false };
     const rect = element.getBoundingClientRect();
+    // Tag boundaries read as word breaks, as in page-scan.mjs: markup whitespace is not text.
+    const parts = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement?.closest('script,style,noscript')) continue;
+      const value = node.nodeValue.replace(/\s+/g, ' ').trim();
+      if (value) parts.push(value);
+    }
     return {
       matches: matches.length,
       found: true,
-      inner_text: (element.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 400),
-      text_content: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 400),
+      text: parts.join(' ').slice(0, 400),
       rect: {
         x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.width, h: rect.height,
       },
     };
   }, { css: selector.css, matchIndex: selector.match_index || 0 });
+}
+
+/** Null once the crop is written; otherwise why the element could not be captured. */
+async function captureCrop(page, selector, rect, file) {
+  // Playwright never treats a boxless element as visible, so it would retry until its timeout.
+  if (!(rect.w > 0 && rect.h > 0)) return `element renders no box (${round(rect.w, 2)}x${round(rect.h, 2)})`;
+  try {
+    await page.locator(selector.css).nth(selector.match_index || 0).screenshot({ path: file });
+    return null;
+  } catch (error) {
+    return `crop could not be captured: ${String(error?.message || error).split('\n')[0]}`;
+  }
 }
 
 async function captureStyles(page, selector) {
@@ -705,8 +727,8 @@ async function main() {
             continue;
           }
 
-          const sourceText = sourceInstance.inner_text || sourceInstance.text_content;
-          const targetText = targetInstance.inner_text || targetInstance.text_content;
+          const sourceText = sourceInstance.text;
+          const targetText = targetInstance.text;
           result.deltas.text = {
             similarity: round(textSimilarity(sourceText, targetText), 4),
             source: sourceText.slice(0, 160),
@@ -716,12 +738,8 @@ async function main() {
           // A stale config signature must not fail the run; only one that still matches the source can.
           if (component.signature_text) {
             const expected = normalizeText(component.signature_text).slice(0, 24);
-            const matchesSource = expected
-              && (normalizeText(sourceInstance.inner_text).includes(expected)
-                || normalizeText(sourceInstance.text_content).includes(expected));
-            const matchesTarget = expected
-              && (normalizeText(targetInstance.inner_text).includes(expected)
-                || normalizeText(targetInstance.text_content).includes(expected));
+            const matchesSource = expected && normalizeText(sourceText).includes(expected);
+            const matchesTarget = expected && normalizeText(targetText).includes(expected);
             result.deltas.signature = { expected, matches_source: Boolean(matchesSource), matches_target: Boolean(matchesTarget) };
             if (matchesSource && !matchesTarget) {
               result.withheld_reason = `target instance signature mismatch (expected "${expected}")`;
@@ -735,10 +753,24 @@ async function main() {
           const base = evidenceBase([component.id, component.instance, width, target.mode].filter(Boolean).join('-'));
           const sourceShot = path.join(shotDir, `${base}-source.png`);
           const targetShot = path.join(shotDir, `${base}-target.png`);
-          await source.page.locator(component.source.css).nth(component.source.match_index || 0)
-            .screenshot({ path: sourceShot });
-          await deployed.page.locator(component.target.css).nth(component.target.match_index || 0)
-            .screenshot({ path: targetShot });
+          result.deltas.rect = {
+            x: round((targetInstance.rect.x - sourceInstance.rect.x), 2),
+            y: round((targetInstance.rect.y - sourceInstance.rect.y), 2),
+            w: round((targetInstance.rect.w - sourceInstance.rect.w), 2),
+            h: round((targetInstance.rect.h - sourceInstance.rect.h), 2),
+          };
+          const sourceProblem = await captureCrop(source.page, component.source, sourceInstance.rect, sourceShot);
+          const targetProblem = sourceProblem
+            ? null
+            : await captureCrop(deployed.page, component.target, targetInstance.rect, targetShot);
+          if (sourceProblem || targetProblem) {
+            result.withheld_reason = sourceProblem ? `source ${sourceProblem}` : `target ${targetProblem}`;
+            // Only the plan can repair a source it cannot capture; a target is the component's to repair.
+            result.owning_layer_hint = sourceProblem ? 'plan-or-selector' : owningLayerHint(result);
+            results.push(result);
+            console.log(`WITHHELD (${result.withheld_reason})`);
+            continue;
+          }
 
           const sourceAnalysis = analysePng(fs.readFileSync(sourceShot));
           const targetAnalysis = analysePng(fs.readFileSync(targetShot));
@@ -749,12 +781,6 @@ async function main() {
           result.source.bytes = fs.statSync(sourceShot).size;
           result.target.bytes = fs.statSync(targetShot).size;
 
-          result.deltas.rect = {
-            x: round((targetInstance.rect.x - sourceInstance.rect.x), 2),
-            y: round((targetInstance.rect.y - sourceInstance.rect.y), 2),
-            w: round((targetInstance.rect.w - sourceInstance.rect.w), 2),
-            h: round((targetInstance.rect.h - sourceInstance.rect.h), 2),
-          };
           result.deltas.styles = styleDeltas(
             await captureStyles(source.page, component.source),
             await captureStyles(deployed.page, component.target),

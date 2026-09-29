@@ -34,8 +34,8 @@ export function findCopilot() {
 }
 
 /**
- * The SDK now ships as the standalone `@github/copilot-sdk` npm package; the CLI no longer
- * bundles it beside the binary. Resolve its ESM entry from a local or global install.
+ * Older CLI installs ship the SDK beside the binary; newer ones need the standalone
+ * `@github/copilot-sdk` npm package. Resolve its ESM entry from either.
  */
 export function findCopilotSdk() {
   const require = createRequire(import.meta.url);
@@ -46,6 +46,12 @@ export function findCopilotSdk() {
     const configured = process.env.COPILOT_SDK_PATH;
     if (fs.existsSync(configured) && fs.statSync(configured).isFile()) files.push(configured);
     else dirs.push(configured);
+  } else if (process.platform === 'win32' && process.env.APPDATA) {
+    const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
+    files.push(path.join(
+      process.env.APPDATA, 'npm', 'node_modules', '@github', 'copilot', 'node_modules',
+      '@github', `copilot-win32-${architecture}`, 'copilot-sdk', 'index.js',
+    ));
   }
   try {
     dirs.push(path.dirname(require.resolve('@github/copilot-sdk/package.json')));

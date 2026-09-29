@@ -83,18 +83,26 @@ export function collectAssetUrls(discovery) {
 }
 
 export function assetNameFor(url, mime, taken = new Set()) {
+  const digest = crypto.createHash('sha1').update(url).digest('hex').slice(0, 8);
   let last = 'asset';
-  try {
-    last = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || 'asset');
-  } catch { /* keep the fallback */ }
+  if (url.startsWith('data:')) {
+    // A data: URL's path is its encoded payload, not a file name.
+    last = `inline-${digest}`;
+  } else {
+    try {
+      last = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || 'asset');
+    } catch { /* keep the fallback */ }
+  }
 
   const fromName = last.includes('.') ? last.split('.').pop().toLowerCase() : '';
   const extension = EXTENSION_BY_MIME[mime] || (/^[a-z0-9]{2,5}$/.test(fromName) ? fromName : 'bin');
-  const stem = last.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'asset';
+  // Well inside the 255-character limit on one name, leaving room for the suffix and rendition path.
+  const stem = last.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 100)
+    .replace(/^-+|-+$/g, '') || 'asset';
 
   let candidate = `${stem}.${extension}`;
   if (taken.has(candidate)) {
-    candidate = `${stem}-${crypto.createHash('sha1').update(url).digest('hex').slice(0, 8)}.${extension}`;
+    candidate = `${stem}-${digest}.${extension}`;
   }
   taken.add(candidate);
   return candidate;

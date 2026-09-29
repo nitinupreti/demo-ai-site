@@ -52,7 +52,20 @@ export function scanPage(options) {
     return true;
   }
 
-  const allElements = Array.from(document.querySelectorAll('body *')).slice(0, 8000);
+  // Tag boundaries read as word breaks, as in parity.mjs: markup whitespace is not text.
+  function boundaryText(root) {
+    const parts = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement?.closest('script,style,noscript')) continue;
+      const value = node.nodeValue.replace(/\s+/g, ' ').trim();
+      if (value) parts.push(value);
+    }
+    return parts.join(' ');
+  }
+
+  // Uncapped: coverage repair only sees scanned elements, so a cap turns the page's tail into whitespace.
+  const allElements = Array.from(document.querySelectorAll('body *'));
   const visibleElements = allElements.filter(isVisible);
 
   // Signal 1 - semantic landmarks and ARIA.
@@ -169,16 +182,14 @@ export function scanPage(options) {
   });
 
   function reduceToOutermost(elements) {
-    const sorted = elements.slice().sort((a, b) => {
-      const rectA = absRect(a);
-      const rectB = absRect(b);
-      return (rectB.w * rectB.h) - (rectA.w * rectA.h);
+    // Containment, not area: a clipped track or carousel row can be far larger than the section holding it.
+    const pool = new Set(elements);
+    const kept = Array.from(pool).filter((element) => {
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        if (pool.has(node)) return false;
+      }
+      return true;
     });
-    const kept = [];
-    for (const element of sorted) {
-      if (kept.some((other) => other !== element && other.contains(element))) continue;
-      kept.push(element);
-    }
     return kept.sort((a, b) => {
       const rectA = absRect(a);
       const rectB = absRect(b);
@@ -198,8 +209,14 @@ export function scanPage(options) {
 
   function innerSections(block) {
     const inside = candidates.filter((element) => element !== block && block.contains(element));
+    const pool = new Set(inside);
     return inside
-      .filter((element) => !inside.some((other) => other !== element && other.contains(element)))
+      .filter((element) => {
+        for (let node = element.parentElement; node && node !== block; node = node.parentElement) {
+          if (pool.has(node)) return false;
+        }
+        return true;
+      })
       .sort((a, b) => absRect(a).top - absRect(b).top);
   }
 
@@ -345,11 +362,11 @@ export function scanPage(options) {
   function gapIntruders(from, to, blockList) {
     const found = [];
     for (const element of visibleElements) {
-      if (blockList.some((block) => block === element || block.contains(element))) continue;
       const rect = absRect(element);
-      if (isWrapper(rect)) continue;
       const overlap = Math.min(rect.bottom, to) - Math.max(rect.top, from);
       if (overlap <= 2 || overlap < rect.h * 0.5) continue;
+      if (isWrapper(rect)) continue;
+      if (blockList.some((block) => block === element || block.contains(element))) continue;
       if (!isPainted(element)) continue;
       found.push(element);
       if (found.length >= 8) break;
@@ -483,7 +500,8 @@ export function scanPage(options) {
 
   function mediaSnapshot(element) {
     const items = [];
-    const nodes = Array.from(element.querySelectorAll('img,video,source,iframe,svg')).slice(0, 25);
+    // Uncapped: asset acquisition reads this list, so a dropped node is a dropped asset.
+    const nodes = Array.from(element.querySelectorAll('img,video,source,iframe,svg'));
     for (const node of nodes) {
       const tag = node.tagName.toLowerCase();
       const style = getComputedStyle(node);
@@ -535,7 +553,7 @@ export function scanPage(options) {
   const records = blocks.map((element) => {
     const rect = absRect(element);
     const info = meta.get(element) || {};
-    const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+    const text = boundaryText(element);
     const firstMedia = element.querySelector('img,video,iframe,svg');
     const classChain = [];
     let node = element;

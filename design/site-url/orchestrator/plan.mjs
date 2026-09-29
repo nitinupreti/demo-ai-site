@@ -34,6 +34,25 @@ export const SHARED_PATH_PATTERNS = [
   /(^|\/)filter\.xml$/,
 ];
 
+/** The part of the shared layer a shared repair may change: tokens, base styles, fonts, clientlib-base. */
+export function sharedDesignPaths(repoRoot) {
+  const appsRoot = 'ui.apps/src/main/content/jcr_root/apps';
+  let apps = [];
+  try {
+    apps = fs.readdirSync(path.join(repoRoot, appsRoot), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    // No ui.apps module; the frontend layer is still shared.
+  }
+  // clientlib-site is generated from ui.frontend at build time, so it is repaired at that source.
+  return [
+    'ui.frontend/src/main/webpack/site',
+    'ui.frontend/src/main/webpack/resources',
+    ...apps.map((app) => `${appsRoot}/${app}/clientlibs/clientlib-base`),
+  ];
+}
+
 /** Converts a glob-ish or regex-source string from configuration into a matcher. */
 function toPattern(entry) {
   if (entry instanceof RegExp) return entry;

@@ -6,6 +6,7 @@
  * Ordering comes from the plan's `order_index`, never from the order workers finished in,
  * so a parallel run and a serial run produce byte-identical output.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -234,6 +235,8 @@ function writeFile(filePath, contents) {
   return filePath;
 }
 
+const sha256 = (contents) => crypto.createHash('sha256').update(contents).digest('hex');
+
 function existingEol(filePath) {
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, 'utf8').includes('\r\n') ? '\r\n' : '\n';
@@ -400,25 +403,49 @@ export function validateContribution(component, result, { instanceOrder, written
 }
 
 /**
- * Writes every shared artifact from the collected declarations.
- * Returns the files written plus any conflict that stopped a write.
+ * Writes every shared artifact from the collected declarations. `receipt` maps each file to the
+ * hash compose last wrote to it; a file that no longer matches was changed since, and is kept.
+ * Returns the files written and kept, the receipt to store, and any conflict that stopped a write.
  */
-export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
+export function applyContributions({
+  repoRoot, plan, results, instanceOrder, receipt = {},
+}) {
   const collected = collectContributions(plan, results, { instanceOrder });
   const shared = plan.shared || {};
   const written = [];
 
   if (collected.conflicts.length) {
-    return { written, conflicts: collected.conflicts, collected };
+    return {
+      written, kept: [], receipt, conflicts: collected.conflicts, collected,
+    };
   }
+
+  // Judged before anything is written, so a file holding two targets is not taken for an edit.
+  const edited = new Set(Object.keys(receipt).filter((file) => {
+    const absolute = path.join(repoRoot, file);
+    return fs.existsSync(absolute) && sha256(fs.readFileSync(absolute)) !== receipt[file];
+  }));
+  const kept = new Set();
+  const next = { ...receipt };
+  const compose = (file, render) => {
+    const key = String(file).replaceAll('\\', '/');
+    if (edited.has(key)) {
+      kept.add(key);
+      return;
+    }
+    const contents = render();
+    if (contents === null) return;
+    written.push(writeFile(path.join(repoRoot, key), contents));
+    next[key] = sha256(contents);
+  };
 
   for (const [targetPath, nodes] of collected.nodesByTarget) {
     const explicit = (shared.compose_targets || {})[targetPath];
     if (explicit?.file) {
-      const absolute = path.join(repoRoot, explicit.file);
-      const eol = explicit.eol || existingEol(absolute) || shared.eol || '\n';
-      const document = composeDocument({ ...explicit, eol }, nodes);
-      written.push(writeFile(absolute, serializeJcrXml(document)));
+      compose(explicit.file, () => {
+        const eol = explicit.eol || existingEol(path.join(repoRoot, explicit.file)) || shared.eol || '\n';
+        return serializeJcrXml(composeDocument({ ...explicit, eol }, nodes));
+      });
       continue;
     }
 
@@ -440,19 +467,21 @@ export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
       });
       continue;
     }
-    const document = parseJcrXml(fs.readFileSync(absolute, 'utf8'));
-    const container = findNodePath(document.root, derived.node_path);
-    if (!container) {
-      collected.conflicts.push({
-        kind: 'missing-container',
-        target: targetPath,
-        detail: `${derived.node_path.join('/')} is not present in ${derived.file}`,
-      });
-      continue;
-    }
-    // The container is authored empty, so replacing its children keeps re-runs byte-identical.
-    container.children = nodes.map((entry) => entry.node);
-    written.push(writeFile(absolute, serializeJcrXml(document)));
+    compose(derived.file, () => {
+      const document = parseJcrXml(fs.readFileSync(absolute, 'utf8'));
+      const container = findNodePath(document.root, derived.node_path);
+      if (!container) {
+        collected.conflicts.push({
+          kind: 'missing-container',
+          target: targetPath,
+          detail: `${derived.node_path.join('/')} is not present in ${derived.file}`,
+        });
+        return null;
+      }
+      // The container is authored empty, so replacing its children keeps re-runs byte-identical.
+      container.children = nodes.map((entry) => entry.node);
+      return serializeJcrXml(document);
+    });
   }
 
   if (shared.policies_file && (collected.policies.size || collected.additions.size)) {
@@ -464,9 +493,11 @@ export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
         detail: 'declared policies cannot be merged into a file that does not exist',
       });
     } else {
-      const document = parseJcrXml(fs.readFileSync(policiesPath, 'utf8'));
-      mergePolicies(document, collected.policies, collected.additions);
-      written.push(writeFile(policiesPath, serializeJcrXml(document)));
+      compose(shared.policies_file, () => {
+        const document = parseJcrXml(fs.readFileSync(policiesPath, 'utf8'));
+        mergePolicies(document, collected.policies, collected.additions);
+        return serializeJcrXml(document);
+      });
     }
   }
 
@@ -475,11 +506,12 @@ export function applyContributions({ repoRoot, plan, results, instanceOrder }) {
     [shared.clientlib_js_index, shared.clientlib_js_index_header || '#base=js', collected.jsEntries],
   ]) {
     if (!indexPath || !entries.length) continue;
-    const contents = `${[header, ...entries].join('\n')}\n`;
-    written.push(writeFile(path.join(repoRoot, indexPath), contents));
+    compose(indexPath, () => `${[header, ...entries].join('\n')}\n`);
   }
 
-  return { written, conflicts: collected.conflicts, collected };
+  return {
+    written, kept: [...kept], receipt: next, conflicts: collected.conflicts, collected,
+  };
 }
 
 export { escapeJcrValue };

@@ -73,8 +73,8 @@ export function parseJcrXml(text) {
   return { declaration, root, eol };
 }
 
-export function escapeJcrValue(value) {
-  return String(value)
+function escapeXml(value) {
+  return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('"', '&quot;')
@@ -82,12 +82,28 @@ export function escapeJcrValue(value) {
     .replaceAll('\n', '&#xa;');
 }
 
+// FileVault's Document View reads `\` as an escape, a leading `{` as a type and a leading `[` as a list.
+function escapeDocView(value, multi) {
+  const escaped = value.replaceAll('\\', '\\\\');
+  if (multi) return escaped.replaceAll(',', '\\,');
+  return /^[[{]/.test(escaped) ? `\\${escaped}` : escaped;
+}
+
+/** Escapes plain text as a single-valued Document View attribute value. */
+export function escapeJcrValue(value) {
+  return escapeXml(escapeDocView(String(value), false));
+}
+
+// The type hints FileVault's parser accepts; a declared string that starts with one keeps its type.
+const JCR_TYPE_HINT = /^\{(?:String|Long|Double|Decimal|Date|Boolean|Name|Path|Reference|WeakReference|URI)\}/;
+
 /** Converts a JavaScript value to its JCR typed-string form. */
 export function toJcrValue(value) {
-  if (Array.isArray(value)) return `[${value.map((entry) => String(entry).replaceAll(',', '\\,')).join(',')}]`;
+  if (Array.isArray(value)) return `[${value.map((entry) => escapeXml(escapeDocView(String(entry), true))).join(',')}]`;
   if (typeof value === 'boolean') return `{Boolean}${value}`;
   if (typeof value === 'number') return Number.isInteger(value) ? `{Long}${value}` : `{Double}${value}`;
-  return escapeJcrValue(value);
+  const text = String(value);
+  return JCR_TYPE_HINT.test(text) ? escapeXml(text) : escapeJcrValue(text);
 }
 
 export function createNode(name, properties = {}, children = []) {
@@ -179,12 +195,35 @@ export function setAttribute(node, name, rawValue) {
   else node.attributes.push([name, rawValue]);
 }
 
-/** Parses a JCR multi-value string such as `[a,b,c]` back into an array. */
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+function decodeXml(raw) {
+  return raw.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (match, entity) => {
+    if (entity[0] !== '#') return XML_ENTITIES[entity.toLowerCase()];
+    const hex = entity[1].toLowerCase() === 'x';
+    return String.fromCodePoint(Number.parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10));
+  });
+}
+
+/** Parses a JCR multi-value attribute such as `[a,b,c]` back into the plain values it holds. */
 export function parseJcrList(rawValue) {
   if (!rawValue) return [];
-  const trimmed = rawValue.trim();
+  const trimmed = decodeXml(rawValue).trim();
   if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return [trimmed];
+  const values = [];
+  let current = '';
   const body = trimmed.slice(1, -1);
-  if (!body) return [];
-  return body.split(/(?<!\\),/).map((entry) => entry.replaceAll('\\,', ',').trim()).filter(Boolean);
+  for (let index = 0; index < body.length; index += 1) {
+    if (body[index] === '\\' && index + 1 < body.length) {
+      index += 1;
+      current += body[index];
+    } else if (body[index] === ',') {
+      values.push(current);
+      current = '';
+    } else {
+      current += body[index];
+    }
+  }
+  values.push(current);
+  return values.map((entry) => entry.trim()).filter(Boolean);
 }

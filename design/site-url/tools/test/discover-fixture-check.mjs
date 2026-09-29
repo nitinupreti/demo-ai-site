@@ -64,6 +64,13 @@ const CASES = [
     blocks: everywhere([HEADER, 'div.hero', 'img.picture', 'p.caption', 'div.feature', FOOTER]),
     instances: 6,
   },
+  {
+    // decode() on a lazy image the viewport never reaches waits for a fetch that never starts.
+    id: 'clipped-lazy',
+    blocks: everywhere([HEADER, 'div.hero', 'div.ticker', 'div.feature', FOOTER]),
+    instances: 5,
+    promoted: 2,
+  },
 ];
 
 const failures = [];
@@ -80,7 +87,7 @@ for (const spec of CASES) {
     '--breakpoints', BREAKPOINTS.join(','),
     '--settle-ms', '0',
     '--run-id', `discover-fixture-${spec.id}`,
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 });
 
   const artifactPath = path.join(outDir, 'discovery.json');
   if (!fs.existsSync(artifactPath)) {
@@ -106,6 +113,13 @@ for (const spec of CASES) {
     for (const instance of artifact.instances) {
       const missing = BREAKPOINTS.filter((width) => !instance.selector[width]);
       expect(!missing.length, `${spec.id}: "${instance.label}" is not one instance at every width, missing ${missing.join(', ')}`);
+    }
+  }
+
+  if (spec.promoted !== undefined) {
+    for (const readiness of artifact.readiness) {
+      expect(readiness.images.promoted === spec.promoted,
+        `${spec.id} @${readiness.breakpoint}: expected ${spec.promoted} clipped lazy images loaded eagerly, got ${readiness.images.promoted}`);
     }
   }
 

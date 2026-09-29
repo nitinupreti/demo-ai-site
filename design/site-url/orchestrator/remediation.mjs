@@ -8,13 +8,13 @@
  */
 export const DEFAULT_RETRIES = 2;
 
-/** Failures that belong to one owning layer are fixed once, not once per component. */
-const SHARED_LAYERS = new Set(['typography-tokens', 'color-tokens', 'font-delivery', 'capture-readiness']);
-const PLAN_LAYERS = new Set(['plan-or-selector']);
-
 /** The whole page is an owner in its own right: no single component owns a missing section. */
 export const PAGE_SCOPE_ID = '__page__';
 export const PAGE_LAYER = 'page-composition';
+
+/** Layers whose cause can sit in the shared design layer foundations wrote, not in one component. */
+const SHARED_DESIGN_LAYERS = new Set(['typography-tokens', 'color-tokens', 'font-delivery']);
+export const SHARED_REPAIR_LAYER = 'shared-design';
 
 function allEntries(ledger) {
   const entries = [...ledger.components.values()];
@@ -95,12 +95,13 @@ export function eligible(ledger) {
 }
 
 /**
- * Groups failing components by the layer that owns the defect, carrying the breakpoints each one
- * failed at so the agent is told where to look. The budget is still the component's: one edit has
- * to hold at every width, so a fix that only lands at one is not a fix.
+ * One batch, and so one agent, per failing component, carrying the layer blamed and the
+ * breakpoints it failed at so the agent is told where to look. Owned paths are disjoint, so every
+ * batch can run at once. The budget is still the component's: one edit has to hold at every
+ * width, so a fix that only lands at one is not a fix. Components blamed on a shared design layer
+ * are also listed in `shared`, for one repair of that layer ahead of the component agents.
  */
 export function routeFailures(parity, plan, ledger) {
-  const byLayer = new Map();
   const widthsByComponent = new Map();
   for (const row of parity.results || []) {
     if (row.status === 'PASS' || row.status === 'SKIPPED') continue;
@@ -108,32 +109,42 @@ export function routeFailures(parity, plan, ledger) {
     widthsByComponent.get(row.component_id).add(row.breakpoint);
   }
 
+  // One component with several parity targets must still cost one attempt, not one per target.
+  const layers = new Map();
   for (const component of parity.components || []) {
     if (component.status === 'PASS' || component.status === 'SKIPPED') continue;
     const entry = ledger.components.get(component.component_id);
-    if (!entry || !spendable(ledger, entry)) continue;
-
-    const layer = component.owning_layer_hint || 'component-css';
-    if (!byLayer.has(layer)) byLayer.set(layer, []);
-    byLayer.get(layer).push(component.component_id);
+    if (!entry || !spendable(ledger, entry) || layers.has(component.component_id)) continue;
+    layers.set(component.component_id, component.owning_layer_hint || 'component-css');
   }
 
   const order = new Map(plan.components.map((component, index) => [component.id, index]));
   const widthsOf = (id) => [...(widthsByComponent.get(id) || [])].sort((left, right) => left - right);
-  const batches = [...byLayer.entries()]
-    .map(([layer, components]) => {
-      // One component with several parity targets must still cost one attempt, not one per target.
-      const ids = [...new Set(components)].sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
-      return {
-        batch_id: `${ledger.round}-${layer}`,
-        layer,
-        scope: PLAN_LAYERS.has(layer) ? 'plan' : SHARED_LAYERS.has(layer) ? 'shared' : 'component',
-        components: ids,
-        breakpoints: [...new Set(ids.flatMap(widthsOf))].sort((left, right) => left - right),
-        targets: ids.map((id) => ({ component_id: id, breakpoints: widthsOf(id) })),
-      };
-    })
-    .sort((left, right) => left.layer.localeCompare(right.layer));
+  const batches = [...layers.keys()]
+    .sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0))
+    .map((id) => ({
+      batch_id: `${ledger.round}-${id}`,
+      layer: layers.get(id),
+      scope: 'component',
+      components: [id],
+      breakpoints: widthsOf(id),
+      targets: [{ component_id: id, breakpoints: widthsOf(id) }],
+    }));
+
+  // One width blamed on a shared layer is enough; the component's own hint names only its first.
+  const blamedByRow = new Set((parity.results || [])
+    .filter((row) => row.status !== 'PASS' && row.status !== 'SKIPPED' && SHARED_DESIGN_LAYERS.has(row.owning_layer_hint))
+    .map((row) => row.component_id));
+  const blamed = batches.map((batch) => batch.components[0])
+    .filter((id) => SHARED_DESIGN_LAYERS.has(layers.get(id)) || blamedByRow.has(id));
+  const shared = blamed.length ? {
+    batch_id: `${ledger.round}-shared`,
+    layer: SHARED_REPAIR_LAYER,
+    scope: 'shared',
+    components: blamed,
+    breakpoints: [...new Set(blamed.flatMap(widthsOf))].sort((left, right) => left - right),
+    targets: blamed.map((id) => ({ component_id: id, breakpoints: widthsOf(id) })),
+  } : null;
 
   // Only once no component is still fixable: a component fix usually moves the page with it, and
   // every crop can score green while the page is short, reordered or missing a section entirely.
@@ -149,11 +160,7 @@ export function routeFailures(parity, plan, ledger) {
     });
   }
 
-  return {
-    batches,
-    parallel: batches.filter((batch) => batch.scope === 'component'),
-    serialized: batches.filter((batch) => batch.scope !== 'component'),
-  };
+  return { batches, shared };
 }
 
 export function recordAttempt(ledger, { componentId, batchId, layer, hypothesis, changedFiles }) {

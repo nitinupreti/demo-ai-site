@@ -21,13 +21,16 @@ import {
   describeBrokenBundles, focusedTestPlan, planDeployment, runDeployment, runValidation,
   validationPlan, verifyBundles,
 } from './deploy.mjs';
-import { parityComponents, planSummary, validatePlan } from './plan.mjs';
+import { parityComponents, planSummary, sharedDesignPaths, validatePlan } from './plan.mjs';
 import {
   advanceRound, applyParity, createLedger, environmentBlocked, finalizeLedger, ledgerSnapshot,
   PAGE_SCOPE_ID, recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
-import { collectChanges, createWorkspace, mergeChanges, removeWorkspace } from './workspaces.mjs';
+import {
+  collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
+} from './workspaces.mjs';
+import { ensureCopilot, ensureTools } from '../tools/setup.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const siteUrlDir = path.dirname(here);
@@ -62,6 +65,11 @@ export function thresholdForEffort(effort, fallback = DEFAULTS.threshold) {
 }
 
 const TUNING_FILE = 'run-tuning.json';
+const FOUNDATIONS_VERDICT = 'foundations.json';
+const COMPOSE_RECEIPT = 'compose.json';
+
+// Content-package sources; every one is built after foundations, whatever it touched.
+const CONTENT_SOURCE = /^[^/]+\/src\/main\/content\/jcr_root\//;
 
 /** Single source of truth for run defaults, shared by the CLI and direct orchestrate() calls. */
 export const DEFAULTS = Object.freeze({
@@ -74,6 +82,7 @@ export const DEFAULTS = Object.freeze({
   threshold: 0.85,
   maxParityRetries: 2,
   planRepairs: 2,
+  foundationsRepairs: 2,
   // How long discovery waits for scripts to finish mutating the layout before it scans.
   settleMs: 3000,
 });
@@ -208,7 +217,10 @@ export function readCheckpoint({ evidenceDir, siteUrl, targetPath }) {
   if (targetPath && plan.shared?.page_path !== targetPath) return checkpoint;
   checkpoint.plan = plan;
 
-  checkpoint.foundations = readJson(path.join(evidenceDir, 'agents', 'foundations', 'result.json'))?.status === 'PASS';
+  // The orchestrator's verdict, not the agent's; runs that predate it fall back to the agent result.
+  const foundations = readJson(path.join(evidenceDir, FOUNDATIONS_VERDICT))
+    ?? readJson(path.join(evidenceDir, 'agents', 'foundations', 'result.json'));
+  checkpoint.foundations = foundations?.status === 'PASS';
   if (!checkpoint.foundations) return checkpoint;
 
   const assets = readJson(path.join(evidenceDir, 'assets.json'));
@@ -287,6 +299,14 @@ async function pool(items, limit, worker) {
   });
   await Promise.all(runners);
   return results;
+}
+
+/** Names what changed under a phase that merges agents' work, and how to carry on. */
+function describeEdits(files, during, runId) {
+  const shown = files.length > 8 ? `${files.slice(0, 8).join(', ')} and ${files.length - 8} more` : files.join(', ');
+  return `${files.length} file(s) changed in the repository during ${during}, outside any merge: ${shown}. `
+    + `Nothing was merged over them. Finish editing, then rerun the same command with --resume ${runId};`
+    + ' edits made between runs are kept and deployed';
 }
 
 export async function orchestrate(rawOptions, services) {
@@ -443,31 +463,70 @@ export async function orchestrate(rawOptions, services) {
 
   // 3. Foundations — serialized; the only writer of shared design files.
   phase = startPhase('foundations');
-  const foundationsDir = path.join(evidenceDir, 'agents', 'foundations');
   if (!checkpoint.foundations) {
-    const foundations = await runAgentRole({
-      copilot,
-      role: 'foundations',
-      id: 'foundations',
-      prompt: [
-        readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
-        '## Task', '',
-        `- plan: \`${path.relative(repoRoot, planPath)}\``,
-        `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
-        `- page path: \`${options.targetPath}\` — build its skeleton and give it its own`,
-        '  replace-mode filter root, not a `mode="merge"` one.',
-        `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
-        `- write result to: \`${path.relative(repoRoot, path.join(foundationsDir, 'result.json'))}\``,
-      ].join('\n'),
-      cwd: repoRoot,
-      ...agentTuning(options),
-      agentDir: foundationsDir,
-      renderer,
-      spawnFn,
-    });
-    track(foundations, { phase: 'foundations' });
-    if (foundations.status !== 'PASS') {
-      endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+    const verdictPath = path.join(evidenceDir, FOUNDATIONS_VERDICT);
+    // Written first, so a run killed mid-phase cannot resume on a tree nobody checked.
+    writeJson(verdictPath, { status: 'RUNNING' });
+    // Foundations rewrites the skeletons compose fills, so compose's last write no longer tells an edit apart.
+    fs.rmSync(path.join(evidenceDir, COMPOSE_RECEIPT), { force: true });
+    const maxAttempts = options.foundationsRepairs + 1;
+    let feedback = '';
+    let validation = null;
+    let attempt = 0;
+    while (attempt < maxAttempts && validation?.status !== 'PASS') {
+      attempt += 1;
+      const id = attempt === 1 ? 'foundations' : `foundations-${attempt}`;
+      const agentDir = path.join(evidenceDir, 'agents', id);
+      const foundations = await runAgentRole({
+        copilot,
+        role: 'foundations',
+        id,
+        prompt: [
+          readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
+          '## Task', '',
+          `- plan: \`${path.relative(repoRoot, planPath)}\``,
+          `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
+          `- page path: \`${options.targetPath}\` — build its skeleton and give it its own`,
+          '  replace-mode filter root, not a `mode="merge"` one.',
+          `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
+          `- write result to: \`${path.relative(repoRoot, path.join(agentDir, 'result.json'))}\``,
+          feedback,
+        ].join('\n'),
+        cwd: repoRoot,
+        ...agentTuning(options),
+        agentDir,
+        renderer,
+        spawnFn,
+      });
+      track(foundations, { phase: 'foundations', attempt });
+      if (foundations.status !== 'PASS') {
+        writeJson(verdictPath, { status: 'FAIL', attempts: attempt, error: foundations.error || 'foundations failed' });
+        endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+        return { status: 'FAIL', phases, state, plan };
+      }
+      // Every content package, all folders: afterwards a worker's check can only fail on its own files.
+      validation = await runValidation({
+        workspaceRoot: repoRoot,
+        steps: validationPlan([...snapshotTree(repoRoot, options.workspace).keys()]
+          .filter((file) => CONTENT_SOURCE.test(file))),
+        execFn,
+      });
+      if (validation.status !== 'PASS' && attempt < maxAttempts) {
+        renderer.warn(`foundations attempt ${attempt}/${maxAttempts} rejected: ${validation.label} does not build`);
+        feedback = [
+          '', `## Attempt ${attempt} of ${maxAttempts} was rejected`, '',
+          `The tree does not build after your changes (${validation.label}):`, validation.detail, '',
+          'Fix exactly this, then write your result again. The tree is not reset between attempts,',
+          'so keep the rest of your work.',
+        ].join('\n');
+      }
+    }
+    writeJson(verdictPath, validation.status === 'PASS'
+      ? { status: 'PASS', attempts: attempt }
+      : { status: 'FAIL', attempts: attempt, label: validation.label, detail: validation.detail });
+    if (validation.status !== 'PASS') {
+      endPhase(phase, 'FAIL', `tree does not build after ${attempt} foundations attempt(s) (${validation.label}): `
+        + validation.detail.split('\n')[0]);
       return { status: 'FAIL', phases, state, plan };
     }
   }
@@ -539,6 +598,9 @@ export async function orchestrate(rawOptions, services) {
   if (alreadyBuilt.size === plan.components.length) {
     reusePhase(phase, `${alreadyBuilt.size} components already built`);
   } else {
+  // What is in the tree now is kept and shipped; a change made while workers run is refused.
+  const guard = watchTree(repoRoot, options.workspace);
+  let edited = [];
   for (const [waveIndex, wave] of gate.waves.entries()) {
     const pending = wave.filter((componentId) => !alreadyBuilt.has(componentId));
     if (!pending.length) continue;
@@ -640,7 +702,20 @@ export async function orchestrate(rawOptions, services) {
           }
 
           if (!rejection && invocation.status === 'PASS') {
-            const merged = mergeChanges(workspace, repoRoot, changes, claimed);
+            const merged = mergeChanges(workspace, repoRoot, changes, claimed, guard);
+            if (merged.edited.length) {
+              // Not the worker's fault, and a retry would meet the same edit.
+              renderer.componentFinished(componentId, 'FAIL');
+              return {
+                component_id: componentId,
+                status: 'FAIL',
+                invocation,
+                attempts: attempt,
+                history,
+                duration_seconds: invocation.durationSeconds,
+                error: `not merged: ${merged.edited.join(', ')} changed in the repository while it was being built`,
+              };
+            }
             if (merged.conflicts.length) {
               rejection = `Another component already owns ${merged.conflicts.map((entry) => `${entry.path} (${entry.owner})`).join(', ')}. `
                 + 'Keep your changes inside your own scope and declare shared content through `contributions`.';
@@ -690,28 +765,36 @@ export async function orchestrate(rawOptions, services) {
       persistWorkers();
       return outcome;
     });
-    if (waveResults.some((entry) => entry.status !== 'PASS')) {
+    edited = guard.drift();
+    if (edited.length || waveResults.some((entry) => entry.status !== 'PASS')) {
       fanoutFailed = true;
       break;
     }
   }
   if (fanoutFailed) {
-    const broken = workerResults.filter((entry) => entry.status !== 'PASS');
-    endPhase(phase, 'FAIL', broken.map((entry) => `${entry.component_id}: ${entry.error}`).join('; '));
-    return { status: 'FAIL', phases, state, plan, workerResults };
+    const broken = workerResults.filter((entry) => entry.status !== 'PASS')
+      .map((entry) => `${entry.component_id}: ${entry.error}`);
+    endPhase(phase, 'FAIL', [...(edited.length ? [describeEdits(edited, 'fan-out', runId)] : []), ...broken].join('; '));
+    return {
+      status: 'FAIL', phases, state, plan, workerResults, edited,
+    };
   }
   endPhase(phase, 'PASS', `${workerResults.length} components built across ${gate.waves.length} waves`
     + (alreadyBuilt.size ? `, ${alreadyBuilt.size} reused` : ''));
   }
 
-  // 6. Compose — the orchestrator writes every shared file.
+  // 6. Compose — the orchestrator writes every shared file, except one changed since it last wrote it.
   phase = startPhase('compose');
+  const receiptPath = path.join(evidenceDir, COMPOSE_RECEIPT);
   const composed = applyContributions({
     repoRoot,
     plan,
     results: workerResults.map((entry) => entry.result),
     instanceOrder: new Map(discovery.instances.map((instance) => [instance.id, instance.order])),
+    receipt: readJson(receiptPath)?.files,
   });
+  // Stored even on a conflict, so a file compose did write is never taken for an edit next time.
+  writeJson(receiptPath, { files: composed.receipt });
   if (composed.conflicts.length) {
     const describe = (entry) => [
       entry.kind,
@@ -725,7 +808,11 @@ export async function orchestrate(rawOptions, services) {
   for (const rename of composed.collected?.renames || []) {
     renderer.note(`${rename.component} node "${rename.from}" renamed to "${rename.to}" to keep the page unique`);
   }
-  endPhase(phase, 'PASS', `${composed.written.length} shared files composed`);
+  for (const file of composed.kept) {
+    renderer.warn(`${file} changed since compose last wrote it; kept as it is, and deployed that way`);
+  }
+  endPhase(phase, 'PASS', `${composed.written.length} shared files composed`
+    + (composed.kept.length ? `, ${composed.kept.length} kept as edited` : ''));
 
   // 7. Deploy — exclusive, deterministic, whole reactor.
   phase = startPhase('deploy');
@@ -842,80 +929,153 @@ export async function orchestrate(rawOptions, services) {
     const routed = routeFailures(parity, plan, ledger);
     if (!routed.batches.length) break;
     rounds += 1;
+    // Watched per round, because the redeploy between rounds regenerates build output in the tree.
+    const guard = watchTree(repoRoot, options.workspace);
+    const edited = new Set();
 
-    for (const batch of [...routed.serialized, ...routed.parallel]) {
-      renderer.note(`round ${ledger.round} | ${batch.scope} batch | ${batch.layer} | ${batch.components.join(', ')}`);
-      const members = batch.scope === 'component' ? batch.components : [batch.components.join('+')];
-      await pool(members, batch.scope === 'component' ? options.maxParallel : 1, async (member) => {
-        const ids = member.split('+');
-        // A page batch owns every component, so name it for the scope instead of concatenating ids.
-        const label = batch.scope === 'page' ? 'page' : ids.join('-');
-        const ledgerIds = batch.scope === 'page' ? [PAGE_SCOPE_ID] : ids;
-        const scopePaths = ids.flatMap((id) => byId.get(id)?.owned_paths || []);
-        const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-${label}`);
-        const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
-        workspace.id = `fix-${label}`;
-        const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-${label}`);
-        const deltas = ids.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence));
+    // A shared cause is fixed once, first and alone, so every component agent builds on the fix.
+    let sharedRepair = null;
+    if (routed.shared) {
+      const shared = routed.shared;
+      renderer.note(`round ${ledger.round} | shared repair | ${shared.layer} | ${shared.components.join(', ')}`);
+      const sharedPaths = sharedDesignPaths(repoRoot);
+      const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-shared`);
+      const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
+      workspace.id = 'fix-shared';
+      const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-shared`);
+      try {
+        const invocation = await runAgentRole({
+          copilot,
+          role: 'remediation',
+          id: 'fix-shared',
+          prompt: [
+            readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
+            '## Task', '',
+            '```json',
+            JSON.stringify({
+              mode: 'repair', round: ledger.round, batch: shared.batch_id, owning_layer: shared.layer,
+              components: shared.components, owned_paths: sharedPaths,
+              breakpoints: shared.breakpoints,
+              threshold: parity.threshold,
+              result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+              page_composite: compositeWithEvidence(parity.page_composite),
+              deltas: shared.components.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence)),
+            }, null, 2),
+            '```',
+          ].join('\n'),
+          cwd: workspaceRoot,
+          model: options.model,
+          effort: options.effort,
+          agentDir,
+          renderer,
+          spawnFn,
+        });
+        track(invocation, { phase: 'remediation', round: ledger.round, batch: shared.batch_id, component_id: shared.components.join('+') });
 
-        try {
-          const invocation = await runAgentRole({
-            copilot,
-            role: 'remediation',
-            id: `fix-${label}`,
-            prompt: [
-              readPrompt('_contract.md'), '', readPrompt('remediation.md'), '',
-              '## Task', '',
-              '```json',
-              JSON.stringify({
-                round: ledger.round, batch: batch.batch_id, owning_layer: batch.layer,
-                components: ids, owned_paths: scopePaths,
-                // The widths this component is failing at; one edit has to hold at all of them.
-                breakpoints: batch.breakpoints,
-                threshold: parity.threshold,
-                result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
-                // Per-component crops cannot show a missing or reordered section; the page can.
-                page_composite: compositeWithEvidence(parity.page_composite),
-                deltas,
-              }, null, 2),
-              '```',
-            ].join('\n'),
-            cwd: workspaceRoot,
-            model: options.model,
-            effort: options.effort,
-            agentDir,
-            renderer,
-            spawnFn,
-          });
-          track(invocation, { phase: 'remediation', round: ledger.round, batch: batch.batch_id, component_id: ids.join('+') });
-
-          const changes = collectChanges(workspace, scopePaths);
-          if (changes.valid && invocation.status === 'PASS') {
-            mergeChanges(workspace, repoRoot, changes, new Map());
-            for (const id of ledgerIds) {
-              recordAttempt(ledger, {
-                componentId: id,
-                batchId: batch.batch_id,
-                layer: batch.layer,
-                hypothesis: invocation.result?.notes,
-                changedFiles: changes.changed,
-              });
-            }
-          } else {
-            for (const id of ledgerIds) {
-              recordAttempt(ledger, {
-                componentId: id,
-                batchId: batch.batch_id,
-                layer: batch.layer,
-                hypothesis: invocation.error,
-              });
-            }
-          }
-          return invocation;
-        } finally {
-          removeWorkspace(workspaceRoot);
+        // No component attempt is charged: each blamed component still gets its own agent below.
+        const changes = collectChanges(workspace, sharedPaths);
+        if (changes.valid && invocation.status === 'PASS') {
+          const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
+          merged.edited.forEach((file) => edited.add(file));
+          if (!merged.edited.length) sharedRepair = { changed_files: changes.changed, notes: invocation.result?.notes || null };
+        } else {
+          renderer.note(`shared repair not applied: ${invocation.error || `outside the shared layer: ${changes.violations.join(', ')}`}`);
         }
-      });
+      } finally {
+        removeWorkspace(workspaceRoot);
+      }
+      for (const file of guard.drift()) edited.add(file);
+    }
+
+    // One agent per batch, all at once up to --max-parallel; a page batch only ever comes alone.
+    // An edit made during the shared repair stops the round before any of them starts.
+    const roundBatches = edited.size ? [] : routed.batches;
+    for (const batch of roundBatches) {
+      renderer.note(`round ${ledger.round} | ${batch.scope} batch | ${batch.layer} | ${batch.components.join(', ')}`);
+    }
+    await pool(roundBatches, options.maxParallel, async (batch) => {
+      const ids = batch.components;
+      // A page batch owns every component, so name it for the scope instead of concatenating ids.
+      const label = batch.scope === 'page' ? 'page' : ids.join('-');
+      const ledgerIds = batch.scope === 'page' ? [PAGE_SCOPE_ID] : ids;
+      const scopePaths = ids.flatMap((id) => byId.get(id)?.owned_paths || []);
+      const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-${label}`);
+      const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
+      workspace.id = `fix-${label}`;
+      const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-${label}`);
+      const deltas = ids.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence));
+
+      try {
+        const invocation = await runAgentRole({
+          copilot,
+          role: 'remediation',
+          id: `fix-${label}`,
+          prompt: [
+            readPrompt('_contract.md'), '', readPrompt('remediation.md'), '',
+            '## Task', '',
+            '```json',
+            JSON.stringify({
+              round: ledger.round, batch: batch.batch_id, owning_layer: batch.layer,
+              components: ids, owned_paths: scopePaths,
+              // The widths this component is failing at; one edit has to hold at all of them.
+              breakpoints: batch.breakpoints,
+              threshold: parity.threshold,
+              result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+              // Per-component crops cannot show a missing or reordered section; the page can.
+              page_composite: compositeWithEvidence(parity.page_composite),
+              deltas,
+              ...(sharedRepair ? { shared_repair: sharedRepair } : {}),
+            }, null, 2),
+            '```',
+          ].join('\n'),
+          cwd: workspaceRoot,
+          model: options.model,
+          effort: options.effort,
+          agentDir,
+          renderer,
+          spawnFn,
+        });
+        track(invocation, { phase: 'remediation', round: ledger.round, batch: batch.batch_id, component_id: ids.join('+') });
+
+        const changes = collectChanges(workspace, scopePaths);
+        if (changes.valid && invocation.status === 'PASS') {
+          const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
+          if (merged.edited.length) {
+            merged.edited.forEach((file) => edited.add(file));
+            return invocation;
+          }
+          for (const id of ledgerIds) {
+            recordAttempt(ledger, {
+              componentId: id,
+              batchId: batch.batch_id,
+              layer: batch.layer,
+              hypothesis: invocation.result?.notes,
+              changedFiles: changes.changed,
+            });
+          }
+        } else {
+          for (const id of ledgerIds) {
+            recordAttempt(ledger, {
+              componentId: id,
+              batchId: batch.batch_id,
+              layer: batch.layer,
+              hypothesis: invocation.error,
+            });
+          }
+        }
+        return invocation;
+      } finally {
+        removeWorkspace(workspaceRoot);
+      }
+    });
+    for (const file of guard.drift()) edited.add(file);
+    if (edited.size) {
+      const files = [...edited].sort();
+      writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
+      endPhase(phase, 'FAIL', describeEdits(files, 'remediation', runId));
+      return {
+        status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger), edited: files,
+      };
     }
 
     const redeploy = await runDeployment({
@@ -988,6 +1148,7 @@ async function main() {
 
   // Listing what the account can use is a question about the account, not about a migration.
   if (options.listModels) {
+    ensureCopilot();
     findCopilot();
     const models = await listAvailableModels();
     console.log('\nModels available to the authenticated GitHub account:');
@@ -1058,6 +1219,7 @@ orchestrator/run.mjs — multi-agent AEM migration
     : path.join(scratchDir, `migration-${runId}`));
   fs.mkdirSync(evidenceDir, { recursive: true });
 
+  ensureCopilot();
   const copilot = findCopilot();
 
   // A resume inherits what the run began with, so only what is still unanswered is asked for.
@@ -1098,6 +1260,8 @@ orchestrator/run.mjs — multi-agent AEM migration
     console.log('Dry run: inputs valid, evidence directory created, no agents started.');
     return;
   }
+
+  console.log(`  capture tools: ${await ensureTools({ log: (text) => console.log(`  ${text}`) })}\n`);
 
   const { spawn } = await import('node:child_process');
   const runTool = (name, args) => new Promise((resolve) => {

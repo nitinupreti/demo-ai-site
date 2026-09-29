@@ -87,6 +87,7 @@ async function captureBreakpoint(browser, { url, width, dpr, settleMs }) {
     }));
     const readiness = await prepareForCapture(page, { width, dynamicSettleMs: 0, stableSelectors });
     readiness.fonts_checked = readinessFirst.fonts_checked;
+    readiness.images.promoted += readinessFirst.images.promoted;
 
     return { page, navigation, readiness, scan };
   } catch (error) {

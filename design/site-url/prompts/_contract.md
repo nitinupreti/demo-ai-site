@@ -11,8 +11,8 @@ everything that can be checked; you own judgement only.
   shape below. Nothing else you say is treated as a result.
 - Stay inside the paths your role prompt lists. Writing outside them is detected by a post-run diff
   and your work will be rejected. Never delete a file you do not own.
-- Never run `mvn`, `npm run build`, a package install, or a deploy. Declare what must be tested; the
-  orchestrator runs it once.
+- Never run `mvn`, `npm run build`, a package install, or a deploy, beyond the read-only checks your
+  role prompt lists. Declare what must be tested; the orchestrator runs it once.
 - Never edit another role's output, the evidence directory of another agent, or anything under
   `design/site-url/tools/` and `design/site-url/orchestrator/`.
 - Never invent a visual score. Scores come only from `parity.mjs`.

@@ -39,6 +39,10 @@
 
     #caption-beside .caption { height: 120px; padding: 16px 24px; }
 
+    #clipped-lazy .ticker { height: 120px; padding: 30px 24px; overflow: hidden; background: #f4f5f7; }
+    #clipped-lazy .track { display: flex; gap: 6000px; width: max-content; }
+    #clipped-lazy .track img { flex: none; width: 60px; height: 60px; }
+
     @media (max-width: 599px) {
       #card-row .row { flex-direction: column; height: auto; }
       #card-row .promo { flex: none; height: 300px; }
@@ -137,6 +141,25 @@
           <p class="caption">A caption that sits beside the image on desktop and below it on mobile.</p>
         </div>
         <div class="feature"><h2>The caption belongs somewhere</h2><p>Every painted region must stay inside a block.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- A ticker clips all but its first lazy image, so the browser never fetches the others. -->
+  <div class="case" id="clipped-lazy">
+    <header class="site-header"><strong>Fixture Co</strong></header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Clipped lazy images still settle</h1><p>Readiness never waits on an image that is not fetched.</p></div>
+        <div class="ticker">
+          <div class="track">
+            <img alt="" loading="lazy" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><rect width='60' height='60' fill='%231f6feb'/></svg>">
+            <img alt="" loading="lazy" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><rect width='60' height='60' fill='%23e5534b'/></svg>">
+            <img alt="" loading="lazy" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><rect width='60' height='60' fill='%232da44e'/></svg>">
+          </div>
+        </div>
+        <div class="feature"><h2>The ticker is one section</h2><p>Its clipped images are loaded rather than awaited forever.</p></div>
       </div>
     </div>
     <footer class="site-footer"><p>Fixture Co footer</p></footer>

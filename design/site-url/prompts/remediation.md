@@ -59,8 +59,12 @@ the plan. Report it in your result and change nothing rather than faking the sec
 ## Scope
 
 You own only the paths in your task block — normally one component's directory, model and style
-partial. Shared tokens, templates and policies belong to a serialized shared batch; if the deltas
-show the defect is shared, say so in your result and change nothing outside your scope.
+partial. Every other failing component is being fixed at the same time by its own agent. Shared
+tokens, fonts and base styles belong to the foundations agent, which remediation calls first in a
+round whenever a shared layer is blamed. If your task block has `shared_repair`, that agent has
+already run: its `changed_files` are in the tree you were given, but your `deltas` were measured
+before them, so do not compensate in your own files for anything they address. If the deltas show
+the defect is shared, say so in your result and change nothing outside your scope.
 
 Never run Maven, npm or a deploy. Never edit `parity.json` or any evidence artefact.
 

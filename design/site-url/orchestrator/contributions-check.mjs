@@ -6,7 +6,9 @@ import process from 'node:process';
 import {
   applyContributions, collectContributions, validateContribution, verifyComposeTargets,
 } from './contributions.mjs';
-import { getAttribute, parseJcrList, parseJcrXml, serializeJcrXml } from './jcr-xml.mjs';
+import {
+  getAttribute, parseJcrList, parseJcrXml, serializeJcrXml, toJcrValue,
+} from './jcr-xml.mjs';
 
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -172,6 +174,10 @@ expect(main.children.map((child) => child.name).join(',') === 'hero,cta',
   `nodes must be ordered by order_index, got ${main.children.map((child) => child.name).join(',')}`);
 expect(getAttribute(main.children[0], 'showVideo') === '{Boolean}true', 'booleans should use JCR typing');
 expect(getAttribute(main.children[0], 'columns') === '{Long}2', 'numbers should use JCR typing');
+// FileVault reads a leading `{...}` as a type, so `{0} items` fails its parser with "unknown type: 0".
+expect(toJcrValue('{0} items') === '\\{0} items' && toJcrValue('Item {0}') === 'Item {0}'
+  && toJcrValue('{Boolean}true') === '{Boolean}true' && toJcrValue(['{0} a', 'b']) === '[{0} a,b]',
+  'only a real type hint may lead a single value; any other leading brace must be escaped');
 expect(getAttribute(main.children[0], 'headline').includes('&quot;') === false
   && getAttribute(main.children[0], 'headline').includes("world's"), 'apostrophes should survive escaping');
 expect(main.children[1].children[0].children[0].name === 'item0', 'nested child nodes should be composed');
@@ -481,6 +487,27 @@ expect(collision.renames.some((entry) => entry.from === 'hero' && entry.to === '
 const collisionNames = [...collision.nodesByTarget.values()][0].map((entry) => entry.node.name);
 expect(new Set(collisionNames).size === collisionNames.length,
   `composed node names must stay unique, got ${collisionNames.join(',')}`);
+
+// A shared file changed since compose last wrote it is kept exactly as it is, and deployed that way.
+const composedOnce = applyContributions({ repoRoot, plan, results: [heroResult, ctaResult, headerResult] });
+const handEdited = fs.readFileSync(path.join(repoRoot, pageFile), 'utf8').replace('Cursor', 'Fixed by hand');
+expect(handEdited.includes('Fixed by hand'), 'the fixture page must carry the title the hand edit replaces');
+fs.writeFileSync(path.join(repoRoot, pageFile), handEdited, 'utf8');
+const recomposed = applyContributions({
+  repoRoot, plan, results: [heroResult, ctaResult, headerResult], receipt: composedOnce.receipt,
+});
+expect(fs.readFileSync(path.join(repoRoot, pageFile), 'utf8') === handEdited, 'compose must not rewrite a hand-edited page');
+expect(recomposed.kept.join() === pageFile, `only the edited file should be kept, got ${recomposed.kept.join() || 'none'}`);
+expect(recomposed.written.length === composedOnce.written.length - 1, 'every file nobody edited must still be composed');
+expect(recomposed.receipt[pageFile] === composedOnce.receipt[pageFile],
+  'the receipt must keep what compose last wrote, so the edit stays protected');
+expect(applyContributions({
+  repoRoot, plan, results: [heroResult, ctaResult, headerResult], receipt: recomposed.receipt,
+}).kept.join() === pageFile, 'a hand edit must stay kept on every later compose');
+// Without a receipt nothing is known to have been edited, so compose owns every file again.
+const reowned = applyContributions({ repoRoot, plan, results: [heroResult, ctaResult, headerResult] });
+expect(reowned.kept.length === 0 && fs.readFileSync(path.join(repoRoot, pageFile), 'utf8') === pageForward,
+  'with no receipt the page must be composed again');
 
 // Round-trip fidelity of the minimal XML layer.
 const sample = fs.readFileSync(path.join(repoRoot, policiesFile), 'utf8');

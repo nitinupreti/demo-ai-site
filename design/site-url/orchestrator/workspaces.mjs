@@ -134,14 +134,60 @@ export function collectChanges(workspace, ownedPaths) {
   };
 }
 
-/** Applies an accepted worker's changes to the shared tree; conflicts are refused, not merged. */
-export function mergeChanges(workspace, repoRoot, changes, claimedPaths) {
+/** The reactor's modules and root POM: what a deploy builds, so the only edits that can ship. */
+function reactorRoots(repoRoot) {
+  let pom;
+  try {
+    pom = fs.readFileSync(path.join(repoRoot, 'pom.xml'), 'utf8');
+  } catch {
+    return null;
+  }
+  const modules = [...pom.matchAll(/<module>\s*([^<]+?)\s*<\/module>/g)].map((match) => normalize(match[1]));
+  return modules.length ? ['pom.xml', ...modules] : null;
+}
+
+/** The tree as the run last left it; a change no merge made is someone editing alongside the workers. */
+export function watchTree(repoRoot, options = {}) {
+  const roots = reactorRoots(repoRoot);
+  const deployable = (relative) => !roots || roots.some((root) => relative === root || relative.startsWith(`${root}/`));
+  const expected = snapshotTree(repoRoot, options);
+  const hashAt = (relative) => {
+    const file = path.join(repoRoot, relative);
+    return fs.existsSync(file) ? hashFile(file) : undefined;
+  };
+  return {
+    /** Those of `files` that changed since the run last saw them. */
+    touched: (files) => files.map(normalize).filter((relative) => hashAt(relative) !== expected.get(relative)),
+    record(files) {
+      for (const relative of files.map(normalize)) {
+        const hash = hashAt(relative);
+        if (hash === undefined) expected.delete(relative);
+        else expected.set(relative, hash);
+      }
+    },
+    /** Every deployable file that differs from what the run expects, however it changed. */
+    drift() {
+      const current = snapshotTree(repoRoot, options);
+      return [...new Set([...expected.keys(), ...current.keys()])]
+        .filter((relative) => deployable(relative) && current.get(relative) !== expected.get(relative))
+        .sort();
+    },
+  };
+}
+
+/**
+ * Applies an accepted worker's changes to the shared tree; conflicts are refused, not merged.
+ * Given a guard, a file edited in the shared tree since the run last saw it is refused as well.
+ */
+export function mergeChanges(workspace, repoRoot, changes, claimedPaths, guard = null) {
   const conflicts = [];
   for (const relative of changes.changed) {
     const owner = claimedPaths.get(normalize(relative));
     if (owner && owner !== workspace.id) conflicts.push({ path: relative, owner });
   }
-  if (conflicts.length) return { applied: [], conflicts };
+  if (conflicts.length) return { applied: [], conflicts, edited: [] };
+  const edited = guard ? guard.touched(changes.changed) : [];
+  if (edited.length) return { applied: [], conflicts: [], edited };
 
   const applied = [];
   for (const relative of [...changes.added, ...changes.modified]) {
@@ -158,7 +204,8 @@ export function mergeChanges(workspace, repoRoot, changes, claimedPaths) {
     claimedPaths.set(normalize(relative), workspace.id);
     applied.push(relative);
   }
-  return { applied, conflicts: [] };
+  guard?.record(applied);
+  return { applied, conflicts: [], edited: [] };
 }
 
 export function removeWorkspace(workspaceRoot) {
