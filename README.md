@@ -16,9 +16,29 @@ The main parts of the template are:
 * all: a single content package that embeds all of the compiled modules (bundles and content packages) including any vendor dependencies
 * analyse: this module runs analysis on the project which provides additional validation for deploying into AEMaaCS
 
-## Local setup on a company laptop
+## Set up a new machine
 
-Do these once per machine, before the first build. They cover what a company laptop gets in the way of: OneDrive, the firewall's SSL inspection and the company certificate.
+Do this once per machine, in this order.
+
+1. **Install the tools**, through the company software portal if your laptop requires it:
+   * Git
+   * Node.js 22 or later, for the migration tools and the Copilot CLI (the Maven build downloads its own Node.js)
+   * a JDK: Java 21, the version Cloud Manager builds with (the local build accepts Java 11 or later)
+   * Maven 3.3.9 or later, with `mvn` on your `PATH`
+   * Google Chrome, which the migration tools use for screenshots (optional: without it they download Chromium)
+   * the AEM as a Cloud Service SDK, to run a local AEM author instance
+2. **Clone the project into a folder OneDrive doesn't sync**, for example `C:\projects\demo-ai-site`; see [Keep the project outside OneDrive](#keep-the-project-outside-onedrive). On Windows, if `git clone` fails with `SSL certificate problem`, run `git config --global http.sslBackend schannel` and clone again.
+3. **Run the setup script** from the project root: `bash scripts/setup-machine.sh`. On Windows run it in **Git Bash**, which comes with Git; on macOS in Terminal. See [Run the setup script](#run-the-setup-script).
+4. **Fix anything the script marks with `!!`**, then run it again; it is safe to repeat. The usual one is `JAVA_HOME` pointing at a JDK that isn't installed: add `--java-home <JDK folder>`.
+5. **Close and reopen your terminals and VS Code**, so they pick up the new settings.
+6. **Sign in to GitHub Copilot**, which migrations need: run `copilot login`, then check with `node design/site-url/orchestrator/run.mjs --list-models`.
+7. **Start your local AEM author and build once**: `mvn clean install -PautoInstallSinglePackage -Daem.port=<your AEM port>`.
+
+You can then run a migration, passing your AEM port:
+
+    node design/site-url/orchestrator/run.mjs --url <source site> --target-path /content/demo-ai-site/<page> --aem-port <your AEM port>
+
+For a local instance the launcher signs in as `admin` with password `admin`; set `AEM_PASSWORD` in that terminal if yours differs.
 
 ### Keep the project outside OneDrive
 
@@ -26,45 +46,17 @@ Clone and build the project in a folder that OneDrive does not sync, for example
 
 Inside a OneDrive folder the build and deploy fail: OneDrive syncs and locks files while Maven and npm create and delete thousands of them (`target/`, `node_modules/`, migration evidence under `design/scratch/`). Typical errors are `Failed to delete ...\target`, `The process cannot access the file because it is being used by another process`, `EPERM: operation not permitted` and `Filename too long`.
 
-### npm: turn off strict SSL (company firewall policy)
+### Run the setup script
 
-The company firewall re-signs HTTPS traffic with its own certificate, so npm rejects registry downloads with `SELF_SIGNED_CERT_IN_CHAIN` or `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Company policy is to turn off npm's certificate check:
+One script works on both systems. Run it from the project root, on Windows in Git Bash (not WSL) and on macOS in Terminal:
 
-    npm config set strict-ssl false
+    bash scripts/setup-machine.sh
 
-* The setting is saved in your user `.npmrc` (`%USERPROFILE%\.npmrc`), so it applies to every npm command you run. That includes the npm the Maven build runs for `ui.frontend`, the migration tools' `npm ci` and global installs such as the Copilot CLI.
-* To check it, run `npm config get strict-ssl`; it prints `false`.
-* To undo it, run `npm config delete strict-ssl`.
-* Never commit an `.npmrc` with this setting to the repository.
+The script sets up the company certificate for Node.js, Maven and Git, and installs the migration tools. It changes only your own user account and is safe to run again.
 
-The setting only affects npm. Maven, Git and Node.js tools make their own HTTPS connections, so they need the company certificate below.
+Run it in a normal terminal. It needs no admin rights, and it sets things up for the account that runs it, so running it as administrator or with `sudo` can set them up for the administrator instead of you.
 
-### Create and trust the company certificate
-
-Create the certificate file once:
-
-1. Run `certmgr.msc` and open **Trusted Root Certification Authorities > Certificates**.
-2. Find the company's inspection certificate. It is usually named after the firewall vendor (for example Netskope or Zscaler) or `<Company> Root CA`.
-3. Right-click it, choose **All Tasks > Export**, pick **Base-64 encoded X.509 (.CER)** and save it as `C:\certs\corp-root.pem`.
-4. If the firewall also uses an issuing certificate (under **Intermediate Certification Authorities**), export it the same way and paste its contents at the end of the same file.
-
-Keep the file outside the repository and never commit it.
-
-Then point each tool at the certificate. `setx` only reaches programs started afterwards, so close and reopen your terminals and VS Code when you are done.
-
-| Tool | Command | Error it fixes |
-|------|---------|----------------|
-| Node.js tools: the migration scripts and Playwright's browser download | `setx NODE_EXTRA_CA_CERTS C:\certs\corp-root.pem` | `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, `self signed certificate in certificate chain` |
-| Maven and Java: dependency downloads and the Node.js download for `ui.frontend` | `setx MAVEN_OPTS "-Djavax.net.ssl.trustStoreType=Windows-ROOT"` | `PKIX path building failed` |
-| Git | `git config --global http.sslBackend schannel` | `SSL certificate problem` |
-
-* The Maven and Git settings read the Windows certificate store, where IT has already installed the company certificate, so they don't need the file.
-* If `MAVEN_OPTS` already has a value, add the flag to it instead of replacing it.
-* On Node.js 22.19+ or 24.6+, `setx NODE_USE_SYSTEM_CA 1` can replace `NODE_EXTRA_CA_CERTS`: Node then reads the Windows certificate store directly and needs no file.
-
-To check Node.js, run this in a new terminal; it prints `200`:
-
-    node -e "fetch('https://registry.npmjs.org/').then((response) => console.log(response.status))"
+If the script says the company certificate is missing, ask IT to install it, then run the script again.
 
 ## How to build
 
