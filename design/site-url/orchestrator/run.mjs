@@ -15,18 +15,25 @@ import { fileURLToPath } from 'node:url';
 import { runAgentRole } from './agent.mjs';
 import { createRenderer, formatDuration } from './console.mjs';
 import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
-import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
+import { applyContributions, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
 import {
-  describeBrokenBundles, focusedTestPlan, planDeployment, runDeployment, runValidation,
-  validationPlan, verifyBundles,
+  checkEnvironment, describeBrokenBundles, focusedTestPlan, planDeployment, planScopedDeployment, probeInstance,
+  runDeployment, runValidation, validationPlan, verifyBundles,
 } from './deploy.mjs';
+import { buildComponent, createSemaphore, scheduleOrder } from './fanout.mjs';
+import { acquireFonts, FONTS_SCSS, writeFontsScss } from './fonts.mjs';
+import { prepareCrops } from './inputs.mjs';
 import { parityComponents, planSummary, sharedDesignPaths, validatePlan } from './plan.mjs';
+import { createPreview } from './preview.mjs';
 import {
   advanceRound, applyParity, createLedger, environmentBlocked, finalizeLedger, ledgerSnapshot,
   PAGE_SCOPE_ID, recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
+import {
+  frontendFiles, readTokenManifest, staticRejection, unresolvedUrls,
+} from './static-checks.mjs';
 import { openTimings } from './timings.mjs';
 import {
   collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
@@ -86,6 +93,15 @@ export const DEFAULTS = Object.freeze({
   foundationsRepairs: 2,
   // How long discovery waits for scripts to finish mutating the layout before it scans.
   settleMs: 3000,
+  // Maven checks run beside the agents, not inside their slots.
+  validationParallel: 2,
+  // Deploy each merged component early and hand its measured deltas back to its own session.
+  preview: true,
+  previewRounds: 1,
+  // An agent whose stream is silent this long is stopped and resumed.
+  agentIdleMinutes: 10,
+  // Re-capture other pages that use this run's components, before and after, and compare.
+  regression: true,
 });
 
 function readPrompt(name) {
@@ -195,13 +211,22 @@ function readJson(filePath) {
   }
 }
 
+/** Same digest discover.mjs records for itself, so a resume can tell which capture it is reusing. */
+function discoverySourceHash() {
+  try {
+    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(path.join(toolsDir, 'discover.mjs'))).digest('hex')}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Artefacts from an earlier run that are safe to reuse. Every one is re-verified here rather
  * than trusted, so a resume can never build on a stale plan or a half-written phase.
  */
 export function readCheckpoint({ evidenceDir, siteUrl, targetPath }) {
   const checkpoint = {
-    discovery: null, plan: null, foundations: false, assets: null, workers: [],
+    discovery: null, plan: null, foundations: false, assets: null, workers: [], warnings: [],
   };
 
   const discovery = readJson(path.join(evidenceDir, 'discovery', 'discovery.json'));
@@ -210,6 +235,12 @@ export function readCheckpoint({ evidenceDir, siteUrl, targetPath }) {
   const recorded = discovery.source?.requested_url || discovery.source?.final_url;
   if (siteUrl && recorded && recorded !== siteUrl) return checkpoint;
   checkpoint.discovery = discovery;
+  // Reused as it is; a fix to the capture since then only reaches a fresh run, so say so.
+  const toolHash = discoverySourceHash();
+  if (discovery.tool?.source_sha256 && toolHash && discovery.tool.source_sha256 !== toolHash) {
+    checkpoint.warnings.push(`discovery.json was captured by an older discover.mjs (${String(discovery.generated_at).slice(0, 10)});`
+      + ' capture fixes made since only apply to a fresh run without --resume');
+  }
 
   const plan = readJson(path.join(evidenceDir, 'plan.json'));
   if (!plan?.components?.length || plan.source_fingerprint !== discovery.source_fingerprint) return checkpoint;
@@ -222,6 +253,7 @@ export function readCheckpoint({ evidenceDir, siteUrl, targetPath }) {
   const foundations = readJson(path.join(evidenceDir, FOUNDATIONS_VERDICT))
     ?? readJson(path.join(evidenceDir, 'agents', 'foundations', 'result.json'));
   checkpoint.foundations = foundations?.status === 'PASS';
+  checkpoint.foundationsUnverified = foundations?.status === 'UNVERIFIED';
   if (!checkpoint.foundations) return checkpoint;
 
   const assets = readJson(path.join(evidenceDir, 'assets.json'));
@@ -268,6 +300,11 @@ export function parseArgs(argv) {
       case '--component-attempts': options.componentAttempts = Number.parseInt(value, 10); index += 1; break;
       case '--visual-pass-ratio': options.threshold = Number.parseFloat(value); options.thresholdPinned = true; index += 1; break;
       case '--max-parity-retries': options.maxParityRetries = Number.parseInt(value, 10); index += 1; break;
+      case '--validation-parallel': options.validationParallel = Number.parseInt(value, 10); index += 1; break;
+      case '--preview-rounds': options.previewRounds = Number.parseInt(value, 10); index += 1; break;
+      case '--no-preview': options.preview = false; break;
+      case '--agent-idle-minutes': options.agentIdleMinutes = Number.parseFloat(value); index += 1; break;
+      case '--no-regression': options.regression = false; break;
       case '--evidence-dir': options.evidenceDir = value; index += 1; break;
       case '--resume': options.resume = value; index += 1; break;
       case '--model': options.model = value; index += 1; break;
@@ -310,6 +347,47 @@ function describeEdits(files, during, runId) {
     + ' edits made between runs are kept and deployed';
 }
 
+const REGRESSION_PAGE_LIMIT = 4;
+
+/**
+ * Pages in the content package other than the one being migrated, those rendering this plan's
+ * resource types first: a component extended for this source, or a token it retuned, reaches them.
+ */
+export function regressionPages(repoRoot, plan, targetPath, limit = REGRESSION_PAGE_LIMIT) {
+  const contentRoot = plan.shared?.content_root || 'ui.content/src/main/content/jcr_root';
+  const base = path.join(repoRoot, contentRoot, 'content');
+  if (!fs.existsSync(base)) return [];
+  const resourceTypes = plan.components.map((component) => component.resource_type).filter(Boolean);
+  const pages = [];
+  const walk = (directory, jcrPath) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      // `_jcr_content` and friends are nodes of a page, not pages.
+      if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
+      const childPath = `${jcrPath}/${entry.name}`;
+      if (/^\/content\/(dam|experience-fragments)(\/|$)/.test(childPath)) continue;
+      if (targetPath && (childPath === targetPath || childPath.startsWith(`${targetPath}/`))) continue;
+      const childDir = path.join(directory, entry.name);
+      const file = path.join(childDir, '.content.xml');
+      if (fs.existsSync(file)) {
+        const text = fs.readFileSync(file, 'utf8');
+        if (/jcr:primaryType="cq:Page"/.test(text) && /<jcr:content[\s>]/.test(text)) {
+          pages.push({
+            path: childPath,
+            uses: resourceTypes.filter((type) => text.includes(`"${type}"`)).length,
+            depth: childPath.split('/').length,
+          });
+        }
+      }
+      walk(childDir, childPath);
+    }
+  };
+  walk(base, '/content');
+  return pages
+    .sort((left, right) => right.uses - left.uses || right.depth - left.depth || left.path.localeCompare(right.path))
+    .slice(0, limit)
+    .map((page) => page.path);
+}
+
 /** One launch of a run is one timing session; every way out of it, failure included, closes it. */
 export async function orchestrate(rawOptions, services) {
   const timings = openTimings(services.evidenceDir, { runId: services.runId, resumed: Boolean(rawOptions.resume) });
@@ -341,9 +419,16 @@ async function runStages(rawOptions, services, timings) {
       id: invocation.id,
       status: invocation.status,
       duration_seconds: invocation.durationSeconds ?? null,
+      relaunches: invocation.relaunches || 0,
+      stalled_seconds: invocation.stalledSeconds || 0,
       ...extra,
     });
     return invocation;
+  };
+  // Every agent gets the same watchdog; a stalled stream costs minutes, not the hour it took the network.
+  const agentOptions = {
+    ...agentTuning(options),
+    idleTimeoutMs: Math.max(1, options.agentIdleMinutes ?? DEFAULTS.agentIdleMinutes) * 60000,
   };
   const startPhase = (name) => {
     const entry = { name, status: 'RUNNING', started_at: Date.now() };
@@ -367,7 +452,7 @@ async function runStages(rawOptions, services, timings) {
   const checkpoint = options.resume
     ? readCheckpoint({ evidenceDir, siteUrl: options.siteUrl, targetPath: options.targetPath })
     : {
-      discovery: null, plan: null, foundations: false, assets: null, workers: [],
+      discovery: null, plan: null, foundations: false, assets: null, workers: [], warnings: [],
     };
 
   // Cheap reasoning is for iterating, not for certifying, so the bar it may claim moves with it.
@@ -406,6 +491,16 @@ async function runStages(rawOptions, services, timings) {
 
   // 1. Discovery — deterministic, no model.
   let phase = startPhase('discover');
+  const aemUrl = `http://${options.aemHost}:${options.aemPort}`;
+  const environment = await (services.checkEnvironment || checkEnvironment)({
+    repoRoot, execFn, fetchFn: services.fetchFn || options.fetchFn || fetch, aemUrl,
+  });
+  for (const warning of environment.warnings || []) renderer.warn(warning);
+  if (environment.status !== 'PASS') {
+    endPhase(phase, 'FAIL', `environment: ${environment.problems.join('; ')}`);
+    return { status: 'FAIL', phases, state, environment };
+  }
+  for (const warning of checkpoint.warnings || []) renderer.warn(warning);
   const discoveryDir = path.join(evidenceDir, 'discovery');
   let discovery = checkpoint.discovery;
   if (!discovery) {
@@ -460,7 +555,7 @@ async function runStages(rawOptions, services, timings) {
 
     const invocation = await runAgentRole({
       copilot, role: 'planner', id: `planner-${attempt}`, prompt: task, cwd: repoRoot,
-      ...agentTuning(options), agentDir, renderer, spawnFn,
+      ...agentOptions, agentDir, renderer, spawnFn,
     });
     track(invocation, { phase: 'plan', attempt });
     if (invocation.status !== 'PASS' || !fs.existsSync(planPath)) {
@@ -484,59 +579,98 @@ async function runStages(rawOptions, services, timings) {
 
   // 3. Foundations — serialized; the only writer of shared design files.
   phase = startPhase('foundations');
+  const fontsPath = path.join(evidenceDir, 'fonts.json');
+  let fonts = readJson(fontsPath);
   if (!checkpoint.foundations) {
     const verdictPath = path.join(evidenceDir, FOUNDATIONS_VERDICT);
-    // Written first, so a run killed mid-phase cannot resume on a tree nobody checked.
-    writeJson(verdictPath, { status: 'RUNNING' });
-    // Foundations rewrites the skeletons compose fills, so compose's last write no longer tells an edit apart.
-    fs.rmSync(path.join(evidenceDir, COMPOSE_RECEIPT), { force: true });
+    // Finished, but the machine could not run its check: re-check it, do not redo it.
+    let agentDone = Boolean(checkpoint.foundationsUnverified && fonts);
+    if (!agentDone) {
+      // Written first, so a run killed mid-phase cannot resume on a tree nobody checked.
+      writeJson(verdictPath, { status: 'RUNNING' });
+      // Foundations rewrites the skeletons compose fills, so compose's last write no longer tells an edit apart.
+      fs.rmSync(path.join(evidenceDir, COMPOSE_RECEIPT), { force: true });
+      // Fetched here, not by the agent: the exact files, behind a url() that resolves once deployed.
+      fonts = await acquireFonts({
+        repoRoot, discovery, fetchFn: services.fetchFn || options.fetchFn || fetch, referer: discovery.source?.final_url,
+      });
+      writeJson(fontsPath, fonts);
+      if (fonts.faces.length) {
+        renderer.note(`fonts: ${fonts.faces.length} face(s) of ${fonts.families.join(', ')} delivered to ${FONTS_SCSS}`);
+      }
+      for (const failure of fonts.failures) {
+        renderer.warn(`font not delivered: ${failure.family} ${failure.weight} ${failure.style} (${failure.reason})`);
+      }
+    }
     const maxAttempts = options.foundationsRepairs + 1;
     let feedback = '';
     let validation = null;
     let attempt = 0;
     while (attempt < maxAttempts && validation?.status !== 'PASS') {
       attempt += 1;
-      const id = attempt === 1 ? 'foundations' : `foundations-${attempt}`;
-      const agentDir = path.join(evidenceDir, 'agents', id);
-      const foundations = await runAgentRole({
-        copilot,
-        role: 'foundations',
-        id,
-        prompt: [
-          readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
-          '## Task', '',
-          `- plan: \`${path.relative(repoRoot, planPath)}\``,
-          `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
-          `- page path: \`${options.targetPath}\` — build its skeleton and give it its own`,
-          '  replace-mode filter root, not a `mode="merge"` one.',
-          `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
-          `- write result to: \`${path.relative(repoRoot, path.join(agentDir, 'result.json'))}\``,
-          feedback,
-        ].join('\n'),
-        cwd: repoRoot,
-        ...agentTuning(options),
-        agentDir,
-        renderer,
-        spawnFn,
-      });
-      track(foundations, { phase: 'foundations', attempt });
-      if (foundations.status !== 'PASS') {
-        writeJson(verdictPath, { status: 'FAIL', attempts: attempt, error: foundations.error || 'foundations failed' });
-        endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+      if (!agentDone) {
+        const id = attempt === 1 ? 'foundations' : `foundations-${attempt}`;
+        const agentDir = path.join(evidenceDir, 'agents', id);
+        const foundations = await runAgentRole({
+          copilot,
+          role: 'foundations',
+          id,
+          prompt: [
+            readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
+            '## Task', '',
+            `- plan: \`${path.relative(repoRoot, planPath)}\``,
+            `- discovery: \`${path.relative(repoRoot, path.join(discoveryDir, 'discovery.json'))}\``,
+            `- page path: \`${options.targetPath}\` — build its skeleton and give it its own`,
+            '  replace-mode filter root, not a `mode="merge"` one.',
+            `- chrome fragments: ${plan.components.filter((c) => c.role === 'chrome').map((c) => c.contribution.path).join(', ') || 'none'}`,
+            `- fonts: \`${path.relative(repoRoot, fontsPath)}\` — already delivered in \`${FONTS_SCSS}\`, which the`,
+            `  orchestrator owns; families: ${fonts.families.join(', ') || 'none (the source used system fonts)'}`,
+            `- write result to: \`${path.relative(repoRoot, path.join(agentDir, 'result.json'))}\``,
+            feedback,
+          ].join('\n'),
+          cwd: repoRoot,
+          ...agentOptions,
+          agentDir,
+          renderer,
+          spawnFn,
+        });
+        track(foundations, { phase: 'foundations', attempt });
+        if (foundations.status !== 'PASS') {
+          writeJson(verdictPath, { status: 'FAIL', attempts: attempt, error: foundations.error || 'foundations failed' });
+          endPhase(phase, 'FAIL', foundations.error || 'foundations failed');
+          return { status: 'FAIL', phases, state, plan };
+        }
+        // Whatever the agent did to the partial or its import, both are put back as generated.
+        writeFontsScss(repoRoot, fonts.faces);
+      }
+      agentDone = false;
+      // A url() that resolves nowhere builds fine and fails silently on the page, so it is checked first.
+      const urls = unresolvedUrls({ root: repoRoot, files: frontendFiles(repoRoot) });
+      // Every content package, all folders: afterwards a worker's check can only fail on its own files.
+      validation = urls.length
+        ? {
+          status: 'FAIL', kind: 'code', label: 'clientlib url()', detail: urls.slice(0, 12).map((problem) => problem.message).join('\n'),
+        }
+        : await runValidation({
+          workspaceRoot: repoRoot,
+          steps: validationPlan([...snapshotTree(repoRoot, options.workspace).keys()]
+            .filter((file) => CONTENT_SOURCE.test(file))),
+          execFn,
+        });
+      if (validation.status !== 'PASS' && validation.kind === 'environment') {
+        // The machine, not the tree: another attempt would be charged for nothing.
+        writeJson(verdictPath, {
+          status: 'UNVERIFIED', attempts: attempt, label: validation.label, detail: validation.detail,
+        });
+        endPhase(phase, 'FAIL', `environment: ${validation.label} could not run: ${validation.detail.split('\n')[0]}. `
+          + `Fix the machine, then rerun with --resume ${runId}; the foundations work is kept and only re-checked`);
         return { status: 'FAIL', phases, state, plan };
       }
-      // Every content package, all folders: afterwards a worker's check can only fail on its own files.
-      validation = await runValidation({
-        workspaceRoot: repoRoot,
-        steps: validationPlan([...snapshotTree(repoRoot, options.workspace).keys()]
-          .filter((file) => CONTENT_SOURCE.test(file))),
-        execFn,
-      });
       if (validation.status !== 'PASS' && attempt < maxAttempts) {
-        renderer.warn(`foundations attempt ${attempt}/${maxAttempts} rejected: ${validation.label} does not build`);
+        renderer.warn(`foundations attempt ${attempt}/${maxAttempts} rejected: ${validation.label}`);
         feedback = [
           '', `## Attempt ${attempt} of ${maxAttempts} was rejected`, '',
-          `The tree does not build after your changes (${validation.label}):`, validation.detail, '',
+          `The tree fails ${validation.label} after your changes:`, validation.detail, '',
           'Fix exactly this, then write your result again. The tree is not reset between attempts,',
           'so keep the rest of your work.',
         ].join('\n');
@@ -546,7 +680,7 @@ async function runStages(rawOptions, services, timings) {
       ? { status: 'PASS', attempts: attempt }
       : { status: 'FAIL', attempts: attempt, label: validation.label, detail: validation.detail });
     if (validation.status !== 'PASS') {
-      endPhase(phase, 'FAIL', `tree does not build after ${attempt} foundations attempt(s) (${validation.label}): `
+      endPhase(phase, 'FAIL', `tree fails ${validation.label} after ${attempt} foundations attempt(s): `
         + validation.detail.split('\n')[0]);
       return { status: 'FAIL', phases, state, plan };
     }
@@ -575,7 +709,7 @@ async function runStages(rawOptions, services, timings) {
   const assetsIntact = checkpoint.assets?.manifest
     ?.every((entry) => fs.existsSync(path.join(repoRoot, damRoot, path.basename(entry.dam_path), '_jcr_content', 'renditions', 'original')));
   const assets = assetsIntact ? checkpoint.assets : await acquireAssets({
-    repoRoot, discovery, damRoot, damPath, fetchFn: options.fetchFn,
+    repoRoot, discovery, damRoot, damPath, fetchFn: options.fetchFn, discoveryDir,
   });
   writeJson(path.join(evidenceDir, 'assets.json'), assets);
   if (assets.status !== 'PASS') {
@@ -592,6 +726,37 @@ async function runStages(rawOptions, services, timings) {
   if (filterWritten) renderer.note(`filter.xml now covers ${damPath}`);
   if (assetsIntact) reusePhase(phase, assetsMessage);
   else endPhase(phase, 'PASS', assetsMessage);
+
+  // Pages this run does not author but can change: shared tokens, fonts and extended components
+  // reach them too. Captured before this run first installs anything, and again at the end.
+  const regressionDir = path.join(evidenceDir, 'regression');
+  const regressionTargets = options.regression
+    ? regressionPages(repoRoot, plan, options.targetPath).map((jcrPath) => ({
+      id: jcrPath.replace(/^\/content\//, '').replace(/[^a-z0-9]+/gi, '-'),
+      url: `${aemUrl}${jcrPath}.html?wcmmode=disabled`,
+    }))
+    : [];
+  const captureRegression = async (label) => {
+    if (!regressionTargets.length) return false;
+    const baseline = path.join(regressionDir, 'before', 'capture.json');
+    if (label === 'before') {
+      if (fs.existsSync(baseline)) return true;
+      // Once an install has happened, the instance already shows this run: no honest baseline is left.
+      if (fs.existsSync(path.join(evidenceDir, 'deployment.json')) || fs.existsSync(path.join(evidenceDir, 'preview'))) return false;
+      renderer.note(`regression baseline: ${regressionTargets.length} page(s) captured before the first install`);
+    } else if (!fs.existsSync(baseline)) {
+      return false;
+    }
+    const configPath = writeJson(path.join(regressionDir, 'regression-config.json'), {
+      pages: regressionTargets,
+      breakpoints: options.breakpoints,
+      auth: { username: options.aemUser || 'admin', password_env: 'AEM_PASSWORD' },
+    });
+    const captured = await runTool('regression', [
+      path.join(toolsDir, 'regression.mjs'), '--config', configPath, '--out', regressionDir, '--label', label,
+    ]);
+    return captured.code === 0;
+  };
 
   // 5. Fan-out — parallel component workers, one isolated checkout each.
   phase = startPhase('fanout');
@@ -619,189 +784,98 @@ async function runStages(rawOptions, services, timings) {
   if (alreadyBuilt.size === plan.components.length) {
     reusePhase(phase, `${alreadyBuilt.size} components already built`);
   } else {
-  // What is in the tree now is kept and shipped; a change made while workers run is refused.
-  const guard = watchTree(repoRoot, options.workspace);
-  let edited = [];
-  for (const [waveIndex, wave] of gate.waves.entries()) {
-    const pending = wave.filter((componentId) => !alreadyBuilt.has(componentId));
-    if (!pending.length) continue;
-    renderer.note(`wave ${waveIndex + 1}/${gate.waves.length}: ${pending.join(', ')}`);
-    const waveResults = await pool(pending, options.maxParallel, async (componentId) => {
-      // Banked per component, not per wave: a cancellation must not discard finished work.
-      const outcome = await (async () => {
-      const component = byId.get(componentId);
-      renderer.componentStarted(componentId, `tier ${component.tier}${component.role === 'chrome' ? ' · XF chrome' : ''}`);
-      const maxAttempts = options.componentAttempts;
-      const history = [];
-      let feedback = '';
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {        const workspaceRoot = path.join(evidenceDir, 'workspaces', `${componentId}-attempt-${attempt}`);
-        const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
-        workspace.id = componentId;
-        const agentDir = path.join(evidenceDir, 'agents', `component-${componentId}-attempt-${attempt}`);
-
-        // A worker copy is large; it must be removed whatever the outcome.
-        try {
-          const invocation = await runAgentRole({
-            copilot,
-            role: 'component',
-            id: componentId,
-            componentId,
-            prompt: [
-              readPrompt('_contract.md'), '', readPrompt('component.md'), '',
-              '## Task', '',
-              '```json',
-              JSON.stringify({
-                component,
-                breakpoints: options.breakpoints,
-                assets: assets.manifest
-                  .filter((entry) => entry.instances.some((id) => component.instances.includes(id)))
-                  .map(({ source_url, dam_path, mime, alt, width, height }) => ({
-                    source_url, dam_path, mime, alt, width, height,
-                  })),
-                evidence_slice: path.relative(repoRoot, path.join(discoveryDir, 'discovery.json')),
-                result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
-              }, null, 2),
-              '```',
-              feedback,
-            ].join('\n'),
-            cwd: workspaceRoot,
-            ...agentTuning(options),
-            agentDir,
-            renderer,
-            spawnFn,
-          });
-          track(invocation, {
-            phase: 'fanout', component_id: componentId, wave: waveIndex + 1, attempt,
-          });
-          history.push({ attempt, status: invocation.status, duration_seconds: invocation.durationSeconds });
-
-          const changes = collectChanges(workspace, component.owned_paths);
-          let rejection = null;
-
-          if (!changes.valid) {
-            rejection = `Your changes touched files outside your scope: ${changes.violations.slice(0, 8).join(', ')}.\n`
-              + `You may only write: ${component.owned_paths.join(', ')}.\n`
-              + 'Shared files are declared through the `contributions` block, never edited directly.';
-          } else if (invocation.status === 'BLOCKED') {
-            // An external prerequisite will not resolve by asking again.
-            renderer.componentFinished(componentId, 'BLOCKED');
-            return {
-              component_id: componentId,
-              status: 'BLOCKED',
-              invocation,
-              attempts: attempt,
-              history,
-              duration_seconds: invocation.durationSeconds,
-              error: invocation.result?.notes || invocation.error || 'agent reported an external blocker',
-            };
-          } else if (invocation.status !== 'PASS') {
-            const failing = (invocation.result?.checks || [])
-              .filter((check) => check.status !== 'PASS')
-              .map((check) => `${check.name}: ${check.evidence || 'no evidence given'}`);
-            rejection = invocation.error
-              || `Your result reported ${invocation.status}. Failing checks: ${failing.join('; ') || 'none recorded'}.`;
-          } else {
-            const contributionProblems = validateContribution(component, invocation.result, {
-              instanceOrder, writtenFiles: changes.owned,
-            });
-            if (contributionProblems.length) {
-              rejection = `Your \`contributions\` block cannot be composed onto the page:\n`
-                + contributionProblems.map((problem) => `- ${problem}`).join('\n');
-            } else {
-              const validation = await runValidation({
-                workspaceRoot,
-                steps: validationPlan(changes.changed, {
-                  focusedTests: invocation.result?.focused_test?.tests || [],
-                }),
-                execFn,
-              });
-              if (validation.status !== 'PASS') {
-                rejection = `Your code does not build (${validation.label}):\n${validation.detail}`;
-              }
-            }
-          }
-
-          if (!rejection && invocation.status === 'PASS') {
-            const merged = mergeChanges(workspace, repoRoot, changes, claimed, guard);
-            if (merged.edited.length) {
-              // Not the worker's fault, and a retry would meet the same edit.
-              renderer.componentFinished(componentId, 'FAIL');
-              return {
-                component_id: componentId,
-                status: 'FAIL',
-                invocation,
-                attempts: attempt,
-                history,
-                duration_seconds: invocation.durationSeconds,
-                error: `not merged: ${merged.edited.join(', ')} changed in the repository while it was being built`,
-              };
-            }
-            if (merged.conflicts.length) {
-              rejection = `Another component already owns ${merged.conflicts.map((entry) => `${entry.path} (${entry.owner})`).join(', ')}. `
-                + 'Keep your changes inside your own scope and declare shared content through `contributions`.';
-            } else {
-              renderer.componentFinished(componentId, 'PASS');
-              return {
-                component_id: componentId,
-                status: 'PASS',
-                invocation,
-                attempts: attempt,
-                history,
-                duration_seconds: invocation.durationSeconds,
-                result: invocation.result,
-                applied: merged.applied,
-              };
-            }
-          }
-
-          history[history.length - 1].rejection = rejection;
-          if (attempt < maxAttempts) {
-            renderer.warn(`${componentId} attempt ${attempt}/${maxAttempts} rejected: ${rejection.split('\n')[0]}`);
-            feedback = [
-              '', `## Attempt ${attempt} of ${maxAttempts} was rejected`, '',
-              rejection, '',
-              'Fix exactly this, then write your result again. Do not repeat the rejected approach,',
-              'and do not start from your previous attempt — this is a fresh checkout of the repository.',
-            ].join('\n');
-          } else {
-            renderer.componentFinished(componentId, 'FAIL');
-            return {
-              component_id: componentId,
-              status: 'FAIL',
-              invocation,
-              attempts: attempt,
-              history,
-              duration_seconds: invocation.durationSeconds,
-              error: `exhausted ${maxAttempts} attempts; last rejection: ${rejection}`,
-            };
-          }
-        } finally {
-          removeWorkspace(workspaceRoot);
-        }
-      }
-      return { component_id: componentId, status: 'FAIL', attempts: maxAttempts, history, error: 'no attempt produced a result' };
-      })();
-      workerResults.push(outcome);
-      persistWorkers();
-      return outcome;
-    });
-    edited = guard.drift();
-    if (edited.length || waveResults.some((entry) => entry.status !== 'PASS')) {
-      fanoutFailed = true;
-      break;
+    // What is in the tree now is kept and shipped; a change made while workers run is refused.
+    const guard = watchTree(repoRoot, options.workspace);
+    let edited = [];
+    const treeLock = createSemaphore(1);
+    const preview = options.preview && options.previewRounds > 0 && environment.aem_reachable
+      ? createPreview({
+        repoRoot,
+        evidenceDir,
+        plan,
+        discovery,
+        options,
+        execFn,
+        fetchFn: services.fetchFn || options.fetchFn || fetch,
+        runTool,
+        renderer,
+        treeLock,
+        instanceOrder,
+        workspaceOptions: options.workspace,
+        toolsDir,
+        guard,
+        beforeFirstDeploy: () => captureRegression('before'),
+      })
+      : null;
+    if (options.preview && !preview) {
+      renderer.note(`previews off: ${environment.aem_reachable ? 'no preview rounds' : `AEM was not reachable at ${aemUrl} when the run started`}`);
     }
-  }
-  if (fanoutFailed) {
-    const broken = workerResults.filter((entry) => entry.status !== 'PASS')
-      .map((entry) => `${entry.component_id}: ${entry.error}`);
-    endPhase(phase, 'FAIL', [...(edited.length ? [describeEdits(edited, 'fan-out', runId)] : []), ...broken].join('; '));
-    return {
-      status: 'FAIL', phases, state, plan, workerResults, edited,
+    const context = {
+      copilot,
+      options,
+      repoRoot,
+      evidenceDir,
+      discovery,
+      byId,
+      assets,
+      renderer,
+      spawnFn,
+      execFn,
+      track,
+      readPrompt,
+      instanceOrder,
+      guard,
+      claimed,
+      treeLock,
+      preview,
+      agentOptions,
+      agentSlots: createSemaphore(Math.max(1, options.maxParallel)),
+      validationSlots: createSemaphore(Math.max(1, options.validationParallel || 1)),
+      tokens: readTokenManifest(repoRoot),
+      fonts,
+      crops: await prepareCrops({
+        discovery, discoveryDir, outDir: path.join(evidenceDir, 'crops'), renderer,
+      }),
+      mergedResults: (exceptId) => workerResults
+        .filter((entry) => entry.status === 'PASS' && entry.component_id !== exceptId)
+        .map((entry) => entry.result),
     };
-  }
-  endPhase(phase, 'PASS', `${workerResults.length} components built across ${gate.waves.length} waves`
-    + (alreadyBuilt.size ? `, ${alreadyBuilt.size} reused` : ''));
+    for (const [waveIndex, wave] of gate.waves.entries()) {
+      const pending = scheduleOrder(wave.filter((componentId) => !alreadyBuilt.has(componentId)), byId);
+      if (!pending.length) continue;
+      renderer.note(`wave ${waveIndex + 1}/${gate.waves.length}: ${pending.join(', ')}`);
+      const waveResults = await Promise.all(pending.map(async (componentId) => {
+        const outcome = await buildComponent(context, componentId, waveIndex);
+        // Banked per component, not per wave: a cancellation must not discard finished work.
+        workerResults.push(outcome);
+        persistWorkers();
+        return outcome;
+      }));
+      edited = guard.drift();
+      if (edited.length || waveResults.some((entry) => entry.status !== 'PASS')) {
+        fanoutFailed = true;
+        break;
+      }
+    }
+    // The preview copy only serves the fan-out; the deploy phase builds the tree itself.
+    removeWorkspace(path.join(evidenceDir, 'workspaces', '_preview'));
+    if (fanoutFailed) {
+      const broken = workerResults.filter((entry) => entry.status !== 'PASS');
+      const message = [
+        ...(edited.length ? [describeEdits(edited, 'fan-out', runId)] : []),
+        ...broken.map((entry) => `${entry.component_id}: ${entry.error}`),
+      ].join('; ');
+      endPhase(phase, 'FAIL', broken.some((entry) => entry.environment)
+        ? `${message}. The machine, not the code: fix it and rerun with --resume ${runId}; merged components are kept`
+        : message);
+      return {
+        status: 'FAIL', phases, state, plan, workerResults, edited,
+      };
+    }
+    const previewed = workerResults.filter((entry) => entry.previews?.length).length;
+    endPhase(phase, 'PASS', `${workerResults.length} components built across ${gate.waves.length} waves`
+      + (alreadyBuilt.size ? `, ${alreadyBuilt.size} reused` : '')
+      + (previewed ? `, ${previewed} previewed` : ''));
   }
 
   // 6. Compose — the orchestrator writes every shared file, except one changed since it last wrote it.
@@ -837,6 +911,12 @@ async function runStages(rawOptions, services, timings) {
 
   // 7. Deploy — exclusive, deterministic, whole reactor.
   phase = startPhase('deploy');
+  const instance = await probeInstance({ aemUrl, fetchFn: services.fetchFn || options.fetchFn || fetch });
+  if (!instance.reachable) {
+    endPhase(phase, 'FAIL', `AEM is not reachable at ${aemUrl} (${instance.reason}); start it, then rerun with --resume ${runId}`);
+    return { status: 'FAIL', phases, state, plan };
+  }
+  await captureRegression('before');
   const checkBundles = () => verifyBundles({
     aemUrl: `http://${options.aemHost}:${options.aemPort}`,
     username: options.aemUser,
@@ -849,7 +929,8 @@ async function runStages(rawOptions, services, timings) {
   });
   writeJson(path.join(evidenceDir, 'deployment.json'), deployment);
   if (deployment.status !== 'PASS') {
-    endPhase(phase, 'FAIL', `${deployment.failure.step} exited ${deployment.failure.exit_code}`);
+    endPhase(phase, 'FAIL', `${deployment.failure.step} exited ${deployment.failure.exit_code}`
+      + (deployment.failure.kind === 'environment' ? ' (environment, not code: see deploy.log)' : ''));
     return { status: 'FAIL', phases, state, plan, deployment };
   }
 
@@ -922,6 +1003,20 @@ async function runStages(rawOptions, services, timings) {
   };
 
   phase = startPhase('parity');
+  // The source is measured live every cycle; once it no longer matches what discovery captured,
+  // a component can fail against content it was never shown.
+  const noteDrift = (artefact) => {
+    const rows = artefact?.summary?.source_drift_rows || 0;
+    if (rows) {
+      renderer.warn(`${rows} parity row(s) measured a live source that differs from discovery (captured `
+        + `${String(discovery.generated_at || 'earlier').slice(0, 16)}); their deltas may not be the component's to fix`);
+    }
+    const fallback = artefact?.preflight?.font_fallback || [];
+    if (fallback.length) {
+      renderer.warn(`rendering from a fallback font on the AEM page: ${[...new Set(fallback
+        .map((entry) => `${entry.family} ${entry.weight || ''}`.trim()))].join(', ')}`);
+    }
+  };
   let cycle = 0;
   const first = await runParity(cycle);
   if (!first.artefact) {
@@ -929,6 +1024,7 @@ async function runStages(rawOptions, services, timings) {
     return { status: 'FAIL', phases, state, plan };
   }
   let parity = first.artefact;
+  noteDrift(parity);
   const ledger = createLedger(plan.components.map((component) => component.id), {
     retries: options.maxParityRetries,
   });
@@ -944,63 +1040,131 @@ async function runStages(rawOptions, services, timings) {
     return { status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger) };
   }
   let rounds = 0;
+  // Shared defects the component agents named; the next round's shared repair takes them on.
+  let sharedHints = [];
+  /**
+   * A repair is held to a component's checks before it may be merged, with one fix in its own
+   * session: a repair that breaks the build would otherwise sink the redeploy and the round with it.
+   */
+  const runRepair = async ({
+    id, prompt, workspace, workspaceRoot, scopePaths, agentDir, trackExtra,
+  }) => {
+    const launch = (followUp, dir, sessionId) => runAgentRole({
+      copilot,
+      role: 'remediation',
+      id,
+      prompt,
+      followUp,
+      ...(sessionId ? { sessionId } : {}),
+      cwd: workspaceRoot,
+      gitCeiling: path.dirname(workspaceRoot),
+      ...agentOptions,
+      agentDir: dir,
+      renderer,
+      spawnFn,
+    });
+    const judge = async (invocation) => {
+      const changes = collectChanges(workspace, scopePaths);
+      if (!changes.valid || invocation.status !== 'PASS') return { invocation, changes, problem: null };
+      const rejection = staticRejection({
+        root: workspaceRoot, damRoot: repoRoot, changedFiles: changes.changed, ownedFiles: changes.owned,
+      });
+      if (rejection) return { invocation, changes, problem: { kind: 'code', text: rejection.text } };
+      const validation = await runValidation({ workspaceRoot, steps: validationPlan(changes.changed), execFn });
+      return {
+        invocation,
+        changes,
+        problem: validation.status === 'PASS'
+          ? null
+          : { kind: validation.kind, text: `${validation.label} fails:\n${validation.detail}` },
+      };
+    };
+    const first = await launch(null, agentDir, null);
+    track(first, trackExtra);
+    const verdict = await judge(first);
+    if (verdict.problem?.kind !== 'code') return verdict;
+    renderer.warn(`${id}: ${verdict.problem.text.split('\n')[0]} — fixing it in the same session`);
+    const fixDir = `${agentDir}-fix`;
+    const second = await launch([
+      '## Your change was not merged', '', verdict.problem.text, '',
+      'Your workspace still holds your edit. Fix exactly this, then write your result again to',
+      `\`${path.join(fixDir, 'result.json')}\`.`,
+    ].join('\n'), fixDir, first.sessionId);
+    track(second, { ...trackExtra, fix: true });
+    return judge(second);
+  };
+  const notMerged = (verdict) => verdict.invocation.error
+    || (verdict.problem ? `not merged (${verdict.problem.kind}): ${verdict.problem.text.split('\n')[0]}` : null)
+    || (!verdict.changes.valid ? `outside its scope: ${verdict.changes.violations.slice(0, 5).join(', ')}` : null);
+
   while (parity.status !== 'PASS' && rounds < options.maxParityRetries) {
     const progress = advanceRound(ledger);
     if (progress.done) break;
-    const routed = routeFailures(parity, plan, ledger);
-    if (!routed.batches.length) break;
+    const routed = routeFailures(parity, plan, ledger, { sharedHints });
+    if (!routed.batches.length && !routed.shared) break;
     rounds += 1;
+    sharedHints = [];
     // Watched per round, because the redeploy between rounds regenerates build output in the tree.
     const guard = watchTree(repoRoot, options.workspace);
     const edited = new Set();
+    const roundChanged = new Set();
 
     // A shared cause is fixed once, first and alone, so every component agent builds on the fix.
     let sharedRepair = null;
     if (routed.shared) {
       const shared = routed.shared;
-      renderer.note(`round ${ledger.round} | shared repair | ${shared.layer} | ${shared.components.join(', ')}`);
+      renderer.note(`round ${ledger.round} | shared repair | ${shared.layer} | ${shared.components.join(', ') || 'page fonts'}`);
       const sharedPaths = sharedDesignPaths(repoRoot);
       const workspaceRoot = path.join(evidenceDir, 'workspaces', `fix-${ledger.round}-shared`);
       const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
       workspace.id = 'fix-shared';
       const agentDir = path.join(evidenceDir, 'agents', `remediation-${ledger.round}-shared`);
       try {
-        const invocation = await runAgentRole({
-          copilot,
-          role: 'remediation',
+        const verdict = await runRepair({
           id: 'fix-shared',
           prompt: [
             readPrompt('_contract.md'), '', readPrompt('foundations.md'), '',
             '## Task', '',
             '```json',
             JSON.stringify({
-              mode: 'repair', round: ledger.round, batch: shared.batch_id, owning_layer: shared.layer,
-              components: shared.components, owned_paths: sharedPaths,
+              mode: 'repair',
+              round: ledger.round,
+              batch: shared.batch_id,
+              owning_layer: shared.layer,
+              components: shared.components,
+              owned_paths: sharedPaths,
               breakpoints: shared.breakpoints,
               threshold: parity.threshold,
-              result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+              result_path: path.join(agentDir, 'result.json'),
+              // Faces the source rendered that the AEM page could not load: a delivery defect.
+              font_fallback: shared.font_fallback,
+              fonts: fs.existsSync(fontsPath) ? fontsPath : null,
+              // What component agents found outside their own files.
+              reported: shared.hints,
               page_composite: compositeWithEvidence(parity.page_composite),
               deltas: shared.components.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence)),
             }, null, 2),
             '```',
           ].join('\n'),
-          cwd: workspaceRoot,
-          model: options.model,
-          effort: options.effort,
+          workspace,
+          workspaceRoot,
+          scopePaths: sharedPaths,
           agentDir,
-          renderer,
-          spawnFn,
+          trackExtra: {
+            phase: 'remediation', round: ledger.round, batch: shared.batch_id, component_id: shared.components.join('+') || 'shared',
+          },
         });
-        track(invocation, { phase: 'remediation', round: ledger.round, batch: shared.batch_id, component_id: shared.components.join('+') });
 
         // No component attempt is charged: each blamed component still gets its own agent below.
-        const changes = collectChanges(workspace, sharedPaths);
-        if (changes.valid && invocation.status === 'PASS') {
-          const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
+        if (verdict.changes.valid && verdict.invocation.status === 'PASS' && !verdict.problem) {
+          const merged = mergeChanges(workspace, repoRoot, verdict.changes, new Map(), guard);
           merged.edited.forEach((file) => edited.add(file));
-          if (!merged.edited.length) sharedRepair = { changed_files: changes.changed, notes: invocation.result?.notes || null };
+          if (!merged.edited.length) {
+            merged.applied.forEach((file) => roundChanged.add(file));
+            sharedRepair = { changed_files: verdict.changes.changed, notes: verdict.invocation.result?.notes || null };
+          }
         } else {
-          renderer.note(`shared repair not applied: ${invocation.error || `outside the shared layer: ${changes.violations.join(', ')}`}`);
+          renderer.note(`shared repair not applied: ${notMerged(verdict)}`);
         }
       } finally {
         removeWorkspace(workspaceRoot);
@@ -1027,21 +1191,27 @@ async function runStages(rawOptions, services, timings) {
       const deltas = ids.map((id) => parity.results.filter((row) => row.component_id === id).map(withEvidence));
 
       try {
-        const invocation = await runAgentRole({
-          copilot,
-          role: 'remediation',
+        const verdict = await runRepair({
           id: `fix-${label}`,
           prompt: [
             readPrompt('_contract.md'), '', readPrompt('remediation.md'), '',
             '## Task', '',
             '```json',
             JSON.stringify({
-              round: ledger.round, batch: batch.batch_id, owning_layer: batch.layer,
-              components: ids, owned_paths: scopePaths,
+              round: ledger.round,
+              batch: batch.batch_id,
+              owning_layer: batch.layer,
+              components: ids,
+              owned_paths: scopePaths,
               // The widths this component is failing at; one edit has to hold at all of them.
               breakpoints: batch.breakpoints,
               threshold: parity.threshold,
-              result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+              // What earlier rounds already tried, so a rejected hypothesis is not tried again.
+              attempts: ledgerIds.map((id) => ({
+                id,
+                history: (id === PAGE_SCOPE_ID ? ledger.page : ledger.components.get(id))?.history || [],
+              })),
+              result_path: path.join(agentDir, 'result.json'),
               // Per-component crops cannot show a missing or reordered section; the page can.
               page_composite: compositeWithEvidence(parity.page_composite),
               deltas,
@@ -1049,22 +1219,27 @@ async function runStages(rawOptions, services, timings) {
             }, null, 2),
             '```',
           ].join('\n'),
-          cwd: workspaceRoot,
-          model: options.model,
-          effort: options.effort,
+          workspace,
+          workspaceRoot,
+          scopePaths,
           agentDir,
-          renderer,
-          spawnFn,
+          trackExtra: {
+            phase: 'remediation', round: ledger.round, batch: batch.batch_id, component_id: ids.join('+'),
+          },
         });
-        track(invocation, { phase: 'remediation', round: ledger.round, batch: batch.batch_id, component_id: ids.join('+') });
+        const { invocation, changes } = verdict;
+        const defect = invocation.result?.shared_defect;
+        if (defect?.layer && batch.scope !== 'page') {
+          for (const id of ids) sharedHints.push({ component_id: id, layer: defect.layer, evidence: defect.evidence || null });
+        }
 
-        const changes = collectChanges(workspace, scopePaths);
-        if (changes.valid && invocation.status === 'PASS') {
+        if (changes.valid && invocation.status === 'PASS' && !verdict.problem) {
           const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
           if (merged.edited.length) {
             merged.edited.forEach((file) => edited.add(file));
             return invocation;
           }
+          merged.applied.forEach((file) => roundChanged.add(file));
           for (const id of ledgerIds) {
             recordAttempt(ledger, {
               componentId: id,
@@ -1080,7 +1255,7 @@ async function runStages(rawOptions, services, timings) {
               componentId: id,
               batchId: batch.batch_id,
               layer: batch.layer,
-              hypothesis: invocation.error,
+              hypothesis: notMerged(verdict),
             });
           }
         }
@@ -1098,16 +1273,25 @@ async function runStages(rawOptions, services, timings) {
         status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger), edited: files,
       };
     }
+    if (!roundChanged.size) {
+      // Nothing was merged, so nothing can measure differently; the attempts are already charged.
+      renderer.note(`round ${ledger.round}: no repair was merged, so there is nothing to redeploy or re-measure`);
+      continue;
+    }
 
+    // Only the modules this round touched, on top of the full build the deploy phase installed.
     const redeploy = await runDeployment({
       repoRoot,
-      steps: planDeployment(options.aemPort),
+      steps: planScopedDeployment(options.aemPort, [...roundChanged]),
       renderer,
       execFn,
       logPath: path.join(evidenceDir, 'deploy.log'),
       writeLog: fs.appendFileSync,
     });
-    if (redeploy.status !== 'PASS') break;
+    if (redeploy.status !== 'PASS') {
+      renderer.warn(`remediation redeploy failed at ${redeploy.failure.step} (${redeploy.failure.kind}); see deploy.log`);
+      break;
+    }
     // A fix that leaves the bundle unresolved would be measured as if it had deployed.
     const redeployBundles = await checkBundles();
     if (redeployBundles.status === 'FAIL') {
@@ -1122,6 +1306,7 @@ async function runStages(rawOptions, services, timings) {
       break;
     }
     parity = next.artefact;
+    noteDrift(parity);
     applyParity(ledger, parity);
   }
   // The loop can stop on its own bound, leaving entries merely FAILING; unresolved is final.
@@ -1129,6 +1314,15 @@ async function runStages(rawOptions, services, timings) {
   const terminal = terminalStatus(ledger);
   writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
   endPhase(phase, terminal.status, `${terminal.passed.length} passed, ${terminal.failed_final.length} failed-final, ${rounds} round(s)`);
+
+  // Pages outside this migration, against how they rendered before this run's first install.
+  let regression = null;
+  if (await captureRegression('after')) {
+    await runTool('regression', [path.join(toolsDir, 'regression.mjs'), '--compare', '--out', regressionDir]);
+    regression = readJson(path.join(regressionDir, 'regression.json'));
+    const changed = [...new Set((regression?.pages || []).filter((entry) => entry.status === 'CHANGED').map((entry) => entry.url))];
+    if (changed.length) renderer.warn(`other pages render differently than before this run: ${changed.join(', ')} (see regression/)`);
+  }
 
   // 9. Report — deterministic.
   phase = startPhase('report');
@@ -1146,9 +1340,12 @@ async function runStages(rawOptions, services, timings) {
       duration_seconds: entry.duration_seconds ?? null,
       attempts: entry.attempts ?? null,
       history: entry.history || [],
+      previews: entry.previews || [],
     })),
     deployment,
     timings: timings.summary(),
+    fonts: fonts || readJson(fontsPath),
+    regression,
   });
   const written = writeReport(evidenceDir, report);
   endPhase(phase, report.status === 'COMPLETE' ? 'PASS' : 'FAIL', written.markdownPath);
@@ -1191,7 +1388,12 @@ orchestrator/run.mjs — multi-agent AEM migration
   --settle-ms <n>           Discovery settle before scanning (default ${DEFAULTS.settleMs});
                             raised automatically on one retry if the layout is still moving
   --max-parallel <n>        Component workers in flight (default ${DEFAULTS.maxParallel})
+  --validation-parallel <n> Maven checks of finished workers in flight (default ${DEFAULTS.validationParallel})
   --component-attempts <n>  Attempts per component before the run fails (default ${DEFAULTS.componentAttempts})
+  --preview-rounds <n>      Early deploy-and-measure rounds per merged component (default ${DEFAULTS.previewRounds})
+  --no-preview              Build every component before anything is deployed or measured
+  --agent-idle-minutes <n>  Relaunch an agent whose stream is silent this long (default ${DEFAULTS.agentIdleMinutes})
+  --no-regression           Skip the before/after capture of other pages in the content package
   --visual-pass-ratio <n>   Pin the minimum ratio; otherwise derived from effort
                             (${Object.entries(EFFORT_THRESHOLDS).map(([k, v]) => `${k} ${v}`).join(', ')})
   --max-parity-retries <n>  Attempts per component before it is failed-final (default ${DEFAULTS.maxParityRetries})

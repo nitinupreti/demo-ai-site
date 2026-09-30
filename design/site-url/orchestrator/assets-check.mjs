@@ -130,6 +130,37 @@ const broken = await acquireAssets({
 expect(broken.status === 'FAIL' && broken.failures[0].reason === 'HTTP 404',
   `an unfetchable asset must fail the phase, got ${JSON.stringify(broken)}`);
 
+// CSS background art and inline SVGs are sources too; an SVG comes from the file discovery exported.
+const discoveryDir = path.join(sandbox, 'discovery');
+fs.mkdirSync(path.join(discoveryDir, 'svg'), { recursive: true });
+fs.writeFileSync(path.join(discoveryDir, 'svg', 'abcdef0123456789.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+bodies['https://images.test/texture.png'] = { type: 'image/png', body: 'png-bytes' };
+const richDiscovery = {
+  source: { final_url: 'https://example.com/page' },
+  instances: [{
+    id: 'inst-001',
+    media: { 1440: [] },
+    content: {
+      375: { backgrounds: [{ url: 'https://images.test/texture.png' }], svgs: [] },
+      1440: {
+        backgrounds: [{ url: 'https://images.test/texture.png' }],
+        svgs: [{ file: 'svg/abcdef0123456789.svg', sha256: 'sha256:abcdef0123456789', aria_label: 'Brand logo', w: 20, h: 20 }],
+      },
+    },
+  }],
+};
+const rich = await acquireAssets({
+  repoRoot, discovery: richDiscovery, damRoot, damPath, fetchFn: stubFetch, discoveryDir,
+});
+const texture = rich.manifest.find((entry) => entry.source_url === 'https://images.test/texture.png');
+const logoSvg = rich.manifest.find((entry) => entry.kind === 'inline-svg');
+expect(rich.status === 'PASS' && rich.manifest.length === 2, `background and inline SVG must both be acquired, got ${JSON.stringify(rich)}`);
+expect(texture?.kind === 'css-background', `a background image must be marked as such, got ${texture?.kind}`);
+expect(logoSvg?.dam_path === `${damPath}/brand-logo-abcdef01.svg` && logoSvg.local_file.endsWith('abcdef0123456789.svg'),
+  `an inline SVG must be named from its label and keep its local file, got ${JSON.stringify(logoSvg)}`);
+expect(fs.existsSync(path.join(repoRoot, damRoot, 'brand-logo-abcdef01.svg', '_jcr_content', 'renditions', 'original')),
+  'the inline SVG must be written as a DAM asset');
+
 fs.rmSync(sandbox, { recursive: true, force: true });
 
 if (failures.length) {

@@ -6,11 +6,24 @@ their own copies of this repository — you cannot see them and must not assume 
 ## Your scope
 
 Your component id, tier, instances, owned paths and parity targets are in the task block appended to
-this prompt. The evidence slice listed there contains only the discovery records for your own
-instances: selectors, rects, computed styles, media and text at every breakpoint.
+this prompt. Everything else you need is already in your workspace, under `.migration/`, at the
+absolute paths the task block lists as `inputs`:
 
-Read your slice and your own source files. Do not scan the evidence directory, other components, or
-other agents' workspaces.
+- `evidence` — the discovery records of your own instances only: selectors, rects, computed styles,
+  media, and `content` — the rendered text with its inline markup and absolute links, every inline
+  SVG, and every CSS background image — at every breakpoint.
+- `tokens` — every custom property the design tokens declare, with its value and its media
+  overrides, plus the font families that are delivered.
+- `assets` — your images, SVG files and backgrounds, described below.
+- `source_crops` — a PNG of each of your instances at each breakpoint, cut from the frozen source.
+
+The copy, links and icons you need are in the evidence. Do not re-scrape the live site: it may have
+changed since it was frozen, and parity scores against what was frozen. Do not scan the evidence
+directory, other components, or other agents' workspaces. `.migration/` is input: never write there,
+it is not merged.
+
+Your workspace is its own git repository, committed at the point you started, so `git status` and
+`git diff` show exactly what you changed. Never commit, stash, reset or restore.
 
 ## Deliverables
 
@@ -25,13 +38,22 @@ For tier 4 (and the delta for tiers 2–3):
 | Unit test | covers the model's public getters and empty/absent cases; lives at the `src/test/java` path in your owned paths |
 | Colour authoring | every painted role gets a token select with `other`, a conditional hex field, a sanitised model getter and a protected CSS custom property |
 
-Match the source exactly: typography, colours, spacing, margins, inline images and inline SVG are all
-scored as hard gates later. Reuse the source asset; never approximate an icon.
+Match the source exactly. A component passes on its visual match ratio, on the font the browser
+actually rendered, and on video playback; typography, colours, spacing, margins, inline images and
+inline SVG are measured alongside and handed to remediation as exact deltas. Reuse the source asset;
+never approximate an icon.
 
 Every image your instances use has already been downloaded into the DAM. Your task block lists them
-as `assets`, each with the `dam_path` to author and the `source_url` it came from. Author that
-`dam_path`; never point a `fileReference` at an external URL, and never invent a DAM path — anything
-not in your list does not exist in the repository.
+as `assets`, each with its `kind`, the `dam_path` to author and where it came from:
+
+- `media` — an `<img>`, `<picture>` or `<video>` source: author its `dam_path` as a `fileReference`.
+- `css-background` — a background image the source painted with CSS: reference
+  `url("<dam_path>")` from your clientlib CSS, or make it authorable when it is content.
+- `inline-svg` — an icon or logo the source drew inline. Its exact markup, colours resolved, is the
+  `local_file` in your workspace: inline that markup in your HTL, or render the `dam_path` as an image.
+
+Never point a `fileReference` at an external URL, and never invent a DAM path — anything not in your
+list does not exist in the repository.
 
 Video is behaviour, not a picture. Your evidence records `autoplay`, `loop`, `muted`, `controls`,
 `playsinline` and `poster` for every video; reproduce all of them, and expose each as a dialog
@@ -51,8 +73,11 @@ mvn -pl core test-compile                                         # Java compile
 mvn -pl core test -Dtest=MyComponentModelTest -DfailIfNoTests=false   # your test passes
 ```
 
-The orchestrator runs the same commands the moment you exit. Anything they report there is a
-rejected attempt and a fresh start, so it is always cheaper to fix it here.
+The orchestrator runs the same commands the moment you exit, after two static checks of the files you
+changed: every `var(--x)` you reference must be declared (in your tokens, a base style or your own
+CSS) or carry a fallback, and every `url()` must resolve to a file that will be deployed. A failure
+comes back to you in this same session with the exact error, but it still costs an attempt, so it
+is always cheaper to find it here.
 
 **Never install or deploy.** No `mvn install`, no `-PautoInstall...` profile, no `npm`, no Sass,
 nothing that talks to an AEM instance — that server is shared, and you would be pushing half-built
@@ -99,9 +124,11 @@ contract. Your authored values belong in `contributions.page_node.properties` (o
 `experience_fragment_node` when your component is chrome) — not in a file you write yourself.
 
 Do not open anything under `ui.frontend`. The global tokens live there, but they are already built
-and deployed before you start: you consume them as `var(--…)` from your own clientlib file, which
-loads after them. A token you need but cannot find is a `FAIL` to report, not a literal to hardcode
-and not a file to go and edit.
+and deployed before you start, and your `tokens` file lists every one of them with its value: you
+consume them as `var(--…)` from your own clientlib file, which loads after them. A token you need but
+cannot find is a `FAIL` to report, not a literal to hardcode and not a file to go and edit. The
+source's fonts are delivered by the orchestrator under the family names your `tokens` file lists;
+reach them through the typography tokens, never with an `@font-face` of your own.
 
 Declare your CSS through `clientlib_entries` and your JS through `js_entries`; the orchestrator
 writes `css.txt` and `js.txt` in plan order so the cascade is deterministic. Never edit those index
@@ -120,16 +147,32 @@ Report `BLOCKED` only for a genuine external blocker. A gap you can fix is a `FA
 
 ## If your attempt is rejected
 
-You get a bounded number of attempts. When one is rejected, the next prompt ends with an
-`## Attempt N of M was rejected` section naming exactly what went wrong — an out-of-scope write with
-the paths you were allowed, a failing or missing check, a malformed result envelope with the keys
-you used, or a merge conflict with another component.
+You get a bounded number of attempts. When one is rejected you are told exactly what went wrong — a
+build or static-check error, a failing or missing check, a malformed result envelope with the keys
+you used, an out-of-scope write with the paths you were allowed, or a merge conflict with another
+component. What happens next depends on which:
 
-Two things to know:
-
-- Each attempt starts from a **fresh checkout**. Your previous edits are gone; redo the work, fixed.
+- A build or static-check error, a failing check or a malformed envelope continues **this session in
+  this workspace**: everything you wrote is still there. Fix exactly what the message names; do not
+  start over.
+- An out-of-scope write or a merge conflict starts a **fresh checkout** in a new session. Your
+  previous edits are gone and the prompt ends with an `## Attempt N of M was rejected` section;
+  redo the work, fixed.
 - `BLOCKED` is terminal and is not retried, because an external prerequisite will not resolve by
   asking again. Use it only when you genuinely cannot proceed without something outside this run.
+- A machine fault (Maven or Java that cannot run) is not charged to you: the run stops and says so.
 
 Address the stated reason literally. Repeating a rejected approach wastes an attempt, and when the
 attempts run out the whole run fails on your component.
+
+A session interrupted by the network is resumed, and says so: inspect your workspace and continue
+where you stopped.
+
+## Preview measurement
+
+Once your component is merged it may be deployed with everything merged before it and scored against
+the live source on its own. If it does not pass, you receive a `## Preview measurement` message in
+this session with the measured deltas and the evidence images. Fix what the deltas name inside your
+own files, run your checks, and write your result again. If the cause lies outside your files — a
+font that does not load, a shared token, the page around you — change nothing, say so in `notes`,
+and set `shared_defect` when it is a shared design layer.

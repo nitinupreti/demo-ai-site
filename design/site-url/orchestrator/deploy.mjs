@@ -8,6 +8,24 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
+/**
+ * Output that says the machine, not the code, is broken. A worker told its code "does not build"
+ * over one of these spends a whole attempt on something it cannot change.
+ */
+const ENVIRONMENT_FAILURES = [
+  /JAVA_HOME[^\n]*(not defined correctly|should point to a JDK)/i,
+  /'mvn' is not recognized|mvn: (command )?not found/i,
+  /No compiler is provided in this environment/i,
+  /Unsupported class file major version|release version \d+ not supported|invalid target release/i,
+  /Could not (transfer|resolve) (artifact|dependencies)/i,
+  /PKIX path building failed|UnknownHostException|Connection (refused|timed out)/i,
+];
+
+/** `environment` when the output names a machine or network fault, `code` otherwise. */
+export function classifyFailure(output) {
+  return ENVIRONMENT_FAILURES.some((pattern) => pattern.test(String(output || ''))) ? 'environment' : 'code';
+}
+
 export function planDeployment(aemPort) {
   return [{
     label: 'full build and deploy',
@@ -19,6 +37,40 @@ export function planDeployment(aemPort) {
     args: [
       'clean', 'install', '-PautoInstallSinglePackage', `-Daem.port=${aemPort}`, '-DskipTests',
       '-Dmaven.clean.failOnError=false',
+    ],
+  }];
+}
+
+/** Maven modules a changed file rebuilds; the frontend is compiled into ui.apps, so it takes both. */
+const MODULE_OF = [
+  [/^core\//, ['core']],
+  [/^ui\.apps\//, ['ui.apps']],
+  [/^ui\.frontend\//, ['ui.frontend', 'ui.apps']],
+  [/^ui\.content\//, ['ui.content']],
+  [/^ui\.config\//, ['ui.config']],
+];
+
+/**
+ * Remediation never renames or removes a component, which is the only reason the first deploy
+ * rebuilds everything; a round rebuilds the modules it touched plus `all`, whose other embedded
+ * artifacts were installed by the full build. Anything outside those modules falls back to it.
+ */
+export function planScopedDeployment(aemPort, changedFiles) {
+  const modules = new Set();
+  for (const file of changedFiles || []) {
+    const normalized = String(file).replaceAll('\\', '/');
+    const match = MODULE_OF.find(([pattern]) => pattern.test(normalized));
+    if (!match) return planDeployment(aemPort);
+    match[1].forEach((module) => modules.add(module));
+  }
+  if (!modules.size) return planDeployment(aemPort);
+  return [{
+    label: `scoped build and deploy (${[...modules].join(', ')})`,
+    module: 'all',
+    command: 'mvn',
+    args: [
+      'clean', 'install', '-pl', [...modules, 'all'].join(','), '-PautoInstallSinglePackage',
+      `-Daem.port=${aemPort}`, '-DskipTests', '-Dmaven.clean.failOnError=false',
     ],
   }];
 }
@@ -111,10 +163,54 @@ export async function runValidation({ workspaceRoot, steps, execFn = spawn }) {
     const { code, output } = await execute(step, workspaceRoot, execFn);
     if (code !== 0) {
       const reported = output.split('\n').filter((line) => line.includes('[ERROR]')).slice(0, 12);
-      return { status: 'FAIL', label: step.label, detail: (reported.join('\n') || output.slice(-1500)).trim() };
+      return {
+        status: 'FAIL',
+        kind: classifyFailure(output),
+        label: step.label,
+        detail: (reported.join('\n') || output.slice(-1500)).trim(),
+      };
     }
   }
   return { status: 'PASS' };
+}
+
+/**
+ * Fails fast on a machine that cannot build or reach the instance, before hours of agent work
+ * are spent on output nothing could deploy. An unreachable instance only warns: it is often
+ * started while the agents work, and the deploy phase checks it again.
+ */
+export async function checkEnvironment({
+  repoRoot, execFn = spawn, fetchFn = fetch, aemUrl,
+}) {
+  const problems = [];
+  const warnings = [];
+  const maven = await execute({ command: 'mvn', args: ['-v'] }, repoRoot, execFn).catch((error) => ({
+    code: null, output: error.message,
+  }));
+  if (maven.code !== 0) {
+    problems.push(`Maven cannot run: ${maven.output.trim().split('\n').slice(-3).join(' ') || `exit ${maven.code}`}`);
+  }
+  const aem = await probeInstance({ aemUrl, fetchFn });
+  if (!aem.reachable) warnings.push(`AEM is not reachable at ${aemUrl} (${aem.reason}); start it before the deploy phase`);
+  return {
+    status: problems.length ? 'FAIL' : 'PASS',
+    problems,
+    warnings,
+    maven: maven.code === 0 ? maven.output.split('\n').find((line) => /Apache Maven/.test(line))?.trim() || 'ok' : null,
+    aem_reachable: aem.reachable,
+  };
+}
+
+/** Any HTTP answer means the instance is up; the login page needs no credentials. */
+export async function probeInstance({ aemUrl, fetchFn = fetch, timeoutMs = 5000 }) {
+  try {
+    const response = await fetchFn(`${aemUrl}/libs/granite/core/content/login.html`, {
+      redirect: 'manual', signal: AbortSignal.timeout(timeoutMs),
+    });
+    return { reachable: true, status: response.status };
+  } catch (error) {
+    return { reachable: false, reason: error.cause?.code || error.code || error.message };
+  }
 }
 
 export async function runDeployment({
@@ -131,7 +227,13 @@ export async function runDeployment({
     });
     if (writeLog && logPath) writeLog(logPath, `\n=== ${step.label} ===\n${output}\n`);
     if (code !== 0) {
-      return { status: 'FAIL', executed, failure: { step: step.label, exit_code: code, tail: output.slice(-2000) } };
+      return {
+        status: 'FAIL',
+        executed,
+        failure: {
+          step: step.label, exit_code: code, kind: classifyFailure(output), tail: output.slice(-2000),
+        },
+      };
     }
   }
   return { status: 'PASS', executed };

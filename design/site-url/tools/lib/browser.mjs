@@ -389,25 +389,56 @@ export async function prepareForCapture(page, { width, dynamicSettleMs = 3000, s
   };
 }
 
-/** Fonts the platform actually rasterised, which can differ from the declared stack. */
-export async function renderedFonts(page, selector, matchIndex = 0) {
+const FONT_PROBE_ATTRIBUTE = 'data-aem-migration-font-probe';
+
+/**
+ * Fonts the platform actually rasterised for the element's text, which can differ from the declared
+ * stack. CDP only reports a node's own text nodes, and a component root rarely has any, so every
+ * text-bearing descendant is measured and the glyph counts are summed per family.
+ */
+export async function renderedFonts(page, selector, matchIndex = 0, { maxNodes = 250 } = {}) {
   let session;
   try {
+    const marked = await page.evaluate(({ css, index, attribute, limit }) => {
+      const root = document.querySelectorAll(css)[index];
+      if (!root) return -1;
+      let count = 0;
+      for (const node of [root, ...root.querySelectorAll('*')]) {
+        if (count >= limit) break;
+        if (node.closest('script,style,noscript')) continue;
+        if (!Array.from(node.childNodes).some((child) => child.nodeType === 3 && child.nodeValue.trim())) continue;
+        const rect = node.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        node.setAttribute(attribute, '');
+        count += 1;
+      }
+      return count;
+    }, {
+      css: selector, index: matchIndex, attribute: FONT_PROBE_ATTRIBUTE, limit: maxNodes,
+    });
+    if (marked < 0) return null;
     session = await page.context().newCDPSession(page);
     await session.send('DOM.enable');
     await session.send('CSS.enable');
     const { root } = await session.send('DOM.getDocument', { depth: -1 });
-    const { nodeIds } = await session.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector });
-    const nodeId = nodeIds[matchIndex];
-    if (!nodeId) return null;
-    const { fonts } = await session.send('CSS.getPlatformFontsForNode', { nodeId });
-    return fonts
-      .slice()
-      .sort((a, b) => b.glyphCount - a.glyphCount)
-      .map((font) => ({ family: font.familyName, glyphs: font.glyphCount, custom: font.isCustomFont }));
+    const { nodeIds } = await session.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector: `[${FONT_PROBE_ATTRIBUTE}]` });
+    const totals = new Map();
+    for (const nodeId of nodeIds) {
+      const { fonts } = await session.send('CSS.getPlatformFontsForNode', { nodeId });
+      for (const font of fonts) {
+        const entry = totals.get(font.familyName) || { family: font.familyName, glyphs: 0, custom: false };
+        entry.glyphs += font.glyphCount;
+        entry.custom = entry.custom || font.isCustomFont;
+        totals.set(font.familyName, entry);
+      }
+    }
+    return [...totals.values()].sort((a, b) => b.glyphs - a.glyphs);
   } catch {
     return null;
   } finally {
+    await page.evaluate((attribute) => {
+      for (const node of document.querySelectorAll(`[${attribute}]`)) node.removeAttribute(attribute);
+    }, FONT_PROBE_ATTRIBUTE).catch(() => {});
     if (session) await session.detach().catch(() => {});
   }
 }

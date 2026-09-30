@@ -71,6 +71,13 @@ const CASES = [
     instances: 5,
     promoted: 2,
   },
+  {
+    // An author rebuilds a block from its copy, links, icons and background art, not from a signature.
+    id: 'content',
+    blocks: everywhere([HEADER, 'div.hero', 'div.image', 'div.feature', FOOTER]),
+    instances: 5,
+    content: true,
+  },
 ];
 
 const failures = [];
@@ -121,6 +128,35 @@ for (const spec of CASES) {
       expect(readiness.images.promoted === spec.promoted,
         `${spec.id} @${readiness.breakpoint}: expected ${spec.promoted} clipped lazy images loaded eagerly, got ${readiness.images.promoted}`);
     }
+  }
+
+  if (spec.content) {
+    const header = artifact.instances.find((instance) => instance.selector[1440]?.css === HEADER);
+    const hero = artifact.instances.find((instance) => instance.selector[1440]?.css === 'div.hero');
+    const svg = header?.content?.[1440]?.svgs?.[0];
+    const svgFile = svg?.file ? path.join(outDir, svg.file) : null;
+    const markup = svgFile && fs.existsSync(svgFile) ? fs.readFileSync(svgFile, 'utf8') : '';
+    expect(Boolean(svg?.sha256) && !('markup' in svg), `${spec.id}: an inline SVG must be exported to a file, got ${JSON.stringify(svg)}`);
+    expect(markup.includes('fill="rgb(229, 83, 75)"') && markup.includes('xmlns="http://www.w3.org/2000/svg"'),
+      `${spec.id}: the exported SVG must carry the fill its CSS class gave it, got ${markup.slice(0, 200)}`);
+    expect(String(svg?.in_link).endsWith('/home'), `${spec.id}: the SVG must record the link it sits in`);
+
+    const text = hero?.content?.[1440]?.text || [];
+    const paragraph = text.find((entry) => entry.tag === 'p');
+    expect(text.some((entry) => entry.tag === 'h1' && entry.level === 1 && entry.text === 'Content is captured whole'),
+      `${spec.id}: a heading must be captured whole with its level, got ${JSON.stringify(text)}`);
+    expect(paragraph?.text === 'Read the full guide for every word of it.'
+      && /<a href="file:[^"]+\/docs\/guide\.html">full guide<\/a>/.test(paragraph?.html || ''),
+    `${spec.id}: a paragraph must keep its whole text and its inline link, got ${JSON.stringify(paragraph)}`);
+    expect(!text.some((entry) => entry.tag === 'a'), `${spec.id}: a link inside captured text must not be captured twice`);
+    expect((hero?.content?.[1440]?.links || []).some((link) => link.href.endsWith('/docs/guide.html') && link.text === 'full guide'),
+      `${spec.id}: links must be recorded with absolute targets`);
+    expect((hero?.content?.[1440]?.backgrounds || []).some((entry) => entry.url.startsWith('data:image/svg+xml')),
+      `${spec.id}: CSS background art must be recorded, got ${JSON.stringify(hero?.content?.[1440]?.backgrounds)}`);
+
+    const face = (artifact.fonts?.faces || []).find((entry) => entry.family === 'Fixture Face');
+    expect(face && face.loaded === false && /\/fixture-face\.woff2$/.test(face.src?.[0]?.url || '') && face.src[0].format === 'woff2',
+      `${spec.id}: an unused @font-face must be recorded with its absolute source and as not loaded, got ${JSON.stringify(face)}`);
   }
 
   const counts = BREAKPOINTS.map((width) => `${width}: ${found[width].length}`).join('  ');

@@ -43,6 +43,12 @@
     #clipped-lazy .track { display: flex; gap: 6000px; width: max-content; }
     #clipped-lazy .track img { flex: none; width: 60px; height: 60px; }
 
+    /* Declared but never used, so discovery must record the rule and report it as not loaded. */
+    @font-face { font-family: "Fixture Face"; src: url("fixture-face.woff2") format("woff2"); font-weight: 400; }
+    #content .brand { display: inline-flex; margin-right: 12px; }
+    #content .logo path { fill: #e5534b; }
+    #content .hero { background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23ccc'/%3E%3C/svg%3E"); }
+
     @media (max-width: 599px) {
       #card-row .row { flex-direction: column; height: auto; }
       #card-row .promo { flex: none; height: 300px; }
@@ -160,6 +166,22 @@
           </div>
         </div>
         <div class="feature"><h2>The ticker is one section</h2><p>Its clipped images are loaded rather than awaited forever.</p></div>
+      </div>
+    </div>
+    <footer class="site-footer"><p>Fixture Co footer</p></footer>
+  </div>
+
+  <!-- Authoring content: full copy with an inline link, a class-painted inline logo, and CSS background art. -->
+  <div class="case" id="content">
+    <header class="site-header">
+      <a class="brand" href="/home" aria-label="Fixture Co home"><svg class="logo" viewBox="0 0 20 20" width="20" height="20"><path d="M0 0H20V20H0Z"/></svg></a>
+      <strong>Fixture Co</strong>
+    </header>
+    <div class="cmp-container content">
+      <div class="grid">
+        <div class="hero"><h1>Content is captured whole</h1><p>Read the <a href="docs/guide.html">full guide</a> for every word of it.</p></div>
+        <div class="image"><img class="picture" alt="Fixture artwork" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='600'><rect width='1000' height='600' fill='%23d9e2ec'/><circle cx='500' cy='300' r='180' fill='%231f6feb'/></svg>"></div>
+        <div class="feature"><h2>Icons keep their paint</h2><p>A class-driven fill survives the export.</p></div>
       </div>
     </div>
     <footer class="site-footer"><p>Fixture Co footer</p></footer>

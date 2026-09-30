@@ -272,6 +272,40 @@ export function textSimilarity(left, right) {
   return shared / Math.max(leftTokens.length, rightTokens.size);
 }
 
+// A family carrying at least this share of the glyphs is a real font of the component; a stray symbol
+// glyph borrowed from a system font is not. Below the absent share a family counts as not rendered.
+const FONT_SHARE = 0.05;
+const FONT_ABSENT_SHARE = 0.01;
+
+function glyphShares(fonts) {
+  const total = (fonts || []).reduce((sum, font) => sum + (font.glyphs || 0), 0);
+  return new Map((fonts || []).map((font) => [font.family, total ? (font.glyphs || 0) / total : 0]));
+}
+
+/** A delta when a family one side really renders is absent on the other; null when they agree. */
+export function fontFamiliesDiffer(source, target) {
+  if (!source || !target) return null;
+  const left = glyphShares(source);
+  const right = glyphShares(target);
+  const missing = [...left].filter(([family, share]) => share >= FONT_SHARE && (right.get(family) || 0) < FONT_ABSENT_SHARE)
+    .map(([family]) => family);
+  const extra = [...right].filter(([family, share]) => share >= FONT_SHARE && (left.get(family) || 0) < FONT_ABSENT_SHARE)
+    .map(([family]) => family);
+  if (!missing.length && !extra.length) return null;
+  return {
+    source: source.map((font) => font.family), target: target.map((font) => font.family), missing, extra,
+  };
+}
+
+/** Faces the source loaded that the target declared but could not load: a delivery defect, page-wide. */
+export function fontFallback(sourceChecks, targetChecks) {
+  const loadedOnSource = new Set((sourceChecks || []).filter((entry) => entry.loaded)
+    .map((entry) => String(entry.family).toLowerCase()));
+  return (targetChecks || [])
+    .filter((entry) => !entry.loaded && loadedOnSource.has(String(entry.family).toLowerCase()))
+    .map((entry) => ({ family: entry.family, weight: entry.weight, style: entry.style }));
+}
+
 /** Locates the differing pixels so remediation edits the region that actually differs. */
 function diffHotCells(diff, { width, height, cellSize }) {
   const columns = Math.max(1, Math.ceil(width / cellSize));
@@ -616,7 +650,11 @@ async function main() {
     evidenceBases.set(name, seen + 1);
     return seen ? `${name}-${seen + 1}` : name;
   };
-  const preflight = { status: 'PASS', environment_blocked: false, checks: [] };
+  const preflight = {
+    status: 'PASS', environment_blocked: false, checks: [], font_fallback: [],
+  };
+  // A preview scores one component on a partial page, where the whole-page comparison means nothing.
+  const compositeEnabled = config.composite !== false;
   const composePage = await createPage(browser, { width: 1200, height: 800, dpr: 1 });
 
   try {
@@ -635,7 +673,7 @@ async function main() {
         url: config.source_url, width, dpr, stableSelectors: sourceSelectors,
       });
       const sourceFull = path.join(shotDir, `full-${width}-source.png`);
-      await source.page.screenshot({ path: sourceFull, fullPage: true });
+      if (compositeEnabled) await source.page.screenshot({ path: sourceFull, fullPage: true });
 
       for (const target of config.targets) {
         const targetSelectors = visible.map((component) => ({
@@ -645,12 +683,17 @@ async function main() {
           url: target.url, width, dpr, httpCredentials, stableSelectors: targetSelectors,
         });
         const targetFull = path.join(shotDir, `full-${width}-${target.mode}-target.png`);
-        await deployed.page.screenshot({ path: targetFull, fullPage: true });
+        if (compositeEnabled) await deployed.page.screenshot({ path: targetFull, fullPage: true });
 
         const scrollbarDelta = deployed.readiness.scrollbar_width - source.readiness.scrollbar_width;
         const readinessBlocked = source.readiness.status !== 'PASS' || deployed.readiness.status !== 'PASS';
         // Landing on another path means an AEM login bounce or a sling:redirect, not a bad component.
         const redirectedTo = landedElsewhere(target.url, deployed.navigation.final_url);
+        const fallback = fontFallback(source.readiness.fonts_checked, deployed.readiness.fonts_checked);
+        for (const face of fallback) {
+          if (!preflight.font_fallback.some((entry) => entry.family === face.family && entry.weight === face.weight
+            && entry.style === face.style)) preflight.font_fallback.push(face);
+        }
         preflight.checks.push({
           breakpoint: width,
           mode: target.mode,
@@ -665,6 +708,7 @@ async function main() {
             : deployed.readiness.failures,
           source_warnings: source.readiness.warnings,
           target_warnings: deployed.readiness.warnings,
+          font_fallback: fallback,
           scrollbar_width_delta: scrollbarDelta,
           viewport: { requested: width, source: source.readiness.inner_width, target: deployed.readiness.inner_width },
           dpr: { source: source.readiness.dpr, target: deployed.readiness.dpr },
@@ -788,11 +832,9 @@ async function main() {
 
           const sourceFonts = await renderedFonts(source.page, component.source.css, component.source.match_index || 0);
           const targetFonts = await renderedFonts(deployed.page, component.target.css, component.target.match_index || 0);
-          const sourceFamilies = (sourceFonts || []).map((font) => font.family);
-          const targetFamilies = (targetFonts || []).map((font) => font.family);
-          result.deltas.rendered_fonts = sourceFamilies.join('|') === targetFamilies.join('|')
-            ? []
-            : [{ source: sourceFamilies, target: targetFamilies }];
+          const fontDelta = fontFamiliesDiffer(sourceFonts, targetFonts);
+          result.deltas.rendered_fonts = fontDelta ? [fontDelta] : [];
+          if (!sourceFonts || !targetFonts) result.deltas.rendered_fonts_unmeasured = true;
 
           result.deltas.playback = playbackDeltas(
             await capturePlayback(source.page, component.source),
@@ -940,6 +982,10 @@ async function main() {
         }
 
         // Page composite for this breakpoint and mode.
+        if (!compositeEnabled) {
+          await deployed.page.context().close();
+          continue;
+        }
         const sourceFullAnalysis = analysePng(fs.readFileSync(sourceFull));
         const targetFullAnalysis = analysePng(fs.readFileSync(targetFull));
         const compositeKey = `${width}-${target.mode}`;
@@ -1061,8 +1107,12 @@ async function main() {
   const failed = perComponent.filter((entry) => entry.status === 'FAIL');
   const allRatios = results.map((row) => row.visual_match_ratio).filter((value) => typeof value === 'number');
   const compositeEntries = Object.values(pageComposite);
-  const compositePass = compositeEntries.length > 0 && compositeEntries.every((entry) => entry.status === 'PASS');
+  const compositePass = !compositeEnabled
+    || (compositeEntries.length > 0 && compositeEntries.every((entry) => entry.status === 'PASS'));
   const scored = results.filter((row) => row.status === 'PASS' || row.status === 'FAIL');
+  // The live source is re-read every cycle; rows whose source no longer matches discovery mean it changed.
+  const driftRows = results.filter((row) => row.deltas?.signature?.matches_source === false
+    || /^source selector matched/.test(row.withheld_reason || ''));
 
   const artifact = {
     schema_version: 1,
@@ -1093,6 +1143,9 @@ async function main() {
       instances_exact_match: scored.filter((row) => row.exact_match).length,
       min_ratio: allRatios.length ? Math.min(...allRatios) : null,
       page_composite_pass: compositePass,
+      page_composite_scored: compositeEnabled,
+      font_fallback: preflight.font_fallback.length,
+      source_drift_rows: driftRows.length,
       duration_seconds: Number(((Date.now() - startedAt) / 1000).toFixed(2)),
     },
     status: preflight.status === 'PASS' && !failed.length && !withheld.length && compositePass ? 'PASS' : 'FAIL',

@@ -64,15 +64,26 @@ tokens, fonts and base styles belong to the foundations agent, which remediation
 round whenever a shared layer is blamed. If your task block has `shared_repair`, that agent has
 already run: its `changed_files` are in the tree you were given, but your `deltas` were measured
 before them, so do not compensate in your own files for anything they address. If the deltas show
-the defect is shared, say so in your result and change nothing outside your scope.
+the defect is shared, change nothing outside your scope and set `shared_defect` in your result:
+`{ "layer": "typography-tokens" | "color-tokens" | "font-delivery", "evidence": "<the delta>" }`.
+The next round's shared repair takes it on, so name the delta that proves it.
 
-Never run Maven, npm or a deploy. Never edit `parity.json` or any evidence artefact.
+You may run the read-only checks a component builder runs — `mvn -pl ui.apps generate-sources
+filevault-package:generate-metadata filevault-package:validate-files` and `mvn -pl core
+test-compile` — and nothing else: no install, no deploy, no npm. Never edit `parity.json` or any
+evidence artefact.
+
+Your change is checked before it is merged, exactly as a component's is: every `var(--x)` it
+references must be declared or carry a fallback, every `url()` must resolve, and the modules you
+touched must build. A failure comes back to you once, in this session, with the exact error; if the
+second try fails too, nothing is merged and the attempt is spent.
 
 ## Required checks
 
 `diagnosis_recorded` (the deltas you acted on) and `hypothesis_applied` (what you changed and the
-score movement you expect). If your hypothesis is falsified on the next run you will be given the
-refreshed deltas; do not repeat a fix that already failed.
+score movement you expect). Your task block's `attempts` lists every earlier attempt on these
+components — its layer, hypothesis and changed files — and your `deltas` were measured after the last
+one: never repeat a fix the deltas show has already failed.
 
-Attempts are capped: three in round one, one final in round two. After that the component is
-reported as `FAILED-FINAL` with its residual gap — an honest failure, not a disguised pass.
+Attempts are capped per component by the run. After the cap the component is reported as
+`FAILED-FINAL` with its residual gap — an honest failure, not a disguised pass.

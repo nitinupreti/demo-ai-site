@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { PNG } from 'pngjs';
 
-import { analysePng, textSimilarity } from '../parity.mjs';
+import { analysePng, fontFallback, fontFamiliesDiffer, textSimilarity } from '../parity.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.dirname(here);
@@ -42,6 +42,7 @@ const config = {
     { id: 'menu', source: { css: '#menu' }, target: { css: '#menu' }, signature_text: 'Contact Search India' },
     { id: 'tagline', source: { css: '#tagline' }, target: { css: '#tagline' }, signature_text: 'Hello world' },
     { id: 'banner', source: { css: '#banner' }, target: { css: '#banner' } },
+    { id: 'typeface', source: { css: '#typeface' }, target: { css: '#typeface' } },
   ],
 };
 const configPath = path.join(outDir, 'parity-config.json');
@@ -144,12 +145,22 @@ expect(taglineRows.length === config.breakpoints.length && taglineRows.every((ro
 
 expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
 
+// A component root rarely holds text itself, so the fonts it renders must be read from its descendants.
+const typeface = rowFor('typeface');
+expect(typeface.gates?.rendered_fonts === 'FAIL'
+  && typeface.deltas.rendered_fonts[0]?.missing.includes('Courier New'),
+`nested text in another face must fail the rendered-font gate, got ${JSON.stringify(typeface.deltas.rendered_fonts)}`);
+expect(byId.typeface.status === 'FAIL' && byId.typeface.owning_layer_hint === 'font-delivery',
+  `a font that does not render is blocking and belongs to font delivery, got ${byId.typeface.status} ${byId.typeface.owning_layer_hint}`);
+expect(header.gates.rendered_fonts === 'PASS' && byId.menu.status === 'PASS',
+  'identical faces must still pass the rendered-font gate');
+
 // One component, several parity targets: it must be summarised once or remediation spends its
 // attempt budget once per target instead of once per component.
 const summarisedIds = artifact.components.map((entry) => entry.component_id);
 expect(summarisedIds.length === new Set(summarisedIds).size,
   `each component must be summarised once, got ${summarisedIds.join(',')}`);
-expect(summarisedIds.length === 9, `expected 9 components, got ${summarisedIds.length}`);
+expect(summarisedIds.length === 10, `expected 10 components, got ${summarisedIds.length}`);
 
 // A target pinned to a breakpoint is scored there and skipped everywhere else.
 const headerRows = artifact.results.filter((row) => row.component_id === 'site-header');
@@ -223,6 +234,21 @@ expect(textSimilarity('Contact Search India', 'ContactSearchIndia') < 1,
   `words run together must lower text similarity, got ${textSimilarity('Contact Search India', 'ContactSearchIndia')}`);
 expect(textSimilarity('Contact Search India', 'Careers About us') < 0.5,
   `different words must still read as different text, got ${textSimilarity('Contact Search India', 'Careers About us')}`);
+
+// A stray symbol glyph from a system font is noise; a family carrying the text that is gone is not.
+const sourceFaces = [{ family: 'Brand Sans', glyphs: 480 }, { family: 'Segoe UI Symbol', glyphs: 2 }];
+expect(fontFamiliesDiffer(sourceFaces, [{ family: 'Brand Sans', glyphs: 480 }]) === null,
+  'a family below the noise share must not fail the gate');
+const fellBack = fontFamiliesDiffer(sourceFaces, [{ family: 'Arial', glyphs: 482 }]);
+expect(fellBack?.missing.join(',') === 'Brand Sans' && fellBack.extra.join(',') === 'Arial',
+  `a fallback must name the missing and the substituted family, got ${JSON.stringify(fellBack)}`);
+expect(fontFamiliesDiffer(null, sourceFaces) === null, 'an unmeasured side must not fail the gate');
+const fallback = fontFallback(
+  [{ family: 'Brand Sans', weight: '400', style: 'normal', loaded: true }],
+  [{ family: 'Brand Sans', weight: '400', style: 'normal', loaded: false }, { family: 'Own Face', weight: '400', style: 'normal', loaded: false }],
+);
+expect(fallback.length === 1 && fallback[0].family === 'Brand Sans',
+  `only a source face the target failed to load is a delivery defect, got ${JSON.stringify(fallback)}`);
 
 console.log('\nFixture assertions');
 if (failures.length) {

@@ -12,7 +12,8 @@
        #frame        escaped "/" in ratio -> aspect-ratio falls back to auto, the box collapses to 0px
        #menu         whitespace between items (the live page has none) -> same words, same pixels
        #tagline      "Helloworld" where the live page says "Hello world" -> a real text difference
-       #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance */
+       #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance
+       #typeface     nested copy in Arial where the live page uses Courier New -> rendered fonts */
     :root { --brand: #d9480f; --ink: #14161a; --paper: #ffffff; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink);
@@ -40,6 +41,8 @@
               border: 2px solid var(--brand); border-radius: 8px; background: #f7f9ff; }
     .banner h2 { margin: 0 0 8px; font-size: 15px; }
     .banner p { margin: 0; font-size: 13px; color: #5b6472; }
+    .typeface { width: 360px; height: 60px; margin: 24px; overflow: hidden; }
+    .typeface p { margin: 0; font: 16px/1.5 Arial, sans-serif; }
   </style>
 </head>
 <body>
@@ -69,5 +72,6 @@
     <h2>Seasonal offer</h2>
     <p>A box resized far beyond the tolerance is never scored.</p>
   </section>
+  <section class="typeface" id="typeface"><div><p>Nested copy in a monospaced face</p></div></section>
 </body>
 </html>

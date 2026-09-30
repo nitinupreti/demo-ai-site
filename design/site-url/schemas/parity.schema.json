@@ -27,7 +27,25 @@
     "source_url": { "type": "string" },
     "target_urls": { "type": "object" },
     "breakpoints": { "type": "array", "items": { "type": "integer" }, "minItems": 1 },
-    "preflight": { "type": "object" },
+    "preflight": {
+      "type": "object",
+      "properties": {
+        "environment_blocked": { "type": "boolean" },
+        "checks": {
+          "description": "One per breakpoint and target mode; each carries its own font_fallback.",
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "font_fallback": {
+          "description": "Faces the source loaded that the target declared but could not load: a page-wide delivery defect.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "family": { "type": "string" }, "weight": { "type": "string" }, "style": { "type": "string" } }
+          }
+        }
+      }
+    },
     "results": {
       "type": "array",
       "items": {
@@ -49,7 +67,24 @@
           "target": { "type": "object" },
           "side_by_side": { "type": ["string", "null"] },
           "diff_mask": { "type": ["string", "null"] },
-          "deltas": { "type": "object" }
+          "deltas": {
+            "type": "object",
+            "properties": {
+              "rendered_fonts": {
+                "description": "Empty when both sides rasterised the same families; one delta otherwise. A hard gate.",
+                "type": "array",
+                "items": { "type": "object" }
+              },
+              "rendered_fonts_unmeasured": { "type": "boolean" },
+              "playback": { "type": "array", "items": { "type": "object" } },
+              "signature": {
+                "type": "object",
+                "properties": {
+                  "matches_source": { "type": "boolean", "description": "False when the live source no longer shows what discovery froze." }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -79,7 +114,10 @@
         "components_failed": { "type": "integer" },
         "components_withheld": { "type": "integer" },
         "min_ratio": { "type": ["number", "null"] },
-        "duration_seconds": { "type": "number" }
+        "duration_seconds": { "type": "number" },
+        "page_composite_scored": { "type": "boolean", "description": "False when the config set composite: false (early previews)." },
+        "font_fallback": { "type": "integer" },
+        "source_drift_rows": { "type": "integer" }
       }
     },
     "status": { "type": "string", "enum": ["PASS", "FAIL"] }

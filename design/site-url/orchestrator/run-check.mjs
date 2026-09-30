@@ -133,6 +133,7 @@ const instanceFor = (id) => ({ [CONTENT_A]: 'inst-001', [CONTENT_B]: 'inst-002',
 const attemptsSeen = new Map();
 const retryPrompts = [];
 const remediationPrompts = [];
+const regressionCalls = [];
 
 function writeParity(passing, compositePassing = true, cycle = 0) {
   const components = componentIds.map((id) => ({
@@ -196,6 +197,21 @@ const runTool = async (name, args = []) => {
     const target = path.join(evidenceDir, 'discovery');
     fs.mkdirSync(target, { recursive: true });
     fs.writeFileSync(path.join(target, 'discovery.json'), JSON.stringify(discovery, null, 2));
+    return { name, code: 0 };
+  }
+  if (name === 'regression') {
+    regressionCalls.push(args.slice(1).join(' '));
+    const out = args[args.indexOf('--out') + 1];
+    const label = args.includes('--compare') ? null : args[args.indexOf('--label') + 1];
+    if (label) {
+      fs.mkdirSync(path.join(out, label), { recursive: true });
+      fs.writeFileSync(path.join(out, label, 'capture.json'), JSON.stringify({ label, captures: [] }));
+    } else {
+      fs.writeFileSync(path.join(out, 'regression.json'), JSON.stringify({
+        status: 'CHANGED',
+        pages: [{ page: 'other', url: 'http://localhost:4506/content/other.html', width: 1440, status: 'CHANGED', ratio: 0.93 }],
+      }));
+    }
     return { name, code: 0 };
   }
   // First run fails two components; after one remediation round everything passes.
@@ -311,10 +327,12 @@ const agentBehaviour = ({ role, id, resultPath, prompt, cwd }) => {
     return;
   }
   remediationPrompts.push(prompt);
-  // The shared repair owns the design layer, not a component.
+  // The shared repair owns the design layer, not a component; a page batch owns every component.
   const file = id === 'fix-shared'
     ? path.join(cwd, 'ui.frontend', 'src', 'main', 'webpack', 'site', '_tokens.scss')
-    : path.join(cwd, 'ui.apps', 'components', id.replace('fix-', ''), 'fixed.txt');
+    : id === 'fix-page'
+      ? path.join(cwd, 'ui.apps', 'components', CONTENT_A, 'page-fixed.txt')
+      : path.join(cwd, 'ui.apps', 'components', id.replace('fix-', ''), 'fixed.txt');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, 'fixed');
   fs.writeFileSync(resultPath, JSON.stringify({
@@ -364,6 +382,7 @@ const outcome = await orchestrate(
     maxParallel: 3,
     targetPath: '/content/page',
     fetchFn,
+    preview: false,
   },
   {
     copilot: { executable: 'fake-copilot', version: 'fake' },
@@ -523,6 +542,7 @@ const resumeOutcome = await orchestrate(
     maxParallel: 3,
     targetPath: '/content/page',
     fetchFn,
+    preview: false,
     resume: true,
   },
   {
@@ -581,6 +601,7 @@ const partialOutcome = await orchestrate(
     maxParallel: 3,
     targetPath: '/content/page',
     fetchFn,
+    preview: false,
     resume: true,
   },
   {
@@ -638,6 +659,7 @@ const resumeOptions = {
   maxParallel: 3,
   targetPath: '/content/page',
   fetchFn,
+  preview: false,
   resume: true,
 };
 const resumeServices = (overrides) => ({

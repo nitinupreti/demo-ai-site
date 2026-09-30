@@ -73,11 +73,98 @@
           "signature": { "type": "object" },
           "styles": { "type": "object" },
           "media": { "type": "object" },
-          "repeated_children": { "type": "object" }
+          "repeated_children": { "type": "object" },
+          "content": {
+            "description": "Per breakpoint: what the instance rendered, so a worker never re-scrapes the live page.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["tag", "text"],
+                    "properties": {
+                      "tag": { "type": "string" },
+                      "text": { "type": "string" },
+                      "level": { "type": "integer" },
+                      "href": { "type": "string", "description": "Absolute." },
+                      "html": { "type": "string", "description": "Inline markup only, links made absolute." }
+                    }
+                  }
+                },
+                "links": { "type": "array", "items": { "type": "object" } },
+                "svgs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "file": { "type": "string", "description": "svg/<16 hex>.svg under the discovery directory, once externalized." },
+                      "sha256": { "type": "string" },
+                      "markup": { "type": "string", "description": "Present until externalized; computed paints written as attributes, sprite <use> inlined." },
+                      "truncated": { "type": "boolean" },
+                      "w": { "type": "number" },
+                      "h": { "type": "number" },
+                      "view_box": { "type": ["string", "null"] },
+                      "aria_label": { "type": ["string", "null"] },
+                      "title": { "type": ["string", "null"] },
+                      "in_link": { "type": ["string", "null"] }
+                    }
+                  }
+                },
+                "backgrounds": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "url": { "type": "string" },
+                      "tag": { "type": "string" },
+                      "w": { "type": "number" },
+                      "h": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "coverage": { "type": "object" },
+    "fonts": {
+      "description": "Every @font-face the page declared, merged across breakpoints; the orchestrator delivers the loaded ones.",
+      "type": "object",
+      "properties": {
+        "faces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["family", "src"],
+            "properties": {
+              "family": { "type": "string" },
+              "weight": { "type": "string" },
+              "style": { "type": "string" },
+              "stretch": { "type": "string" },
+              "unicode_range": { "type": ["string", "null"] },
+              "display": { "type": ["string", "null"] },
+              "src": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["url"],
+                  "properties": { "url": { "type": "string" }, "format": { "type": ["string", "null"] } }
+                }
+              },
+              "loaded": { "type": "boolean" }
+            }
+          }
+        },
+        "loaded": { "type": "array", "items": { "type": "object" } },
+        "inaccessible_sheets": { "type": "array", "items": { "type": "string" } },
+        "unresolved_sheets": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "screenshots": { "type": "object" },
     "denominators": { "type": "object" },
     "status": { "type": "string", "enum": ["PASS", "FAIL"] },

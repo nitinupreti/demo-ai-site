@@ -24,6 +24,7 @@ function failedAt(row) {
 
 export function buildReport({
   state, plan, parity, ledger, phases, invocations = [], workers = [], deployment, timings = null,
+  fonts = null, regression = null,
 }) {
   const components = plan?.components || [];
   const byId = new Map((parity?.components || []).map((entry) => [entry.component_id, entry]));
@@ -78,9 +79,16 @@ export function buildReport({
   lines.push('');
 
   const modelSeconds = invocations.reduce((sum, entry) => sum + (entry.duration_seconds || 0), 0);
+  const interrupted = invocations.filter((entry) => entry.relaunches || entry.stalled_seconds);
+  const relaunches = invocations.reduce((sum, entry) => sum + (entry.relaunches || 0), 0);
+  const stalledSeconds = invocations.reduce((sum, entry) => sum + (entry.stalled_seconds || 0), 0);
   lines.push('## Time', '');
   lines.push(`- **Total run time: ${formatDuration(totalSeconds)}**`);
   lines.push(`- Agent time: ${formatDuration(modelSeconds)} across ${invocations.length} invocation(s)`);
+  if (interrupted.length) {
+    lines.push(`- Agent interruptions: ${relaunches} relaunch(es) in ${interrupted.length} invocation(s), `
+      + `at least ${formatDuration(stalledSeconds)} lost to stalled streams`);
+  }
   if (deployment?.executed?.length) {
     const deploySeconds = deployment.executed.reduce((sum, step) => sum + (step.duration_seconds || 0), 0);
     lines.push(`- Build and deploy: ${formatDuration(deploySeconds)} across ${deployment.executed.length} step(s)`);
@@ -141,6 +149,17 @@ export function buildReport({
     lines.push('');
   }
 
+  if (interrupted.length) {
+    lines.push('### Agent interruptions', '');
+    lines.push('Each was relaunched in place; none cost an attempt.', '');
+    lines.push('| Agent | Phase | Relaunches | Stalled at least |');
+    lines.push('|---|---|---:|---:|');
+    for (const entry of interrupted) {
+      lines.push(`| ${entry.id} | ${entry.phase || entry.role} | ${entry.relaunches || 0} | ${formatDuration(entry.stalled_seconds || 0)} |`);
+    }
+    lines.push('');
+  }
+
   lines.push('## Components', '');
   lines.push('| Component | Tier | Role | Instances | Build time | Build tries | Min ratio | Status | Failed at | Advisory gates | Fix attempts |');
   lines.push('|---|---|---|---:|---:|---:|---:|---|---|---|---:|');
@@ -175,7 +194,22 @@ export function buildReport({
     for (const worker of retried) {
       for (const entry of worker.history || []) {
         const reason = entry.rejection ? entry.rejection.split('\n')[0].slice(0, 110) : '—';
-        lines.push(`| ${worker.component_id} | ${entry.attempt} | ${entry.status} | ${reason} |`);
+        lines.push(`| ${worker.component_id} | ${entry.attempt}${entry.resumed ? ' (same session)' : ''} | ${entry.status} | ${reason} |`);
+      }
+    }
+    lines.push('');
+  }
+
+  const previewed = workers.filter((worker) => worker.previews?.length);
+  if (previewed.length) {
+    lines.push('### Early previews', '');
+    lines.push('Each merged component was deployed and scored on its own while its worker could still fix it.', '');
+    lines.push('| Component | Round | Outcome | Min ratio |');
+    lines.push('|---|---:|---|---:|');
+    for (const worker of previewed) {
+      for (const entry of worker.previews) {
+        lines.push(`| ${worker.component_id} | ${entry.round} | ${entry.status}${entry.reason ? ` (${entry.reason})` : ''} `
+          + `| ${percent(entry.min_ratio)} |`);
       }
     }
     lines.push('');
@@ -187,6 +221,32 @@ export function buildReport({
     lines.push('|---|---:|---:|---|');
     for (const [key, entry] of Object.entries(parity.page_composite)) {
       lines.push(`| ${key} | ${percent(entry.ratio)} | ${entry.height_delta ?? 'n/a'} | ${entry.status} |`);
+    }
+    lines.push('');
+  }
+
+  const fallback = parity?.preflight?.font_fallback || [];
+  if (fonts?.faces?.length || fonts?.failures?.length || fallback.length) {
+    lines.push('## Fonts', '');
+    lines.push(`- Delivered: ${fonts?.faces?.length || 0} face(s) of ${(fonts?.families || []).join(', ') || 'no family'}`);
+    for (const failure of fonts?.failures || []) {
+      lines.push(`- Not delivered: ${failure.family} ${failure.weight} ${failure.style} (${failure.reason})`);
+    }
+    if (fallback.length) {
+      lines.push(`- Rendering from a fallback on the AEM page: ${[...new Set(fallback.map((entry) => `${entry.family} ${entry.weight || ''}`.trim()))].join(', ')}`);
+    }
+    lines.push('');
+  }
+
+  const regressed = (regression?.pages || []).filter((entry) => entry.status === 'CHANGED');
+  if (regression?.pages?.length) {
+    lines.push('## Other pages', '');
+    lines.push('Pages this run did not migrate, compared with how they rendered before its first install. A change may be'
+      + ' intended (a retuned token), but it was not reviewed by any gate.', '');
+    lines.push('| Page | Width | Status | Unchanged pixels |');
+    lines.push('|---|---:|---|---:|');
+    for (const entry of regression.pages) {
+      lines.push(`| ${entry.url} | ${entry.width} | ${entry.status}${entry.reason ? ` (${entry.reason})` : ''} | ${percent(entry.ratio)} |`);
     }
     lines.push('');
   }
@@ -259,10 +319,23 @@ export function buildReport({
         phases: Object.fromEntries((phases || []).map((phase) => [phase.name, phase.duration_seconds ?? null])),
         components: Object.fromEntries(rows.map((row) => [row.id, row.build_seconds])),
         invocations: invocations.map((entry) => ({
-          id: entry.id, phase: entry.phase || entry.role, duration_seconds: entry.duration_seconds, status: entry.status,
+          id: entry.id,
+          phase: entry.phase || entry.role,
+          duration_seconds: entry.duration_seconds,
+          status: entry.status,
+          relaunches: entry.relaunches || 0,
+          stalled_seconds: entry.stalled_seconds || 0,
         })),
+        relaunches,
+        stalled_seconds: stalledSeconds,
         across_sessions: timings,
       },
+      previews: Object.fromEntries(previewed.map((worker) => [worker.component_id, worker.previews])),
+      fonts: fonts ? {
+        status: fonts.status, families: fonts.families, faces: fonts.faces?.length || 0, failures: fonts.failures || [],
+        fallback_on_target: fallback,
+      } : null,
+      regression: regression ? { status: regression.status, changed: regressed.map((entry) => ({ url: entry.url, width: entry.width, ratio: entry.ratio })) } : null,
       phases: phases || [],
     },
   };

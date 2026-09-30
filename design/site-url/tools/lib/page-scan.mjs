@@ -550,6 +550,185 @@ export function scanPage(options) {
     return items;
   }
 
+  // Bounds keep one pathological block from bloating the artifact; ordinary sections sit far below them.
+  const MAX_TEXT_ENTRIES = 400;
+  const MAX_TEXT_CHARS = 20000;
+  const MAX_LINKS = 200;
+  const MAX_SVGS = 40;
+  const MAX_SVG_CHARS = 250000;
+  const MAX_BACKGROUND_NODES = 1500;
+  const MAX_BACKGROUNDS = 40;
+  const SHAPES = new Set(['path', 'circle', 'rect', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'use']);
+  // Presentation attributes with their SVG initial values; only a differing computed value is written.
+  const PAINT_DEFAULTS = {
+    'fill-opacity': '1',
+    'fill-rule': 'nonzero',
+    stroke: 'none',
+    'stroke-width': '1px',
+    'stroke-opacity': '1',
+    'stroke-linecap': 'butt',
+    'stroke-linejoin': 'miter',
+    opacity: '1',
+    'stop-color': 'rgb(0, 0, 0)',
+    'stop-opacity': '1',
+  };
+
+  function ownText(node) {
+    let text = '';
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) text += child.nodeValue;
+    }
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  // Elements whose whole text is one authored value, inline links and emphasis included.
+  const TEXT_CONTAINERS = new Set([
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'figcaption', 'dt', 'dd', 'td', 'th',
+    'label', 'button', 'a', 'caption', 'summary', 'address', 'cite', 'q',
+  ]);
+  const INLINE_KEPT = new Set(['a', 'strong', 'b', 'em', 'i', 'u', 'br', 'sup', 'sub', 'span', 'mark', 'small']);
+
+  /** Rich text as an author would type it: inline markup and link targets only, no classes or styles. */
+  function richText(node) {
+    const clone = node.cloneNode(true);
+    for (const child of Array.from(clone.querySelectorAll('*')).reverse()) {
+      const tag = child.tagName.toLowerCase();
+      if (!INLINE_KEPT.has(tag)) {
+        child.replaceWith(...child.childNodes);
+        continue;
+      }
+      if (tag === 'a' && child.getAttribute('href')) child.setAttribute('href', child.href);
+      for (const attribute of Array.from(child.attributes)) {
+        if (!(tag === 'a' && ['href', 'target', 'rel'].includes(attribute.name))) child.removeAttribute(attribute.name);
+      }
+      if (tag === 'span') child.replaceWith(...child.childNodes);
+    }
+    return clone.innerHTML.replace(/\s+/g, ' ').trim().slice(0, 5000);
+  }
+
+  /**
+   * The SVG as it renders, not as it was written: classes and currentColor resolve through CSS
+   * that will not exist in AEM, so every computed paint is written onto the element itself.
+   */
+  function exportSvg(svg) {
+    const clone = svg.cloneNode(true);
+    const originals = [svg, ...svg.querySelectorAll('*')];
+    const copies = [clone, ...clone.querySelectorAll('*')];
+    originals.forEach((original, index) => {
+      const copy = copies[index];
+      if (!copy) return;
+      const computed = getComputedStyle(original);
+      if (SHAPES.has(original.tagName.toLowerCase()) || original === svg) {
+        copy.setAttribute('fill', computed.getPropertyValue('fill'));
+      }
+      for (const [property, initial] of Object.entries(PAINT_DEFAULTS)) {
+        const value = computed.getPropertyValue(property);
+        if (value && value !== initial) copy.setAttribute(property, value);
+      }
+      if (computed.display === 'none') copy.setAttribute('display', 'none');
+    });
+    const rect = svg.getBoundingClientRect();
+    if (!clone.getAttribute('width')) clone.setAttribute('width', String(Math.round(rect.width)));
+    if (!clone.getAttribute('height')) clone.setAttribute('height', String(Math.round(rect.height)));
+    // A sprite reference points outside this element, so the symbol travels with it.
+    const borrowed = [];
+    for (const use of clone.querySelectorAll('use')) {
+      const reference = use.getAttribute('href') || use.getAttribute('xlink:href');
+      if (!reference || !reference.startsWith('#')) continue;
+      const id = reference.slice(1);
+      if (clone.querySelector(`[id="${CSS.escape(id)}"]`) || borrowed.some((node) => node.id === id)) continue;
+      const target = document.getElementById(id);
+      if (target) borrowed.push(target.cloneNode(true));
+    }
+    if (borrowed.length) {
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      for (const node of borrowed) defs.appendChild(node);
+      clone.insertBefore(defs, clone.firstChild);
+    }
+    return new XMLSerializer().serializeToString(clone);
+  }
+
+  /** What an author needs to recreate the block: its copy, its links, its icons and its background art. */
+  function contentSnapshot(element) {
+    const text = [];
+    let characters = 0;
+    const captured = new WeakSet();
+    const insideCaptured = (node) => {
+      for (let parent = node.parentElement; parent && parent !== element.parentElement; parent = parent.parentElement) {
+        if (captured.has(parent)) return true;
+      }
+      return false;
+    };
+    for (const node of [element, ...element.querySelectorAll('*')]) {
+      if (text.length >= MAX_TEXT_ENTRIES || characters >= MAX_TEXT_CHARS) break;
+      if (node.closest('script,style,noscript,svg,template') || insideCaptured(node)) continue;
+      const tag = node.tagName.toLowerCase();
+      const container = TEXT_CONTAINERS.has(tag);
+      const value = container ? boundaryText(node) : ownText(node);
+      if (!value || !isVisible(node)) continue;
+      const entry = { tag, text: value.slice(0, MAX_TEXT_CHARS - characters) };
+      if (/^h[1-6]$/.test(tag)) entry.level = Number(tag[1]);
+      const link = node.closest('a[href]');
+      if (link && element.contains(link)) entry.href = link.href;
+      if (container) {
+        captured.add(node);
+        const html = richText(node);
+        if (html && html !== entry.text) entry.html = html;
+      }
+      text.push(entry);
+      characters += entry.text.length;
+    }
+
+    const links = Array.from(element.querySelectorAll('a[href]'))
+      .filter((link) => isVisible(link))
+      .slice(0, MAX_LINKS)
+      .map((link) => ({
+        text: boundaryText(link).slice(0, 200),
+        href: link.href,
+        target: link.getAttribute('target'),
+        rel: link.getAttribute('rel'),
+        aria_label: link.getAttribute('aria-label'),
+      }));
+
+    const svgs = [];
+    for (const svg of Array.from(element.querySelectorAll('svg'))) {
+      if (svgs.length >= MAX_SVGS) break;
+      if (svg.parentElement?.closest('svg') || !isVisible(svg)) continue;
+      const rect = svg.getBoundingClientRect();
+      const markup = exportSvg(svg);
+      svgs.push({
+        markup: markup.length <= MAX_SVG_CHARS ? markup : null,
+        truncated: markup.length > MAX_SVG_CHARS,
+        w: Math.round(rect.width),
+        h: Math.round(rect.height),
+        view_box: svg.getAttribute('viewBox'),
+        aria_label: svg.getAttribute('aria-label'),
+        title: svg.querySelector('title')?.textContent?.trim() || null,
+        in_link: svg.closest('a[href]')?.href || null,
+      });
+    }
+
+    const backgrounds = [];
+    const seen = new Set();
+    for (const node of [element, ...element.querySelectorAll('*')].slice(0, MAX_BACKGROUND_NODES)) {
+      if (backgrounds.length >= MAX_BACKGROUNDS) break;
+      const image = getComputedStyle(node).backgroundImage;
+      if (!image || image === 'none' || !image.includes('url(') || !isVisible(node)) continue;
+      for (const match of image.matchAll(/url\(\s*"?([^")]+)"?\s*\)/g)) {
+        if (seen.has(match[1])) continue;
+        seen.add(match[1]);
+        const rect = node.getBoundingClientRect();
+        backgrounds.push({
+          url: match[1],
+          tag: node.tagName.toLowerCase(),
+          w: Math.round(rect.width),
+          h: Math.round(rect.height),
+        });
+      }
+    }
+    return { text, links, svgs, backgrounds };
+  }
+
   const records = blocks.map((element) => {
     const rect = absRect(element);
     const info = meta.get(element) || {};
@@ -582,6 +761,7 @@ export function scanPage(options) {
       section_slot: soleSlots.has(element) ? stableSelector(soleSlots.get(element)) : null,
       styles: { root: styleSnapshot(element), roles: roleSnapshots(element) },
       media: mediaSnapshot(element),
+      content: contentSnapshot(element),
     };
   });
 

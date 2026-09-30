@@ -99,9 +99,11 @@ export function eligible(ledger) {
  * breakpoints it failed at so the agent is told where to look. Owned paths are disjoint, so every
  * batch can run at once. The budget is still the component's: one edit has to hold at every
  * width, so a fix that only lands at one is not a fix. Components blamed on a shared design layer
- * are also listed in `shared`, for one repair of that layer ahead of the component agents.
+ * are also listed in `shared`, for one repair of that layer ahead of the component agents. So is a
+ * component whose last agent reported a shared defect, and a page where the target failed to load
+ * a face the source rendered: no component can fix either inside its own files.
  */
-export function routeFailures(parity, plan, ledger) {
+export function routeFailures(parity, plan, ledger, { sharedHints = [] } = {}) {
   const widthsByComponent = new Map();
   for (const row of parity.results || []) {
     if (row.status === 'PASS' || row.status === 'SKIPPED') continue;
@@ -135,15 +137,20 @@ export function routeFailures(parity, plan, ledger) {
   const blamedByRow = new Set((parity.results || [])
     .filter((row) => row.status !== 'PASS' && row.status !== 'SKIPPED' && SHARED_DESIGN_LAYERS.has(row.owning_layer_hint))
     .map((row) => row.component_id));
+  const hints = sharedHints.filter((hint) => SHARED_DESIGN_LAYERS.has(hint?.layer));
+  const hinted = new Set(hints.map((hint) => hint.component_id));
   const blamed = batches.map((batch) => batch.components[0])
-    .filter((id) => SHARED_DESIGN_LAYERS.has(layers.get(id)) || blamedByRow.has(id));
-  const shared = blamed.length ? {
+    .filter((id) => SHARED_DESIGN_LAYERS.has(layers.get(id)) || blamedByRow.has(id) || hinted.has(id));
+  const fontFallback = parity.preflight?.font_fallback || [];
+  const shared = blamed.length || fontFallback.length ? {
     batch_id: `${ledger.round}-shared`,
     layer: SHARED_REPAIR_LAYER,
     scope: 'shared',
     components: blamed,
     breakpoints: [...new Set(blamed.flatMap(widthsOf))].sort((left, right) => left - right),
     targets: blamed.map((id) => ({ component_id: id, breakpoints: widthsOf(id) })),
+    font_fallback: fontFallback,
+    hints,
   } : null;
 
   // Only once no component is still fixable: a component fix usually moves the page with it, and

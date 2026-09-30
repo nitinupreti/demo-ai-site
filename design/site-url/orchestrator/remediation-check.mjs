@@ -182,6 +182,30 @@ expect(rowRouted.shared?.components.join(',') === 'hero',
   `a width blamed on a shared layer must reach the shared repair, got ${JSON.stringify(rowRouted.shared)}`);
 expect(rowRouted.batches.length === 2, 'the shared repair must not take away any component\'s own agent');
 
+// A component agent that names a shared cause in its result sends that cause to the shared repair.
+const hintedRouted = routeFailures(rowBlamed, plan, rowLedger, {
+  sharedHints: [
+    { component_id: 'cards', layer: 'font-delivery', evidence: 'the face 404s' },
+    { component_id: 'hero', layer: 'not-a-layer' },
+  ],
+});
+expect(hintedRouted.shared?.components.join(',') === 'hero,cards' && hintedRouted.shared.hints.length === 1,
+  `a reported shared defect must reach the shared repair and an unknown layer must not, got ${JSON.stringify(hintedRouted.shared)}`);
+
+// A face the target could not load is shared even when every component crop passed.
+const fallbackOnly = parityFor({
+  components: [{ component_id: 'hero', status: 'PASS', min_ratio: 0.99 }],
+  composite: { '1440-disabled': { status: 'PASS', ratio: 0.99 } },
+  results: [{ component_id: 'hero', breakpoint: 1440, status: 'PASS' }],
+});
+fallbackOnly.preflight = { font_fallback: [{ family: 'Brand Sans', weight: '400', style: 'normal' }] };
+const fallbackLedger = createLedger(['hero']);
+applyParity(fallbackLedger, fallbackOnly);
+const fallbackRouted = routeFailures(fallbackOnly, plan, fallbackLedger);
+expect(fallbackRouted.shared?.font_fallback?.length === 1 && fallbackRouted.shared.components.length === 0
+  && fallbackRouted.batches.length === 0,
+`a page-wide font fallback must be routed to the shared repair alone, got ${JSON.stringify(fallbackRouted)}`);
+
 // The cap is enforced at the ledger, so no caller can overspend a budget.
 const capped = createLedger(['hero', 'cards']);
 for (let attempt = 0; attempt < capped.caps[1] + 3; attempt += 1) {

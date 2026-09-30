@@ -26,6 +26,9 @@ import {
   TOOL_VERSION,
 } from './lib/contracts.mjs';
 import { createPage, launchBrowser, navigate, prepareForCapture } from './lib/browser.mjs';
+import {
+  collectFontFaces, importsOf, mergeFontCaptures, parseFontFaces,
+} from './lib/fonts.mjs';
 import { scanPage } from './lib/page-scan.mjs';
 import {
   ensureDir, parseArgs, parseBreakpoints, relativePath, sha256, toolDependencies, writeJson,
@@ -89,10 +92,61 @@ async function captureBreakpoint(browser, { url, width, dpr, settleMs }) {
     readiness.fonts_checked = readinessFirst.fonts_checked;
     readiness.images.promoted += readinessFirst.images.promoted;
 
-    return { page, navigation, readiness, scan };
+    const fonts = await captureFontFaces(page);
+    return {
+      page, navigation, readiness, scan, fonts,
+    };
   } catch (error) {
     await page.context().close();
     throw error;
+  }
+}
+
+/**
+ * The page lists the @font-face rules it can read and the faces it loaded. A cross-origin stylesheet
+ * (a font service, a CDN) hides its rules from the page, so its text is fetched and parsed here.
+ */
+async function captureFontFaces(page) {
+  const capture = await page.evaluate(collectFontFaces);
+  const pending = [...capture.inaccessible];
+  const fetched = new Set();
+  const unresolved = [];
+  while (pending.length && fetched.size < 20) {
+    const href = pending.shift();
+    if (fetched.has(href)) continue;
+    fetched.add(href);
+    try {
+      const response = await page.context().request.get(href, { timeout: 15000 });
+      if (!response.ok()) {
+        unresolved.push(`${href}: HTTP ${response.status()}`);
+        continue;
+      }
+      const text = await response.text();
+      capture.rules.push(...parseFontFaces(text, href));
+      pending.push(...importsOf(text, href));
+    } catch (error) {
+      unresolved.push(`${href}: ${error.message.split('\n')[0]}`);
+    }
+  }
+  return { ...capture, unresolved };
+}
+
+/** Inline SVG markup lives in files beside the artifact; the record keeps a path and a hash. */
+function externalizeSvgs(blocks, outDir) {
+  for (const block of blocks) {
+    for (const svg of block.content?.svgs || []) {
+      if (!svg.markup) continue;
+      const digest = sha256(svg.markup);
+      const file = `svg/${digest.slice('sha256:'.length, 'sha256:'.length + 16)}.svg`;
+      const absolute = path.join(outDir, file);
+      if (!fs.existsSync(absolute)) {
+        ensureDir(path.dirname(absolute));
+        fs.writeFileSync(absolute, svg.markup, 'utf8');
+      }
+      svg.file = file;
+      svg.sha256 = digest;
+      delete svg.markup;
+    }
   }
 }
 
@@ -146,13 +200,18 @@ async function main() {
         });
         capture.readiness.recaptured_with_settle_ms = retrySettleMs;
       }
-      const { page, navigation, readiness, scan } = capture;
+      const {
+        page, navigation, readiness, scan, fonts,
+      } = capture;
       const screenshotName = `full-${width}-source.png`;
       await page.screenshot({ path: path.join(outDir, screenshotName), fullPage: true });
       await page.context().close();
+      externalizeSvgs(scan.blocks, outDir);
 
       sourceMeta = sourceMeta || { navigation, metadata: scan.metadata };
-      perBreakpoint[width] = { navigation, readiness, scan, screenshot: screenshotName };
+      perBreakpoint[width] = {
+        navigation, readiness, scan, fonts, screenshot: screenshotName,
+      };
 
       if (readiness.status !== 'PASS') failures.push(`readiness ${width}px: ${readiness.failures.join('; ')}`);
       if (scan.coverage.max_unclaimed_gap >= MAX_UNCLAIMED_GAP_PX) {
@@ -233,6 +292,7 @@ async function main() {
       signature: null,
       styles: {},
       media: {},
+      content: {},
       repeated_children: {},
       class_chain: [],
     };
@@ -244,6 +304,7 @@ async function main() {
       instance.rect[width] = block.rect;
       instance.styles[width] = block.styles;
       instance.media[width] = block.media;
+      instance.content[width] = block.content;
       instance.repeated_children[width] = block.repeated_children;
       instance.signals = Array.from(new Set([...instance.signals, ...block.signals])).sort((a, b) => a - b);
       instance.signature = instance.signature || block.signature;
@@ -291,6 +352,10 @@ async function main() {
     dpr,
     source_fingerprint: sha256(fingerprintInput),
     readiness: breakpoints.map((width) => perBreakpoint[width].readiness),
+    fonts: {
+      ...mergeFontCaptures(breakpoints.map((width) => perBreakpoint[width].fonts)),
+      unresolved_sheets: [...new Set(breakpoints.flatMap((width) => perBreakpoint[width].fonts.unresolved))],
+    },
     instances,
     coverage: Object.fromEntries(breakpoints.map((width) => [width, {
       page_height: perBreakpoint[width].scan.page.height,

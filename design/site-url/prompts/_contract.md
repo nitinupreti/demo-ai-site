@@ -38,6 +38,7 @@ This is **not** the `stage_result` envelope from `prompt_new.md`. Use these fiel
   "focused_test": { "tests": ["<TestClassName>"] },
   "contributions": { },
   "changed_files": ["<path you wrote, relative to the repository root>"],
+  "shared_defect": { "layer": "font-delivery", "evidence": "one line" },  // optional; see below
   "notes": "anything the orchestrator should carry into the report"
 }
 ```
@@ -47,6 +48,8 @@ Rules the orchestrator enforces on it:
 - `status: "PASS"` while any check is `FAIL` is recorded as `FAIL`.
 - A missing required check for your role is recorded as `FAIL`, and the rejection names which one.
 - `checks[].evidence` should be a path or a one-line proof, not an essay.
+- `shared_defect` is only for a defect you proved lies in a shared design layer you may not edit
+  (`typography-tokens`, `color-tokens` or `font-delivery`); the shared repair takes it on next.
 
 ## Shared files you must not write
 

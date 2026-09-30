@@ -50,7 +50,7 @@ export function collectAssetUrls(discovery) {
   const base = discovery.source?.final_url;
   const byUrl = new Map();
 
-  const add = (raw, instanceId, { alt = '', intrinsic = null } = {}) => {
+  const add = (raw, instanceId, { alt = '', intrinsic = null, kind = 'media' } = {}) => {
     if (!raw) return;
     let absolute;
     try {
@@ -61,8 +61,13 @@ export function collectAssetUrls(discovery) {
     const url = unwrapProxy(absolute);
     if (!url) return;
 
-    if (!byUrl.has(url)) byUrl.set(url, { url, alt: '', intrinsic: null, instances: [] });
+    if (!byUrl.has(url)) {
+      byUrl.set(url, {
+        url, alt: '', intrinsic: null, instances: [], kinds: new Set(),
+      });
+    }
     const record = byUrl.get(url);
+    record.kinds.add(kind);
     if (!record.instances.includes(instanceId)) record.instances.push(instanceId);
     if (!record.intrinsic && intrinsic?.width) record.intrinsic = intrinsic;
     if (!record.alt && alt) record.alt = alt;
@@ -77,9 +82,43 @@ export function collectAssetUrls(discovery) {
         add(entry.poster, instance.id);
       }
     }
+    // Background art is painted by CSS the target will not have, so it needs a DAM file as much as an <img>.
+    for (const content of Object.values(instance.content || {})) {
+      for (const background of content?.backgrounds || []) {
+        add(background.url, instance.id, { kind: 'css-background' });
+      }
+    }
   }
 
-  return [...byUrl.values()];
+  // A file shown both as an <img> and as a background is authored like any other image.
+  return [...byUrl.values()].map(({ kinds, ...record }) => ({
+    ...record, kind: kinds.has('media') ? 'media' : 'css-background',
+  }));
+}
+
+/** Inline SVGs discovery exported to files, one record per distinct drawing. */
+export function collectInlineSvgs(discovery) {
+  const bySha = new Map();
+  for (const instance of discovery.instances || []) {
+    for (const content of Object.values(instance.content || {})) {
+      for (const svg of content?.svgs || []) {
+        if (!svg.file || !svg.sha256) continue;
+        if (!bySha.has(svg.sha256)) {
+          bySha.set(svg.sha256, {
+            sha256: svg.sha256,
+            file: svg.file,
+            label: svg.aria_label || svg.title || '',
+            width: svg.w || null,
+            height: svg.h || null,
+            instances: [],
+          });
+        }
+        const record = bySha.get(svg.sha256);
+        if (!record.instances.includes(instance.id)) record.instances.push(instance.id);
+      }
+    }
+  }
+  return [...bySha.values()];
 }
 
 export function assetNameFor(url, mime, taken = new Set()) {
@@ -198,13 +237,15 @@ export function ensureFilterRoot({ repoRoot, filterPath, jcrPath }) {
 }
 
 /**
- * Downloads every discovered image into `damRoot`, replacing whatever was there before.
- * Returns a manifest mapping each source URL to the DAM path workers must author.
+ * Downloads every discovered image into `damRoot`, replacing whatever was there before, and stores
+ * each inline SVG discovery exported beside it. Returns a manifest mapping each source to the DAM
+ * path workers must author.
  */
 export async function acquireAssets({
-  repoRoot, discovery, damRoot, damPath, fetchFn = fetch,
+  repoRoot, discovery, damRoot, damPath, fetchFn = fetch, discoveryDir = null,
 }) {
   const requested = collectAssetUrls(discovery);
+  const drawings = discoveryDir ? collectInlineSvgs(discovery) : [];
   const assetsDir = path.join(repoRoot, damRoot);
   const failures = [];
   const manifest = [];
@@ -213,7 +254,7 @@ export async function acquireAssets({
 
   // A previous source URL must not leave orphans behind.
   fs.rmSync(assetsDir, { recursive: true, force: true });
-  if (!requested.length) return { status: 'PASS', manifest, written, failures };
+  if (!requested.length && !drawings.length) return { status: 'PASS', manifest, written, failures };
   fs.mkdirSync(assetsDir, { recursive: true });
 
   for (const record of requested) {
@@ -248,6 +289,7 @@ export async function acquireAssets({
       written.push(...files.map((file) => path.relative(repoRoot, file).replaceAll('\\', '/')));
       manifest.push({
         source_url: record.url,
+        kind: record.kind || 'media',
         dam_path: `${damPath}/${name}`,
         mime,
         sha1,
@@ -260,6 +302,37 @@ export async function acquireAssets({
     } catch (error) {
       failures.push({ url: record.url, reason: error.message });
     }
+  }
+
+  for (const drawing of drawings) {
+    const local = path.join(discoveryDir, drawing.file);
+    if (!fs.existsSync(local)) {
+      failures.push({ url: `inline-svg:${drawing.sha256}`, reason: `${drawing.file} is missing from the discovery evidence` });
+      continue;
+    }
+    const bytes = fs.readFileSync(local);
+    const digest = drawing.sha256.replace(/^sha256:/, '').slice(0, 8);
+    const stem = drawing.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+    let name = `${stem || 'inline-svg'}-${digest}.svg`;
+    if (taken.has(name)) name = `inline-svg-${drawing.sha256.replace(/^sha256:/, '').slice(0, 16)}.svg`;
+    taken.add(name);
+    const { sha1, written: files } = writeAsset({
+      assetsDir, name, bytes, mime: 'image/svg+xml', title: drawing.label || name, width: drawing.width, height: drawing.height,
+    });
+    written.push(...files.map((file) => path.relative(repoRoot, file).replaceAll('\\', '/')));
+    manifest.push({
+      source_url: `inline-svg:${drawing.sha256}`,
+      kind: 'inline-svg',
+      local_file: local,
+      dam_path: `${damPath}/${name}`,
+      mime: 'image/svg+xml',
+      sha1,
+      bytes: bytes.length,
+      alt: drawing.label,
+      width: drawing.width,
+      height: drawing.height,
+      instances: drawing.instances,
+    });
   }
 
   return { status: failures.length ? 'FAIL' : 'PASS', manifest, written, failures };
