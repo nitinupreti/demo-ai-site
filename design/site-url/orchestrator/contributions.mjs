@@ -350,8 +350,11 @@ export function verifyComposeTargets({ repoRoot, plan }) {
   return problems;
 }
 
-/** Per-worker checks, run at attempt time so a rejection still has retries left. */
-export function validateContribution(component, result, { instanceOrder, writtenFiles } = {}) {
+/**
+ * Per-worker checks, run at attempt time so a rejection still has retries left. `uniqueNames: false`
+ * is for nodes that land on different pages, where compose keeps each page's names unique itself.
+ */
+export function validateContribution(component, result, { instanceOrder, writtenFiles, uniqueNames = true } = {}) {
   const contributions = result?.contributions || {};
   const declarations = [contributions.page_node, contributions.experience_fragment_node]
     .filter(Boolean)
@@ -377,7 +380,7 @@ export function validateContribution(component, result, { instanceOrder, written
   });
 
   const names = declarations.map((declaration) => declaration?.name).filter(Boolean);
-  const duplicate = names.find((name, index) => names.indexOf(name) !== index);
+  const duplicate = uniqueNames && names.find((name, index) => names.indexOf(name) !== index);
   if (duplicate) problems.push(`Two of your nodes are both named "${duplicate}".`);
 
   // A node pointing at a resource type nobody built renders as an empty div, not as an error.

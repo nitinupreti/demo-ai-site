@@ -12,7 +12,8 @@ import { PassThrough } from 'node:stream';
 
 import { createRenderer } from './console.mjs';
 import { CONTENT_FILTER, CONTENT_ROOT } from './pages.mjs';
-import { SITE_PHASES, orchestrateSite } from './site.mjs';
+import { PAGE_TREE_PHASES, orchestrateSite } from './site.mjs';
+import { checkSiteBuild } from './site-build-check.mjs';
 
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
@@ -164,10 +165,11 @@ const options = {
   include: [],
   exclude: [],
   includeHosts: [],
+  pagesOnly: true,
 };
 const lines = [];
 const services = (overrides = {}) => ({
-  renderer: createRenderer({ stageIds: SITE_PHASES }),
+  renderer: createRenderer({ stageIds: PAGE_TREE_PHASES }),
   runId: 'site-check',
   evidenceDir: path.join(sandbox, 'evidence'),
   runTool,
@@ -242,6 +244,8 @@ expect(outcome.status === 'FAIL' && outcome.phases.at(-1).name === 'verify' && o
   `a page AEM does not serve must fail verification, got ${phaseStatus(outcome)}`);
 
 fs.rmSync(sandbox, { recursive: true, force: true });
+
+failures.push(...await checkSiteBuild());
 
 if (failures.length) {
   for (const failure of failures) console.log(`  FAIL ${failure}`);

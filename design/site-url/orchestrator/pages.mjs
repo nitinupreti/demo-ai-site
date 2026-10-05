@@ -99,10 +99,11 @@ function pruneStale(siteDir, expected) {
  * One `.content.xml` per tree node: a crawled page carries its source title, description, language and
  * robots setting; a placeholder parent is hidden from navigation and redirects to its first child.
  * Folders under the site root that the tree no longer has are removed, since the site root is
- * deployed in replace mode and anything left there would be deployed too.
+ * deployed in replace mode and anything left there would be deployed too. `contentFor(node)`, when
+ * given, returns the component nodes that fill the template's content container on that page.
  */
 export function writeSitePages({
-  repoRoot, tree, inventory, template,
+  repoRoot, tree, inventory, template, contentFor,
 }) {
   const pagesById = new Map(inventory.pages.map((page) => [page.id, page]));
   const rootLanguage = toJcrLanguage(pagesById.get(tree.nodes[0]?.page_id)?.lang);
@@ -130,6 +131,12 @@ export function writeSitePages({
     const content = findPath(document.root, ['jcr:content']);
     for (const [key, value] of Object.entries(properties)) {
       if (value !== null && value !== undefined) setAttribute(content, key, toJcrValue(value));
+    }
+    const nodes = contentFor ? contentFor(node) : [];
+    if (nodes.length) {
+      const container = findPath(content, template.container.split('/'));
+      if (!container) throw new Error(`template ${template.path} has no ${template.container} in its initial content`);
+      container.children = nodes;
     }
     // Empty child elements fix sibling order; FileVault reads each child page from its own folder.
     document.root.children.push(...children.map((name) => createNode(xmlName(name))));

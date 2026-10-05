@@ -87,6 +87,8 @@ export const ROLE_REQUIRED_CHECKS = {
   foundations: ['tokens_defined', 'template_and_policy_ready'],
   component: ['dialog_authorable', 'model_and_htl_complete', 'focused_test_declared', 'contributions_declared'],
   remediation: ['diagnosis_recorded', 'hypothesis_applied'],
+  'site-planner': ['every_unit_assigned', 'names_generic', 'chrome_uses_experience_fragments'],
+  'site-foundations': ['tokens_defined', 'base_styles_ready'],
 };
 
 function buildArguments({ promptPath, model, effort, maxContinues, name }) {

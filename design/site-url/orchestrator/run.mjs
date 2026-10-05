@@ -18,6 +18,7 @@ import { createRenderer, formatDuration, unicodeSafe } from './console.mjs';
 import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
+import { runFanout } from './fanout.mjs';
 import {
   describeBrokenBundles, focusedTestPlan, planDeployment, runDeployment, runValidation,
   validationPlan, verifyBundles,
@@ -29,7 +30,7 @@ import {
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
 import { validateSiteRoot } from './inventory.mjs';
-import { orchestrateSite, SITE_PHASES } from './site.mjs';
+import { orchestrateSite, PAGE_TREE_PHASES, SITE_PHASES } from './site.mjs';
 import { openTimings } from './timings.mjs';
 import {
   collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
@@ -295,6 +296,7 @@ export function parseArgs(argv) {
       case '--keep-query': options.keepQuery = true; break;
       case '--crawl-delay-ms': options.crawlDelayMs = Number.parseInt(value, 10); index += 1; break;
       case '--crawl-only': options.crawlOnly = true; break;
+      case '--pages-only': options.pagesOnly = true; break;
       case '--yes': options.yes = true; break;
       case '--template': options.template = value; index += 1; break;
       default:
@@ -635,7 +637,6 @@ async function runStages(rawOptions, services, timings) {
   const byId = new Map(plan.components.map((component) => [component.id, component]));
   const claimed = new Map();
   const workerResults = [];
-  let fanoutFailed = false;
   const planIndex = new Map(plan.components.map((component, index) => [component.id, index]));
   const persistWorkers = () => writeJson(
     path.join(evidenceDir, 'workers.json'),
@@ -656,179 +657,45 @@ async function runStages(rawOptions, services, timings) {
   if (alreadyBuilt.size === plan.components.length) {
     reusePhase(phase, `${alreadyBuilt.size} components already built`);
   } else {
-  // What is in the tree now is kept and shipped; a change made while workers run is refused.
-  const guard = watchTree(repoRoot, options.workspace);
-  let edited = [];
-  for (const [waveIndex, wave] of gate.waves.entries()) {
-    const pending = wave.filter((componentId) => !alreadyBuilt.has(componentId));
-    if (!pending.length) continue;
-    renderer.note(`wave ${waveIndex + 1}/${gate.waves.length}: ${pending.join(', ')}`);
-    const waveResults = await pool(pending, options.maxParallel, async (componentId) => {
-      // Banked per component, not per wave: a cancellation must not discard finished work.
-      const outcome = await (async () => {
-      const component = byId.get(componentId);
-      renderer.componentStarted(componentId, `tier ${component.tier}${component.role === 'chrome' ? ' · XF chrome' : ''}`);
-      const maxAttempts = options.componentAttempts;
-      const history = [];
-      let feedback = '';
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {        const workspaceRoot = path.join(evidenceDir, 'workspaces', `${componentId}-attempt-${attempt}`);
-        const workspace = createWorkspace(repoRoot, workspaceRoot, options.workspace);
-        workspace.id = componentId;
-        const agentDir = path.join(evidenceDir, 'agents', `component-${componentId}-attempt-${attempt}`);
-
-        // A worker copy is large; it must be removed whatever the outcome.
-        try {
-          const invocation = await runAgentRole({
-            copilot,
-            role: 'component',
-            id: componentId,
-            componentId,
-            prompt: [
-              readPrompt('_contract.md'), '', readPrompt('component.md'), '',
-              '## Task', '',
-              '```json',
-              JSON.stringify({
-                component,
-                breakpoints: options.breakpoints,
-                assets: assets.manifest
-                  .filter((entry) => entry.instances.some((id) => component.instances.includes(id)))
-                  .map(({ source_url, dam_path, mime, alt, width, height }) => ({
-                    source_url, dam_path, mime, alt, width, height,
-                  })),
-                evidence_slice: path.relative(repoRoot, path.join(discoveryDir, 'discovery.json')),
-                result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
-              }, null, 2),
-              '```',
-              feedback,
-            ].join('\n'),
-            cwd: workspaceRoot,
-            ...agentTuning(options),
-            agentDir,
-            renderer,
-            spawnFn,
-          });
-          track(invocation, {
-            phase: 'fanout', component_id: componentId, wave: waveIndex + 1, attempt,
-          });
-          history.push({ attempt, status: invocation.status, duration_seconds: invocation.durationSeconds });
-
-          const changes = collectChanges(workspace, component.owned_paths);
-          let rejection = null;
-
-          if (!changes.valid) {
-            rejection = `Your changes touched files outside your scope: ${changes.violations.slice(0, 8).join(', ')}.\n`
-              + `You may only write: ${component.owned_paths.join(', ')}.\n`
-              + 'Shared files are declared through the `contributions` block, never edited directly.';
-          } else if (invocation.status === 'BLOCKED') {
-            // An external prerequisite will not resolve by asking again.
-            renderer.componentFinished(componentId, 'BLOCKED');
-            return {
-              component_id: componentId,
-              status: 'BLOCKED',
-              invocation,
-              attempts: attempt,
-              history,
-              duration_seconds: invocation.durationSeconds,
-              error: invocation.result?.notes || invocation.error || 'agent reported an external blocker',
-            };
-          } else if (invocation.status !== 'PASS') {
-            const failing = (invocation.result?.checks || [])
-              .filter((check) => check.status !== 'PASS')
-              .map((check) => `${check.name}: ${check.evidence || 'no evidence given'}`);
-            rejection = invocation.error
-              || `Your result reported ${invocation.status}. Failing checks: ${failing.join('; ') || 'none recorded'}.`;
-          } else {
-            const contributionProblems = validateContribution(component, invocation.result, {
-              instanceOrder, writtenFiles: changes.owned,
-            });
-            if (contributionProblems.length) {
-              rejection = `Your \`contributions\` block cannot be composed onto the page:\n`
-                + contributionProblems.map((problem) => `- ${problem}`).join('\n');
-            } else {
-              const validation = await runValidation({
-                workspaceRoot,
-                steps: validationPlan(changes.changed, {
-                  focusedTests: invocation.result?.focused_test?.tests || [],
-                }),
-                execFn,
-              });
-              if (validation.status !== 'PASS') {
-                rejection = `Your code does not build (${validation.label}):\n${validation.detail}`;
-              }
-            }
-          }
-
-          if (!rejection && invocation.status === 'PASS') {
-            const merged = mergeChanges(workspace, repoRoot, changes, claimed, guard);
-            if (merged.edited.length) {
-              // Not the worker's fault, and a retry would meet the same edit.
-              renderer.componentFinished(componentId, 'FAIL');
-              return {
-                component_id: componentId,
-                status: 'FAIL',
-                invocation,
-                attempts: attempt,
-                history,
-                duration_seconds: invocation.durationSeconds,
-                error: `not merged: ${merged.edited.join(', ')} changed in the repository while it was being built`,
-              };
-            }
-            if (merged.conflicts.length) {
-              rejection = `Another component already owns ${merged.conflicts.map((entry) => `${entry.path} (${entry.owner})`).join(', ')}. `
-                + 'Keep your changes inside your own scope and declare shared content through `contributions`.';
-            } else {
-              renderer.componentFinished(componentId, 'PASS');
-              return {
-                component_id: componentId,
-                status: 'PASS',
-                invocation,
-                attempts: attempt,
-                history,
-                duration_seconds: invocation.durationSeconds,
-                result: invocation.result,
-                applied: merged.applied,
-              };
-            }
-          }
-
-          history[history.length - 1].rejection = rejection;
-          if (attempt < maxAttempts) {
-            renderer.warn(`${componentId} attempt ${attempt}/${maxAttempts} rejected: ${rejection.split('\n')[0]}`);
-            feedback = [
-              '', `## Attempt ${attempt} of ${maxAttempts} was rejected`, '',
-              rejection, '',
-              'Fix exactly this, then write your result again. Do not repeat the rejected approach,',
-              'and do not start from your previous attempt — this is a fresh checkout of the repository.',
-            ].join('\n');
-          } else {
-            renderer.componentFinished(componentId, 'FAIL');
-            return {
-              component_id: componentId,
-              status: 'FAIL',
-              invocation,
-              attempts: attempt,
-              history,
-              duration_seconds: invocation.durationSeconds,
-              error: `exhausted ${maxAttempts} attempts; last rejection: ${rejection}`,
-            };
-          }
-        } finally {
-          removeWorkspace(workspaceRoot);
-        }
-      }
-      return { component_id: componentId, status: 'FAIL', attempts: maxAttempts, history, error: 'no attempt produced a result' };
-      })();
-      workerResults.push(outcome);
-      persistWorkers();
-      return outcome;
-    });
-    edited = guard.drift();
-    if (edited.length || waveResults.some((entry) => entry.status !== 'PASS')) {
-      fanoutFailed = true;
-      break;
-    }
-  }
+  const { failed: fanoutFailed, edited } = await runFanout({
+    components: plan.components,
+    waves: gate.waves,
+    alreadyBuilt,
+    workerResults,
+    claimed,
+    persist: persistWorkers,
+    repoRoot,
+    evidenceDir,
+    copilot,
+    renderer,
+    spawnFn,
+    execFn,
+    track,
+    maxParallel: options.maxParallel,
+    componentAttempts: options.componentAttempts,
+    workspaceOptions: options.workspace,
+    ...agentTuning(options),
+    taskPrompt: (component, { agentDir }) => [
+      readPrompt('_contract.md'), '', readPrompt('component.md'), '',
+      '## Task', '',
+      '```json',
+      JSON.stringify({
+        component,
+        breakpoints: options.breakpoints,
+        assets: assets.manifest
+          .filter((entry) => entry.instances.some((id) => component.instances.includes(id)))
+          .map(({ source_url, dam_path, mime, alt, width, height }) => ({
+            source_url, dam_path, mime, alt, width, height,
+          })),
+        evidence_slice: path.relative(repoRoot, path.join(discoveryDir, 'discovery.json')),
+        result_path: path.relative(repoRoot, path.join(agentDir, 'result.json')),
+      }, null, 2),
+      '```',
+    ].join('\n'),
+    checkContribution: (component, result, { writtenFiles }) => validateContribution(component, result, {
+      instanceOrder, writtenFiles,
+    }),
+  });
   if (fanoutFailed) {
     const broken = workerResults.filter((entry) => entry.status !== 'PASS')
       .map((entry) => `${entry.component_id}: ${entry.error}`);
@@ -1202,7 +1069,7 @@ async function runStages(rawOptions, services, timings) {
   };
 }
 
-/** A whole site: crawl it, then create, deploy and check one AEM page per crawled page. */
+/** A whole site: crawl it, capture every page, then build its components and author every page. */
 async function runSite(options, { inferred }) {
   validateSiteRoot(options.targetPath);
   const scratchDir = path.join(defaultRepoRoot, 'design', 'scratch');
@@ -1216,6 +1083,9 @@ async function runSite(options, { inferred }) {
   if (options.resume && !resumeDir) {
     throw new Error(`--resume ${options.resume}: no such site run under design/scratch.`);
   }
+  if (!Number.isInteger(options.componentAttempts) || options.componentAttempts < 1 || options.componentAttempts > 10) {
+    throw new Error('--component-attempts must be an integer between 1 and 10.');
+  }
   const runId = resumeDir ? path.basename(resumeDir).replace(/^site-/, '') : crypto.randomUUID();
   const evidenceDir = resumeDir || (options.evidenceDir
     ? path.resolve(defaultRepoRoot, options.evidenceDir)
@@ -1224,17 +1094,45 @@ async function runSite(options, { inferred }) {
   // Only a run that goes past the crawl talks to AEM.
   if (!options.crawlOnly) defaultAemPassword(options);
 
-  const renderer = createRenderer({ stageIds: SITE_PHASES });
+  // Agents only run when components are built; a crawl or an empty page tree needs no model.
+  const usesAgents = !options.crawlOnly && !options.pagesOnly && !options.dryRun;
+  let copilot = null;
+  if (usesAgents) {
+    ensureCopilot();
+    copilot = findCopilot();
+    const banked = options.resume ? readJson(path.join(evidenceDir, TUNING_FILE)) : null;
+    options.model = options.model ?? banked?.model ?? null;
+    options.effort = options.effort ?? banked?.effort ?? null;
+    const models = await listAvailableModels();
+    if ((!options.model || !options.effort) && !process.stdin.isTTY) {
+      throw new Error('--model and --effort are required when stdin is not a terminal.'
+        + ' Run with --list-models to see what this account can use.');
+    }
+    const settled = process.stdin.isTTY && (!options.model || !options.effort)
+      ? await promptForTuning(models, { model: options.model, effort: options.effort })
+      : selectTuning(models, { model: options.model, effort: options.effort });
+    options.model = settled.model;
+    options.effort = settled.effort;
+    writeJson(path.join(evidenceDir, TUNING_FILE), {
+      model: options.model, effort: options.effort, updated_at: new Date().toISOString(),
+    });
+  }
+
+  const renderer = createRenderer({ stageIds: options.pagesOnly ? PAGE_TREE_PHASES : SITE_PHASES });
   renderer.runHeader({
     siteUrl: options.siteUrl,
     aemUrl: `http://${options.aemHost}:${options.aemPort}${options.targetPath}`,
     runId,
     evidenceDir: path.relative(defaultRepoRoot, evidenceDir),
     mode: 'site',
+    ...(usesAgents ? { model: options.model, effort: options.effort } : {}),
   });
   console.log(`  scope: whole site${inferred ? ' (the URL is a site root; pass --scope page to migrate that page alone)' : ''}`);
   console.log(`  crawl: up to ${options.maxPages} pages, ${options.maxDepth} levels deep,`
-    + ` ${options.crawlDelayMs}ms between requests, other hosts never requested\n`);
+    + ` ${options.crawlDelayMs}ms between requests, other hosts never requested`);
+  console.log(options.pagesOnly
+    ? '  build: empty pages only (--pages-only)\n'
+    : `  build: components with up to ${options.maxParallel} worker(s) at a time, ${options.componentAttempts} attempt(s) each\n`);
 
   if (options.dryRun) {
     console.log('Dry run: inputs valid, evidence directory created, nothing crawled.');
@@ -1281,6 +1179,7 @@ async function runSite(options, { inferred }) {
     execFn: spawn,
     fetchFn: fetch,
     resumed: Boolean(resumeDir),
+    copilot,
   });
   if (outcome.stopped === 'crawl') console.log('\nStopped after the crawl (--crawl-only).');
   console.log(`\nSite run ${outcome.status}  ${outcome.phases.map((phase) => `${phase.name} ${phase.status}`).join(', ')}`);
@@ -1340,6 +1239,8 @@ orchestrator/run.mjs — multi-agent AEM migration
   --dry-run                 Validate inputs and exit
 
 Whole site
+  A site run crawls the site, captures every page, plans one shared set of components, builds
+  them with --max-parallel workers, authors every page from them, deploys and checks each page.
   --scope <site|page>       Override the scope the URL implies
   --max-pages <n>           Pages to migrate, the start page included (default ${DEFAULTS.maxPages})
   --max-depth <n>           Deepest path to migrate, in segments below the start page (default ${DEFAULTS.maxDepth})
@@ -1349,7 +1250,8 @@ Whole site
   --keep-query              Treat URLs that differ only by query string as different pages
   --crawl-delay-ms <n>      Pause between requests to the site (default ${DEFAULTS.crawlDelayMs}; robots.txt may raise it)
   --crawl-only              Stop after the inventory and the AEM page tree; nothing is written
-  --yes                     Create and deploy the pages without asking first
+  --pages-only              Create and deploy the page tree with every page empty; no agents run
+  --yes                     Build and deploy without asking first
   --template <path>         Template for the new pages; default: the one the nearest existing
                             ancestor page of --target-path uses
 `);

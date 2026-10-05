@@ -33,7 +33,7 @@ const EXTENSION_BY_MIME = {
 const MEDIA_TAGS = new Set(['img', 'video', 'source']);
 
 /** CDN resizers wrap the real file in a `url` parameter; the original is what belongs in the DAM. */
-function unwrapProxy(rawUrl, depth = 0) {
+export function unwrapProxy(rawUrl, depth = 0) {
   try {
     const parsed = new URL(rawUrl);
     const inner = parsed.searchParams.get('url');

@@ -77,7 +77,7 @@ function overlaps(left, right) {
   return a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 }
 
-function computeWaves(components) {
+export function computeWaves(components) {
   const byId = new Map(components.map((component) => [component.id, component]));
   const pending = new Set(byId.keys());
   const done = new Set();

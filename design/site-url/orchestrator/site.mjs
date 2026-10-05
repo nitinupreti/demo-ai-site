@@ -1,7 +1,8 @@
 /**
  * Site mode: one crawl decides which pages exist, and every later phase works across all of them.
- * Built so far: the crawl, a review before anything is written, a capture of every page, one empty
- * AEM page per crawled page, the deploy, and a check that every page answers in AEM.
+ * The crawl, a review before anything is written and a capture of every page come first. Then
+ * either the whole build (catalog, site plan, foundations, assets, one worker per component,
+ * composed pages, deploy, verify, report) or, with --pages-only, one empty AEM page per crawled page.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,6 +17,7 @@ import {
   CONTENT_FILTER, linkMap, resolveTemplate, verifyPages, writeLinkMap, writeSitePages,
 } from './pages.mjs';
 import { validate } from './schema.mjs';
+import { buildSite } from './site-build.mjs';
 
 const siteUrlDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const tool = (name) => path.join(siteUrlDir, 'tools', `${name}.mjs`);
@@ -24,7 +26,11 @@ const crawlTool = tool('crawl');
 const inventorySchema = schema('inventory.schema.json');
 const contentSchema = schema('content.schema.json');
 
-export const SITE_PHASES = ['crawl', 'review', 'capture', 'pages', 'deploy', 'verify'];
+export const SITE_PHASES = [
+  'crawl', 'review', 'capture', 'catalog', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'verify', 'report',
+];
+/** --pages-only: the page tree alone, every page empty. */
+export const PAGE_TREE_PHASES = ['crawl', 'review', 'capture', 'pages', 'deploy', 'verify'];
 
 // Every capture drives a browser through each breakpoint; two at a time is what the source should see.
 const CAPTURE_PARALLEL = 2;
@@ -96,7 +102,7 @@ export function crawlMatches(inventory, options) {
 
 export async function orchestrateSite(options, {
   renderer, runId, evidenceDir, runTool, repoRoot, print = console.log, unicode = false,
-  confirm = null, execFn, fetchFn = fetch, resumed = false,
+  confirm = null, execFn, fetchFn = fetch, resumed = false, copilot = null, spawnFn,
 }) {
   const phases = [];
   const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
@@ -160,10 +166,16 @@ export async function orchestrateSite(options, {
   // 2. Review: nothing is written to the repository or deployed until someone has seen the tree.
   phase = start('review');
   const reviewPath = path.join(evidenceDir, 'review.json');
-  let approvedBy = readJson(reviewPath)?.inventory_fingerprint === inventory.fingerprint ? 'an earlier session of this run' : null;
+  // Approving empty pages is not approving agents that build code, so each needs its own yes.
+  const mode = options.pagesOnly ? 'pages' : 'build';
+  const earlier = readJson(reviewPath);
+  let approvedBy = earlier?.inventory_fingerprint === inventory.fingerprint && (earlier.mode || 'pages') === mode
+    ? 'an earlier session of this run' : null;
   if (!approvedBy && options.yes) approvedBy = '--yes';
   if (!approvedBy && confirm) {
-    const question = `Create ${tree.nodes.length} page(s) under ${options.targetPath} and deploy them to ${aemUrl}?`;
+    const question = options.pagesOnly
+      ? `Create ${tree.nodes.length} page(s) under ${options.targetPath} and deploy them to ${aemUrl}?`
+      : `Build components with agents, author ${tree.nodes.length} page(s) under ${options.targetPath} and deploy them to ${aemUrl}?`;
     if (await confirm(question)) approvedBy = 'prompt';
   }
   if (!approvedBy) {
@@ -171,7 +183,7 @@ export async function orchestrateSite(options, {
     return result('BLOCKED', { inventory, tree });
   }
   writeJson(reviewPath, {
-    inventory_fingerprint: inventory.fingerprint, approved_by: approvedBy, approved_at: new Date().toISOString(),
+    inventory_fingerprint: inventory.fingerprint, mode, approved_by: approvedBy, approved_at: new Date().toISOString(),
   });
   end(phase, 'PASS', `approved by ${approvedBy}`);
 
@@ -234,6 +246,35 @@ export async function orchestrateSite(options, {
   // Pages are still written and deployed: they do not depend on the capture, later milestones do.
   end(phase, uncaptured.length ? 'FAIL' : 'PASS', `${captures.length - uncaptured.length}/${captures.length} pages captured`
     + `${reusedCaptures ? `, ${reusedCaptures} reused` : ''}`);
+
+  if (!options.pagesOnly) {
+    // Agents can stay quiet for minutes; the heartbeat shows the run is alive, and must always stop.
+    renderer.startHeartbeat?.();
+    try {
+      return await buildSite(options, {
+        renderer,
+        runId,
+        evidenceDir,
+        repoRoot,
+        print,
+        execFn,
+        fetchFn,
+        spawnFn,
+        copilot,
+        inventory,
+        tree,
+        captures,
+        start,
+        end,
+        result,
+        aemUrl,
+        relative,
+        phases,
+      });
+    } finally {
+      renderer.stopHeartbeat?.();
+    }
+  }
 
   // 4. Pages: one empty page per tree node, the filter root that deploys them, and the link map.
   phase = start('pages');
