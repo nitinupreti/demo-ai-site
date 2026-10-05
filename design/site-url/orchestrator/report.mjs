@@ -71,6 +71,7 @@ export function buildReport({
   lines.push(`- Components created: **${rows.length}** for ${rows.reduce((total, row) => total + row.instances, 0)} source instances`);
   lines.push(`- Visual parity: **${rows.length - residual.length} passed, ${residual.length} failed**`
     + `${typeof parity?.threshold === 'number' ? ` against a > ${percent(parity.threshold)} threshold` : ''}`);
+  if (ledger?.stopped) lines.push(`- Remediation stopped early: ${ledger.stopped}`);
   if (rows.length) {
     const worst = Math.min(...rows.map((row) => row.min_ratio ?? 0));
     lines.push(`- Lowest component match: **${percent(worst)}**`);
@@ -200,7 +201,8 @@ export function buildReport({
       + `— minimum component ${percent(minimum)} (required > ${required})`);
   } else if (residual.length) {
     const everywhere = residual.filter((row) => row.breakpoint_scope === 'all').length;
-    lines.push(`VISUAL PARITY GATE: FAILED after bounded remediation — ${residual.length} component(s) unresolved `
+    lines.push(`VISUAL PARITY GATE: FAILED ${ledger?.stopped ? 'when remediation stopped early' : 'after bounded remediation'}`
+      + ` — ${residual.length} component(s) unresolved `
       + `(${everywhere} at every breakpoint, ${residual.length - everywhere} at specific breakpoints) — see residual gaps`);
   } else {
     lines.push('VISUAL PARITY GATE: BLOCKED — parity was not produced in this run');
@@ -235,6 +237,7 @@ export function buildReport({
       component_build_attempts: Object.fromEntries(rows.map((row) => [row.id, row.build_attempts])),
       min_ratio: rows.length ? Math.min(...rows.map((row) => row.min_ratio ?? 0)) : null,
       threshold: parity?.threshold ?? null,
+      remediation_stopped: ledger?.stopped || null,
       breakpoints_scored: breakpointKeys,
       parity_by_component: Object.fromEntries(rows.map((row) => [row.id, {
         status: row.status,

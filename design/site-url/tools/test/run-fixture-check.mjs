@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { PNG } from 'pngjs';
 
-import { analysePng, textSimilarity } from '../parity.mjs';
+import { analysePng, environmentProblems, textSimilarity } from '../parity.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.dirname(here);
@@ -42,6 +42,11 @@ const config = {
     { id: 'menu', source: { css: '#menu' }, target: { css: '#menu' }, signature_text: 'Contact Search India' },
     { id: 'tagline', source: { css: '#tagline' }, target: { css: '#tagline' }, signature_text: 'Hello world' },
     { id: 'banner', source: { css: '#banner' }, target: { css: '#banner' } },
+    // Readiness problems inside one element; none of them may withhold any other row.
+    { id: 'gallery', source: { css: '#gallery' }, target: { css: '#gallery' } },
+    { id: 'promo', source: { css: '#promo' }, target: { css: '#promo' } },
+    { id: 'ticker', source: { css: '#ticker' }, target: { css: '#ticker' } },
+    { id: 'missing', source: { css: '#missing' }, target: { css: '#missing' } },
   ],
 };
 const configPath = path.join(outDir, 'parity-config.json');
@@ -149,7 +154,7 @@ expect(artifact.status === 'FAIL', 'overall fixture status should be FAIL');
 const summarisedIds = artifact.components.map((entry) => entry.component_id);
 expect(summarisedIds.length === new Set(summarisedIds).size,
   `each component must be summarised once, got ${summarisedIds.join(',')}`);
-expect(summarisedIds.length === 9, `expected 9 components, got ${summarisedIds.length}`);
+expect(summarisedIds.length === 13, `expected 13 components, got ${summarisedIds.length}`);
 
 // A target pinned to a breakpoint is scored there and skipped everywhere else.
 const headerRows = artifact.results.filter((row) => row.component_id === 'site-header');
@@ -200,6 +205,48 @@ expect(artifact.components.every((entry) => entry.status !== 'PASS' || entry.min
 // A local fixture is reached directly, so nothing may be reported as an environment block.
 expect(artifact.preflight.environment_blocked === false,
   'a reachable target must not be flagged as redirected');
+
+// A readiness problem belongs to the element it occurs in. The rows above prove every other
+// component was still scored; these prove each problem is named and routed on its own.
+const expectWithheldAlone = (id, layer, pattern, why) => {
+  const rows = artifact.results.filter((row) => row.component_id === id);
+  expect(rows.length === config.breakpoints.length && rows.every((row) => row.status === 'WITHHELD'
+    && row.owning_layer_hint === layer && pattern.test(row.withheld_reason || '')),
+  `${why}, got ${rows.map((row) => `${row.status} ${row.owning_layer_hint}: ${row.withheld_reason}`).join('; ')}`);
+};
+expectWithheldAlone('missing', 'plan-or-selector', /^target selector matched 0 /,
+  'a component missing on the target must be withheld as a selector problem');
+expectWithheldAlone('gallery', 'media-assets', /^target media never loaded: image .*missing-aem-image\.png/,
+  'an image that never loads on the target must be blamed on that component\'s media');
+expectWithheldAlone('ticker', 'capture-readiness', /^target element kept moving/,
+  'an element that never holds still must be withheld as itself');
+expectWithheldAlone('promo', 'source-capture', /^source media never loaded: image .*missing-live-image\.png/,
+  'a broken image on the live page must be blamed on the source, which no edit can fix');
+expect(byId.promo?.owning_layer_hint === 'source-capture',
+  `a component only the source fails must say so, got ${byId.promo?.owning_layer_hint}`);
+expect(artifact.preflight.status === 'PASS',
+  `element-level problems must not fail the capture as a whole, got ${artifact.preflight.status}`);
+
+// Only what no edit can fix stops the run: an unreachable page or a live page that will not render.
+const capture = (status, readiness = {}) => ({
+  navigation: { http_status: status },
+  readiness: { inner_width: 1024, fonts_ready: true, ...readiness },
+});
+const environment = (source, deployed, redirectedTo = null) => environmentProblems({
+  width: 1024, source, deployed, requestedUrl: 'http://localhost:4502/content/page.html', redirectedTo,
+});
+expect(environment(capture(200), capture(200)).length === 0, 'a healthy capture must not be blocked');
+expect(environment(capture(null), capture(null)).length === 0, 'a file:// capture has no HTTP status and must not be blocked');
+expect(environment(capture(200), capture(404)).some((problem) => problem.includes('target page answered HTTP 404')),
+  'a target page that answers 404 must block the run');
+expect(environment(capture(500), capture(200)).some((problem) => problem.includes('live page answered HTTP 500')),
+  'a live page that answers 500 must block the run');
+expect(environment(capture(200), capture(200), 'http://localhost:4502/libs/granite/core/content/login.html')
+  .some((problem) => problem.includes('login.html')), 'a redirect away from the target must block the run');
+expect(environment(capture(200, { fonts_ready: false }), capture(200)).some((problem) => problem.includes('fonts')),
+  'live fonts that never load must block the run, since no edit can fix them');
+expect(environment(capture(200), capture(200, { fonts_ready: false })).length === 0,
+  'target fonts that never load are the project\'s to fix, not an environment fault');
 
 // A photographic full page samples far more distinct colours than one call can take as arguments.
 const photo = new PNG({ width: 1500, height: 1400 });

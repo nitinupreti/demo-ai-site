@@ -21,6 +21,12 @@ The task block appended to this prompt contains, straight from `parity.json`:
 - `page_composite` — per breakpoint, the whole-page ratio, width and height delta against the
   source. A cropped component can score well while the page around it is short, reordered or
   missing a section, and that only shows here;
+- `withheld_reason` — on a row with no score, why none was issued. `target element kept moving`
+  (`capture-readiness`) means your element would not hold still after the page settled: stop the
+  scripted movement or reserve the space late content takes. `target media never loaded`
+  (`media-assets`) names an image or video inside your component that did not load on AEM: fix its
+  path or rendition. A row whose `owning_layer_hint` is `source-capture` describes the live page,
+  which no edit can change: ignore it;
 - absolute paths to the side-by-side image, the diff mask and both crops, plus the current ratio.
 
 The images are **context, never evidence**. The numbers above are the measurement; an image only
@@ -66,7 +72,8 @@ already run: its `changed_files` are in the tree you were given, but your `delta
 before them, so do not compensate in your own files for anything they address. If the deltas show
 the defect is shared, say so in your result and change nothing outside your scope.
 
-Never run Maven, npm or a deploy. Never edit `parity.json` or any evidence artefact.
+Never run Maven, npm or a deploy. Never edit `parity.json` or any evidence artefact. Your change is
+built before it is merged: one that does not build is discarded and still costs the attempt.
 
 ## Required checks
 

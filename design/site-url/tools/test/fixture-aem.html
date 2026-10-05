@@ -12,7 +12,11 @@
        #frame        escaped "/" in ratio -> aspect-ratio falls back to auto, the box collapses to 0px
        #menu         whitespace between items (the live page has none) -> same words, same pixels
        #tagline      "Helloworld" where the live page says "Hello world" -> a real text difference
-       #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance */
+       #banner       width 200px not 300  -> 33% narrower, far beyond the size tolerance
+       #gallery      image that never loads -> withheld on its own, nothing else
+       #promo        identical; the live page's image is the broken one
+       #ticker       scripted movement the motion freeze cannot stop -> withheld on its own
+       #missing      absent here, present on the live page -> withheld on its own */
     :root { --brand: #d9480f; --ink: #14161a; --paper: #ffffff; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink);
@@ -40,6 +44,8 @@
               border: 2px solid var(--brand); border-radius: 8px; background: #f7f9ff; }
     .banner h2 { margin: 0 0 8px; font-size: 15px; }
     .banner p { margin: 0; font-size: 13px; color: #5b6472; }
+    .gallery, .promo, .missing { margin: 24px; }
+    .ticker { width: 200px; margin: 24px; }
   </style>
 </head>
 <body>
@@ -69,5 +75,12 @@
     <h2>Seasonal offer</h2>
     <p>A box resized far beyond the tolerance is never scored.</p>
   </section>
+  <section class="gallery" id="gallery"><img alt="Gallery" width="120" height="80" src="missing-aem-image.png"></section>
+  <section class="promo" id="promo"><img alt="Promo" width="120" height="80" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='80'><rect width='120' height='80' fill='%231f6feb'/></svg>"></section>
+  <section class="ticker" id="ticker"><span>Ticker</span></section>
+  <script>
+    const ticker = document.getElementById('ticker');
+    setInterval(() => { ticker.style.transform = `translateX(${Math.floor(performance.now() / 50) % 40}px)`; }, 20);
+  </script>
 </body>
 </html>

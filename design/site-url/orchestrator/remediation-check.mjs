@@ -216,19 +216,71 @@ expect([...stopped.components.values()].every((entry) => entry.status === 'PASS'
 expect(environmentBlocked({ preflight: { environment_blocked: false, checks: [] } }) === null,
   'a healthy preflight must not report an environment block');
 expect(environmentBlocked({}) === null, 'a parity artefact without preflight must not block');
+const redirect = 'the target navigated away from http://localhost:4506/content/page.html to '
+  + 'http://localhost:4506/libs/granite/core/content/login.html';
 const blockedReason = environmentBlocked({
   preflight: {
     environment_blocked: true,
-    checks: [
-      { target_redirected_to: 'http://localhost:4506/libs/granite/core/content/login.html' },
-      { target_redirected_to: 'http://localhost:4506/libs/granite/core/content/login.html' },
-    ],
+    checks: [{ environment_failures: [redirect] }, { environment_failures: [redirect] }],
   },
 });
 expect(typeof blockedReason === 'string' && blockedReason.includes('login.html'),
   `an environment block must name where the capture landed, got ${blockedReason}`);
 expect((blockedReason.match(/login\.html/g) || []).length === 1,
   'the reason must list each destination once');
+const notFound = environmentBlocked({
+  preflight: { environment_blocked: true, checks: [{ environment_failures: ['the target page answered HTTP 404'] }] },
+});
+expect(notFound?.includes('HTTP 404'), `a missing target page must be named as the block, got ${notFound}`);
+
+// What only the live page fails takes no attempt and no agent, and holds nothing else back.
+const sourceFailing = parityFor({
+  components: [
+    { component_id: 'hero', status: 'FAIL', min_ratio: 0.8, owning_layer_hint: 'spacing' },
+    { component_id: 'cards', status: 'WITHHELD', owning_layer_hint: 'source-capture' },
+  ],
+  composite: { '1440-disabled': { status: 'FAIL', ratio: 0.7 } },
+  results: [
+    { component_id: 'hero', breakpoint: 375, status: 'FAIL', owning_layer_hint: 'spacing' },
+    { component_id: 'hero', breakpoint: 1440, status: 'WITHHELD', owning_layer_hint: 'source-capture' },
+    { component_id: 'cards', breakpoint: 375, status: 'WITHHELD', owning_layer_hint: 'source-capture' },
+  ],
+});
+const sourceLedger = createLedger(['hero', 'cards']);
+applyParity(sourceLedger, sourceFailing);
+expect(sourceLedger.components.get('cards').status === 'BLOCKED',
+  `a component only the live page fails must be blocked, got ${sourceLedger.components.get('cards').status}`);
+expect(sourceLedger.page.status === 'BLOCKED',
+  `the page cannot be judged while part of the live page cannot be captured, got ${sourceLedger.page.status}`);
+let sourceRouted = routeFailures(sourceFailing, plan, sourceLedger);
+expect(sourceRouted.batches.map((batch) => batch.components.join('+')).join(',') === 'hero',
+  `only the fixable component may get an agent, got ${sourceRouted.batches.map((batch) => batch.components.join('+'))}`);
+expect(sourceRouted.batches[0]?.breakpoints.join(',') === '375',
+  `a width only the live page fails must not be handed to the agent, got ${sourceRouted.batches[0]?.breakpoints}`);
+recordAttempt(sourceLedger, { componentId: 'hero', batchId: 'b', layer: 'spacing' });
+applyParity(sourceLedger, sourceFailing);
+expect(advanceRound(sourceLedger).done === false && sourceLedger.round === 2,
+  `a blocked entry must not hold the others in round one, got round ${sourceLedger.round}`);
+sourceRouted = routeFailures(sourceFailing, plan, sourceLedger);
+expect(sourceRouted.batches.length === 1 && sourceRouted.batches[0].components[0] === 'hero',
+  'the fixable component must still get its second-round attempt');
+expect(sourceLedger.components.get('cards').attempts === 0, 'a blocked component must never be charged');
+finalizeLedger(sourceLedger);
+expect(sourceLedger.components.get('cards').status === 'FAILED-FINAL',
+  'a component still blocked when the loop stops must end failed, never passed');
+
+const onlySource = createLedger(['hero', 'cards']);
+applyParity(onlySource, parityFor({
+  components: [
+    { component_id: 'hero', status: 'PASS', min_ratio: 0.99 },
+    { component_id: 'cards', status: 'WITHHELD', owning_layer_hint: 'source-capture' },
+  ],
+  composite: { '1440-disabled': { status: 'PASS', ratio: 0.99 } },
+}));
+expect(advanceRound(onlySource).done === true, 'nothing an edit can fix must end the loop without an attempt');
+applyParity(onlySource, parityFor({ components: allComponentsPass, composite: { '1440-disabled': { status: 'PASS', ratio: 0.99 } } }));
+expect(onlySource.components.get('cards').status === 'PASS',
+  'a blocked component the live page stops failing must pass on the next measurement');
 
 if (failures.length) {
   console.error(`remediation assertions failed:\n- ${failures.join('\n- ')}`);

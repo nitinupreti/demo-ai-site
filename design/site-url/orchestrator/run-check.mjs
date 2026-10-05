@@ -740,6 +740,42 @@ expect(racedFix.edited?.includes(`ui.apps/components/${CONTENT_B}/fixed.txt`),
   `the file edited during remediation must be named, got ${racedFix.edited?.join(', ')}`);
 expect(installs() === installsBefore + 1, 'the interrupted round must not redeploy');
 
+// A fix that does not build is never merged, and its attempt records why.
+parityCycle = 0;
+fs.writeFileSync(fixFile, 'before the unbuildable fix');
+const unbuildableFix = await orchestrate(resumeOptions, resumeServices({
+  execFn: execWith((args) => (args.includes('generate-sources') ? 1 : 0)),
+}));
+const rejectedAttempt = unbuildableFix.ledger.components.find((entry) => entry.id === CONTENT_B)?.history[0];
+expect(fs.readFileSync(fixFile, 'utf8') === 'before the unbuildable fix', 'a fix that does not build must never reach the tree');
+expect(rejectedAttempt?.rejection?.startsWith('it does not build'),
+  `the attempt must record why it was not merged, got ${JSON.stringify(rejectedAttempt)}`);
+
+// A round whose redeploy fails is undone, so the tree and AEM match what the last cycle measured.
+parityCycle = 0;
+let installCount = 0;
+const revertedFix = await orchestrate(resumeOptions, resumeServices({
+  execFn: execWith((args) => {
+    if (!args.includes('-PautoInstallSinglePackage')) return 0;
+    installCount += 1;
+    // The deploy phase installs first; the round's redeploy is the one that fails.
+    return installCount === 2 ? 1 : 0;
+  }),
+}));
+expect(revertedFix.status === 'FAIL'
+  && revertedFix.phases.find((entry) => entry.name === 'remediation')?.status === 'FAIL',
+`a round that broke the deploy must fail remediation, got ${revertedFix.status}`);
+expect(fs.readFileSync(fixFile, 'utf8') === 'before the unbuildable fix', 'a round that broke the deploy must be reverted');
+const keptFix = path.join(evidenceDir, 'remediation-1-reverted', 'ui.apps', 'components', CONTENT_B, 'fixed.txt');
+expect(fs.existsSync(keptFix) && fs.readFileSync(keptFix, 'utf8') === 'fixed', 'the reverted edit must be kept as evidence');
+expect(installCount === 3, `the previous build must be redeployed after the revert, got ${installCount} install(s)`);
+expect(revertedFix.ledger.stopped?.includes('broke the deploy'),
+  `the ledger must say why remediation stopped, got ${revertedFix.ledger.stopped}`);
+const revertReport = fs.readFileSync(path.join(evidenceDir, 'completion-report.md'), 'utf8');
+expect(revertReport.includes('Remediation stopped early: round 1 broke the deploy')
+  && revertReport.includes('FAILED when remediation stopped early'),
+'the report must say the deploy broke, not only list the components as failed');
+
 // One model and one effort govern every agent, or their work is not comparable.
 const tuned = { model: 'run-wide', effort: 'high' };
 expect(AGENT_ROLES.every((role) => agentTuning(tuned, role).model === 'run-wide'

@@ -29,7 +29,7 @@ import {
 import { buildReport, writeReport } from './report.mjs';
 import { openTimings } from './timings.mjs';
 import {
-  collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
+  captureFiles, collectChanges, createWorkspace, mergeChanges, removeWorkspace, restoreFiles, snapshotTree, watchTree,
 } from './workspaces.mjs';
 import { ensureCopilot, ensureTools } from '../tools/setup.mjs';
 
@@ -940,9 +940,36 @@ async function runStages(rawOptions, services, timings) {
   const blocked = environmentBlocked(parity);
   if (blocked) {
     writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
-    endPhase(phase, 'FAIL', `${blocked}; fix the target or its credentials, then rerun`);
+    endPhase(phase, 'FAIL', `${blocked}; no edit can fix that, so fix it and rerun`);
     return { status: 'FAIL', phases, state, plan, parity, ledger: ledgerSnapshot(ledger) };
   }
+
+  // A fix is built in its own checkout before it is merged, exactly as a fan-out worker's is.
+  const buildProblem = async (workspaceRoot, changes) => {
+    const validation = await runValidation({ workspaceRoot, steps: validationPlan(changes.changed), execFn });
+    if (validation.status === 'PASS') return null;
+    const first = validation.detail.split('\n')[0];
+    return `it does not build (${validation.label})${first ? `: ${first}` : ''}`;
+  };
+  // Puts a round's merges back and redeploys, so the tree and AEM match the last measured cycle again.
+  const revertRound = async (round, before, broken) => {
+    if (!before.size) return `round ${round} could not redeploy (${broken}) although it merged nothing`;
+    const keptDir = path.join(evidenceDir, `remediation-${round}-reverted`);
+    restoreFiles(repoRoot, before, keptDir);
+    const restored = await runDeployment({
+      repoRoot,
+      steps: planDeployment(options.aemPort),
+      renderer,
+      execFn,
+      logPath: path.join(evidenceDir, 'deploy.log'),
+      writeLog: fs.appendFileSync,
+    });
+    return `round ${round} broke the deploy (${broken}); its ${before.size} merged file(s) were reverted`
+      + ` and kept in ${keptDir}, ${restored.status === 'PASS'
+        ? 'and the previous build was redeployed'
+        : 'but redeploying the previous build failed too, so AEM may still run the broken one'}`;
+  };
+
   let rounds = 0;
   while (parity.status !== 'PASS' && rounds < options.maxParityRetries) {
     const progress = advanceRound(ledger);
@@ -953,6 +980,8 @@ async function runStages(rawOptions, services, timings) {
     // Watched per round, because the redeploy between rounds regenerates build output in the tree.
     const guard = watchTree(repoRoot, options.workspace);
     const edited = new Set();
+    // Each file this round merges, as it was before, so a round that breaks the deploy can be undone.
+    const before = new Map();
 
     // A shared cause is fixed once, first and alone, so every component agent builds on the fix.
     let sharedRepair = null;
@@ -996,9 +1025,15 @@ async function runStages(rawOptions, services, timings) {
         // No component attempt is charged: each blamed component still gets its own agent below.
         const changes = collectChanges(workspace, sharedPaths);
         if (changes.valid && invocation.status === 'PASS') {
-          const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
-          merged.edited.forEach((file) => edited.add(file));
-          if (!merged.edited.length) sharedRepair = { changed_files: changes.changed, notes: invocation.result?.notes || null };
+          const rejection = await buildProblem(workspaceRoot, changes);
+          if (rejection) {
+            renderer.note(`shared repair not applied: ${rejection}`);
+          } else {
+            captureFiles(repoRoot, changes.changed, before);
+            const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
+            merged.edited.forEach((file) => edited.add(file));
+            if (!merged.edited.length) sharedRepair = { changed_files: changes.changed, notes: invocation.result?.notes || null };
+          }
         } else {
           renderer.note(`shared repair not applied: ${invocation.error || `outside the shared layer: ${changes.violations.join(', ')}`}`);
         }
@@ -1060,6 +1095,22 @@ async function runStages(rawOptions, services, timings) {
 
         const changes = collectChanges(workspace, scopePaths);
         if (changes.valid && invocation.status === 'PASS') {
+          const rejection = await buildProblem(workspaceRoot, changes);
+          if (rejection) {
+            renderer.note(`round ${ledger.round} | ${label} not merged: ${rejection}`);
+            for (const id of ledgerIds) {
+              recordAttempt(ledger, {
+                componentId: id,
+                batchId: batch.batch_id,
+                layer: batch.layer,
+                hypothesis: invocation.result?.notes,
+                changedFiles: changes.changed,
+                rejection,
+              });
+            }
+            return invocation;
+          }
+          captureFiles(repoRoot, changes.changed, before);
           const merged = mergeChanges(workspace, repoRoot, changes, new Map(), guard);
           if (merged.edited.length) {
             merged.edited.forEach((file) => edited.add(file));
@@ -1107,11 +1158,20 @@ async function runStages(rawOptions, services, timings) {
       logPath: path.join(evidenceDir, 'deploy.log'),
       writeLog: fs.appendFileSync,
     });
-    if (redeploy.status !== 'PASS') break;
-    // A fix that leaves the bundle unresolved would be measured as if it had deployed.
-    const redeployBundles = await checkBundles();
-    if (redeployBundles.status === 'FAIL') {
-      renderer.note(`remediation left bundles unresolved:\n${describeBrokenBundles(redeployBundles.broken)}`);
+    let broken = null;
+    if (redeploy.status !== 'PASS') {
+      broken = `${redeploy.failure.step} exited ${redeploy.failure.exit_code}, see deploy.log`;
+    } else {
+      // A fix that leaves the bundle unresolved would be measured as if it had deployed.
+      const redeployBundles = await checkBundles();
+      if (redeployBundles.status === 'FAIL') {
+        renderer.note(`remediation left bundles unresolved:\n${describeBrokenBundles(redeployBundles.broken)}`);
+        broken = `bundle(s) did not start: ${redeployBundles.broken.map((entry) => entry.symbolicName).join(', ')}`;
+      }
+    }
+    if (broken) {
+      ledger.stopped = await revertRound(ledger.round, before, broken);
+      renderer.note(ledger.stopped);
       break;
     }
 
@@ -1128,7 +1188,8 @@ async function runStages(rawOptions, services, timings) {
   if (parity.status !== 'PASS') finalizeLedger(ledger);
   const terminal = terminalStatus(ledger);
   writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
-  endPhase(phase, terminal.status, `${terminal.passed.length} passed, ${terminal.failed_final.length} failed-final, ${rounds} round(s)`);
+  endPhase(phase, terminal.status, `${terminal.passed.length} passed, ${terminal.failed_final.length} failed-final, ${rounds} round(s)`
+    + `${ledger.stopped ? `; ${ledger.stopped}` : ''}`);
 
   // 9. Report — deterministic.
   phase = startPhase('report');

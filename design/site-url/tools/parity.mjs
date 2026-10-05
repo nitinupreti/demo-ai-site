@@ -571,6 +571,48 @@ function landedElsewhere(requestedUrl, finalUrl) {
   }
 }
 
+/** Layers no edit to the project can reach: the live page itself, or the capture environment. */
+const UNFIXABLE_LAYERS = new Set(['source-capture', 'environment']);
+
+/**
+ * Why no row at this width can be scored: the page under test was not reached, or the live page
+ * could not be rendered as it is. Nothing an agent edits changes either, so remediation must not run.
+ */
+export function environmentProblems({
+  width, source, deployed, requestedUrl, redirectedTo,
+}) {
+  const problems = [];
+  if (source.navigation.http_status >= 400) problems.push(`the live page answered HTTP ${source.navigation.http_status}`);
+  if (deployed.navigation.http_status >= 400) problems.push(`the target page answered HTTP ${deployed.navigation.http_status}`);
+  if (redirectedTo) problems.push(`the target navigated away from ${requestedUrl} to ${redirectedTo}`);
+  for (const [side, capture] of [['live', source], ['target', deployed]]) {
+    if (capture.readiness.inner_width !== width) {
+      problems.push(`the ${side} page rendered ${capture.readiness.inner_width}px wide instead of ${width}px`);
+    }
+  }
+  if (!source.readiness.fonts_ready) problems.push('the live page\'s fonts never finished loading');
+  return problems;
+}
+
+/** A readiness problem inside one element: it kept moving, or media it holds never loaded. */
+function unsettledWithin(readiness, key, rect) {
+  const moved = readiness.moving_selectors?.[key];
+  if (moved) return { reason: `element kept moving (${moved}px) after the page settled`, layer: 'capture-readiness' };
+  // Media belongs to the element its centre falls in, so one broken file blames one component.
+  const holds = (box) => {
+    if (!box || !rect) return false;
+    const x = box.x + box.w / 2;
+    const y = box.y + box.h / 2;
+    return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+  };
+  const media = [
+    ...(readiness.undecoded_images || []).filter((entry) => holds(entry.rect)).map((entry) => `image ${entry.src}`),
+    ...(readiness.undecoded_videos || []).filter((entry) => holds(entry.rect)).map((entry) => `video ${entry.selector}`),
+  ];
+  if (media.length) return { reason: `media never loaded: ${media.slice(0, 3).join(', ')}`, layer: 'media-assets' };
+  return null;
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2), {
     values: ['config', 'out', 'only', 'cycle'],
@@ -627,8 +669,9 @@ async function main() {
         const pinned = component.bp ?? component.source?.bp;
         return pinned === undefined || pinned === null || Number(pinned) === width;
       });
-      const sourceSelectors = visible.map((component) => ({
-        key: `src-${component.id}`, css: component.source.css, matchIndex: component.source.match_index || 0,
+      // Keyed by position: rows can share a component id, and each is judged on its own element.
+      const sourceSelectors = visible.map((component, index) => ({
+        key: `src-${index}`, css: component.source.css, matchIndex: component.source.match_index || 0,
       }));
 
       const source = await openPrepared(browser, {
@@ -638,8 +681,8 @@ async function main() {
       await source.page.screenshot({ path: sourceFull, fullPage: true });
 
       for (const target of config.targets) {
-        const targetSelectors = visible.map((component) => ({
-          key: `tgt-${component.id}`, css: component.target.css, matchIndex: component.target.match_index || 0,
+        const targetSelectors = visible.map((component, index) => ({
+          key: `tgt-${index}`, css: component.target.css, matchIndex: component.target.match_index || 0,
         }));
         const deployed = await openPrepared(browser, {
           url: target.url, width, dpr, httpCredentials, stableSelectors: targetSelectors,
@@ -648,31 +691,37 @@ async function main() {
         await deployed.page.screenshot({ path: targetFull, fullPage: true });
 
         const scrollbarDelta = deployed.readiness.scrollbar_width - source.readiness.scrollbar_width;
-        const readinessBlocked = source.readiness.status !== 'PASS' || deployed.readiness.status !== 'PASS';
         // Landing on another path means an AEM login bounce or a sling:redirect, not a bad component.
         const redirectedTo = landedElsewhere(target.url, deployed.navigation.final_url);
+        const environmentFailures = environmentProblems({
+          width, source, deployed, requestedUrl: target.url, redirectedTo,
+        });
+        // Fonts that never settle change every crop, but unlike the faults above they are the project's to fix.
+        const targetFontsPending = !environmentFailures.length && !deployed.readiness.fonts_ready;
         preflight.checks.push({
           breakpoint: width,
           mode: target.mode,
           source_url: source.navigation.final_url,
           target_url: deployed.navigation.final_url,
+          source_http_status: source.navigation.http_status,
+          target_http_status: deployed.navigation.http_status,
           target_redirected_to: redirectedTo,
+          environment_failures: environmentFailures,
           source_readiness: source.readiness.status,
           target_readiness: deployed.readiness.status,
+          // An element-level failure here withholds only the rows whose element it occurs in.
           source_failures: source.readiness.failures,
-          target_failures: redirectedTo
-            ? [`target navigated away from ${target.url} to ${redirectedTo}`, ...deployed.readiness.failures]
-            : deployed.readiness.failures,
+          target_failures: deployed.readiness.failures,
           source_warnings: source.readiness.warnings,
           target_warnings: deployed.readiness.warnings,
           scrollbar_width_delta: scrollbarDelta,
           viewport: { requested: width, source: source.readiness.inner_width, target: deployed.readiness.inner_width },
           dpr: { source: source.readiness.dpr, target: deployed.readiness.dpr },
         });
-        if (readinessBlocked || redirectedTo) preflight.status = 'FAIL';
-        if (redirectedTo) preflight.environment_blocked = true;
+        if (environmentFailures.length || targetFontsPending) preflight.status = 'FAIL';
+        if (environmentFailures.length) preflight.environment_blocked = true;
 
-        for (const component of visible) {
+        for (const [index, component] of visible.entries()) {
           process.stdout.write(`  ${width}px ${target.mode} ${component.id} ... `);
           const result = {
             component_id: component.id,
@@ -700,13 +749,18 @@ async function main() {
             deltas: {},
           };
 
-          if (readinessBlocked) {
-            result.withheld_reason = 'capture readiness failed: '
-              + [...source.readiness.failures.map((entry) => `source ${entry}`),
-                ...deployed.readiness.failures.map((entry) => `target ${entry}`)].join('; ');
-            result.owning_layer_hint = 'capture-readiness';
+          if (environmentFailures.length) {
+            result.withheld_reason = `environment: ${environmentFailures.join('; ')}`;
+            result.owning_layer_hint = 'environment';
             results.push(result);
-            console.log('WITHHELD (readiness)');
+            console.log('WITHHELD (environment)');
+            continue;
+          }
+          if (targetFontsPending) {
+            result.withheld_reason = 'target fonts never finished loading (document.fonts.ready did not resolve)';
+            result.owning_layer_hint = 'font-delivery';
+            results.push(result);
+            console.log('WITHHELD (target fonts)');
             continue;
           }
 
@@ -718,10 +772,12 @@ async function main() {
           result.target.rect = targetInstance.rect || null;
 
           if (!sourceInstance.found || !targetInstance.found) {
-            result.withheld_reason = !sourceInstance.found
-              ? `source selector matched ${sourceInstance.matches ?? 0} elements`
-              : `target selector matched ${targetInstance.matches ?? 0} elements`;
-            result.owning_layer_hint = 'plan-or-selector';
+            result.withheld_reason = [
+              !targetInstance.found && `target selector matched ${targetInstance.matches ?? 0} elements`,
+              !sourceInstance.found && `source selector matched ${sourceInstance.matches ?? 0} elements`,
+            ].filter(Boolean).join('; ');
+            // The live page is ground truth: a source element that is gone is for no edit to bring back.
+            result.owning_layer_hint = targetInstance.found ? 'source-capture' : 'plan-or-selector';
             results.push(result);
             console.log(`WITHHELD (${result.withheld_reason})`);
             continue;
@@ -750,6 +806,20 @@ async function main() {
             }
           }
 
+          // A readiness problem spoils only the crops of the element it occurs in.
+          const sourceUnsettled = unsettledWithin(source.readiness, `src-${index}`, sourceInstance.rect);
+          const targetUnsettled = unsettledWithin(deployed.readiness, `tgt-${index}`, targetInstance.rect);
+          if (sourceUnsettled || targetUnsettled) {
+            result.withheld_reason = [
+              targetUnsettled && `target ${targetUnsettled.reason}`,
+              sourceUnsettled && `source ${sourceUnsettled.reason}`,
+            ].filter(Boolean).join('; ');
+            result.owning_layer_hint = targetUnsettled ? targetUnsettled.layer : 'source-capture';
+            results.push(result);
+            console.log(`WITHHELD (${result.withheld_reason})`);
+            continue;
+          }
+
           const base = evidenceBase([component.id, component.instance, width, target.mode].filter(Boolean).join('-'));
           const sourceShot = path.join(shotDir, `${base}-source.png`);
           const targetShot = path.join(shotDir, `${base}-target.png`);
@@ -765,8 +835,8 @@ async function main() {
             : await captureCrop(deployed.page, component.target, targetInstance.rect, targetShot);
           if (sourceProblem || targetProblem) {
             result.withheld_reason = sourceProblem ? `source ${sourceProblem}` : `target ${targetProblem}`;
-            // Only the plan can repair a source it cannot capture; a target is the component's to repair.
-            result.owning_layer_hint = sourceProblem ? 'plan-or-selector' : owningLayerHint(result);
+            // No edit can repair a live page that cannot be captured; a target is the component's to repair.
+            result.owning_layer_hint = sourceProblem ? 'source-capture' : owningLayerHint(result);
             results.push(result);
             console.log(`WITHHELD (${result.withheld_reason})`);
             continue;
@@ -1040,7 +1110,9 @@ async function main() {
       status: rows.length === 0 ? 'SKIPPED' : failing.length ? (failing.every((row) => row.status === 'WITHHELD') ? 'WITHHELD' : 'FAIL') : 'PASS',
       min_ratio: ratios.length ? Math.min(...ratios) : null,
       min_progress_ratio: progress.length ? Math.min(...progress) : null,
-      owning_layer_hint: failing.find((row) => row.owning_layer_hint)?.owning_layer_hint || null,
+      // A layer an edit can reach outranks one it cannot, so a component failing for both is still worked.
+      owning_layer_hint: (failing.find((row) => row.owning_layer_hint && !UNFIXABLE_LAYERS.has(row.owning_layer_hint))
+        || failing.find((row) => row.owning_layer_hint))?.owning_layer_hint || null,
       failed_gates: Array.from(failedGates),
       scored_breakpoints: scoredBreakpoints,
       failed_breakpoints: failedBreakpoints,

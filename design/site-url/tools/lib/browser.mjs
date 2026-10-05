@@ -172,6 +172,8 @@ export async function settleImages(page, { decodeTimeoutMs = 30000 } = {}) {
       }
     }
     const failed = [];
+    // In page coordinates, so a caller can pin each failure to the element that holds it.
+    const failedAt = [];
     await Promise.all(images.map(async (image) => {
       try {
         if (typeof image.decode === 'function') {
@@ -182,11 +184,16 @@ export async function settleImages(page, { decodeTimeoutMs = 30000 } = {}) {
         // Fall through to the attribute assertions below.
       }
       if (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
-        failed.push(image.currentSrc || image.src || '(no src)');
+        const src = image.currentSrc || image.src || '(no src)';
+        const box = image.getBoundingClientRect();
+        failed.push(src);
+        failedAt.push({
+          src, rect: { x: box.x + window.scrollX, y: box.y + window.scrollY, w: box.width, h: box.height },
+        });
       }
     }));
     return {
-      total: images.length, decoded: images.length - failed.length, promoted, failed,
+      total: images.length, decoded: images.length - failed.length, promoted, failed, failed_at: failedAt,
     };
   }, decodeTimeoutMs);
 }
@@ -220,6 +227,7 @@ export async function settleMedia(page, { comparableTime = 0.01 } = {}) {
       const entry = {
         selector: video.id ? `#${video.id}` : video.className ? `video.${String(video.className).trim().split(/\s+/)[0]}` : 'video',
         visible,
+        rect: { x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.width, h: rect.height },
         autoplay: video.autoplay,
         loop: video.loop,
         muted: video.muted,
@@ -289,6 +297,8 @@ export async function sampleStableRects(page, selectors, { samples = 3, interval
 
   let maxDelta = 0;
   const unstable = [];
+  // Largest movement per key, so an element that will not settle can be blamed on its own.
+  const moved = {};
   for (const key of Object.keys(readings[0] || {})) {
     const values = readings.map((reading) => reading[key]).filter(Boolean);
     if (values.length !== readings.length) {
@@ -299,10 +309,15 @@ export async function sampleStableRects(page, selectors, { samples = 3, interval
       const numbers = values.map((value) => value[axis]);
       const delta = Math.max(...numbers) - Math.min(...numbers);
       if (delta > maxDelta) maxDelta = delta;
-      if (delta > 1) unstable.push(`${key}.${axis} moved ${delta.toFixed(2)}px`);
+      if (delta > 1) {
+        unstable.push(`${key}.${axis} moved ${delta.toFixed(2)}px`);
+        moved[key] = Math.max(moved[key] || 0, Number(delta.toFixed(2)));
+      }
     }
   }
-  return { samples: readings.length, max_delta_px: Number(maxDelta.toFixed(3)), unstable, readings };
+  return {
+    samples: readings.length, max_delta_px: Number(maxDelta.toFixed(3)), unstable, moved, readings,
+  };
 }
 
 export async function viewportState(page, expectedWidth) {
@@ -383,6 +398,10 @@ export async function prepareForCapture(page, { width, dynamicSettleMs = 3000, s
     max_rect_delta_px: stability.max_delta_px,
     stable_rect_samples: stability.samples,
     document_settled: documentDrift.length === 0,
+    // Element-level detail behind `failures`, for a caller that scores elements one at a time.
+    moving_selectors: stability.moved,
+    undecoded_images: images.failed_at,
+    undecoded_videos: undecodedVideo.map((entry) => ({ selector: entry.selector, rect: entry.rect })),
     status: failures.length ? 'FAIL' : 'PASS',
     failures,
     warnings,

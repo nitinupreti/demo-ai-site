@@ -208,6 +208,34 @@ export function mergeChanges(workspace, repoRoot, changes, claimedPaths, guard =
   return { applied, conflicts: [], edited: [] };
 }
 
+/** Records each file's bytes (null where it does not exist) the first time it is seen, so merges can be undone. */
+export function captureFiles(repoRoot, files, captured = new Map()) {
+  for (const relative of files.map(normalize)) {
+    if (captured.has(relative)) continue;
+    const absolute = path.join(repoRoot, relative);
+    captured.set(relative, fs.existsSync(absolute) ? fs.readFileSync(absolute) : null);
+  }
+  return captured;
+}
+
+/** Writes captured files back; whatever they replace is copied under `keptDir` first. */
+export function restoreFiles(repoRoot, captured, keptDir) {
+  for (const [relative, content] of captured) {
+    const absolute = path.join(repoRoot, relative);
+    if (fs.existsSync(absolute)) {
+      const kept = path.join(keptDir, relative);
+      fs.mkdirSync(path.dirname(kept), { recursive: true });
+      fs.copyFileSync(absolute, kept);
+    }
+    if (content === null) {
+      fs.rmSync(absolute, { force: true });
+    } else {
+      fs.mkdirSync(path.dirname(absolute), { recursive: true });
+      fs.writeFileSync(absolute, content);
+    }
+  }
+}
+
 export function removeWorkspace(workspaceRoot) {
   fs.rmSync(workspaceRoot, { recursive: true, force: true });
 }

@@ -16,6 +16,12 @@ export const PAGE_LAYER = 'page-composition';
 const SHARED_DESIGN_LAYERS = new Set(['typography-tokens', 'color-tokens', 'font-delivery']);
 export const SHARED_REPAIR_LAYER = 'shared-design';
 
+/** Layers no edit to the project can reach: the live page itself, or the capture environment. */
+const UNFIXABLE_LAYERS = new Set(['source-capture', 'environment']);
+
+/** Statuses that take no attempt: settled, or waiting on something no edit can change. */
+const IDLE_STATUSES = new Set(['PASS', 'FAILED-FINAL', 'BLOCKED']);
+
 function allEntries(ledger) {
   const entries = [...ledger.components.values()];
   if (ledger.page) entries.push(ledger.page);
@@ -33,14 +39,12 @@ export function compositeStatus(parity) {
   };
 }
 
-/** A capture that never reached the page is an environment fault; no code edit can fix it. */
+/** A page that was never reached, or a live page that would not render, is no code defect. */
 export function environmentBlocked(parity) {
   const preflight = parity?.preflight;
   if (!preflight || preflight.environment_blocked !== true) return null;
-  const landed = (preflight.checks || [])
-    .map((check) => check.target_redirected_to)
-    .filter(Boolean);
-  return `the target navigated away from the page under test (${[...new Set(landed)].join(', ') || 'unknown destination'})`;
+  const reasons = (preflight.checks || []).flatMap((check) => check.environment_failures || []);
+  return [...new Set(reasons)].join('; ') || 'the page under test could not be captured';
 }
 
 export function createLedger(componentIds, { retries = DEFAULT_RETRIES } = {}) {
@@ -67,6 +71,7 @@ export function ledgerSnapshot(ledger) {
     components: [...ledger.components.values()].map((entry) => ({ ...entry })),
     page: ledger.page ? { ...ledger.page } : null,
     batches: ledger.batches,
+    stopped: ledger.stopped || null,
   };
 }
 
@@ -75,7 +80,7 @@ function attemptCap(ledger, round) {
 }
 
 function spendable(ledger, entry) {
-  return entry.status !== 'PASS' && entry.status !== 'FAILED-FINAL'
+  return !IDLE_STATUSES.has(entry.status)
     && entry.round === ledger.round && entry.attempts < attemptCap(ledger, entry.round);
 }
 
@@ -104,7 +109,7 @@ export function eligible(ledger) {
 export function routeFailures(parity, plan, ledger) {
   const widthsByComponent = new Map();
   for (const row of parity.results || []) {
-    if (row.status === 'PASS' || row.status === 'SKIPPED') continue;
+    if (row.status === 'PASS' || row.status === 'SKIPPED' || UNFIXABLE_LAYERS.has(row.owning_layer_hint)) continue;
     if (!widthsByComponent.has(row.component_id)) widthsByComponent.set(row.component_id, new Set());
     widthsByComponent.get(row.component_id).add(row.breakpoint);
   }
@@ -163,7 +168,9 @@ export function routeFailures(parity, plan, ledger) {
   return { batches, shared };
 }
 
-export function recordAttempt(ledger, { componentId, batchId, layer, hypothesis, changedFiles }) {
+export function recordAttempt(ledger, {
+  componentId, batchId, layer, hypothesis, changedFiles, rejection,
+}) {
   const entry = componentId === PAGE_SCOPE_ID ? ledger.page : ledger.components.get(componentId);
   if (!entry) return null;
   if (entry.attempts >= attemptCap(ledger, entry.round)) return entry;
@@ -175,6 +182,8 @@ export function recordAttempt(ledger, { componentId, batchId, layer, hypothesis,
     layer,
     hypothesis: hypothesis || null,
     changed_files: changedFiles || [],
+    // Why the change never reached the tree, when it did not.
+    rejection: rejection || null,
     at: new Date().toISOString(),
   });
   return entry;
@@ -213,6 +222,11 @@ export function applyParity(ledger, parity) {
         ? component.min_progress_ratio
         : Math.max(entry.best_progress_ratio, component.min_progress_ratio);
     }
+    // No edit can reach it, so it takes no attempt; the next measurement may still clear it.
+    if (component.status !== 'PASS' && UNFIXABLE_LAYERS.has(component.owning_layer_hint)) {
+      entry.status = 'BLOCKED';
+      continue;
+    }
     settle(ledger, entry, component.status === 'PASS');
   }
 
@@ -224,15 +238,17 @@ export function applyParity(ledger, parity) {
     } else {
       const worst = composite.ratios.length ? Math.min(...composite.ratios) : null;
       if (worst !== null) page.best_ratio = page.best_ratio === null ? worst : Math.max(page.best_ratio, worst);
-      settle(ledger, page, false);
+      // The page comparison also measures whatever part of the live page could not be captured.
+      const sourceBlocked = [...ledger.components.values()].some((entry) => entry.status === 'BLOCKED');
+      if (sourceBlocked) page.status = 'BLOCKED';
+      else settle(ledger, page, false);
     }
   }
   return ledger;
 }
 
 export function advanceRound(ledger) {
-  const remaining = allEntries(ledger)
-    .filter((entry) => entry.status !== 'PASS' && entry.status !== 'FAILED-FINAL');
+  const remaining = allEntries(ledger).filter((entry) => !IDLE_STATUSES.has(entry.status));
   if (!remaining.length) return { done: true, round: ledger.round };
   if (remaining.every((entry) => entry.round === 2)) ledger.round = 2;
   const workable = eligible(ledger);
