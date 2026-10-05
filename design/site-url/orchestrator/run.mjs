@@ -4,6 +4,7 @@
  * every verdict; agents only do judgement work inside scopes this file hands them.
  *
  *   node design/site-url/orchestrator/run.mjs --url <live-url> --aem-port 4506
+ *   node design/site-url/orchestrator/run.mjs --url <site-root> --target-path /content/<site>/<root>   (whole site)
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -13,7 +14,7 @@ import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 import { runAgentRole } from './agent.mjs';
-import { createRenderer, formatDuration } from './console.mjs';
+import { createRenderer, formatDuration, unicodeSafe } from './console.mjs';
 import { findCopilot, listAvailableModels, modelEfforts } from './copilot.mjs';
 import { applyContributions, validateContribution, verifyComposeTargets } from './contributions.mjs';
 import { acquireAssets, ensureFilterRoot } from './assets.mjs';
@@ -27,6 +28,8 @@ import {
   PAGE_SCOPE_ID, recordAttempt, routeFailures, terminalStatus,
 } from './remediation.mjs';
 import { buildReport, writeReport } from './report.mjs';
+import { validateSiteRoot } from './inventory.mjs';
+import { orchestrateSite, SITE_PHASES } from './site.mjs';
 import { openTimings } from './timings.mjs';
 import {
   collectChanges, createWorkspace, mergeChanges, removeWorkspace, snapshotTree, watchTree,
@@ -86,6 +89,10 @@ export const DEFAULTS = Object.freeze({
   foundationsRepairs: 2,
   // How long discovery waits for scripts to finish mutating the layout before it scans.
   settleMs: 3000,
+  // Site mode: how far one crawl may reach, and how gently.
+  maxPages: 50,
+  maxDepth: 5,
+  crawlDelayMs: 500,
 });
 
 function readPrompt(name) {
@@ -252,7 +259,11 @@ export function parseArgs(argv) {
     aemPort: Number.parseInt(process.env.AEM_PORT || String(DEFAULTS.aemPort), 10),
     aemUser: process.env.AEM_USER || DEFAULTS.aemUser,
     dryRun: false,
+    include: [],
+    exclude: [],
+    includeHosts: [],
   };
+  const listOf = (value) => String(value ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     const value = argv[index + 1];
@@ -275,6 +286,17 @@ export function parseArgs(argv) {
       case '--list-models': options.listModels = true; break;
       case '--dry-run': options.dryRun = true; break;
       case '--help': options.help = true; break;
+      case '--scope': options.scope = value; index += 1; break;
+      case '--max-pages': options.maxPages = Number.parseInt(value, 10); index += 1; break;
+      case '--max-depth': options.maxDepth = Number.parseInt(value, 10); index += 1; break;
+      case '--include': options.include = [...options.include, ...listOf(value)]; index += 1; break;
+      case '--exclude': options.exclude = [...options.exclude, ...listOf(value)]; index += 1; break;
+      case '--include-host': options.includeHosts = [...options.includeHosts, ...listOf(value)]; index += 1; break;
+      case '--keep-query': options.keepQuery = true; break;
+      case '--crawl-delay-ms': options.crawlDelayMs = Number.parseInt(value, 10); index += 1; break;
+      case '--crawl-only': options.crawlOnly = true; break;
+      case '--yes': options.yes = true; break;
+      case '--template': options.template = value; index += 1; break;
       default:
         // One run, one setting: a per-role override would make agents' work incomparable.
         if (flag.startsWith('--model:') || flag.startsWith('--effort:')) {
@@ -285,6 +307,21 @@ export function parseArgs(argv) {
     }
   }
   return options;
+}
+
+/** A bare site root means the whole site; any other address means that one page. `--scope` overrides. */
+export function resolveScope({ scope, siteUrl }) {
+  if (scope) {
+    if (scope !== 'site' && scope !== 'page') throw new Error(`--scope must be "site" or "page", not "${scope}".`);
+    return { scope, inferred: false };
+  }
+  let parsed;
+  try {
+    parsed = new URL(siteUrl);
+  } catch {
+    return { scope: 'page', inferred: true };
+  }
+  return { scope: parsed.pathname === '/' && !parsed.search ? 'site' : 'page', inferred: true };
 }
 
 /** Runs tasks with a bounded pool; this is the only place real parallelism happens. */
@@ -1165,6 +1202,101 @@ async function runStages(rawOptions, services, timings) {
   };
 }
 
+/** A whole site: crawl it, then create, deploy and check one AEM page per crawled page. */
+async function runSite(options, { inferred }) {
+  validateSiteRoot(options.targetPath);
+  const scratchDir = path.join(defaultRepoRoot, 'design', 'scratch');
+  const resumeDir = options.resume
+    ? [
+      path.resolve(defaultRepoRoot, options.resume),
+      path.join(scratchDir, options.resume),
+      path.join(scratchDir, `site-${options.resume}`),
+    ].find((candidate) => fs.existsSync(path.join(candidate, 'crawl')))
+    : null;
+  if (options.resume && !resumeDir) {
+    throw new Error(`--resume ${options.resume}: no such site run under design/scratch.`);
+  }
+  const runId = resumeDir ? path.basename(resumeDir).replace(/^site-/, '') : crypto.randomUUID();
+  const evidenceDir = resumeDir || (options.evidenceDir
+    ? path.resolve(defaultRepoRoot, options.evidenceDir)
+    : path.join(scratchDir, `site-${runId}`));
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  // Only a run that goes past the crawl talks to AEM.
+  if (!options.crawlOnly) defaultAemPassword(options);
+
+  const renderer = createRenderer({ stageIds: SITE_PHASES });
+  renderer.runHeader({
+    siteUrl: options.siteUrl,
+    aemUrl: `http://${options.aemHost}:${options.aemPort}${options.targetPath}`,
+    runId,
+    evidenceDir: path.relative(defaultRepoRoot, evidenceDir),
+    mode: 'site',
+  });
+  console.log(`  scope: whole site${inferred ? ' (the URL is a site root; pass --scope page to migrate that page alone)' : ''}`);
+  console.log(`  crawl: up to ${options.maxPages} pages, ${options.maxDepth} levels deep,`
+    + ` ${options.crawlDelayMs}ms between requests, other hosts never requested\n`);
+
+  if (options.dryRun) {
+    console.log('Dry run: inputs valid, evidence directory created, nothing crawled.');
+    return;
+  }
+  console.log(`  capture tools: ${await ensureTools({ log: (text) => console.log(`  ${text}`) })}\n`);
+
+  const { spawn } = await import('node:child_process');
+  // Captures run side by side, so each one writes to its own log instead of sharing the console.
+  const runTool = (name, args, { log } = {}) => new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      cwd: defaultRepoRoot,
+      stdio: ['ignore', log ? 'pipe' : 'inherit', log ? 'pipe' : 'inherit'],
+    });
+    if (!log) {
+      child.once('close', (code) => resolve({ name, code }));
+      return;
+    }
+    fs.mkdirSync(path.dirname(log), { recursive: true });
+    const sink = fs.createWriteStream(log);
+    child.stdout.pipe(sink, { end: false });
+    child.stderr.pipe(sink, { end: false });
+    child.once('close', (code) => sink.end(() => resolve({ name, code })));
+  });
+  const confirm = process.stdin.isTTY
+    ? async (question) => {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        return /^y(es)?$/i.test((await rl.question(`\n  ${question} [y/N] `)).trim());
+      } finally {
+        rl.close();
+      }
+    }
+    : null;
+
+  const outcome = await orchestrateSite(options, {
+    renderer,
+    runId,
+    evidenceDir,
+    runTool,
+    repoRoot: defaultRepoRoot,
+    unicode: unicodeSafe,
+    confirm,
+    execFn: spawn,
+    fetchFn: fetch,
+    resumed: Boolean(resumeDir),
+  });
+  if (outcome.stopped === 'crawl') console.log('\nStopped after the crawl (--crawl-only).');
+  console.log(`\nSite run ${outcome.status}  ${outcome.phases.map((phase) => `${phase.name} ${phase.status}`).join(', ')}`);
+  process.exitCode = outcome.status === 'PASS' ? 0 : 1;
+}
+
+/** A local SDK ships with admin/admin; never guess credentials for a remote instance. */
+function defaultAemPassword(options) {
+  if (process.env.AEM_PASSWORD) return;
+  if (!['localhost', '127.0.0.1', '::1'].includes(options.aemHost)) {
+    throw new Error(`AEM_PASSWORD must be set for ${options.aemHost}; the default is only assumed for a local instance.`);
+  }
+  process.env.AEM_PASSWORD = 'admin';
+  console.log(`Using the default local credentials for user "${options.aemUser}". Set AEM_PASSWORD to override.`);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
 
@@ -1182,8 +1314,10 @@ async function main() {
     console.log(`
 orchestrator/run.mjs — multi-agent AEM migration
 
-  --url <url>               Live source URL (required)
-  --target-path <path>      AEM page path, e.g. /content/site/us/en/page (required)
+  --url <url>               Live source URL (required). A site root such as https://www.example.com
+                            migrates the whole site; any other address migrates that one page
+  --target-path <path>      AEM page path, e.g. /content/site/us/en/page (required);
+                            for a whole site, the page every crawled page is created under
   --aem-host <host>         Default from AEM_HOST or localhost
   --aem-port <port>         Default from AEM_PORT or 4502
   --aem-user <name>         Default from AEM_USER or admin; password from AEM_PASSWORD
@@ -1201,27 +1335,41 @@ orchestrator/run.mjs — multi-agent AEM migration
   --list-models             List the models this GitHub account can use, then exit
   --evidence-dir <path>
   --resume <run-id|path>    Continue a previous run, reusing every phase it verifiably finished
-                            and the model and effort it started with
+                            and the model and effort it started with; for a whole site, the crawl
+                            and every page already captured
   --dry-run                 Validate inputs and exit
+
+Whole site
+  --scope <site|page>       Override the scope the URL implies
+  --max-pages <n>           Pages to migrate, the start page included (default ${DEFAULTS.maxPages})
+  --max-depth <n>           Deepest path to migrate, in segments below the start page (default ${DEFAULTS.maxDepth})
+  --include <globs>         Only migrate matching paths, e.g. "/about-us/**" (comma-separated, repeatable)
+  --exclude <globs>         Never request matching paths (comma-separated, repeatable)
+  --include-host <hosts>    More hosts that count as this site; www and the bare domain always do
+  --keep-query              Treat URLs that differ only by query string as different pages
+  --crawl-delay-ms <n>      Pause between requests to the site (default ${DEFAULTS.crawlDelayMs}; robots.txt may raise it)
+  --crawl-only              Stop after the inventory and the AEM page tree; nothing is written
+  --yes                     Create and deploy the pages without asking first
+  --template <path>         Template for the new pages; default: the one the nearest existing
+                            ancestor page of --target-path uses
 `);
     return;
   }
 
+  const { scope, inferred } = resolveScope(options);
   if (!options.targetPath) {
-    throw new Error('--target-path is required: parity needs the deployed AEM page to compare against.');
+    throw new Error(scope === 'site'
+      ? '--target-path is required: it is the AEM page every crawled page is created under.'
+      : '--target-path is required: parity needs the deployed AEM page to compare against.');
+  }
+  if (scope === 'site') {
+    await runSite(options, { inferred });
+    return;
   }
   if (!Number.isInteger(options.componentAttempts) || options.componentAttempts < 1 || options.componentAttempts > 10) {
     throw new Error('--component-attempts must be an integer between 1 and 10.');
   }
-  // A local SDK ships with admin/admin; never guess credentials for a remote instance.
-  const localHost = ['localhost', '127.0.0.1', '::1'].includes(options.aemHost);
-  if (!process.env.AEM_PASSWORD) {
-    if (!localHost) {
-      throw new Error(`AEM_PASSWORD must be set for ${options.aemHost}; the default is only assumed for a local instance.`);
-    }
-    process.env.AEM_PASSWORD = 'admin';
-    console.log(`Using the default local credentials for user "${options.aemUser}". Set AEM_PASSWORD to override.`);
-  }
+  defaultAemPassword(options);
 
   const scratchDir = path.join(defaultRepoRoot, 'design', 'scratch');
   const resumeDir = options.resume

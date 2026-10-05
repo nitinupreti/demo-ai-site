@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://demo-ai-site/aem-migration/inventory.schema.json",
+  "title": "Site inventory",
+  "description": "Written by tools/crawl.mjs and validated by the orchestrator before any page is mapped. Lists the pages of one site, the addresses that are aliases of them, everything left out and why, and the links that leave the site.",
+  "type": "object",
+  "required": ["schema_version", "seed", "scope", "pages", "aliases", "excluded", "external_links", "documents", "link_order", "fingerprint", "status", "failures"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "run_id": { "type": ["string", "null"] },
+    "seed": {
+      "type": "object",
+      "required": ["requested_url"],
+      "properties": {
+        "requested_url": { "type": "string", "minLength": 1 },
+        "final_url": { "type": ["string", "null"] },
+        "http_status": { "type": ["integer", "null"] }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["hosts", "canonical_origin", "seed_path_prefix", "max_pages", "max_depth", "keep_query"],
+      "properties": {
+        "hosts": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "canonical_origin": { "type": "string", "minLength": 1 },
+        "seed_path_prefix": { "type": "string" },
+        "max_pages": { "type": "integer", "minimum": 1 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "keep_query": { "type": "boolean" }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "url", "key", "http_status", "depth", "sources"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^p-[0-9]{3,}$" },
+          "url": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1 },
+          "http_status": { "type": "integer" },
+          "depth": { "type": "integer", "minimum": 0 },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "enum": ["seed", "sitemap", "link", "canonical", "redirect"] }
+          },
+          "sitemap_index": { "type": ["integer", "null"] },
+          "found_on": { "type": "array", "items": { "type": "string" } },
+          "inbound": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url", "alias_of", "reason"],
+        "properties": {
+          "url": { "type": "string" },
+          "alias_of": { "type": ["string", "null"] },
+          "reason": { "type": "string", "enum": ["redirect", "same-content"] }
+        }
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url", "reason"],
+        "properties": {
+          "url": { "type": "string" },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "external_links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["host", "links", "pages"],
+        "properties": {
+          "host": { "type": "string", "minLength": 1 },
+          "links": { "type": "integer", "minimum": 1 },
+          "pages": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string" } } }
+    },
+    "link_order": { "type": "array", "items": { "type": "string" } },
+    "fingerprint": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["PASS", "FAIL", "BLOCKED"] },
+    "failures": { "type": "array", "items": { "type": "string" } }
+  }
+}

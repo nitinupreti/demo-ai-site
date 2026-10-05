@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Extraction fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { color: #14161a; font-family: Arial, Helvetica, sans-serif; }
+    h1, h2, h3, p, ul { margin: 0; }
+    .site-header { display: flex; align-items: center; gap: 24px; height: 100px; padding: 0 24px; background: #f4f5f7; }
+    .site-header .dropdown { display: none; }
+    .hero { height: 420px; padding: 48px 24px; background: #eef2ff url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>") no-repeat right center; }
+    .feature { padding: 32px 24px; background: #fff8e6; }
+    .cards { display: flex; gap: 24px; }
+    .card { flex: 1; }
+    .card img { display: block; width: 100%; height: 160px; }
+    .panel { min-height: 360px; padding: 32px 24px; background: #e6f7ef; }
+    .banner { min-height: 200px; padding: 32px 24px; background: #f4f5f7; }
+    /* An entrance animation keeps this hidden until it is scrolled into view; nothing reveals it here. */
+    .reveal { visibility: hidden; }
+    .mobile-cta { display: none; padding: 16px 24px; background: #1f6feb; }
+    .site-footer { height: 240px; padding: 32px 24px; background: #14161a; color: #fff; }
+    .site-footer a { color: #fff; }
+    @media (max-width: 599px) {
+      .cards { flex-direction: column; }
+      .mobile-cta { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <strong>Fixture Co</strong>
+    <nav>
+      <a href="/about/">About us</a>
+      <a href="/services/">Services</a>
+      <div class="dropdown"><a href="/services/grooming/">Grooming</a></div>
+    </nav>
+  </header>
+  <div class="mobile-cta"><a class="cta" href="tel:+15550100">Call now</a></div>
+  <section class="hero">
+    <h1>Care for every pet</h1>
+    <p>Trusted by <strong>families</strong> since 1999. <a href="/about/">Read our story</a>.</p>
+    <a class="btn btn-primary" href="/contact/">Book a visit</a>
+  </section>
+  <section class="feature">
+    <h2>Our services</h2>
+    <div class="cards">
+      <div class="card">
+        <img alt="Grooming" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='160'><rect width='300' height='160' fill='%23d9e2ec'/></svg>">
+        <h3>Grooming</h3><p>Baths and trims.</p><a href="/services/grooming/">Learn more</a>
+      </div>
+      <div class="card">
+        <img alt="Boarding" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='160'><rect width='300' height='160' fill='%231f6feb'/></svg>">
+        <h3>Boarding</h3><p>Overnight stays.</p><a href="/services/boarding/">Learn more</a>
+      </div>
+      <div class="card">
+        <img alt="Daycare" src="data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='160'><rect width='300' height='160' fill='%23e6f7ef'/></svg>">
+        <h3>Daycare</h3><p>Play all day.</p><a href="/services/daycare/">Learn more</a>
+      </div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Why choose us</h2>
+    <ul><li>Certified staff</li><li>Open every day</li><li>Free first visit</li></ul>
+    <div class="note">Open 7 days a week. <a href="/hours/">See hours</a></div>
+    <form action="/subscribe" method="post">
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" required placeholder="you@example.test">
+      <input type="hidden" name="token" value="secret">
+      <select name="topic"><option>Grooming</option><option>Boarding</option></select>
+      <button type="submit">Subscribe</button>
+    </form>
+  </section>
+  <section class="banner">
+    <div class="reveal"><h2>Revealed on scroll</h2><p>Shown once an entrance animation runs.</p></div>
+    <iframe title="Map" src="about:blank" width="300" height="120"></iframe>
+  </section>
+  <footer class="site-footer">
+    <p>Copyright Fixture Co. <a href="/privacy/">Privacy</a></p>
+    <div class="social"><svg aria-label="Facebook" viewBox="0 0 24 24" width="24" height="24"><path d="M0 0h24v24H0z"/></svg></div>
+  </footer>
+</body>
+</html>

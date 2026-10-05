@@ -12,10 +12,11 @@ import { PassThrough } from 'node:stream';
 
 import {
   AGENT_ROLES, DEFAULTS, agentTuning, describeModel, orchestrate, parseArgs, preferredModelIndex,
-  readCheckpoint, selectTuning, thresholdForEffort,
+  readCheckpoint, resolveScope, selectTuning, thresholdForEffort,
 } from './run.mjs';
 import { createRenderer } from './console.mjs';
 import { describeBrokenBundles, verifyBundles } from './deploy.mjs';
+import { crawlArguments } from './site.mjs';
 
 const PHASES_FOR_CHECK = ['discover', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'parity', 'remediation', 'report'];
 
@@ -752,6 +753,41 @@ try {
   refusedOverride = true;
 }
 expect(refusedOverride, 'a per-role override must be refused, not silently accepted');
+
+// A bare site root is the whole site; any other address is one page, unless --scope says otherwise.
+expect(resolveScope({ siteUrl: 'https://www.example.test' }).scope === 'site', 'a bare origin must mean the whole site');
+expect(resolveScope({ siteUrl: 'https://www.example.test/about/' }).scope === 'page', 'a path must mean one page');
+expect(resolveScope({ siteUrl: 'https://www.example.test/?lang=en' }).scope === 'page', 'a query must mean one page');
+expect(resolveScope({ siteUrl: 'https://www.example.test/', scope: 'page' }).inferred === false
+  && resolveScope({ siteUrl: 'https://www.example.test/', scope: 'page' }).scope === 'page', '--scope must override the URL');
+let refusedScope = false;
+try {
+  resolveScope({ siteUrl: 'https://www.example.test/', scope: 'everything' });
+} catch {
+  refusedScope = true;
+}
+expect(refusedScope, 'an unknown scope must be refused');
+expect(DEFAULTS.maxPages === 50 && DEFAULTS.maxDepth === 5 && DEFAULTS.crawlDelayMs === 500,
+  'site defaults must be 50 pages, 5 levels and 500ms between requests');
+
+const siteOptions = parseArgs([
+  '--url', 'https://www.example.test', '--target-path', '/content/demo/site',
+  '--include', '/a/**,/b/**', '--include', '/c/**', '--exclude', '/x/**', '--include-host', 'shop.example.test',
+  '--keep-query', '--crawl-only', '--max-pages', '10', '--max-depth', '3', '--crawl-delay-ms', '0',
+  '--yes', '--template', '/conf/demo/settings/wcm/templates/page',
+]);
+expect(siteOptions.include.join() === '/a/**,/b/**,/c/**', `--include must accumulate, got ${siteOptions.include.join()}`);
+expect(siteOptions.crawlOnly && siteOptions.keepQuery && siteOptions.maxPages === 10 && siteOptions.crawlDelayMs === 0,
+  'site flags must be parsed');
+expect(siteOptions.yes === true && siteOptions.template === '/conf/demo/settings/wcm/templates/page',
+  '--yes and --template must be parsed');
+const crawlArgs = crawlArguments(siteOptions, { outDir: 'out', runId: 'r1' });
+const argAfter = (flag) => crawlArgs[crawlArgs.indexOf(flag) + 1];
+expect(argAfter('--url') === 'https://www.example.test' && argAfter('--include') === '/a/**,/b/**,/c/**'
+  && argAfter('--include-host') === 'shop.example.test' && argAfter('--max-depth') === '3' && crawlArgs.includes('--keep-query'),
+  `the crawl tool must receive every site flag, got ${crawlArgs.slice(1).join(' ')}`);
+expect(!crawlArguments(parseArgs(['--url', 'https://www.example.test']), { outDir: 'out', runId: 'r1' }).includes('--keep-query'),
+  'query strings must be dropped unless asked otherwise');
 
 // The run banks what it started with so a resume cannot silently change model or effort.
 const bankedTuning = JSON.parse(fs.readFileSync(path.join(evidenceDir, 'run-tuning.json'), 'utf8'));

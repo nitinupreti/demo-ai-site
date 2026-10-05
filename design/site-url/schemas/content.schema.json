@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://demo-ai-site/aem-migration/content.schema.json",
+  "title": "Page content",
+  "description": "Written by tools/extract.mjs for one page and validated by the orchestrator. The full content of every block discovery found: ordered items, every link, and a sanitised HTML snapshot.",
+  "type": "object",
+  "required": ["schema_version", "source", "instances", "status", "failures"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "run_id": { "type": ["string", "null"] },
+    "source": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "source_fingerprint": { "type": ["string", "null"] }
+      }
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "found"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^inst-[0-9]{3,}$" },
+          "found": { "type": "boolean" },
+          "breakpoint": { "type": "integer" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["heading", "text", "list", "image", "video", "embed", "form", "table", "link", "button", "background", "icon"]
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": { "type": "object", "required": ["href", "hidden"], "properties": { "hidden": { "type": "boolean" } } }
+          },
+          "html": { "type": "string" }
+        }
+      }
+    },
+    "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "failures": { "type": "array", "items": { "type": "string" } }
+  }
+}

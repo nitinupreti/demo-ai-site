@@ -5,7 +5,7 @@
 const colorsEnabled = process.stdout.isTTY && !process.env.NO_COLOR;
 
 // The classic Windows console host mangles box drawing; Windows Terminal and POSIX do not.
-const unicodeSafe = process.env.MIGRATION_ASCII
+export const unicodeSafe = process.env.MIGRATION_ASCII
   ? false
   : process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
@@ -104,11 +104,13 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
       state.knownComponents = Array.isArray(ids) ? ids.filter(Boolean) : [];
     },
 
-    runHeader({ siteUrl, aemUrl, runId, evidenceDir, model, effort }) {
+    runHeader({
+      siteUrl, aemUrl, runId, evidenceDir, model, effort, mode,
+    }) {
       line('');
       line(cyan(SYMBOL.rule.repeat(78)));
-      line(`${bold('AEM migration')}  ${siteUrl}`);
-      line(dim(`target ${aemUrl}   model ${model}${effort ? ` (${effort})` : ''}`));
+      line(`${bold(mode === 'site' ? 'AEM site migration' : 'AEM migration')}  ${siteUrl}`);
+      line(dim(`target ${aemUrl}${model ? `   model ${model}${effort ? ` (${effort})` : ''}` : ''}`));
       line(dim(`run ${runId}`));
       line(dim(`evidence ${evidenceDir}`));
       line(cyan(SYMBOL.rule.repeat(78)));
