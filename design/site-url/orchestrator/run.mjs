@@ -1117,6 +1117,8 @@ async function runSite(options, { inferred }) {
       model: options.model, effort: options.effort, updated_at: new Date().toISOString(),
     });
   }
+  // The same bar a page run would claim at this effort; an explicit --visual-pass-ratio still wins.
+  if (!options.thresholdPinned) options.threshold = thresholdForEffort(options.effort, options.threshold);
 
   const renderer = createRenderer({ stageIds: options.pagesOnly ? PAGE_TREE_PHASES : SITE_PHASES });
   renderer.runHeader({
@@ -1132,7 +1134,10 @@ async function runSite(options, { inferred }) {
     + ` ${options.crawlDelayMs}ms between requests, other hosts never requested`);
   console.log(options.pagesOnly
     ? '  build: empty pages only (--pages-only)\n'
-    : `  build: components with up to ${options.maxParallel} worker(s) at a time, ${options.componentAttempts} attempt(s) each\n`);
+    : `  build: components with up to ${options.maxParallel} worker(s) at a time, ${options.componentAttempts} attempt(s) each\n`
+      + `  parity: every page against its source at ${options.breakpoints.join(', ')} px, gate > ${(options.threshold * 100).toFixed(0)}%`
+      + `${options.thresholdPinned ? ' (pinned)' : ` (from ${options.effort || 'model-managed'} effort)`}`
+      + `, ${options.maxParityRetries} remediation round(s) max\n`);
 
   if (options.dryRun) {
     console.log('Dry run: inputs valid, evidence directory created, nothing crawled.');
@@ -1240,7 +1245,9 @@ orchestrator/run.mjs — multi-agent AEM migration
 
 Whole site
   A site run crawls the site, captures every page, plans one shared set of components, builds
-  them with --max-parallel workers, authors every page from them, deploys and checks each page.
+  them with --max-parallel workers, authors every page from them, deploys and checks each page,
+  then scores every page against its source with parity.mjs and remediates failing components
+  (--visual-pass-ratio and --max-parity-retries apply as for one page).
   --scope <site|page>       Override the scope the URL implies
   --max-pages <n>           Pages to migrate, the start page included (default ${DEFAULTS.maxPages})
   --max-depth <n>           Deepest path to migrate, in segments below the start page (default ${DEFAULTS.maxDepth})

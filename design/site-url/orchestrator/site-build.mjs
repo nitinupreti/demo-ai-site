@@ -1,8 +1,9 @@
 /**
  * Site build: everything after the capture that turns empty pages into authored ones. A catalog of
  * every block on every page, a site plan of shared components, the shared design layer, the DAM,
- * one worker per component, composed pages and fragments, a deploy, and a check that every page
- * renders. Agents do judgement work only; every verdict, path and file placement is decided here.
+ * one worker per component, composed pages and fragments, a deploy, a check that every page renders,
+ * and every page scored against its source with bounded remediation. Agents do judgement work only;
+ * every verdict, path and file placement is decided here.
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -21,6 +22,7 @@ import {
   CONTENT_FILTER, linkMap, resolveTemplate, verifyPages, writeLinkMap,
 } from './pages.mjs';
 import { composeSite, contentIndex } from './site-compose.mjs';
+import { pageProblems, runSiteParity } from './site-parity.mjs';
 import { checkSiteContribution, expandSitePlan, validateSitePlan } from './site-plan.mjs';
 import { siteNames, writeScaffold } from './site-scaffold.mjs';
 import { snapshotTree } from './workspaces.mjs';
@@ -298,10 +300,20 @@ export async function verifyRendering({
   return { status: failed ? 'FAIL' : 'PASS', checked: results.length, failed, results };
 }
 
+/** Every phase passed; a first parity measurement that failed counts once remediation closed every gap. */
+export function settled(phases, remediation) {
+  return phases.every((entry) => entry.status === 'PASS' || (entry.name === 'parity' && remediation?.status === 'PASS'));
+}
+
+const percent = (ratio) => (typeof ratio === 'number' ? `${(ratio * 100).toFixed(2)}%` : '');
+
 export function siteReport({
-  runId, options, catalog, plan, workerResults, composed, deployment, verification, rendering, phases, captures, assets,
+  runId, options, catalog, plan, workerResults, composed, deployment, verification, rendering, phases, captures, assets, remediation,
 }) {
   const workers = new Map(workerResults.map((entry) => [entry.component_id, entry]));
+  const parity = remediation?.parity || null;
+  const scores = new Map((parity?.components || []).map((entry) => [entry.component_id, entry]));
+  const ledger = new Map((remediation?.ledger?.components || []).map((entry) => [entry.id, entry]));
   const components = (plan?.components || []).map((component) => ({
     id: component.id,
     tier: component.tier,
@@ -312,16 +324,26 @@ export function siteReport({
     status: component.authoring === 'mapped' ? 'MAPPED' : workers.get(component.id)?.status || 'NOT BUILT',
     attempts: workers.get(component.id)?.attempts ?? null,
     error: workers.get(component.id)?.status === 'PASS' ? null : workers.get(component.id)?.error || null,
+    parity: ledger.get(component.id)?.status || scores.get(component.id)?.status || null,
+    min_ratio: scores.get(component.id)?.min_ratio ?? null,
+    failed_pages: scores.get(component.id)?.failed_pages || [],
+    failed_breakpoints: scores.get(component.id)?.failed_breakpoints || [],
+    owning_layer: scores.get(component.id)?.owning_layer_hint || null,
+    fix_attempts: ledger.get(component.id)?.history?.length ?? 0,
   }));
-  const pages = (composed?.coverage || []).map((entry) => ({
+  const parityPages = new Map((parity?.pages || []).map((entry) => [entry.page, entry]));
+  const pages = (composed?.coverage || []).map(({ nodes: omitted, ...entry }) => ({
     ...entry,
     rendered: rendering?.results?.find((check) => check.page === entry.page)?.ok ?? null,
+    parity: parityPages.get(entry.page)?.status || (parity?.unscored?.includes(entry.page) ? 'NOT SCORED' : null),
+    page_ratio: parityPages.get(entry.page)?.composite_ratio ?? null,
+    parity_problems: parityPages.has(entry.page) ? pageProblems(parityPages.get(entry.page)) : [],
   }));
   const failedComponents = components.filter((entry) => !['PASS', 'MAPPED'].includes(entry.status));
   const incomplete = pages.filter((entry) => entry.missing.length || entry.rendered === false);
   const uncaptured = (captures || []).filter((entry) => entry.status !== 'PASS');
-  const status = phases.every((phase) => phase.status === 'PASS') && !failedComponents.length && !incomplete.length && !uncaptured.length
-    ? 'COMPLETE' : 'INCOMPLETE';
+  const status = settled(phases, remediation) && remediation?.status === 'PASS'
+    && !failedComponents.length && !incomplete.length && !uncaptured.length ? 'COMPLETE' : 'INCOMPLETE';
   return {
     run_id: runId,
     status,
@@ -337,6 +359,26 @@ export function siteReport({
       units_missing: pages.reduce((total, entry) => total + entry.missing.length, 0),
       assets: assets?.manifest?.length ?? 0,
     },
+    parity: parity ? {
+      status: remediation.status,
+      threshold: parity.threshold,
+      breakpoints: options.breakpoints,
+      rounds: remediation.rounds,
+      cycle: parity.cycle,
+      ...parity.summary,
+      failing_pages: parity.pages.filter((entry) => entry.status !== 'PASS').map((entry) => ({
+        page: entry.page,
+        aem_path: entry.aem_path,
+        status: entry.status,
+        error: entry.error,
+        page_ratio: entry.composite_ratio,
+        reasons: Object.values(parity.page_composite).filter((composite) => composite.page === entry.page && composite.status !== 'PASS')
+          .map((composite) => composite.failure_reason || composite.gap_failure_reason || composite.withheld_reason
+            || `page ${percent(composite.ratio) || 'not comparable'}`),
+      })),
+      unscored: parity.unscored,
+    } : null,
+    parity_error: remediation && !parity ? remediation.reason || null : null,
     phases: phases.map(({ name, status: phaseStatus, duration_seconds: seconds }) => ({ name, status: phaseStatus, duration_seconds: seconds })),
     components,
     pages,
@@ -348,6 +390,32 @@ export function siteReport({
   };
 }
 
+function parityLines(report) {
+  const { parity } = report;
+  if (!parity) {
+    return ['', '## Visual parity', '', report.parity_error
+      ? `- Not scored: ${report.parity_error}`
+      : '- Not run: parity only scores a complete build, and an earlier phase failed.'];
+  }
+  const lines = [
+    '', '## Visual parity', '',
+    `- Gate: every block and every page above ${percent(parity.threshold)} at ${parity.breakpoints.join(', ')} px, scored by parity.mjs against the live page`,
+    `- Result: **${parity.status}** after ${parity.rounds} remediation round(s): ${parity.pages_passed}/${parity.pages_total} pages, `
+      + `${parity.components_passed}/${parity.components_total} components, lowest block ${percent(parity.min_ratio) || 'n/a'}`,
+  ];
+  if (parity.unscored.length) lines.push(`- Nothing to compare on: ${parity.unscored.join(', ')}`);
+  const failing = report.components.filter((entry) => entry.parity && entry.parity !== 'PASS');
+  if (failing.length || parity.failing_pages.length) lines.push('', '### Still failing', '');
+  for (const entry of failing) {
+    lines.push(`- ${entry.id}: ${entry.parity}, lowest ${percent(entry.min_ratio) || 'withheld'} on ${entry.failed_pages.join(', ')}`
+      + ` at ${entry.failed_breakpoints.join(', ')} px${entry.owning_layer ? ` (${entry.owning_layer})` : ''}`);
+  }
+  for (const entry of parity.failing_pages) {
+    lines.push(`- ${entry.aem_path}: ${entry.reasons.join('; ') || entry.error || entry.status}`);
+  }
+  return lines;
+}
+
 function reportMarkdown(report) {
   const lines = [
     `# Site migration ${report.status}`, '',
@@ -357,12 +425,16 @@ function reportMarkdown(report) {
     `- Pages: ${report.totals.pages}, blocks: ${report.totals.units}, authored: ${report.totals.units_authored}, missing: ${report.totals.units_missing}`,
     `- Components: ${report.totals.components} (${report.totals.components_built} built, ${report.totals.components_mapped} authored by code)`,
     `- Assets: ${report.totals.assets}${report.asset_failures.length ? `, ${report.asset_failures.length} could not be downloaded` : ''}`,
+    `- Visual parity: ${report.parity ? `${report.parity.status}, ${report.parity.pages_passed}/${report.parity.pages_total} pages match their source` : 'not run'}`,
     '', '## Phases', '', '| Phase | Status | Seconds |', '|---|---|---|',
     ...report.phases.map((phase) => `| ${phase.name} | ${phase.status} | ${phase.duration_seconds ?? ''} |`),
-    '', '## Components', '', '| Component | Tier | Role | Units | Pages | Status |', '|---|---|---|---|---|---|',
-    ...report.components.map((entry) => `| ${entry.id} | ${entry.tier} | ${entry.role} | ${entry.units} | ${entry.pages} | ${entry.status}${entry.error ? `: ${entry.error.split('\n')[0].slice(0, 120)}` : ''} |`),
-    '', '## Pages', '', '| Page | Authored | Missing | Renders |', '|---|---|---|---|',
-    ...report.pages.map((entry) => `| ${entry.aem_path} | ${entry.authored} | ${entry.missing.length} | ${entry.rendered === null ? '' : entry.rendered ? 'yes' : 'NO'} |`),
+    '', '## Components', '', '| Component | Tier | Role | Units | Pages | Status | Parity | Lowest match | Fix attempts |', '|---|---|---|---|---|---|---|---|---|',
+    ...report.components.map((entry) => `| ${entry.id} | ${entry.tier} | ${entry.role} | ${entry.units} | ${entry.pages} | ${entry.status}`
+      + `${entry.error ? `: ${entry.error.split('\n')[0].slice(0, 120)}` : ''} | ${entry.parity || ''} | ${percent(entry.min_ratio)} | ${entry.fix_attempts || ''} |`),
+    '', '## Pages', '', '| Page | Authored | Missing | Renders | Parity | What failed |', '|---|---|---|---|---|---|',
+    ...report.pages.map((entry) => `| ${entry.aem_path} | ${entry.authored} | ${entry.missing.length} | ${entry.rendered === null ? '' : entry.rendered ? 'yes' : 'NO'}`
+      + ` | ${entry.parity || ''} | ${entry.parity_problems.join('; ')} |`),
+    ...parityLines(report),
   ];
   if (report.links) {
     lines.push('', '## Links', '', `- Rewritten to migrated pages: ${report.links.rewritten_to_pages}`);
@@ -384,7 +456,7 @@ function reportMarkdown(report) {
  */
 export async function buildSite(options, ctx) {
   const {
-    renderer, runId, evidenceDir, repoRoot, print, execFn, fetchFn, spawnFn, copilot,
+    renderer, runId, evidenceDir, repoRoot, print, execFn, fetchFn, spawnFn, copilot, runTool,
     inventory, tree, captures, start, end, result, aemUrl, relative, phases,
   } = ctx;
   const tuning = { model: options.model || null, effort: options.effort || null };
@@ -395,10 +467,11 @@ export async function buildSite(options, ctx) {
   let deployment = null;
   let verification = null;
   let rendering = null;
+  let remediation = null;
   const workerResults = [];
   const finish = (status, extra = {}) => {
     const report = siteReport({
-      runId, options, catalog, plan, workerResults, composed, deployment, verification, rendering, phases, captures, assets,
+      runId, options, catalog, plan, workerResults, composed, deployment, verification, rendering, phases, captures, assets, remediation,
     });
     writeJson(path.join(evidenceDir, 'site-report.json'), report);
     fs.writeFileSync(path.join(evidenceDir, 'site-report.md'), reportMarkdown(report), 'utf8');
@@ -772,12 +845,39 @@ export async function buildSite(options, ctx) {
   end(phase, verifyStatus, `${verification.checked - verification.failed}/${verification.checked} pages answer, `
     + `${rendering.checked - rendering.failed}/${rendering.checked} render without errors`);
 
-  // 12. Report.
+  // 12-13. Parity and remediation, over a complete build only: a page with holes cannot match its source.
+  if (phases.every((entry) => entry.status === 'PASS')) {
+    remediation = await runSiteParity(options, {
+      renderer,
+      runId,
+      evidenceDir,
+      repoRoot,
+      print,
+      execFn,
+      fetchFn,
+      spawnFn,
+      copilot,
+      runTool,
+      start,
+      end,
+      aemUrl,
+      plan,
+      catalog,
+      pages,
+      composed,
+      template,
+    });
+  } else {
+    print('    parity skipped: an earlier phase failed, and a page with holes cannot match its source');
+  }
+
+  // 14. Report.
   phase = start('report');
   end(phase, 'PASS', relative(path.join(evidenceDir, 'site-report.md')));
-  const outcome = finish(phases.every((entry) => entry.status === 'PASS') ? 'PASS' : 'FAIL');
+  const outcome = finish(settled(phases, remediation) ? 'PASS' : 'FAIL');
   print('');
   print(`  site report  ${relative(path.join(evidenceDir, 'site-report.md'))}`);
+  if (remediation?.parity) print(`  parity       ${relative(path.join(evidenceDir, 'parity', 'site-parity.json'))}`);
   print(`  link map     ${relative(linkFiles.json)}`);
   print(`  pages        ${aemUrl}/sites.html${options.targetPath}`);
   if (outcome.report.status !== 'COMPLETE') print(`  rerun with --resume ${runId} to retry what is missing; everything that passed is reused`);

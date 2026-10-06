@@ -1,9 +1,10 @@
 /**
- * End-to-end check of the site build. Crawl, capture, agents, Maven and AEM are all fakes, so the
- * catalog, the site-plan gate and its repair, the scaffold, foundations, assets, the fan-out with a
- * rejected attempt, compose with link rewriting, deploy, verify, the report and resume are all
- * exercised without a browser, a model, a build or an instance.
+ * End-to-end check of the site build. Crawl, capture, agents, Maven, parity and AEM are all fakes, so
+ * the catalog, the site-plan gate and its repair, the scaffold, foundations, assets, the fan-out with a
+ * rejected attempt, compose with link rewriting, deploy, verify, per-page parity with one remediation
+ * round, the report and resume are all exercised without a browser, a model, a build or an instance.
  */
+import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -195,12 +196,46 @@ export async function checkSiteBuild() {
   makeRepo(repoRoot);
 
   const toolCalls = [];
+  const parityRuns = [];
+  const heroCss = path.join(repoRoot, APPS, 'clientlibs/clientlib-components/css/hero.css');
   const runTool = async (name, args) => {
     toolCalls.push(name);
     if (name === 'crawl') {
       writeJson(path.join(argument(args, '--out'), 'inventory.json'), inventory);
     } else if (name === 'discover') {
       writeJson(path.join(argument(args, '--out'), 'discovery.json'), captureFor(new URL(argument(args, '--url')).pathname).discovery);
+    } else if (name === 'parity') {
+      // The hero scores below the gate until remediation fixes its stylesheet; everything else passes.
+      const config = readJson(argument(args, '--config'));
+      const cycle = Number(argument(args, '--cycle'));
+      parityRuns.push({ cycle, config });
+      const fixed = fs.readFileSync(heroCss, 'utf8').includes('fixed');
+      const results = config.components.map((entry) => {
+        const failing = entry.id === 'hero' && !fixed;
+        return {
+          component_id: entry.id,
+          instance: entry.instance,
+          breakpoint: entry.source.bp,
+          mode: 'disabled',
+          status: failing ? 'FAIL' : 'PASS',
+          visual_match_ratio: failing ? 0.71 : 0.97,
+          progress_ratio: null,
+          owning_layer_hint: failing ? 'spacing' : null,
+          side_by_side: `evidence/${entry.id}-${entry.instance}-side-by-side.png`,
+          source: { selector: entry.source.css },
+          target: { selector: entry.target.css },
+        };
+      });
+      const passed = results.filter((row) => row.status === 'PASS').length;
+      writeJson(path.join(argument(args, '--out'), 'parity.json'), {
+        cycle,
+        source_url: config.source_url,
+        status: passed === results.length ? 'PASS' : 'FAIL',
+        results,
+        preflight: { status: 'PASS', environment_blocked: false, checks: [] },
+        page_composite: { '1440-disabled': { status: 'PASS', ratio: 0.96, side_by_side: 'evidence/full-1440-disabled-side-by-side.png' } },
+        summary: { components_passed: passed, components_total: results.length },
+      });
     } else {
       const discovery = readJson(argument(args, '--discovery'));
       writeJson(path.join(argument(args, '--out'), 'content.json'), captureFor(new URL(discovery.source.final_url).pathname).content);
@@ -211,6 +246,7 @@ export async function checkSiteBuild() {
   const spawned = [];
   const plannerAttempts = [];
   const heroAttempts = [];
+  const remediationTasks = [];
   const behaviour = ({ role, id, resultPath, prompt, cwd }) => {
     spawned.push(`${role}:${id}`);
     const envelope = (checks, extra = {}) => writeJson(resultPath, {
@@ -247,6 +283,18 @@ export async function checkSiteBuild() {
       const tokens = path.join(cwd, 'ui.frontend/src/main/webpack/site/_tokens.scss');
       fs.writeFileSync(tokens, ':root { --color-text: #333; }\n');
       envelope(['tokens_defined', 'base_styles_ready'], { notes: 'tokens from style_stats' });
+      return;
+    }
+    if (role === 'remediation') {
+      // Fixes the stylesheet and adds a script, which the clientlib must then load.
+      const task = taskOf(prompt);
+      remediationTasks.push({ id, task, prompt });
+      const css = task.owned_paths.find((owned) => owned.endsWith('/css/hero.css'));
+      const js = task.owned_paths.find((owned) => owned.endsWith('/js/hero.js'));
+      fs.appendFileSync(path.join(cwd, css), '/* fixed: block padding */\n');
+      fs.mkdirSync(path.dirname(path.join(cwd, js)), { recursive: true });
+      fs.writeFileSync(path.join(cwd, js), '// equal heights\n');
+      envelope(['diagnosis_recorded', 'hypothesis_applied'], { notes: 'hero padding off by 24px' });
       return;
     }
     const task = taskOf(prompt);
@@ -313,6 +361,12 @@ export async function checkSiteBuild() {
   };
 
   const titles = new Map(PAGES.map((entry) => [`${SITE}${entry.pathname.replace(/\/$/, '')}.html`, entry.title]));
+  // The markup Core Components render around a page's blocks: the fragments and the generated container id.
+  const containerId = (aemPath) => `container-${crypto.createHash('sha256').update(`${aemPath}/jcr:content/root/container/container`).digest('hex').slice(0, 10)}`;
+  const pageHtml = (pathname, title) => `<html><head><title>${title}</title></head><body>`
+    + '<div class="cmp-experiencefragment cmp-experiencefragment--header"><div class="cmp-container"></div></div>'
+    + `<div id="${containerId(pathname.replace(/\.html$/, ''))}" class="cmp-container"></div>`
+    + '<div class="cmp-experiencefragment cmp-experiencefragment--footer"><div class="cmp-container"></div></div></body></html>';
   const fetchFn = async (address) => {
     if (address === HERO_IMAGE) {
       return {
@@ -324,7 +378,7 @@ export async function checkSiteBuild() {
       return { ok: true, status: 200, json: async () => ({ data: [{ id: 1, symbolicName: 'demo.core', version: '1', state: 'Active' }] }) };
     }
     const title = titles.get(pathname);
-    return { status: title ? 200 : 404, text: async () => `<html><head><title>${title || ''}</title></head><body>ok</body></html>` };
+    return { status: title ? 200 : 404, text: async () => (title ? pageHtml(pathname, title) : '') };
   };
 
   const options = {
@@ -372,8 +426,9 @@ export async function checkSiteBuild() {
     fs.rmSync(sandbox, { recursive: true, force: true });
     return failures;
   }
-  const everyPass = SITE_PHASES.map((name) => `${name}:PASS`).join(' ');
-  expect(phaseStatus(outcome) === everyPass, `every phase must pass, got ${phaseStatus(outcome)}`);
+  // The first measurement fails the hero; remediation fixes it, so the run passes on the final one.
+  const expected = SITE_PHASES.map((name) => `${name}:${name === 'parity' ? 'FAIL' : 'PASS'}`).join(' ');
+  expect(phaseStatus(outcome) === expected, `every phase but the first measurement must pass, got ${phaseStatus(outcome)}`);
   expect(outcome.status === 'PASS' && outcome.report?.status === 'COMPLETE', `the run must be complete, got ${outcome.status}/${outcome.report?.status}`);
 
   // Plan: a planner that wrote into the tree was refused, then a branded name, and each repair said why.
@@ -431,16 +486,55 @@ export async function checkSiteBuild() {
 
   // Deploy, verify and the report.
   expect(execCalls.some((call) => call.line.includes('-PautoInstallSinglePackage')), 'the site must be deployed');
-  const report = fs.readFileSync(path.join(evidenceDir, 'site-report.md'), 'utf8');
-  expect(report.startsWith('# Site migration COMPLETE') && report.includes('| hero | 4 | content | 3 | 3 | PASS |'), 'the report must list every component');
 
-  // Resume: every verified phase is reused and no agent runs again.
+  // Parity: one run per page, each block found by its place in AEM and compared where discovery saw it.
+  const firstCycle = parityRuns.filter((entry) => entry.cycle === 0);
+  expect(firstCycle.length === PAGES.length && parityRuns.filter((entry) => entry.cycle === 1).length === PAGES.length,
+    `every page must be scored once per cycle, got ${parityRuns.map((entry) => entry.cycle).join(',')}`);
+  const homeConfig = firstCycle.find((entry) => entry.config.targets[0].url === `http://localhost:4502${SITE}.html?wcmmode=disabled`)?.config;
+  const homeRow = (id) => homeConfig?.components.find((entry) => entry.id === id);
+  expect(homeConfig?.source_url === url('/') && homeConfig.auth.password_env === 'AEM_PASSWORD', 'the home page is compared with its own source');
+  expect(homeRow('hero')?.target.css === `[id="${containerId(SITE)}"] > .aem-Grid > :nth-child(1)` && homeRow('hero').source.css === 'div.hero',
+    `the hero is the container's first child, got ${homeRow('hero')?.target.css}`);
+  expect(homeRow('body-text')?.target.css.endsWith(':nth-child(2)'), 'a mapped block is scored like any other');
+  expect(homeRow('site-header')?.target.css === '.cmp-experiencefragment--header > .cmp-container > .aem-Grid > :nth-child(1)'
+    && homeRow('site-footer')?.target.css.startsWith('.cmp-experiencefragment--footer'), 'chrome is found inside its fragment');
+
+  // Remediation: one agent for the hero, told every failing block, and its fix merged, loaded and deployed.
+  expect(remediationTasks.length === 1 && remediationTasks[0].id === 'fix-hero', `one remediation agent must fix the hero, got ${remediationTasks.map((entry) => entry.id).join(', ')}`);
+  const fixTask = remediationTasks[0]?.task;
+  expect(fixTask?.failing?.length === 3 && fixTask.failing.every((entry) => entry.unit.endsWith('/inst-002') && entry.ratio === 0.71)
+    && fixTask.deltas[0].length === 3 && fixTask.owned_paths.some((entry) => entry.endsWith('/components/hero')),
+  'the agent must see every failing block of its component and own its paths');
+  expect(remediationTasks[0]?.prompt.includes('## Site mode') && fixTask?.deltas[0][0].side_by_side?.startsWith(evidenceDir),
+    'the agent must be told it fixes a site, with evidence it can open');
+  expect(fs.readFileSync(heroCss, 'utf8').includes('fixed') && fs.readFileSync(path.join(repoRoot, APPS, 'clientlibs/clientlib-components/js.txt'), 'utf8')
+    .split('\n').includes('hero.js'), 'the fix must be merged and a new script listed in the clientlib');
+  expect(execCalls.filter((call) => call.line.includes('-PautoInstallSinglePackage')).length === 2, 'the fix must be deployed before it is scored');
+  const ledger = readJson(path.join(evidenceDir, 'remediation-ledger.json'));
+  const heroEntry = ledger.components.find((entry) => entry.id === 'hero');
+  expect(heroEntry?.status === 'PASS' && heroEntry.history.length === 1 && !ledger.components.some((entry) => entry.id === 'body-text'),
+    'the hero passes after one attempt, and a mapped component is never given a budget');
+  const siteParity = readJson(path.join(evidenceDir, 'parity', 'site-parity.json'));
+  expect(siteParity.cycle === 1 && siteParity.status === 'PASS' && siteParity.summary.pages_passed === PAGES.length, 'the final measurement must be the passing one');
+
+  const report = fs.readFileSync(path.join(evidenceDir, 'site-report.md'), 'utf8');
+  expect(report.startsWith('# Site migration COMPLETE') && report.includes('| hero | 4 | content | 3 | 3 | PASS | PASS | 97.00% | 1 |')
+    && report.includes('| body-text | 1 | content | 2 | 2 | MAPPED | PASS | 97.00% |  |'), 'the report must list every component with its parity');
+  expect(report.includes('- Result: **PASS** after 1 remediation round(s): 3/3 pages') && report.includes(`| ${SITE}/about | 2 | 0 | yes | PASS |  |`),
+    'the report must give the parity verdict for the site and for every page');
+  expect(lines.some((line) => line.includes('p-001  FAIL') && line.includes('| hero fail')) && !lines.some((line) => /FAIL.*\bpage \d/.test(line)),
+    'a failing page must name what failed, never just a percentage');
+
+  // Resume: every verified phase is reused, the fix holds on the first measurement, and no agent runs again.
   spawned.length = 0;
   const callsBefore = toolCalls.length;
   const resumed = await orchestrateSite(options, services({ resumed: true }));
-  expect(resumed.status === 'PASS', `the resumed run must pass, got ${phaseStatus(resumed)}`);
+  expect(resumed.status === 'PASS' && phaseStatus(resumed) === SITE_PHASES.map((name) => `${name}:PASS`).join(' '),
+    `the resumed run must pass every phase, got ${phaseStatus(resumed)}`);
   expect(spawned.length === 0, `a resume must spawn no agent, spawned ${spawned.join(', ')}`);
-  expect(toolCalls.length === callsBefore, `a resume must neither crawl nor capture again, ran ${toolCalls.slice(callsBefore).join(', ')}`);
+  const rerun = toolCalls.slice(callsBefore);
+  expect(rerun.every((name) => name === 'parity') && rerun.length === PAGES.length, `a resume must only score again, ran ${rerun.join(', ')}`);
   expect(content(SITE) === home, 'composing again must write the same page');
 
   fs.rmSync(sandbox, { recursive: true, force: true });

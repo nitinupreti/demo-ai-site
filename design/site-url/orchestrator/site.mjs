@@ -2,7 +2,8 @@
  * Site mode: one crawl decides which pages exist, and every later phase works across all of them.
  * The crawl, a review before anything is written and a capture of every page come first. Then
  * either the whole build (catalog, site plan, foundations, assets, one worker per component,
- * composed pages, deploy, verify, report) or, with --pages-only, one empty AEM page per crawled page.
+ * composed pages, deploy, verify, parity against every source page, remediation, report) or, with
+ * --pages-only, one empty AEM page per crawled page.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,7 +28,8 @@ const inventorySchema = schema('inventory.schema.json');
 const contentSchema = schema('content.schema.json');
 
 export const SITE_PHASES = [
-  'crawl', 'review', 'capture', 'catalog', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'verify', 'report',
+  'crawl', 'review', 'capture', 'catalog', 'plan', 'foundations', 'assets', 'fanout', 'compose', 'deploy', 'verify',
+  'parity', 'remediation', 'report',
 ];
 /** --pages-only: the page tree alone, every page empty. */
 export const PAGE_TREE_PHASES = ['crawl', 'review', 'capture', 'pages', 'deploy', 'verify'];
@@ -261,6 +263,7 @@ export async function orchestrateSite(options, {
         fetchFn,
         spawnFn,
         copilot,
+        runTool,
         inventory,
         tree,
         captures,

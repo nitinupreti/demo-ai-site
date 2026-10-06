@@ -66,6 +66,25 @@ by running `npm run prod` with `ui.frontend` as the working directory; it only w
 
 Never run `npm install`, `npm ci`, Maven or a deploy.
 
+## Repair mode
+
+Remediation calls you back after parity has scored every page, when it blames failing components on
+the shared layer (`typography-tokens`, `color-tokens` or `font-delivery`). The task block then says
+`"mode": "repair"` and carries those components' failing blocks across the site (`failing`), the
+worst of them in full (`deltas`) and the pages they sit on (`page_composite`). You run first in the
+round and alone, in a copy of the repository; one agent per failing component follows, on top of
+your change. The orchestrator redeploys after the round, not after you, and does not build the
+frontend for you in this mode, so keep the build sound.
+
+Your scope is the task block's `owned_paths`, the same files as above. Record one falsifiable
+hypothesis before editing: the token, `@font-face` rule or font file you believe is wrong, and the
+deltas that show it across pages. Then fix that shared cause once; it changes every page. A face
+rendering from a fallback is a delivery defect, not a reason to change the family. If the deltas
+point at one component's own CSS rather than at the shared layer, change nothing and say so.
+
+In this mode your required checks are `diagnosis_recorded` (the deltas you acted on) and
+`hypothesis_applied` (what you changed, and what you expect it to move), not the two below.
+
 ## Required checks
 
 `tokens_defined` (the token file and how many colours, sizes and spacings it defines) and

@@ -224,8 +224,8 @@ export function composeSite({
     if (!page) return [];
     const taken = new Set();
     const nodes = [];
+    const placed = [];
     const missing = [];
-    let authored = 0;
     for (const unit of page.units) {
       if (catalog.units[unit]?.chrome) continue;
       const component = componentOf.get(unit);
@@ -236,9 +236,12 @@ export function composeSite({
       }
       const rewritten = rewriter.rewriteDeclaration(declaration);
       nodes.push(buildNode({ ...rewritten, name: uniqueName(taken, rewritten.name, component.id) }, component.resource_type));
-      authored += 1;
+      placed.push({ unit, component: component.id });
     }
-    coverage.push({ page: node.page_id, aem_path: node.aem_path, authored, missing });
+    // `nodes` is the container's children in order, which is how parity finds each block on the page.
+    coverage.push({
+      page: node.page_id, aem_path: node.aem_path, authored: placed.length, missing, nodes: placed,
+    });
     return nodes;
   };
 
@@ -249,8 +252,10 @@ export function composeSite({
 
   // Fragments: each chrome entry's representative, in the order the chrome sits on the page.
   const chromeOrder = catalog.chrome.map((entry) => entry.representative);
+  const fragments = {};
   for (const slot of CHROME_SLOTS) {
     const taken = new Set();
+    fragments[slot] = [];
     const nodes = catalog.chrome
       .filter((entry) => entry.slot === slot)
       .map((entry) => {
@@ -258,6 +263,7 @@ export function composeSite({
         const declaration = declarations.get(entry.representative);
         if (!component || !declaration) return null;
         const rewritten = rewriter.rewriteDeclaration(declaration);
+        fragments[slot].push({ entry: entry.id, unit: entry.representative, component: component.id });
         return buildNode({ ...rewritten, name: uniqueName(taken, rewritten.name, component.id) }, component.resource_type);
       })
       .filter(Boolean);
@@ -304,6 +310,7 @@ export function composeSite({
     removed: pages.removed,
     conflicts,
     coverage,
+    fragments,
     missing_units: coverage.flatMap((entry) => entry.missing),
     missing_chrome: missingChrome,
     links: rewriter.summary(),
