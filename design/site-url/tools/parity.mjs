@@ -44,6 +44,7 @@ import {
 import {
   ensureDir, parseArgs, readJson, relativePath, round, sha256, toolDependencies, writeJson,
 } from './lib/util.mjs';
+import { breakpointLabel, explainParity, similarityOf } from './lib/verdict.mjs';
 
 const toolRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -722,7 +723,7 @@ async function main() {
         if (environmentFailures.length) preflight.environment_blocked = true;
 
         for (const [index, component] of visible.entries()) {
-          process.stdout.write(`  ${width}px ${target.mode} ${component.id} ... `);
+          process.stdout.write(`  ${breakpointLabel(width)} ${target.mode} ${component.id} ... `);
           const result = {
             component_id: component.id,
             instance: component.instance || null,
@@ -959,15 +960,15 @@ async function main() {
               sourcePath: sourceShot,
               targetPath: targetShot,
               outPath: withheldPair,
-              caption: `${component.id} @ ${width}px (${target.mode}) — SCORE WITHHELD, crop sizes differ — `
-                + `source ${sourceAnalysis.width}x${sourceAnalysis.height} vs AEM ${targetAnalysis.width}x${targetAnalysis.height} — `
-                + `union progress ${round(ratio * 100, 2)}%, overlap ${round(comparison.overlap.ratio * 100, 2)}% (neither is a score)`,
+              caption: `${component.id} @ ${breakpointLabel(width)} (${target.mode}) — FAIL, crop sizes differ beyond tolerance — `
+                + `live site ${sourceAnalysis.width}x${sourceAnalysis.height} vs AEM ${targetAnalysis.width}x${targetAnalysis.height} — `
+                + `visual similarity ${round(ratio * 100, 2)}%`,
             });
             result.side_by_side = relativePath(outDir, withheldPair);
             result.owning_layer_hint = owningLayerHint(result);
             results.push(result);
-            console.log(`FAIL (unequal crops, progress ${round(ratio * 100, 2)}%, overlap ${round(comparison.overlap.ratio * 100, 2)}%`
-              + `${failedGates.length ? `, gates: ${failedGates.join('/')}` : ''})`);
+            console.log(`FAIL ${(ratio * 100).toFixed(2)}% (crop sizes differ beyond tolerance)`
+              + `${failedGates.length ? ` [${failedGates.join('/')}]` : ''}`);
             continue;
           }
 
@@ -992,8 +993,8 @@ async function main() {
             sourcePath: sourceShot,
             targetPath: targetShot,
             outPath: sideBySidePath,
-            caption: `${component.id} @ ${width}px (${target.mode}) — ratio ${ratio.toFixed(4)} — `
-              + `${totalPixels - differing}/${totalPixels} pixels matched — threshold &gt; ${threshold}`,
+            caption: `${component.id} @ ${breakpointLabel(width)} (${target.mode}) — visual similarity ${round(ratio * 100, 2)}% — `
+              + `${totalPixels - differing}/${totalPixels} pixels matched — pass above ${round(threshold * 100, 2)}%`,
           });
           result.side_by_side = relativePath(outDir, sideBySidePath);
 
@@ -1067,7 +1068,7 @@ async function main() {
             targetPath: targetFull,
             outPath: compositePair,
             maxWidth: 520,
-            caption: `whole page @ ${width}px (${target.mode}) \u2014 source ${sourceFullAnalysis.width}x${sourceFullAnalysis.height} `
+            caption: `whole page @ ${breakpointLabel(width)} (${target.mode}) \u2014 source ${sourceFullAnalysis.width}x${sourceFullAnalysis.height} `
               + `vs AEM ${targetFullAnalysis.width}x${targetFullAnalysis.height} \u2014 height delta ${heightDelta}px`,
           });
           composite.side_by_side = relativePath(outDir, compositePair);
@@ -1122,6 +1123,7 @@ async function main() {
       breakpoints: Object.fromEntries(rows.map((row) => [`${row.breakpoint}-${row.mode}`, {
         status: row.status,
         ratio: row.visual_match_ratio,
+        similarity: similarityOf(row),
         reason: row.withheld_reason,
         gates: row.gates || null,
       }])),
@@ -1148,6 +1150,13 @@ async function main() {
       browser: 'chromium',
     },
     threshold,
+    // What the geometry and size checks allowed, so a reader can be told by how much a box missed.
+    tolerances: {
+      dimension_ratio: dimensionTolerance,
+      geometry_px: GEOMETRY_TOLERANCE,
+      page_height_px: pageHeightTolerance,
+      gap_px: pxTolerance,
+    },
     runner_revision: runnerRevision(configPath),
     source_url: config.source_url,
     target_urls: Object.fromEntries(config.targets.map((target) => [target.mode, target.url])),
@@ -1174,34 +1183,46 @@ async function main() {
 
   const breakpointKeys = [...new Set(perComponent.flatMap((entry) => Object.keys(entry.breakpoints)))]
     .sort((left, right) => Number.parseInt(left, 10) - Number.parseInt(right, 10));
-  const column = (value) => String(value).padStart(15);
+  const modeOf = (key) => key.slice(key.indexOf('-') + 1);
+  const showMode = new Set([...breakpointKeys, ...Object.keys(pageComposite)].map(modeOf)).size > 1;
+  const keyLabel = (key) => `${breakpointLabel(key)}${showMode ? ` ${modeOf(key)}` : ''}`;
+  const columnWidth = Math.max(15, ...breakpointKeys.map((key) => keyLabel(key).length + 2));
+  const column = (value) => String(value).padStart(columnWidth);
+  const lowestHeader = 'lowest similarity';
+  const passMark = `${Number((threshold * 100).toFixed(2))}%`;
 
-  console.log(`\n${'Component'.padEnd(28)}${breakpointKeys.map(column).join('')}   min ratio   status`);
+  console.log('\nVisual similarity to the live site (share of matching pixels), per breakpoint:');
+  console.log(`${'Component'.padEnd(28)}${breakpointKeys.map((key) => column(keyLabel(key))).join('')}   ${lowestHeader}   status`);
   for (const entry of perComponent) {
     const cells = breakpointKeys.map((key) => {
       const row = entry.breakpoints[key];
       if (!row) return column('-');
-      const value = row.ratio === null ? 'withheld' : `${(row.ratio * 100).toFixed(2)}%`;
+      const similarity = row.similarity ?? row.ratio;
+      const value = Number.isFinite(similarity) ? `${(similarity * 100).toFixed(2)}%` : 'not scored';
       return column(row.status === 'PASS' ? value : `${value}!`);
     }).join('');
-    const ratio = entry.min_ratio === null ? '  withheld' : `${(entry.min_ratio * 100).toFixed(2)}%`.padStart(9);
+    const lowestValue = entry.min_progress_ratio ?? entry.min_ratio;
+    const lowest = (Number.isFinite(lowestValue) ? `${(lowestValue * 100).toFixed(2)}%` : 'not scored').padStart(lowestHeader.length);
     const where = entry.breakpoint_scope === 'all' ? ' at every breakpoint'
-      : entry.breakpoint_scope === 'partial' ? ` at ${entry.failed_breakpoints.join(',')}` : '';
+      : entry.breakpoint_scope === 'partial' ? ` at ${entry.failed_breakpoints.map((width) => breakpointLabel(width)).join(', ')}` : '';
     const gates = entry.failed_gates.length ? ` advisory:${entry.failed_gates.join(',')}` : '';
-    console.log(`${entry.component_id.padEnd(28)}${cells}   ${ratio}   ${entry.status}${where}`
+    console.log(`${entry.component_id.padEnd(28)}${cells}   ${lowest}   ${entry.status}${where}`
       + `${entry.owning_layer_hint ? ` (${entry.owning_layer_hint})` : ''}${gates}`);
   }
   for (const [key, entry] of Object.entries(pageComposite)) {
-    const value = entry.ratio === null ? `withheld (${entry.withheld_reason})` : `${entry.percent}%`;
+    const value = entry.ratio === null ? `withheld (${entry.withheld_reason})` : `similarity ${entry.percent}%`;
     const size = entry.height_delta === undefined ? '' : ` [Δh ${entry.height_delta}px]`;
     const gaps = (entry.inter_component_gaps || []).filter((gap) => gap.status === 'FAIL').length;
-    console.log(`page composite ${key.padEnd(17)} ${value}${size}${gaps ? ` [${gaps} gap(s)]` : ''}   ${entry.status}`);
+    console.log(`page composite ${keyLabel(key).padEnd(17)} ${value}${size}${gaps ? ` [${gaps} gap(s)]` : ''}   ${entry.status}`);
   }
-  console.log(`\nThreshold: > ${threshold} | components ${passed.length} passed, ${failed.length} failed`
+  console.log(`\nPass: visual similarity above ${passMark} at every breakpoint | components ${passed.length} passed, ${failed.length} failed`
     + `${withheld.length ? `, ${withheld.length} withheld` : ''} of ${perComponent.length} | `
     + `exact crops ${artifact.summary.instances_exact_match}/${artifact.summary.instances_scored} | status ${artifact.status}`);
   console.log('A trailing ! marks a breakpoint that did not pass.');
-  console.log(`Artifact: ${relativePath(process.cwd(), artifactPath)}`);
+  const verdict = explainParity(artifact);
+  console.log(`\n${verdict.headline}`);
+  for (const line of verdict.lines) console.log(`  ${line}`);
+  console.log(`\nArtifact: ${relativePath(process.cwd(), artifactPath)}`);
   process.exitCode = artifact.status === 'PASS' ? 0 : 1;
 }
 

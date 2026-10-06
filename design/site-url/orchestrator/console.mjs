@@ -128,10 +128,12 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
 
     stageFinished(stageId, status, message) {
       const duration = state.stageStartedAt ? (Date.now() - state.stageStartedAt) / 1000 : null;
-      const mark = status === 'PASS' || status === 'COMPLETE' ? green(`${SYMBOL.pass} ${status}`)
+      const passed = status === 'PASS' || status === 'COMPLETE';
+      const mark = passed ? green(`${SYMBOL.pass} ${status}`)
         : status === 'BLOCKED' ? yellow(`${SYMBOL.blocked} ${status}`) : red(`${SYMBOL.fail} ${status}`);
       line(`${mark} ${stageLabel(stageId)}  ${dim(`${formatDuration(duration)} ${SYMBOL.dot} ${state.activityCount} actions`)}`);
-      if (message) line(dim(`  ${message}`));
+      // Why a stage failed is the line to read, so it is not dimmed like a passing stage's note.
+      if (message) line(passed ? dim(`  ${message}`) : `  ${message}`);
       state.stageStartedAt = null;
     },
 
@@ -191,7 +193,7 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
     },
 
     summary(runSummary, {
-      evidenceDir, targetUrl, components, timings,
+      evidenceDir, targetUrl, components, timings, parity,
     }) {
       line('');
       line(cyan(SYMBOL.rule.repeat(78)));
@@ -217,6 +219,12 @@ export function createRenderer({ stageIds, heartbeatSeconds = 45 }) {
           ].filter(Boolean).join(', ');
           line(`  ${stage.name.padEnd(24)} ${formatDuration(stage.seconds).padStart(17)}${notes ? dim(`  ${notes}`) : ''}`);
         }
+      }
+      // The last parity measurement, in words: what differs from the live site, where, and by how much.
+      if (parity) {
+        line('');
+        line(`  ${parity.status === 'PASS' ? green(parity.headline) : red(parity.headline)}`);
+        for (const detail of parity.lines) line(`    ${detail}`);
       }
       if (components?.length) {
         line('');

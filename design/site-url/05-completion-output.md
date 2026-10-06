@@ -50,7 +50,7 @@ For every component instance and breakpoint publish:
 
 Read each row's paths from `parity.json` rather than building them. An instance that discovery saw at fewer breakpoints than another instance of the same component, and that overlaps it by at least half of the smaller box, is scored as part of that instance rather than on its own.
 
-Report pixel counts and `visualMatchPercent`. Missing, blank, wrong-viewport, stale, or non-homologous artifacts invalidate the associated score.
+Report pixel counts and the visual similarity (`visual_match_percent`) at every breakpoint, following the row rules in [04-visual-parity.md](04-visual-parity.md): a row whose crop sizes differ beyond the size tolerance shows its visual similarity from `progress_percent` and fails on its size; a row with nothing comparable shows `not scored` with the tool's reason, never a percentage. Name breakpoints as the tool does (`mobile 375px`, `tablet 768px`, `desktop 1440px`). Missing, blank, wrong-viewport, stale, or non-homologous artifacts invalidate the associated score.
 
 Every score row must additionally include `Live URL`, `AEM URL`, `Viewport`, `DPR`, `Live Screenshot`, `AEM Screenshot`, `Side-by-Side`, `Diff Mask`, `Screenshot Validation`, `Matched Pixels`, `Differing Pixels`, and `Total Pixels`. If `Screenshot Validation != PASS`, omit every numeric score for that row and print `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`.
 
@@ -59,12 +59,13 @@ Every score row must additionally include `Live URL`, `AEM URL`, `Viewport`, `DP
 Emit exactly one status line based only on current-run evidence:
 
 ```text
-VISUAL PARITY GATE: PASSED at <breakpoints> with <N> iterations — minimum instance <score>% — minimum component type <score>% — minimum page composite <score>% (required > <threshold>%)
-VISUAL PARITY GATE: FAILED after bounded remediation — <N> FAILED-FINAL components — see residual_gaps
+VISUAL PARITY GATE: PASSED at <device width, ...> with <N> iterations — lowest visual similarity: instance <score>%, component type <score>%, page composite <score>% (pass: above <threshold>% at every breakpoint)
+VISUAL PARITY GATE: FAILED after bounded remediation — <N> FAILED-FINAL component(s): <component> (<device width, ...>), ... — see residual_gaps
+VISUAL PARITY GATE: FAILED after bounded remediation — every component passes, but the page as a whole differs from the live site at <device width, ...> — see residual_gaps
 VISUAL PARITY GATE: BLOCKED — <external prerequisite and evidence>
 ```
 
-Choose the line matching the Stage 5 status. Report `<threshold>` as the run's own `parity.json.threshold`, never a remembered constant. Do not emit PASSED unless every prerequisite and component is strictly above it in the current run's `parity.json`. Structured match gates are advisory and do not affect this line. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
+Choose the line matching the Stage 5 status; `<device width>` is the tool's breakpoint name, such as `mobile 375px`. Report `<threshold>` as the run's own `parity.json.threshold`, never a remembered constant; the same threshold applies at every breakpoint. Do not emit PASSED unless every prerequisite and component is strictly above it in the current run's `parity.json`. Structured match gates are advisory and do not affect this line. Never present estimates, property-only scores, invalid-crop scores, or historical screenshots as visual-parity results.
 
 ## Concise Supporting Summary
 

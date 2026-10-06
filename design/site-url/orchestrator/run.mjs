@@ -32,6 +32,7 @@ import {
   captureFiles, collectChanges, createWorkspace, mergeChanges, removeWorkspace, restoreFiles, snapshotTree, watchTree,
 } from './workspaces.mjs';
 import { ensureCopilot, ensureTools } from '../tools/setup.mjs';
+import { explainParity } from '../tools/lib/verdict.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const siteUrlDir = path.dirname(here);
@@ -915,7 +916,12 @@ async function runStages(rawOptions, services, timings) {
     // A crashed runner leaves the previous cycle's artefact in place, and reading it back would
     // report a stale measurement as a fresh one and spend an attempt on nothing.
     if (!artefact || artefact.cycle !== cycle) {
-      return { artefact: null, code: outcome.code, error: `parity produced no artefact for cycle ${cycle}` };
+      return {
+        artefact: null,
+        code: outcome.code,
+        error: `parity.mjs exited with code ${outcome.code} before writing parity.json for cycle ${cycle},`
+          + ' so nothing was measured; its error is printed above',
+      };
     }
     fs.copyFileSync(artefactPath, path.join(parityDir, `parity-cycle-${cycle}.json`));
     return { artefact, code: outcome.code };
@@ -933,7 +939,7 @@ async function runStages(rawOptions, services, timings) {
     retries: options.maxParityRetries,
   });
   applyParity(ledger, parity);
-  endPhase(phase, parity.status, `${parity.summary.components_passed}/${parity.summary.components_total} components, min ${(parity.summary.min_ratio * 100 || 0).toFixed(2)}%`);
+  endPhase(phase, parity.status, explainParity(parity).headline);
 
   phase = startPhase('remediation');
   // Nothing an agent edits can move a score that was never taken against the right page.
@@ -1188,8 +1194,11 @@ async function runStages(rawOptions, services, timings) {
   if (parity.status !== 'PASS') finalizeLedger(ledger);
   const terminal = terminalStatus(ledger);
   writeJson(path.join(evidenceDir, 'remediation-ledger.json'), ledgerSnapshot(ledger));
-  endPhase(phase, terminal.status, `${terminal.passed.length} passed, ${terminal.failed_final.length} failed-final, ${rounds} round(s)`
-    + `${ledger.stopped ? `; ${ledger.stopped}` : ''}`);
+  // A cycle that produced no artefact leaves an older measurement standing; say which one it is.
+  const measured = parity.cycle === cycle ? '' : ` (cycle ${cycle} was not measured; this is cycle ${parity.cycle})`;
+  const verdict = explainParity(parity);
+  endPhase(phase, terminal.status, `Visual parity ${verdict.status === 'PASS' ? 'PASSED' : 'FAILED'}`
+    + ` after ${rounds} remediation round(s)${measured}: ${verdict.summary}${ledger.stopped ? `; ${ledger.stopped}` : ''}`);
 
   // 9. Report — deterministic.
   phase = startPhase('report');
@@ -1371,6 +1380,7 @@ orchestrator/run.mjs — multi-agent AEM migration
         id: entry.id, status: entry.status, duration_seconds: null,
       })),
       timings: outcome.timings,
+      parity: outcome.parity ? explainParity(outcome.parity) : null,
     },
   );
   process.exitCode = outcome.status === 'COMPLETE' ? 0 : 1;

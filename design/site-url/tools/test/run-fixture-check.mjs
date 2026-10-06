@@ -18,22 +18,24 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
 
 import { analysePng, environmentProblems, textSimilarity } from '../parity.mjs';
+import { DEFAULT_BREAKPOINTS, DIMENSION_TOLERANCE, GEOMETRY_TOLERANCE } from '../lib/contracts.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolRoot = path.dirname(here);
 const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'parity-fixture-'));
+const DESKTOP = Math.max(...DEFAULT_BREAKPOINTS);
 
 const config = {
   run_id: 'fixture-check',
   source_url: pathToFileURL(path.join(here, 'fixture-live.html')).href,
   targets: [{ mode: 'fixture', url: pathToFileURL(path.join(here, 'fixture-aem.html')).href }],
-  breakpoints: [1024, 600],
+  breakpoints: [...DEFAULT_BREAKPOINTS],
   threshold: 0.9,
   dpr: 1,
   components: [
     { id: 'site-header', source: { css: '#site-header' }, target: { css: '#site-header' } },
     // Same component, a second target pinned to one breakpoint: it must score there and nowhere else.
-    { id: 'site-header', source: { css: '#site-header', bp: 1024 }, target: { css: '#site-header' } },
+    { id: 'site-header', source: { css: '#site-header', bp: DESKTOP }, target: { css: '#site-header' } },
     { id: 'hero', source: { css: '#hero' }, target: { css: '#hero' } },
     { id: 'cta', source: { css: '#cta' }, target: { css: '#cta' } },
     { id: 'cards', source: { css: '#cards' }, target: { css: '#cards' } },
@@ -61,7 +63,10 @@ if (run.stderr) process.stderr.write(run.stderr);
 
 const artifact = JSON.parse(fs.readFileSync(path.join(outDir, 'parity.json'), 'utf8'));
 const byId = Object.fromEntries(artifact.components.map((entry) => [entry.component_id, entry]));
-const rowFor = (id) => artifact.results.find((row) => row.component_id === id);
+const rowsFor = (id) => artifact.results.filter((row) => row.component_id === id);
+const rowFor = (id, breakpoint = DESKTOP) => rowsFor(id).find((row) => row.breakpoint === breakpoint);
+// The fixture has no media queries; at narrow widths a seeded defect covers more of its crop.
+const ratioDecides = (id) => rowsFor(id).every((row) => (row.status === 'PASS') === (row.visual_match_ratio > config.threshold));
 
 const failures = [];
 function expect(condition, message) {
@@ -88,12 +93,13 @@ expect(
   'hero typography delta should name fontSize',
 );
 
-// Recoloured CTA keeps its geometry. The colour gate must catch it, and must not fail it:
-// gates are advisory, so a pixel ratio above the threshold still passes.
+// Recoloured CTA keeps its geometry. The colour gate must catch it at every width and never decide
+// the verdict: gates are advisory, so wherever the pixel ratio is above the threshold the row passes.
 const cta = rowFor('cta');
-expect(byId.cta.status === 'PASS', `cta should PASS on pixels alone, got ${byId.cta.status}`);
+expect(cta.status === 'PASS', `cta should PASS on pixels alone at ${DESKTOP}px, got ${cta.status}`);
+expect(ratioDecides('cta'), `only the pixel ratio may decide cta, got ${rowsFor('cta').map((row) => `${row.breakpoint} ${row.status}`).join(', ')}`);
 expect(cta.visual_match_ratio !== null && cta.visual_match_ratio < 1, 'cta should score below 1');
-expect(cta.gates.color === 'FAIL', 'cta should fail the colour gate');
+expect(rowsFor('cta').every((row) => row.gates?.color === 'FAIL'), 'cta should fail the colour gate at every breakpoint');
 expect(byId.cta.failed_gates.includes('color'), 'cta should still report the colour gate as advisory');
 expect(
   cta.deltas.inventory.color.some((delta) => delta.property === 'backgroundColor'),
@@ -106,8 +112,9 @@ expect(
 
 // Card padding changes inner spacing only, so the same advisory rule applies.
 const cards = rowFor('cards');
-expect(byId.cards.status === 'PASS', `cards should PASS on pixels alone, got ${byId.cards.status}`);
-expect(cards.gates.spacing === 'FAIL', 'cards should fail the spacing gate');
+expect(cards.status === 'PASS', `cards should PASS on pixels alone at ${DESKTOP}px, got ${cards.status}`);
+expect(ratioDecides('cards'), `only the pixel ratio may decide cards, got ${rowsFor('cards').map((row) => `${row.breakpoint} ${row.status}`).join(', ')}`);
+expect(rowsFor('cards').every((row) => row.gates?.spacing === 'FAIL'), 'cards should fail the spacing gate at every breakpoint');
 expect(
   cards.deltas.inventory.spacing.some((delta) => String(delta.property).startsWith('padding')),
   'cards spacing delta should name a padding property',
@@ -158,10 +165,13 @@ expect(summarisedIds.length === 13, `expected 13 components, got ${summarisedIds
 
 // A target pinned to a breakpoint is scored there and skipped everywhere else.
 const headerRows = artifact.results.filter((row) => row.component_id === 'site-header');
-expect(headerRows.filter((row) => row.breakpoint === 1024).length === 2,
-  `site-header should score twice at its pinned breakpoint, got ${headerRows.filter((row) => row.breakpoint === 1024).length}`);
-expect(headerRows.filter((row) => row.breakpoint === 600).length === 1,
-  `site-header should score once where the pin does not apply, got ${headerRows.filter((row) => row.breakpoint === 600).length}`);
+expect(headerRows.filter((row) => row.breakpoint === DESKTOP).length === 2,
+  `site-header should score twice at its pinned breakpoint, got ${headerRows.filter((row) => row.breakpoint === DESKTOP).length}`);
+for (const breakpoint of config.breakpoints.filter((width) => width !== DESKTOP)) {
+  expect(headerRows.filter((row) => row.breakpoint === breakpoint).length === 1,
+    `site-header should score once at ${breakpoint}, where the pin does not apply, `
+    + `got ${headerRows.filter((row) => row.breakpoint === breakpoint).length}`);
+}
 
 // Two rows of one component at one breakpoint must not overwrite each other's evidence.
 const evidenceFiles = artifact.results.flatMap((row) => [row.side_by_side, row.diff_mask, row.source?.screenshot])
@@ -190,11 +200,17 @@ for (const breakpoint of config.breakpoints) {
 }
 
 // A score withheld beyond the size tolerance may never be substituted by a diagnostic:
-// progress moves remediation, not the gate.
+// progress moves remediation, not the gate. Whether a crop is withheld follows its measured size.
+const beyondTolerance = ({ source, target }) => Math.abs(target.w - source.w) > Math.max(GEOMETRY_TOLERANCE.width, source.w * DIMENSION_TOLERANCE)
+  || Math.abs(target.h - source.h) > Math.max(GEOMETRY_TOLERANCE.height, source.h * DIMENSION_TOLERANCE);
 const withheld = artifact.results.filter((row) => row.visual_status === 'WITHHELD' && row.deltas.dimension_mismatch);
-expect(withheld.length > 0, 'the fixture should withhold at least one out-of-tolerance score');
-expect(withheld.every((row) => row.component_id === 'banner'),
-  `only the out-of-tolerance component may be withheld, got ${withheld.map((row) => row.component_id).join(',')}`);
+expect(rowsFor('banner').length === config.breakpoints.length && rowsFor('banner').every((row) => withheld.includes(row)),
+  'the out-of-tolerance banner must be withheld at every breakpoint');
+expect(withheld.every((row) => beyondTolerance(row.deltas.dimension_mismatch)),
+  `only a crop beyond the size tolerance may be withheld, got ${withheld.map((row) => `${row.component_id}@${row.breakpoint}`).join(',')}`);
+expect(artifact.results.filter((row) => row.scored_over === 'union-within-tolerance')
+  .every((row) => !beyondTolerance(row.deltas.dimension_mismatch)),
+'a crop scored over the union must be within the size tolerance');
 expect(withheld.every((row) => row.visual_match_ratio === null && row.status === 'FAIL'),
   'an unequal crop must never carry an authoritative ratio, and must fail');
 expect(withheld.every((row) => typeof row.progress_ratio === 'number'),
@@ -230,10 +246,10 @@ expect(artifact.preflight.status === 'PASS',
 // Only what no edit can fix stops the run: an unreachable page or a live page that will not render.
 const capture = (status, readiness = {}) => ({
   navigation: { http_status: status },
-  readiness: { inner_width: 1024, fonts_ready: true, ...readiness },
+  readiness: { inner_width: DESKTOP, fonts_ready: true, ...readiness },
 });
 const environment = (source, deployed, redirectedTo = null) => environmentProblems({
-  width: 1024, source, deployed, requestedUrl: 'http://localhost:4502/content/page.html', redirectedTo,
+  width: DESKTOP, source, deployed, requestedUrl: 'http://localhost:4502/content/page.html', redirectedTo,
 });
 expect(environment(capture(200), capture(200)).length === 0, 'a healthy capture must not be blocked');
 expect(environment(capture(null), capture(null)).length === 0, 'a file:// capture has no HTTP status and must not be blocked');

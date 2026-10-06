@@ -6,9 +6,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { formatDuration } from './console.mjs';
+import { breakpointLabel, explainParity } from '../tools/lib/verdict.mjs';
 
 function percent(ratio) {
-  return typeof ratio === 'number' ? `${(ratio * 100).toFixed(2)}%` : 'n/a';
+  return Number.isFinite(ratio) ? `${(ratio * 100).toFixed(2)}%` : 'n/a';
+}
+
+function similarityText(ratio) {
+  return Number.isFinite(ratio) ? percent(ratio) : 'not scored';
 }
 
 function tierLabel(tier) {
@@ -18,8 +23,8 @@ function tierLabel(tier) {
 /** Empty when the component passed everywhere, so a reader can scan the column for defects. */
 function failedAt(row) {
   if (!row.failed_breakpoints.length) return '—';
-  if (row.breakpoint_scope === 'all') return `all (${row.failed_breakpoints.join(', ')})`;
-  return row.failed_breakpoints.join(', ');
+  const where = row.failed_breakpoints.map((width) => breakpointLabel(width)).join(', ');
+  return row.breakpoint_scope === 'all' ? `all (${where})` : where;
 }
 
 export function buildReport({
@@ -43,7 +48,10 @@ export function buildReport({
       role: component.role,
       instances: component.instances.length,
       min_ratio: score?.min_ratio ?? null,
+      // Lowest visual similarity across breakpoints, including crops that fail on their size.
+      similarity: score?.min_progress_ratio ?? score?.min_ratio ?? null,
       status: attempt?.status || score?.status || 'NOT SCORED',
+      parity_status: score?.status || null,
       failed_gates: score?.failed_gates || [],
       breakpoints: score?.breakpoints || {},
       failed_breakpoints: score?.failed_breakpoints || [],
@@ -59,6 +67,14 @@ export function buildReport({
   const status = !parity ? 'FAIL' : residual.length ? 'FAIL' : parity.status === 'PASS' ? 'COMPLETE' : 'FAIL';
   const breakpointKeys = [...new Set(rows.flatMap((row) => Object.keys(row.breakpoints)))]
     .sort((left, right) => Number.parseInt(left, 10) - Number.parseInt(right, 10));
+  const modeOf = (key) => key.slice(key.indexOf('-') + 1);
+  const showMode = new Set([...breakpointKeys, ...Object.keys(parity?.page_composite || {})].map(modeOf)).size > 1;
+  const keyLabel = (key) => `${breakpointLabel(key)}${showMode ? ` ${modeOf(key)}` : ''}`;
+  const verdict = parity ? explainParity(parity) : null;
+  const scoredRows = rows.filter((row) => Number.isFinite(row.min_ratio));
+  // A component with nothing measured has no similarity; counting it as 0% would invent a measurement.
+  const unscored = rows.filter((row) => !Number.isFinite(row.similarity)).map((row) => row.id);
+  const passBar = Number.isFinite(parity?.threshold) ? `visual similarity above ${percent(parity.threshold)} at every breakpoint` : null;
 
   const lines = [];
   lines.push('# AEM migration report', '');
@@ -70,13 +86,20 @@ export function buildReport({
     + `${timings?.sessions > 1 ? ` this session, ${formatDuration(timings.total_seconds)} across ${timings.sessions} sessions` : ''}`);
   lines.push(`- Components created: **${rows.length}** for ${rows.reduce((total, row) => total + row.instances, 0)} source instances`);
   lines.push(`- Visual parity: **${rows.length - residual.length} passed, ${residual.length} failed**`
-    + `${typeof parity?.threshold === 'number' ? ` against a > ${percent(parity.threshold)} threshold` : ''}`);
+    + `${passBar ? ` (pass: ${passBar})` : ''}`);
   if (ledger?.stopped) lines.push(`- Remediation stopped early: ${ledger.stopped}`);
-  if (rows.length) {
-    const worst = Math.min(...rows.map((row) => row.min_ratio ?? 0));
-    lines.push(`- Lowest component match: **${percent(worst)}**`);
+  if (verdict?.lowest) {
+    lines.push(`- Lowest visual similarity: **${percent(verdict.lowest.ratio)}**`
+      + ` (${verdict.lowest.component_id} at ${verdict.lowest.label})`);
   }
+  if (parity && unscored.length) lines.push(`- Not scored at any breakpoint: ${unscored.join(', ')}`);
   lines.push('');
+
+  if (verdict) {
+    lines.push('## Visual parity verdict', '');
+    lines.push(verdict.headline, '');
+    if (verdict.lines.length) lines.push('```text', ...verdict.lines, '```', '');
+  }
 
   const modelSeconds = invocations.reduce((sum, entry) => sum + (entry.duration_seconds || 0), 0);
   lines.push('## Time', '');
@@ -143,29 +166,29 @@ export function buildReport({
   }
 
   lines.push('## Components', '');
-  lines.push('| Component | Tier | Role | Instances | Build time | Build tries | Min ratio | Status | Failed at | Advisory gates | Fix attempts |');
+  lines.push('| Component | Tier | Role | Instances | Build time | Build tries | Lowest visual similarity | Status | Failed at | Advisory gates | Fix attempts |');
   lines.push('|---|---|---|---:|---:|---:|---:|---|---|---|---:|');
   for (const row of rows) {
     lines.push(`| ${row.id} | ${tierLabel(row.tier)} | ${row.role} | ${row.instances} | ${formatDuration(row.build_seconds)} `
-      + `| ${row.build_attempts ?? '—'} | ${percent(row.min_ratio)} | ${row.status} | ${failedAt(row)} `
+      + `| ${row.build_attempts ?? '—'} | ${similarityText(row.similarity)} | ${row.status} | ${failedAt(row)} `
       + `| ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
   }
   lines.push('');
 
   if (breakpointKeys.length) {
-    lines.push('### Visual parity by breakpoint', '');
-    lines.push(`| Component | ${breakpointKeys.join(' | ')} | Min | Status |`);
+    lines.push('### Visual similarity by breakpoint', '');
+    lines.push(`| Component | ${breakpointKeys.map(keyLabel).join(' | ')} | Lowest | Status |`);
     lines.push(`|---|${breakpointKeys.map(() => '---:').join('|')}|---:|---|`);
     for (const row of rows) {
       const cells = breakpointKeys.map((key) => {
         const entry = row.breakpoints[key];
         if (!entry) return '—';
-        const value = entry.ratio === null ? 'withheld' : percent(entry.ratio);
+        const value = similarityText(entry.similarity ?? entry.ratio);
         return entry.status === 'PASS' ? value : `**${value}**`;
       });
-      lines.push(`| ${row.id} | ${cells.join(' | ')} | ${percent(row.min_ratio)} | ${row.status} |`);
+      lines.push(`| ${row.id} | ${cells.join(' | ')} | ${similarityText(row.similarity)} | ${row.status} |`);
     }
-    lines.push('', 'Bold marks a breakpoint that did not pass.', '');
+    lines.push('', `Bold marks a breakpoint that did not pass${passBar ? ` (pass: ${passBar})` : ''}.`, '');
   }
 
   const retried = workers.filter((worker) => (worker.attempts || 0) > 1);
@@ -184,26 +207,31 @@ export function buildReport({
 
   if (parity?.page_composite) {
     lines.push('## Page composite', '');
-    lines.push('| Breakpoint | Ratio | Height delta | Status |');
+    lines.push('| Breakpoint | Visual similarity where both pages overlap | Height delta | Status |');
     lines.push('|---|---:|---:|---|');
     for (const [key, entry] of Object.entries(parity.page_composite)) {
-      lines.push(`| ${key} | ${percent(entry.ratio)} | ${entry.height_delta ?? 'n/a'} | ${entry.status} |`);
+      lines.push(`| ${keyLabel(key)} | ${percent(entry.ratio)} | ${entry.height_delta ?? 'n/a'} | ${entry.status} |`);
     }
     lines.push('');
   }
 
   lines.push('## Status line', '');
   lines.push('```text');
+  const ended = ledger?.stopped ? 'when remediation stopped early' : 'after bounded remediation';
   if (status === 'COMPLETE') {
-    const minimum = Math.min(...rows.map((row) => row.min_ratio ?? 1));
-    const required = typeof parity?.threshold === 'number' ? percent(parity.threshold) : 'the run threshold';
-    lines.push(`VISUAL PARITY GATE: PASSED at ${(state?.inputs?.BREAKPOINTS || []).join('/')} `
-      + `— minimum component ${percent(minimum)} (required > ${required})`);
+    const measured = rows.filter((row) => Number.isFinite(row.similarity)).map((row) => row.similarity);
+    const minimum = measured.length ? Math.min(...measured) : null;
+    lines.push(`VISUAL PARITY GATE: PASSED at ${(state?.inputs?.BREAKPOINTS || []).map((width) => breakpointLabel(width)).join(', ')} `
+      + `— lowest visual similarity ${percent(minimum)}${passBar ? ` (pass: ${passBar})` : ''}`);
   } else if (residual.length) {
-    const everywhere = residual.filter((row) => row.breakpoint_scope === 'all').length;
-    lines.push(`VISUAL PARITY GATE: FAILED ${ledger?.stopped ? 'when remediation stopped early' : 'after bounded remediation'}`
-      + ` — ${residual.length} component(s) unresolved `
-      + `(${everywhere} at every breakpoint, ${residual.length - everywhere} at specific breakpoints) — see residual gaps`);
+    const where = residual.map((row) => `${row.id} (${row.failed_breakpoints.length
+      ? row.failed_breakpoints.map((width) => breakpointLabel(width)).join(', ')
+      : row.parity_status === 'PASS' ? 'passes in the last measurement' : 'not scored'})`).join(', ');
+    lines.push(`VISUAL PARITY GATE: FAILED ${ended} — ${residual.length} component(s) unresolved: ${where}`
+      + `${verdict?.page ? ` — the page as a whole also ${verdict.page}` : ''} — see residual gaps`);
+  } else if (verdict) {
+    // Parity ran and failed with every component passing: the page itself, or its capture, is what failed.
+    lines.push(`VISUAL PARITY GATE: FAILED ${ended} — ${verdict.summary}`);
   } else {
     lines.push('VISUAL PARITY GATE: BLOCKED — parity was not produced in this run');
   }
@@ -211,10 +239,10 @@ export function buildReport({
 
   if (residual.length) {
     lines.push('## Residual gaps', '');
-    lines.push('| Component | Min ratio | Failed at | Owning layer | Advisory gates | Attempts |');
+    lines.push('| Component | Lowest visual similarity | Failed at | Owning layer | Advisory gates | Attempts |');
     lines.push('|---|---:|---|---|---|---:|');
     for (const row of residual) {
-      lines.push(`| ${row.id} | ${percent(row.min_ratio)} | ${failedAt(row)} | ${row.owning_layer || '—'} `
+      lines.push(`| ${row.id} | ${similarityText(row.similarity)} | ${failedAt(row)} | ${row.owning_layer || '—'} `
         + `| ${row.failed_gates.join(', ') || '—'} | ${row.attempts} |`);
     }
     lines.push('');
@@ -235,9 +263,10 @@ export function buildReport({
         return accumulator;
       }, {}),
       component_build_attempts: Object.fromEntries(rows.map((row) => [row.id, row.build_attempts])),
-      min_ratio: rows.length ? Math.min(...rows.map((row) => row.min_ratio ?? 0)) : null,
+      min_ratio: scoredRows.length ? Math.min(...scoredRows.map((row) => row.min_ratio)) : null,
       threshold: parity?.threshold ?? null,
       remediation_stopped: ledger?.stopped || null,
+      parity_verdict: verdict ? { status: verdict.status, headline: verdict.headline, details: verdict.lines } : null,
       breakpoints_scored: breakpointKeys,
       parity_by_component: Object.fromEntries(rows.map((row) => [row.id, {
         status: row.status,

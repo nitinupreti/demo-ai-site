@@ -32,11 +32,25 @@ Your only authoring task is the run config, built from Stage 1 source selectors 
 
 Credentials come from the environment variable named by `password_env`; never write a password into the config. The tool records `runner_revision` as a hash of its own sources plus the config, so a config change invalidates earlier scores and requires recapture.
 
-The runner already enforces, identically on both sides: exact viewport and DPR, forced light colour scheme, fixed locale and timezone, lazy-load and dynamic-injection settle, `document.fonts.ready`, image decode, video decode with a deterministic seek, motion freeze, and three stable-geometry samples 500 ms apart. If a capture fails readiness, every score for that breakpoint is withheld rather than reported.
+The runner already enforces, identically on both sides: exact viewport and DPR, forced light colour scheme, fixed locale and timezone, lazy-load and dynamic-injection settle, `document.fonts.ready`, image decode, video decode with a deterministic seek, motion freeze, and three stable-geometry samples 500 ms apart. A readiness failure withholds only what it touches: an element that kept moving, or media inside it that never loaded, withholds that element's row; a page that could not be reached or rendered as requested (HTTP error, redirect away from the target, wrong viewport width, live-site fonts never loaded) or AEM web fonts that never finished loading withhold every row at that breakpoint.
 
 ## MUST — Read The Verdict, Never Restate It
 
-`parity.json` is the single source of truth for scores. Copy values from it; do not recompute, round up, average, or describe a score the tool did not emit. When a score is `WITHHELD`, report `SCORE WITHHELD` with the tool's reason — never a percentage.
+`parity.json` is the single source of truth for scores. Copy values from it; do not recompute, round up, average, or describe a score the tool did not emit. After its table, `parity.mjs` prints the same verdict in plain words — each failing component, the breakpoint, its visual similarity and the reason — so quote that wording instead of paraphrasing it.
+
+## MUST — Report Visual Similarity The Same Way At Every Breakpoint
+
+Visual similarity is the share of pixels that match between the live-site crop and the AEM crop, taken over the union of both crops, so area only one side has counts as not matching. It is one measure at every breakpoint and is judged against one bar at every breakpoint: strictly above the run's `parity.json.threshold`. Decide from the unrounded value; display two decimals, or more where two would print a failing value at the bar (`84.996%`, never `85.00%`).
+
+Every breakpoint row of a component is exactly one of these:
+
+| Row | In `parity.json` | Report |
+|---|---|---|
+| Scored | `visual_match_ratio` set | Its visual similarity. `PASS` only when it is above the threshold and the box size and position, rendered fonts and video playback also match the live site. |
+| Crop sizes differ beyond the size tolerance | `status: FAIL`, `visual_status: WITHHELD`, `visual_match_ratio: null`, `progress_ratio` and `deltas.dimension_mismatch` set | Its visual similarity from `progress_ratio`, plus the size difference. Always `FAIL`, whatever the value; never present it as a passing score. |
+| Nothing comparable | `status: WITHHELD`, no ratio | `not scored` with the tool's `withheld_reason` — never a percentage, never 0%. |
+
+Name every breakpoint by device and width, exactly as the tool does: `mobile` below 768px, `tablet` from 768px to 1023px, `desktop` from 1024px — for example `mobile 375px`. A component's lowest visual similarity is the lowest of its breakpoint values; it summarises them and is not a separate measure.
 
 ## MUST — Diagnose Before Edit
 
@@ -109,7 +123,7 @@ For every component root and repeated child instance, collect source and target 
 | Component/instance | Breakpoint | Source x/w/h | Target x/w/h | Deltas | Full-bleed flags | Status |
 |---|---:|---|---|---|---|---|
 
-PASS requires x and width within 1 CSS px, height within 8 CSS px, and matching full-bleed status. A full-bleed source cannot be container-clamped. On failure, fix the owning component/container/grid/XF/template layer, redeploy, and remeasure. After three failed CSS attempts, reassess structure rather than adding hacks.
+PASS requires x and width within the larger of 1 CSS px and 5% of the source width, height within the larger of 8 CSS px and 5% of the source height, and matching full-bleed status; these are the tolerances the tool prints beside a failing box. A full-bleed source cannot be container-clamped. On failure, fix the owning component/container/grid/XF/template layer, redeploy, and remeasure. After three failed CSS attempts, reassess structure rather than adding hacks.
 
 ## Exact Property Gate
 
@@ -132,7 +146,7 @@ Section and CTA background/foreground/border/radius mismatches are hard failures
 3. Full-page source and target screenshots are saved for the current run.
 4. Region screenshots are saved for every component instance at native DPR — source crop from the live site, target crop from the deployed AEM instance.
 5. A labelled side-by-side image is produced with `LIVE SITE` on the left and `AEM` on the right, plus a pixel-diff mask derived from those exact two files.
-6. Both crops are validated before scoring: non-empty, not mostly uniform, matching viewport/DPR, matching homologous instance, and identical pixel dimensions. Unequal crops are never resized, stretched or padded; the authoritative score is withheld, the status is `FAIL`, and an overlap diagnostic plus `dimension_mismatch` is reported so the geometry gap is actionable.
+6. Both crops are validated before scoring: non-empty, not mostly uniform, matching viewport/DPR, and matching homologous instance. Crops are never resized, stretched or padded. Equal crops are compared pixel for pixel; crops whose sizes differ within the size tolerance (the larger of 1 CSS px and 5% of the live crop's width, the larger of 8 CSS px and 5% of its height) are compared over their union. Beyond that tolerance the row is `FAIL` on its size: `visual_match_ratio` stays empty, the same union visual similarity is recorded as `progress_ratio`, and `dimension_mismatch` plus an overlap diagnostic make the geometry gap actionable.
 7. Only after validation passes are matched pixels, differing pixels, total pixels and the unrounded `visual_match_ratio` recorded. `visual_match_percent` is derived for display only.
 
 Pixel comparison uses homologous non-blank crops. Wrong viewport, empty crops, mismatched DPR, stale screenshots and different animation frames are rejected by the tool. Property equality never overrides screenshot failure.
@@ -141,6 +155,7 @@ Pixel comparison uses homologous non-blank crops. Wrong viewport, empty crops, m
 
 - Do not calculate, print, estimate, round, or publish a component score until all required live-site and AEM screenshot artifacts for that component and breakpoint pass screenshot validation.
 - Before validation, report `SCORE WITHHELD — INVALID OR MISSING SCREENSHOT EVIDENCE`, never a percentage.
+- A row whose crop sizes differ beyond the size tolerance has valid screenshots: report its visual similarity from `progress_ratio` together with the size difference. It fails on its size, so that value is never a passing score.
 - A component score row must cite the live-site image, AEM image, labeled side-by-side image, diff mask, source/target URLs, viewport, DPR, runner revision, and pixel counts. Missing any field makes the score invalid and withheld.
 - `visualMatchPercent` reflects rendered pixels only after crop validation. Determine pass/fail from the unrounded ratio (`matchedPixels / totalPixels > threshold`), then round only the displayed percentage. The component's final score remains the minimum of visual, property/structure, authorability, and media/interaction results.
 - A valid unrounded ratio `<=` the threshold is `FAIL`; update the owning AEM component layer, deploy, recapture both live and AEM evidence, and recompute. Never mark it passed or reuse the old score.
@@ -237,10 +252,10 @@ stage_result:
     - {name: all_source_blocks_mapped_once, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_geometry_and_properties_pass, status: PASS|FAIL, evidence: <artifact>}
     - {name: all_live_and_aem_screenshot_pairs_valid, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_screenshot_scores_above_90, status: PASS|FAIL, evidence: <artifact>}
+    - {name: all_screenshot_scores_above_threshold, status: PASS|FAIL, evidence: <artifact>}
     - {name: match_gates_advisory, status: INFO, evidence: <parity.json gates>}
     - {name: all_interactions_and_media_pass, status: PASS|FAIL, evidence: <artifact>}
-    - {name: all_final_minima_and_composites_above_90, status: PASS|FAIL, evidence: <artifact>}
+    - {name: all_final_minima_and_composites_above_threshold, status: PASS|FAIL, evidence: <artifact>}
   failures: []
   next_stage: 05-completion-output
 ```

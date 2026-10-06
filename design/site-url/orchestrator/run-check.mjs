@@ -141,6 +141,8 @@ function writeParity(passing, compositePassing = true, cycle = 0) {
     min_ratio: passing.includes(id) ? 0.97 : 0.88,
     owning_layer_hint: passing.includes(id) ? null : (id === CHROME ? 'color-tokens' : 'spacing'),
     failed_gates: passing.includes(id) ? [] : ['spacing'],
+    failed_breakpoints: passing.includes(id) ? [] : [1440],
+    breakpoint_scope: passing.includes(id) ? 'none' : 'all',
     // Budgets are held per width, so the ledger reads status from here, not from the roll-up.
     breakpoints: {
       '1440-disabled': {
@@ -775,6 +777,9 @@ const revertReport = fs.readFileSync(path.join(evidenceDir, 'completion-report.m
 expect(revertReport.includes('Remediation stopped early: round 1 broke the deploy')
   && revertReport.includes('FAILED when remediation stopped early'),
 'the report must say the deploy broke, not only list the components as failed');
+expect(revertReport.includes('## Visual parity verdict')
+  && revertReport.includes(`unresolved: ${CONTENT_B} (desktop 1440px), ${CHROME} (desktop 1440px)`),
+'the report must name each unresolved component with the device and width it fails at');
 
 // One model and one effort govern every agent, or their work is not comparable.
 const tuned = { model: 'run-wide', effort: 'high' };

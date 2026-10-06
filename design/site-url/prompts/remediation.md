@@ -8,8 +8,9 @@ measured deltas — you do not re-measure, and you never produce a score.
 The task block appended to this prompt contains, straight from `parity.json`:
 
 - `owning_layer_hint` — the layer the tool attributes the failure to;
-- `threshold` — the ratio this run must clear. It is set from the run's reasoning effort, not a
-  fixed 90%; treat this value as the bar and never assume a different one;
+- `threshold` — the visual similarity this run must clear, the same at every breakpoint. It is set
+  from the run's reasoning effort, not a fixed 90%; treat this value as the bar and never assume a
+  different one;
 - `deltas.rect` — geometry difference against the source;
 - `deltas.inventory` — advisory gate findings: `typography`, `color`, `spacing`, `images`, `svg`,
   `glyph_substitutions`, `structure`, each naming the selector, the property and both values.
@@ -18,16 +19,20 @@ The task block appended to this prompt contains, straight from `parity.json`:
   matched by text content and are reliable; `box-*` entries are not, on their own;
 - `deltas.hot_regions` — the target elements sitting under the differing pixels;
 - `deltas.rendered_fonts` — the font faces actually rasterised on each side;
-- `page_composite` — per breakpoint, the whole-page ratio, width and height delta against the
-  source. A cropped component can score well while the page around it is short, reordered or
-  missing a section, and that only shows here;
+- `page_composite` — per breakpoint, the whole-page visual similarity where both pages overlap, and
+  the width and height delta against the source. A cropped component can score well while the page
+  around it is short, reordered or missing a section, and that only shows here;
+- `progress_ratio` — on a row whose crop sizes differ beyond the size tolerance, `visual_match_ratio`
+  is null and its visual similarity is here, with both sizes in `deltas.dimension_mismatch`. That
+  row fails on its size whatever this value is, so fix the size first;
 - `withheld_reason` — on a row with no score, why none was issued. `target element kept moving`
   (`capture-readiness`) means your element would not hold still after the page settled: stop the
   scripted movement or reserve the space late content takes. `target media never loaded`
   (`media-assets`) names an image or video inside your component that did not load on AEM: fix its
   path or rendition. A row whose `owning_layer_hint` is `source-capture` describes the live page,
   which no edit can change: ignore it;
-- absolute paths to the side-by-side image, the diff mask and both crops, plus the current ratio.
+- absolute paths to the side-by-side image, the diff mask and both crops, plus the current visual
+  similarity.
 
 The images are **context, never evidence**. The numbers above are the measurement; an image only
 helps you guess *which* declaration produced them. Never cite an image as a value and never
@@ -44,7 +49,7 @@ shifted and the declaration is correct — leave it alone.
 3. **Order matters.** If `deltas.rect` is non-zero or a `dimension_mismatch` is reported, fix the
    geometry (container, grid, full-bleed) before typography or colour. A size mismatch makes every
    pixel comparison below it meaningless.
-4. An inventory gate delta with a *passing* pixel ratio is a lead, not a verdict. Corroborate it
+4. An inventory gate delta with a *passing* visual similarity is a lead, not a verdict. Corroborate it
    against the diff mask before editing; if the mask is clean there, the node pairing shifted and
    the declaration is already correct. A `rendered_fonts` or `playback` failure is never advisory.
 
